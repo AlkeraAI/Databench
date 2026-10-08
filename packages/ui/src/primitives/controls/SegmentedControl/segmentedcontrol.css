@@ -1,0 +1,140 @@
+/* Segmented control. The outer box shares the large-control height (38px) with the button + search
+ * bar; the 2px track padding insets the sliding marker and the buttons, which flex-center their
+ * labels in the rest. On a wide screen a label that outgrows its 1fr track truncates with an
+ * ellipsis (the button + label carry min-width:0 so the track can shrink below its content for the
+ * ellipsis to engage); below the portal breakpoint the labels stay whole and the strip scrolls. */
+.alk-seg {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  /* Size ladder — shares the control tokens with the button + search bar so the toolbar lines up at
+     any one size. lg is the default; only the height + the cell padding scale (the marker math is
+     height-relative, so it follows for free). */
+  --alk-seg-h: var(--alkControlLg);
+  --alk-seg-px: var(--alkControlPadLg);
+  /* The inset cell/marker radius = the track's --alkRadiusMd (8px) minus its 2px (--alkSpace0)
+     padding, so the rounded marker nests concentrically inside the rounded track. Off the Sm/Md
+     radius steps, so computed here rather than pulled from a shared radius token. */
+  --alk-seg-cell-radius: calc(var(--alkRadiusMd) - var(--alkSpace0));
+  height: var(--alk-seg-h);
+  /* The bound that makes the documented ellipsis actually engage: without it the 1fr tracks size to
+     their labels and the control pushes its container — and the page — wider than the viewport. */
+  max-width: 100%;
+  padding: var(--alkSpace0);
+  background: var(--alkHoverBg);
+  border-radius: var(--alkRadiusMd);
+}
+/* `:where()` holds each size selector at single-class specificity. */
+.alk-seg:where([data-size="md"]) {
+  --alk-seg-h: var(--alkControlMd);
+  --alk-seg-px: var(--alkControlPadMd);
+}
+.alk-seg:where([data-size="sm"]) {
+  --alk-seg-h: var(--alkControlSm);
+  --alk-seg-px: var(--alkControlPadSm);
+}
+.alk-seg__ind {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--n));
+  background: var(--alkCardBg);
+  border-radius: var(--alk-seg-cell-radius);
+  /* A directional drop shadow visually consumed the lower half of the equal 2px track inset. An
+     inset hairline keeps the selected cell distinct while preserving equal painted clearance on
+     every side. */
+  box-shadow: inset 0 0 0 1px var(--alkBorder);
+  transition: transform 220ms var(--alkEaseStandard);
+}
+.alk-seg button {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--alkSpace2);
+  min-width: 0;
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightMedium);
+  line-height: 1;
+  color: var(--alkSecondaryText);
+  padding: 0 var(--alk-seg-px);
+  border-radius: var(--alk-seg-cell-radius);
+  cursor: pointer;
+  /* The shared hover/state cross-fade — see theme/motion.css. (Only the ink changes here; the
+     sliding indicator owns its own transform transition.) */
+  transition: var(--alk-control-transition);
+}
+.alk-seg__label {
+  min-width: 0;
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* The button sets line-height 1 so the marker math stays height-relative, but a
+     clipped box exactly one em tall cuts every descender ("Budget", "Storage");
+     the label keeps a normal line box of its own — the button flex-centers it,
+     so the control's height does not move. */
+  line-height: 1.35;
+}
+/* The trailing count chip never shrinks, so the label alone takes the ellipsis when the tab tightens. */
+.alk-seg__count {
+  flex: 0 0 auto;
+}
+.alk-seg button:hover {
+  color: var(--alkPrimaryText);
+}
+.alk-seg button[data-on] {
+  color: var(--alkPrimaryText);
+}
+.alk-seg button:focus-visible {
+  outline-offset: 1px;
+}
+
+/* Pill variant — shape ONLY: fully-rounded track, marker, and cells. The gray track + white active
+   cell are inherited from the base, so a pill reads as the same control as the rectangular one.
+   `:where()` holds each selector at single-class specificity. */
+.alk-seg:where([data-shape="pill"]),
+.alk-seg:where([data-shape="pill"]) .alk-seg__ind,
+.alk-seg:where([data-shape="pill"]) button {
+  border-radius: var(--alkRadiusFull);
+}
+
+/* Narrow, equal tracks cut a six-tab strip to "Ove… Cre… Me…" at 390 with the names only in a
+   hover title a touch reader never sees. Below the portal breakpoint every option keeps its whole
+   label: the tracks size to their labels and the strip scrolls sideways inside its own box (never
+   the page). The sliding marker assumes equal tracks, so here the active cell paints itself. */
+@media (max-width: 900px) {
+  .alk-seg {
+    grid-auto-columns: minmax(max-content, 1fr);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+  }
+  .alk-seg__ind {
+    display: none;
+  }
+  .alk-seg button[data-on] {
+    background: var(--alkCardBg);
+    box-shadow: inset 0 0 0 1px var(--alkBorder);
+  }
+  .alk-seg__label {
+    overflow: visible;
+    text-overflow: clip;
+  }
+  /* Inset, because the scroller clips anything drawn outside a cell. */
+  .alk-seg button:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-seg__ind {
+    transition: none;
+  }
+}

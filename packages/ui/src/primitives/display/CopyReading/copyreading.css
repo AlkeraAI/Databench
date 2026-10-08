@@ -1,0 +1,35 @@
+/* CopyReading — the copyable mono reading: a bordered control-ground box, a truncating mono value
+   (the alk-code voice, applied in the TSX), and a ghost copy button. Axes are data-attributes at
+   zero specificity; the precious accent flows through a custom property so a surface can re-point
+   it, and the token behind it is the shared brass. */
+
+.alk-copyreading {
+  --alk-copyreading-brass: var(--alkBrass);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  height: var(--alkControlLg);
+  padding: 0 var(--alkSpace2) 0 var(--alkSpace5);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkControlBg);
+}
+
+/* The precious reading gets a faint brass frame (brass ink is too low-contrast for the text). */
+.alk-copyreading:where([data-precious]) {
+  border-color: color-mix(in srgb, var(--alk-copyreading-brass) 45%, var(--alkBorder));
+  background: color-mix(in srgb, var(--alk-copyreading-brass) 8%, var(--alkHoverBg));
+}
+
+.alk-copyreading__val {
+  flex: 1 1 auto;
+  font-size: var(--alkTextMd);
+  color: var(--alkPrimaryText);
+}
+.alk-copyreading:where([data-size="sm"]) .alk-copyreading__val {
+  font-size: var(--alkTextSm);
+}
+
+/* The polite "Copied" announcement — visually hidden, present in the accessibility tree. Positioned
+   inside the (relative) box so its static position can't inflate an ancestor's scroll height. */

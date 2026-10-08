@@ -1,0 +1,42 @@
+{
+  "connection_id": "8c4e3d6f-5031-4d5e-a08f-a4d6f2c3e444",
+  "defaults": {
+    "customer_id": "Enterprise",
+    "end_date": "2026-09-06",
+    "start_date": "2026-08-01"
+  },
+  "engine": "tinybird",
+  "metadata": {},
+  "params": [
+    {
+      "enum_values": [],
+      "label": "Customer id",
+      "metadata": {},
+      "name": "customer_id",
+      "required": true,
+      "schema_version": "1.2.0",
+      "type": "string"
+    },
+    {
+      "enum_values": [],
+      "label": "Start date",
+      "metadata": {},
+      "name": "start_date",
+      "required": true,
+      "schema_version": "1.2.0",
+      "type": "date"
+    },
+    {
+      "enum_values": [],
+      "label": "End date",
+      "metadata": {},
+      "name": "end_date",
+      "required": true,
+      "schema_version": "1.2.0",
+      "type": "date"
+    }
+  ],
+  "schema_version": "1.2.0",
+  "source_chat_id": "5f1f0a3c-2f0e-4a2b-9d5c-71a3c9f0b111",
+  "sql_template": "SELECT toStartOfWeek(run_day, 1) AS week_start, count() AS n FROM mentions WHERE customer_id = {{String(customer_id)}} AND run_day >= {{Date(start_date)}} AND run_day <= {{Date(end_date)}} GROUP BY week_start ORDER BY week_start"
+}

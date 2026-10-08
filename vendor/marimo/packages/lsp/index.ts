@@ -1,0 +1,289 @@
+/* oxlint-disable no-console -- LSP server uses console for logging */
+import { timingSafeEqual } from "node:crypto";
+import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import type { IncomingMessage } from "node:http";
+import { dirname } from "node:path";
+import parseArgs from "minimist";
+import type { IWebSocket } from "vscode-ws-jsonrpc";
+import {
+  createServerProcess,
+  createWebSocketConnection,
+  forward,
+} from "vscode-ws-jsonrpc/server";
+import type { CloseEvent, Data, ErrorEvent, MessageEvent, WebSocket } from "ws";
+import { WebSocketServer } from "ws";
+
+class Logger {
+  private constructor(private readonly logFilePath: string) {
+    this.logFilePath = logFilePath;
+  }
+
+  static async create(logFilePath: string): Promise<Logger> {
+    await mkdir(dirname(logFilePath), { recursive: true });
+    await writeFile(logFilePath, "");
+
+    return new Logger(logFilePath);
+  }
+
+  private async appendToLogFile(...args: unknown[]): Promise<void> {
+    const log = args.join(" ");
+
+    try {
+      await appendFile(this.logFilePath, `${log}\n`);
+    } catch (error) {
+      console.error("Failed to write to log file:", error);
+    }
+  }
+
+  debug(...args: Parameters<typeof console.log>): void {
+    console.log(...args);
+    void this.appendToLogFile("[DEBUG]", ...args);
+  }
+
+  log(...args: Parameters<typeof console.log>): void {
+    console.log(...args);
+    void this.appendToLogFile("[INFO]", ...args);
+  }
+
+  error(...args: Parameters<typeof console.error>): void {
+    console.error(...args);
+    void this.appendToLogFile("[ERROR]", ...args);
+  }
+}
+
+class WebSocketAdapter implements IWebSocket {
+  constructor(
+    private readonly webSocket: WebSocket,
+    private readonly logger: Logger,
+  ) {
+    this.webSocket = webSocket;
+    this.logger = logger;
+  }
+
+  send(content: string): void {
+    try {
+      this.webSocket.send(content);
+      this.logger.debug("Sent message:", content);
+    } catch (error) {
+      this.logger.error("Failed to send message:", error);
+    }
+  }
+
+  onMessage(callback: (data: Data) => void): void {
+    this.webSocket.onmessage = (event: MessageEvent) => {
+      try {
+        callback(event.data);
+        this.logger.debug("Received message:", event.data);
+      } catch (error) {
+        this.logger.error("Error handling message:", error);
+      }
+    };
+  }
+
+  onError(callback: (message: string) => void): void {
+    this.webSocket.onerror = (event: ErrorEvent) => {
+      this.logger.error("WebSocket error:", event);
+      if ("message" in event) {
+        callback(event.message);
+      }
+    };
+  }
+
+  onClose(callback: (code: number, reason: string) => void): void {
+    this.webSocket.onclose = (event: CloseEvent) => {
+      this.logger.log(
+        `WebSocket closed with code ${event.code}: ${event.reason}`,
+      );
+
+      callback(event.code, event.reason);
+    };
+  }
+
+  dispose(): void {
+    this.webSocket.close();
+  }
+}
+
+export function parseTypedCommand(typedCommand: string): string[] {
+  if (!typedCommand.includes(":")) {
+    // Fallback for old format - simple split by spaces
+    return typedCommand.split(" ");
+  }
+
+  const colonIndex = typedCommand.indexOf(":");
+  const serverType = typedCommand.substring(0, colonIndex);
+  const binaryPath = typedCommand.substring(colonIndex + 1);
+
+  switch (serverType) {
+    case "copilot":
+      return ["node", binaryPath, "--stdio"];
+    case "basedpyright":
+      return [binaryPath, "--stdio"];
+    case "pyrefly":
+      return [binaryPath, "lsp"];
+    case "ty":
+      return [binaryPath, "server"];
+    default:
+      throw new Error(`Unknown LSP server type: ${serverType}`);
+  }
+}
+
+function handleWebSocketConnection(
+  languageServerCommand: string[],
+  logger: Logger,
+  webSocket: WebSocket,
+  _: IncomingMessage,
+): void {
+  if (!languageServerCommand) {
+    webSocket.close();
+    return;
+  }
+
+  // The bridge authenticates connections; the stdio server needs no credential.
+  const env = { ...process.env };
+  delete env.MARIMO_LSP_TOKEN;
+  const jsonRpcConnection = createServerProcess(
+    languageServerCommand.join(" "),
+    languageServerCommand[0],
+    languageServerCommand.slice(1),
+    { env },
+  );
+
+  if (!jsonRpcConnection) {
+    throw new Error("Not able to create json-rpc connection.");
+  }
+
+  const socket = new WebSocketAdapter(webSocket, logger);
+  const connection = createWebSocketConnection(socket);
+  forward(connection, jsonRpcConnection);
+
+  socket.onClose(() => {
+    jsonRpcConnection.dispose();
+    connection.dispose();
+  });
+
+  connection.onClose(() => {
+    jsonRpcConnection.dispose();
+    socket.dispose();
+  });
+}
+
+export function createWebSocketServer(
+  port: number,
+  token: string,
+): WebSocketServer {
+  if (!token) {
+    throw new Error("MARIMO_LSP_TOKEN must be set");
+  }
+  const expectedToken = Buffer.from(token);
+  return new WebSocketServer({
+    host: "127.0.0.1",
+    port,
+    perMessageDeflate: false,
+    // Only marimo's authenticated proxy may connect. Browsers cannot supply
+    // this private credential, including from a DNS-rebound origin.
+    verifyClient: ({ req }, done) => {
+      const value = req.headers["marimo-lsp-token"];
+      const suppliedToken = Buffer.from(typeof value === "string" ? value : "");
+      const authorized =
+        req.headers.origin === undefined &&
+        suppliedToken.length === expectedToken.length &&
+        timingSafeEqual(suppliedToken, expectedToken);
+      done(authorized, 403, "Forbidden");
+    },
+  });
+}
+
+function startWebSocketServer(
+  port: number,
+  languageServerCommand: string[],
+  logger: Logger,
+): void {
+  const webSocketServer = createWebSocketServer(
+    port,
+    process.env.MARIMO_LSP_TOKEN || "",
+  );
+
+  webSocketServer.on("error", (error) => {
+    logger.error("WebSocket server error:", error);
+  });
+
+  webSocketServer.on("connection", (webSocket, request) => {
+    logger.log(`New connection from ${request.socket.remoteAddress}`);
+    try {
+      handleWebSocketConnection(
+        languageServerCommand,
+        logger,
+        webSocket,
+        request,
+      );
+    } catch (error) {
+      logger.error("Failed to start WebSocket bridge:", error);
+      webSocket.close();
+    }
+  });
+
+  // When the parent process sends SIGTERM (e.g., marimo shutdown),
+  // close all WebSocket connections so that the onClose handlers fire
+  // and child language server processes (e.g. copilot) are killed via
+  // the jsonRpcConnection.dispose() → process.kill() chain.
+  let isShuttingDown = false;
+  const shutdown = () => {
+    if (isShuttingDown) {
+      return;
+    }
+    isShuttingDown = true;
+    logger.log("Received shutdown signal, closing all connections...");
+    for (const client of [...webSocketServer.clients]) {
+      try {
+        client.close();
+      } catch (error) {
+        logger.error("Error while closing client WebSocket:", error);
+      }
+    }
+    // Wait for the server close callback so onClose handlers can fire
+    // and dispose child processes before we exit.
+    webSocketServer.close((error) => {
+      if (error) {
+        logger.error("Error while closing WebSocket server:", error);
+      }
+    });
+    // Force-exit if graceful shutdown takes too long. On Unix/non-Windows
+    // deployments, the parent process may send SIGTERM to the whole process
+    // group, so child LSP processes may already have received the signal —
+    // we still exit promptly here after attempting graceful cleanup. Use
+    // unref() so this timer doesn't keep the process alive if cleanup
+    // finishes earlier.
+    setTimeout(() => {
+      logger.error("Forced shutdown after timeout, exiting process.");
+      process.exit(0);
+    }, 500).unref();
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
+}
+
+async function main(): Promise<void> {
+  const argv = parseArgs(process.argv);
+
+  if (argv.help) {
+    console.log(
+      'Usage: node index.cjs --log-file <path> --lsp "<command>" [--port <port>]',
+    );
+
+    return;
+  }
+
+  const logFile = argv["log-file"] || "/tmp/lsp-server.log";
+  const logger = await Logger.create(logFile);
+  const serverPort = Number.parseInt(argv.port, 10) || 3000;
+  const languageServerCommand = parseTypedCommand(argv.lsp || "echo test");
+
+  logger.log(`Parsed LSP command: ${languageServerCommand.join(" ")}`);
+  startWebSocketServer(serverPort, languageServerCommand, logger);
+}
+
+if (require.main === module) {
+  void main();
+}

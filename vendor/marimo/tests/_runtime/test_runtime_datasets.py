@@ -1,0 +1,766 @@
+# Copyright 2026 Marimo. All rights reserved.
+
+from __future__ import annotations
+
+import pytest
+
+from marimo._data.models import DataTable
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._messaging.notification import (
+    DataSourceConnectionsNotification,
+    SQLDatabaseMetadata,
+    SQLMetadata,
+    SQLSchemaListPreviewNotification,
+    SQLTableListPreviewNotification,
+    SQLTablePreviewNotification,
+    ValidateSQLResultNotification,
+)
+from marimo._runtime.commands import (
+    ExecuteCellCommand,
+    ListDataSourceConnectionCommand,
+    ListSQLSchemasCommand,
+    ListSQLTablesCommand,
+    PreviewSQLTableCommand,
+    ValidateSQLCommand,
+)
+from marimo._sql.engines.duckdb import INTERNAL_DUCKDB_ENGINE
+from marimo._sql.parse import SqlCatalogCheckResult, SqlParseResult
+from marimo._types.ids import CellId_t, RequestId, VariableName
+from tests.conftest import MockedKernel
+
+HAS_SQL = DependencyManager.duckdb.has() and DependencyManager.polars.has()
+
+
+DUCKDB_CONN = "duckdb_conn"
+SQLITE_CONN = "sqlite_conn"
+
+
+@pytest.fixture
+async def connection_requests() -> list[ExecuteCellCommand]:
+    return [
+        ExecuteCellCommand(cell_id=CellId_t("0"), code="import duckdb"),
+        ExecuteCellCommand(
+            cell_id=CellId_t("1"),
+            code=f"{DUCKDB_CONN} = duckdb.connect(':memory:')",
+        ),
+        ExecuteCellCommand(cell_id=CellId_t("2"), code="import sqlite3"),
+        ExecuteCellCommand(
+            cell_id=CellId_t("3"),
+            code=f"{SQLITE_CONN} = sqlite3.connect(':memory:')",
+        ),
+    ]
+
+
+# @pytest.mark.skipif(not HAS_SQL, reason="SQL deps not available")
+# class TestGetSQLConnection:
+#     async def test_non_existent_engine(
+#         self, mocked_kernel: MockedKernel
+#     ) -> None:
+#         k = mocked_kernel.k
+
+#         # Non-existent engine
+#         k.get_sql_connection(DUCKDB_CONN)
+#         assert k.get_sql_connection(DUCKDB_CONN) == (None, "Engine not found")
+
+#     async def test_created_engine(
+#         self,
+#         mocked_kernel: MockedKernel,
+#         connection_requests: list[ExecuteCellCommand],
+#     ) -> None:
+#         k = mocked_kernel.k
+
+#         # Create duckdb and sqlite connections
+#         await k.run(connection_requests)
+
+#         connection, error = k.get_sql_connection("duckdb_conn")
+#         assert connection is not None
+#         assert error is None
+
+#         # Test with SQLite engine (which is a QueryEngine, but not a EngineCatalog)
+#         connection, error = k.get_sql_connection(SQLITE_CONN)
+#         assert connection is not None
+#         assert error is None
+
+
+@pytest.mark.skipif(not HAS_SQL, reason="SQL deps not available")
+class TestPreviewSQLTable:
+    async def test_non_existent_engine(
+        self, mocked_kernel: MockedKernel
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        preview_sql_table_request = PreviewSQLTableCommand(
+            request_id=RequestId("0"),
+            engine=DUCKDB_CONN,
+            database="test",
+            schema="test",
+            table_name="t1",
+        )
+        await k.handle_message(preview_sql_table_request)
+
+        preview_sql_table_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, SQLTablePreviewNotification)
+        ]
+        assert preview_sql_table_results == [
+            SQLTablePreviewNotification(
+                request_id=RequestId("0"),
+                table=None,
+                error="Engine not found",
+                metadata=SQLMetadata(
+                    connection=DUCKDB_CONN, database="test", schema="test"
+                ),
+            )
+        ]
+
+    async def test_catalog_engine(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        preview_sql_table_request = PreviewSQLTableCommand(
+            request_id=RequestId("0"),
+            engine=DUCKDB_CONN,
+            database="test",
+            schema="test",
+            table_name="t1",
+        )
+        await k.handle_message(preview_sql_table_request)
+
+        preview_sql_table_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, SQLTablePreviewNotification)
+        ]
+        assert preview_sql_table_results == [
+            SQLTablePreviewNotification(
+                request_id=RequestId("0"),
+                table=None,
+                error=None,
+                metadata=SQLMetadata(
+                    connection=DUCKDB_CONN, database="test", schema="test"
+                ),
+            )
+        ]
+
+    async def test_query_engine(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        preview_sql_table_request = PreviewSQLTableCommand(
+            request_id=RequestId("0"),
+            engine=SQLITE_CONN,
+            database="test",
+            schema="test",
+            table_name="t1",
+        )
+        await k.handle_message(preview_sql_table_request)
+
+        preview_sql_table_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, SQLTablePreviewNotification)
+        ]
+        assert preview_sql_table_results == [
+            SQLTablePreviewNotification(
+                request_id=RequestId("0"),
+                table=None,
+                error="Connection does not support catalog operations",
+                metadata=SQLMetadata(
+                    connection=SQLITE_CONN, database="test", schema="test"
+                ),
+            )
+        ]
+
+
+@pytest.mark.skipif(not HAS_SQL, reason="SQL deps not available")
+class TestPreviewSQLSchemaList:
+    async def test_non_existent_engine(
+        self, mocked_kernel: MockedKernel
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        preview_sql_schema_list_request = ListSQLSchemasCommand(
+            request_id=RequestId("0"),
+            engine=DUCKDB_CONN,
+            database="test",
+        )
+        await k.handle_message(preview_sql_schema_list_request)
+        preview_sql_schema_list_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, SQLSchemaListPreviewNotification)
+        ]
+        assert preview_sql_schema_list_results == [
+            SQLSchemaListPreviewNotification(
+                request_id=RequestId("0"),
+                schemas=[],
+                error="Engine not found",
+                metadata=SQLDatabaseMetadata(
+                    connection=DUCKDB_CONN, database="test"
+                ),
+            )
+        ]
+
+    async def test_catalog_engine(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        preview_sql_schema_list_request = ListSQLSchemasCommand(
+            request_id=RequestId("0"),
+            engine=DUCKDB_CONN,
+            database="test",
+        )
+        await k.handle_message(preview_sql_schema_list_request)
+
+        preview_sql_schema_list_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, SQLSchemaListPreviewNotification)
+        ]
+        assert preview_sql_schema_list_results == [
+            SQLSchemaListPreviewNotification(
+                request_id=RequestId("0"),
+                schemas=[],
+                error=None,
+                metadata=SQLDatabaseMetadata(
+                    connection=DUCKDB_CONN, database="test"
+                ),
+            )
+        ]
+
+    async def test_query_engine(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        preview_sql_schema_list_request = ListSQLSchemasCommand(
+            request_id=RequestId("0"),
+            engine=SQLITE_CONN,
+            database="test",
+        )
+        await k.handle_message(preview_sql_schema_list_request)
+
+        preview_sql_schema_list_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, SQLSchemaListPreviewNotification)
+        ]
+        assert preview_sql_schema_list_results == [
+            SQLSchemaListPreviewNotification(
+                request_id=RequestId("0"),
+                schemas=[],
+                error="Connection does not support catalog operations",
+                metadata=SQLDatabaseMetadata(
+                    connection=SQLITE_CONN, database="test"
+                ),
+            )
+        ]
+
+    async def test_nested_schema_path_echoed(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        """A request with a schema_path lists the child schemas at that path
+        and echoes the path in the response metadata. Catalog engines without
+        hierarchical namespaces return an empty list."""
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        preview_sql_schema_list_request = ListSQLSchemasCommand(
+            request_id=RequestId("0"),
+            engine=DUCKDB_CONN,
+            database="test",
+            schema_path=["sub"],
+        )
+        await k.handle_message(preview_sql_schema_list_request)
+
+        results = [
+            op
+            for op in stream.operations
+            if isinstance(op, SQLSchemaListPreviewNotification)
+        ]
+        assert results == [
+            SQLSchemaListPreviewNotification(
+                request_id=RequestId("0"),
+                schemas=[],
+                error=None,
+                metadata=SQLDatabaseMetadata(
+                    connection=DUCKDB_CONN,
+                    database="test",
+                    schema_path=["sub"],
+                ),
+            )
+        ]
+
+
+@pytest.mark.skipif(not HAS_SQL, reason="SQL deps not available")
+class TestPreviewSQLTableList:
+    async def test_non_existent_engine(
+        self, mocked_kernel: MockedKernel
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        preview_sql_table_list_request = ListSQLTablesCommand(
+            request_id=RequestId("0"),
+            engine=DUCKDB_CONN,
+            database="test",
+            schema="test",
+        )
+        await k.handle_message(preview_sql_table_list_request)
+        preview_sql_table_list_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, SQLTableListPreviewNotification)
+        ]
+        assert preview_sql_table_list_results == [
+            SQLTableListPreviewNotification(
+                request_id=RequestId("0"),
+                tables=[],
+                error="Engine not found",
+                metadata=SQLMetadata(
+                    connection=DUCKDB_CONN, database="test", schema="test"
+                ),
+            )
+        ]
+
+    async def test_catalog_engine(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(
+            [
+                *connection_requests,
+                ExecuteCellCommand(
+                    cell_id=CellId_t("4"),
+                    code=f"{DUCKDB_CONN}.execute('CREATE TABLE example (id INTEGER)')",
+                ),
+            ]
+        )
+
+        preview_sql_table_list_request = ListSQLTablesCommand(
+            request_id=RequestId("0"),
+            engine=DUCKDB_CONN,
+            database="memory",
+            schema="main",
+        )
+        await k.handle_message(preview_sql_table_list_request)
+
+        preview_sql_table_list_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, SQLTableListPreviewNotification)
+        ]
+        assert preview_sql_table_list_results == [
+            SQLTableListPreviewNotification(
+                request_id=RequestId("0"),
+                tables=[
+                    DataTable(
+                        name="example",
+                        source="memory",
+                        source_type="connection",
+                        engine=VariableName(DUCKDB_CONN),
+                        num_rows=None,
+                        num_columns=None,
+                        columns=[],
+                        variable_name=None,
+                    )
+                ],
+                error=None,
+                metadata=SQLMetadata(
+                    connection=DUCKDB_CONN, database="memory", schema="main"
+                ),
+            )
+        ]
+
+    async def test_query_engine(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        preview_sql_table_list_request = ListSQLTablesCommand(
+            request_id=RequestId("0"),
+            engine=SQLITE_CONN,
+            database="test",
+            schema="test",
+        )
+        await k.handle_message(preview_sql_table_list_request)
+
+        preview_sql_table_list_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, SQLTableListPreviewNotification)
+        ]
+        assert preview_sql_table_list_results == [
+            SQLTableListPreviewNotification(
+                request_id=RequestId("0"),
+                tables=[],
+                error="Connection does not support catalog operations",
+                metadata=SQLMetadata(
+                    connection=SQLITE_CONN, database="test", schema="test"
+                ),
+            )
+        ]
+
+
+class TestPreviewDatasourceConnection:
+    async def test_non_existent_engine(
+        self, mocked_kernel: MockedKernel
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        preview_datasource_connection_request = (
+            ListDataSourceConnectionCommand(engine=DUCKDB_CONN)
+        )
+        await k.handle_message(preview_datasource_connection_request)
+        preview_datasource_connection_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, DataSourceConnectionsNotification)
+        ]
+        assert preview_datasource_connection_results == []
+
+    @pytest.mark.skipif(not HAS_SQL, reason="SQL deps not available")
+    async def test_query_only_engine_is_broadcast(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        """Regression: query-only engines (QueryEngine, not EngineCatalog) must broadcast."""
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        baseline = sum(
+            1
+            for op in stream.operations
+            if isinstance(op, DataSourceConnectionsNotification)
+        )
+
+        await k.handle_message(
+            ListDataSourceConnectionCommand(engine=SQLITE_CONN)
+        )
+
+        results = [
+            op
+            for op in stream.operations
+            if isinstance(op, DataSourceConnectionsNotification)
+        ]
+        assert len(results) == baseline + 1
+        connection = results[-1].connections[0]
+        assert connection.name == SQLITE_CONN
+        assert connection.databases == []
+
+    @pytest.mark.xfail(
+        reason="Should have only 2 connections (duckdb and sqlite)"
+    )
+    async def test_engines(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        preview_datasource_connection_request = (
+            ListDataSourceConnectionCommand(engine=DUCKDB_CONN)
+        )
+        await k.handle_message(preview_datasource_connection_request)
+
+        preview_datasource_connection_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, DataSourceConnectionsNotification)
+        ]
+        assert len(preview_datasource_connection_results) == 2
+
+
+@pytest.mark.skipif(not HAS_SQL, reason="SQL deps not available")
+class TestSQLValidate:
+    async def test_non_existent_engine(
+        self, mocked_kernel: MockedKernel
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        # Non-existent engine
+        validate_sql_request = ValidateSQLCommand(
+            request_id=RequestId("0"),
+            engine=DUCKDB_CONN,
+            query="SELECT * from t1",
+            only_parse=False,
+        )
+        await k.handle_message(validate_sql_request)
+        validate_sql_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, ValidateSQLResultNotification)
+        ]
+        assert validate_sql_results == [
+            ValidateSQLResultNotification(
+                request_id=RequestId("0"),
+                parse_result=None,
+                validate_result=None,
+                error="Failed to get engine duckdb_conn",
+            )
+        ]
+
+    async def test_internal_engine_and_valid_query(
+        self, mocked_kernel: MockedKernel
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        # Internal engine and valid query
+        validate_sql_request = ValidateSQLCommand(
+            request_id=RequestId("1"),
+            engine=INTERNAL_DUCKDB_ENGINE,
+            query="SELECT 1, 2",
+            only_parse=False,
+        )
+        await k.handle_message(validate_sql_request)
+        validate_sql_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, ValidateSQLResultNotification)
+        ]
+        assert validate_sql_results[-1] == ValidateSQLResultNotification(
+            request_id=RequestId("1"),
+            parse_result=SqlParseResult(success=True, errors=[]),
+            validate_result=SqlCatalogCheckResult(
+                success=True, error_message=None
+            ),
+            error=None,
+        )
+
+    async def test_internal_engine_and_invalid_query(
+        self, mocked_kernel: MockedKernel
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        # Internal engine and invalid query
+        validate_sql_request = ValidateSQLCommand(
+            request_id=RequestId("2"),
+            engine=INTERNAL_DUCKDB_ENGINE,
+            query="SELECT * FROM t1",
+            only_parse=False,
+        )
+        await k.handle_message(validate_sql_request)
+        validate_sql_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, ValidateSQLResultNotification)
+        ]
+        latest_validate_sql_result = validate_sql_results[-1]
+        assert latest_validate_sql_result.request_id == RequestId("2")
+
+        assert latest_validate_sql_result.parse_result is not None
+        # query is syntactically valid
+        assert latest_validate_sql_result.parse_result.success is True
+        assert len(latest_validate_sql_result.parse_result.errors) == 0
+
+        assert latest_validate_sql_result.validate_result is not None
+        assert latest_validate_sql_result.validate_result.success is False
+        assert (
+            latest_validate_sql_result.validate_result.error_message
+            is not None
+        )
+        assert latest_validate_sql_result.error is None
+
+        stream.operations.clear()
+
+    async def test_other_engine_and_valid_query(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        # Handle other engines
+        await k.run(connection_requests)
+        validate_sql_request = ValidateSQLCommand(
+            request_id=RequestId("3"),
+            engine=SQLITE_CONN,
+            query="SELECT 1, 2",
+            only_parse=False,
+        )
+        await k.handle_message(validate_sql_request)
+        validate_sql_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, ValidateSQLResultNotification)
+        ]
+        assert (
+            validate_sql_results[-1]
+            == ValidateSQLResultNotification(
+                request_id=RequestId("3"),
+                parse_result=None,  # Currently does not support parse errors for non-duckdb engines
+                validate_result=SqlCatalogCheckResult(
+                    success=True, error_message=None
+                ),
+                error=None,
+            )
+        )
+
+    async def test_only_parse_with_no_dialect(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        validate_sql_request = ValidateSQLCommand(
+            request_id=RequestId("4"),
+            engine=SQLITE_CONN,
+            query="SELECT 1, 2",
+            only_parse=True,
+        )
+        await k.handle_message(validate_sql_request)
+
+        validate_sql_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, ValidateSQLResultNotification)
+        ]
+        assert validate_sql_results[-1] == ValidateSQLResultNotification(
+            request_id=RequestId("4"),
+            parse_result=None,
+            validate_result=None,
+            error="Dialect is required when only parsing",
+        )
+
+    async def test_only_parse_unsupported_dialect(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        validate_sql_request = ValidateSQLCommand(
+            request_id=RequestId("5"),
+            dialect="sqlite",
+            query="SELECT 1, 2",
+            only_parse=True,
+        )
+        await k.handle_message(validate_sql_request)
+
+        validate_sql_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, ValidateSQLResultNotification)
+        ]
+        assert validate_sql_results[-1] == ValidateSQLResultNotification(
+            request_id=RequestId("5"),
+            parse_result=None,
+            validate_result=None,
+            error="Unsupported dialect: sqlite",
+        )
+
+    async def test_only_parse_duckdb(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        validate_sql_request = ValidateSQLCommand(
+            request_id=RequestId("6"),
+            dialect="duckdb",
+            query="SELECT 1, 2",
+            only_parse=True,
+        )
+        await k.handle_message(validate_sql_request)
+
+        validate_sql_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, ValidateSQLResultNotification)
+        ]
+        assert validate_sql_results[-1] == ValidateSQLResultNotification(
+            request_id=RequestId("6"),
+            parse_result=SqlParseResult(success=True, errors=[]),
+            validate_result=None,
+            error=None,
+        )
+
+    async def test_validate_but_no_engine(
+        self,
+        mocked_kernel: MockedKernel,
+        connection_requests: list[ExecuteCellCommand],
+    ) -> None:
+        k = mocked_kernel.k
+        stream = mocked_kernel.stream
+
+        await k.run(connection_requests)
+
+        validate_sql_request = ValidateSQLCommand(
+            request_id=RequestId("7"),
+            query="SELECT 1, 2",
+            only_parse=False,
+        )
+        await k.handle_message(validate_sql_request)
+
+        validate_sql_results = [
+            op
+            for op in stream.operations
+            if isinstance(op, ValidateSQLResultNotification)
+        ]
+        assert validate_sql_results[-1] == ValidateSQLResultNotification(
+            request_id=RequestId("7"),
+            parse_result=None,
+            validate_result=None,
+            error="Engine is required for validating catalog",
+        )

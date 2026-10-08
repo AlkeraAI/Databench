@@ -1,0 +1,20 @@
+{
+  "instance": "b53991b7",
+  "limits": {
+    "bytes_per_window": 4194304,
+    "doc_max_bytes": 4194304,
+    "ephemeral_max_bytes": 4096,
+    "frames_per_window": 200,
+    "max_frame_bytes": 2162688,
+    "metadata": {},
+    "presence_ttl_seconds": 45.0,
+    "schema_version": "1.2.0",
+    "window_seconds": 10.0
+  },
+  "metadata": {},
+  "min_client_generation": 1,
+  "peer_id": "p:3f9a1c2b4d6e",
+  "schema_version": "1.7.0",
+  "server_time": "2026-09-05T12:00:00Z",
+  "t": "welcome"
+}

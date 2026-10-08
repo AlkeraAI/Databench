@@ -1,0 +1,134 @@
+# Copyright 2026 Marimo. All rights reserved.
+
+import marimo
+
+__generated_with = "0.23.5"
+app = marimo.App()
+
+
+@app.cell
+def _():
+    import marimo as mo
+    import requests
+    from io import BytesIO
+    import base64
+
+    return BytesIO, base64, mo, requests
+
+
+@app.cell
+def _(mo):
+    mic = mo.ui.microphone(label="What is your name?")
+    mic
+    return (mic,)
+
+
+@app.cell
+def _(mic, mo):
+    mo.hstack(
+        [mo.audio(mic.value), mo.download(data=mic.value, mimetype="audio/x-wav")]
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    # Note, chrome does not support cross-origin download, so this won't auto download until we proxy the download through the backend
+    _src = "https://samplelib.com/lib/preview/mp3/sample-3s.mp3"
+    mo.hstack(
+        [
+            mo.audio(src=_src),
+            mo.download(data=_src, label=""),
+        ]
+    )
+    return
+
+
+@app.cell
+def _(BytesIO, base64, mo, requests):
+    _src = (
+        "https://images.pexels.com/photos/86596/owl-bird-eyes-eagle-owl-86596.jpeg"
+    )
+    _response = requests.get(_src)
+    image_data = BytesIO(_response.content)
+    base64str = (
+        f"data:image/jpeg;base64,{base64.b64encode(_response.content).decode()}"
+    )
+
+    mo.vstack(
+        [
+            mo.image(src=_src, rounded=True, height=100),
+            # Note, chrome does not support cross-origin download, so this won't auto download until we proxy the download through the backend
+            mo.download(data=_src, label="Download via URL"),
+            mo.image(src=image_data, rounded=True, height=100),
+            mo.download(
+                data=image_data,
+                label="Download via BytesIO",
+                mimetype="image/jpeg",
+            ),
+            mo.image(src=base64str, rounded=True, height=100),
+            mo.download(
+                data=base64str,
+                label="Download via bytes",
+                mimetype="image/jpeg",
+            ),
+        ]
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    import os
+
+    with open(os.path.realpath("docs/_static/array.png"), "rb") as f:
+        _image = mo.image(src=f)
+        _download = mo.download(
+            data=f,
+            label="Download local file",
+        )
+
+    mo.hstack([_image, _download])
+    return
+
+
+@app.cell
+def _(mo):
+    # Regression test for #9460: mo.audio with a numpy array goes through the
+    # virtual file endpoint, which must serve HTTP Range requests so Safari's
+    # <audio> element will play it. Open this notebook in Safari and confirm
+    # the player is enabled and audible.
+    import math
+
+    import numpy as np
+
+    _sr = 44100
+    _samples = 0.01 * np.sin(math.tau * np.cumsum(np.linspace(660, 110, 100000)) / _sr)
+    mo.audio(_samples, _sr, normalize=False)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.video(
+        src="https://docs.marimo.io/_static/readme-ui.mp4",
+        rounded=True,
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.video(
+        src="https://docs.marimo.io/_static/readme-ui.mp4",
+        rounded=True,
+        autoplay=True,
+        muted=True,
+        controls=False,
+        width=300,
+    )
+    return
+
+
+if __name__ == "__main__":
+    app.run()

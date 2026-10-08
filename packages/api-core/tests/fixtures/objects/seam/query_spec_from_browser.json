@@ -1,0 +1,10 @@
+{
+  "sql_template": "SELECT day, count(*) FROM prompts WHERE customer = {customer} AND day BETWEEN {period.start} AND {period.end}",
+  "params": [
+    { "name": "customer", "type": "string" },
+    { "name": "period", "type": "daterange" }
+  ],
+  "connection_id": "8c4e3d6f-5031-4d5e-a08f-a4d6f2c3e444",
+  "source_chat_id": "5f1f0a3c-2f0e-4a2b-9d5c-71a3c9f0b111",
+  "engine": "postgres"
+}

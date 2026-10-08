@@ -1,0 +1,35 @@
+@import "./tokens.css";
+
+/* The directory the matches share, hoisted once. */
+
+/* The root sits on its own line, so a long absolute path never breaks mid-word
+   to make room for the pattern that matters. */
+:global(.chat-root) [data-tool="glob"] .root {
+  display: block;
+}
+
+/* 240px is this listing's own budget, used nowhere else. */
+:global(.chat-root) [data-tool="glob"] .tree {
+  max-height: 240px;
+  overflow: auto;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="glob"] .treeDir {
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1);
+  color: var(--chat-tool-ink-3);
+  overflow-wrap: anywhere;
+}
+
+:global(.chat-root) [data-tool="glob"] .treeGroup + .treeGroup .treeDir {
+  border-top: 1px solid var(--chat-hairline);
+  margin-top: var(--chat-sp-1);
+}
+
+/* The 22px seat indents a name under the directory that named it. */
+:global(.chat-root) [data-tool="glob"] .treeRow {
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1) var(--chat-sp-5);
+}
+

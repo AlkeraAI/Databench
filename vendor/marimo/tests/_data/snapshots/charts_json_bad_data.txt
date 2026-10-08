@@ -1,0 +1,196 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.4.1.json",
+  "config": {
+    "axis": {
+      "grid": false
+    },
+    "view": {
+      "continuousHeight": 300,
+      "continuousWidth": 300,
+      "stroke": null
+    }
+  },
+  "data": {
+    "name": "data-eb3498b073936ca31ff9c34a93aa6114"
+  },
+  "datasets": {
+    "data-eb3498b073936ca31ff9c34a93aa6114": [
+      {
+        "some[0]really.bad:column": 1
+      },
+      {
+        "some[0]really.bad:column": 2
+      },
+      {
+        "some[0]really.bad:column": 3
+      }
+    ]
+  },
+  "layer": [
+    {
+      "encoding": {
+        "tooltip": [
+          {
+            "field": "some\\[0\\]really\\.bad\\:column",
+            "type": "nominal"
+          },
+          {
+            "field": "count",
+            "format": ",.0f",
+            "title": "Number of records",
+            "type": "quantitative"
+          }
+        ],
+        "x": {
+          "field": "count",
+          "title": "Number of records",
+          "type": "quantitative"
+        },
+        "y": {
+          "axis": {
+            "title": null
+          },
+          "field": "some\\[0\\]really\\.bad\\:column",
+          "sort": "-x",
+          "type": "nominal"
+        }
+      },
+      "mark": {
+        "color": "#8ec8f6",
+        "type": "bar"
+      },
+      "transform": [
+        {
+          "aggregate": [
+            {
+              "as": "count",
+              "op": "count"
+            }
+          ],
+          "groupby": [
+            "some\\[0\\]really\\.bad\\:column"
+          ]
+        },
+        {
+          "sort": [
+            {
+              "field": "count",
+              "order": "descending"
+            },
+            {
+              "field": "some\\[0\\]really\\.bad\\:column",
+              "order": "ascending"
+            }
+          ],
+          "window": [
+            {
+              "as": "rank",
+              "field": "",
+              "op": "rank"
+            }
+          ]
+        },
+        {
+          "joinaggregate": [
+            {
+              "as": "total_count",
+              "field": "count",
+              "op": "sum"
+            }
+          ]
+        },
+        {
+          "as": "percentage",
+          "calculate": "datum.count / datum.total_count"
+        }
+      ]
+    },
+    {
+      "encoding": {
+        "text": {
+          "field": "percentage",
+          "format": ".2%",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "some\\[0\\]really\\.bad\\:column",
+            "type": "nominal"
+          },
+          {
+            "field": "count",
+            "format": ",.0f",
+            "title": "Number of records",
+            "type": "quantitative"
+          }
+        ],
+        "x": {
+          "field": "count",
+          "title": "Number of records",
+          "type": "quantitative"
+        },
+        "y": {
+          "axis": {
+            "title": null
+          },
+          "field": "some\\[0\\]really\\.bad\\:column",
+          "sort": "-x",
+          "type": "nominal"
+        }
+      },
+      "mark": {
+        "align": "left",
+        "color": "black",
+        "dx": 3,
+        "type": "text"
+      },
+      "transform": [
+        {
+          "aggregate": [
+            {
+              "as": "count",
+              "op": "count"
+            }
+          ],
+          "groupby": [
+            "some\\[0\\]really\\.bad\\:column"
+          ]
+        },
+        {
+          "sort": [
+            {
+              "field": "count",
+              "order": "descending"
+            },
+            {
+              "field": "some\\[0\\]really\\.bad\\:column",
+              "order": "ascending"
+            }
+          ],
+          "window": [
+            {
+              "as": "rank",
+              "field": "",
+              "op": "rank"
+            }
+          ]
+        },
+        {
+          "joinaggregate": [
+            {
+              "as": "total_count",
+              "field": "count",
+              "op": "sum"
+            }
+          ]
+        },
+        {
+          "as": "percentage",
+          "calculate": "datum.count / datum.total_count"
+        }
+      ]
+    }
+  ],
+  "title": "some\\[0\\]really\\.bad\\:column",
+  "width": "container"
+}

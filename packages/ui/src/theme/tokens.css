@@ -1,0 +1,367 @@
+/* Alkera shared base tokens — the foundation every concern builds on.
+ * Concept-named, never component-named; per-concern tokens live with their concern.
+ *
+ * Scheme forcing: dark is the document default (`:root`) AND forceable on any sub-tree via
+ * `[data-alkera-color-scheme="dark"]`; light keys on the same attr (sub-tree or root) or the
+ * host/preview `body.vscode-light` class. A sub-tree's own attr overrides the inherited scheme,
+ * so a page can show both palettes at once (e.g. the gallery's side-by-side color specimens). */
+
+:root,
+[data-alkera-color-scheme="dark"] {
+  color-scheme: dark;
+
+  /* Scheme-bound content. An element with real light and dark artwork sets
+     display: var(--alkDarkOnly) or var(--alkLightOnly). Display keywords rather than a
+     flag because a custom property cannot carry `revert`. */
+  --alkDarkOnly: block;
+  --alkLightOnly: none;
+
+  /* Chart series: eight categorical slots, assigned in order and never cycled. Validated as a
+     set against this scheme's card (adjacent CVD separation and a normal-vision floor), so a
+     slot changes only with the set re-validated; alkera_core/charts/theme.py holds the same. */
+  --alkChartSeries1: #3987e5;
+  --alkChartSeries2: #d95926;
+  --alkChartSeries3: #199e70;
+  --alkChartSeries4: #c98500;
+  --alkChartSeries5: #d55181;
+  --alkChartSeries6: #008300;
+  --alkChartSeries7: #9085e9;
+  --alkChartSeries8: #e66767;
+
+  /* Surfaces */
+  --alkPageBg: #1b1a17;
+  --alkCardBg: #25231e;
+  --alkRaisedBg: #2c2a24;
+  --alkOverlayBg: #322e28;
+  --alkControlBg: #2d2a25;
+  --alkHoverBg: color-mix(in srgb, var(--alkPrimaryText) 9%, transparent);
+  /* An inset well one tone below its card — a schema grid, a nested panel, a code well. The mix
+     leans on the page ground so the well reads as carved into the card, not floated on it. */
+  --alkInsetBg: color-mix(in srgb, var(--alkCardBg) 60%, var(--alkPageBg));
+  --alkActiveBg: var(--alkBrandSoft);
+  --alkSelectedBg: color-mix(in srgb, var(--alkBrand) 26%, transparent);
+  /* A selected surface (the brand-subtle wash) under hover: deepen its OWN accent for feedback —
+     never the neutral --alkHoverBg, which would replace the "selected" cue with a plain grey. */
+  --alkSelectedHoverBg: color-mix(in srgb, var(--alkBrand) 18%, transparent);
+  --alkScrim: rgba(0, 0, 0, 0.55);
+
+  /* Text */
+  --alkPrimaryText: #ece9e2;
+  --alkSecondaryText: #a39d92;
+  --alkTertiaryText: color-mix(in srgb, var(--alkSecondaryText) 74%, transparent);
+  --alkPlaceholderText: color-mix(in srgb, var(--alkSecondaryText) 62%, transparent);
+  --alkDisabledText: color-mix(in srgb, var(--alkSecondaryText) 50%, transparent);
+  --alkOnAccentText: #ffffff;
+  --alkLinkText: var(--alkBrandText);
+
+  /* Borders */
+  --alkBorder: rgba(231, 226, 216, 0.11);
+  --alkBorderStrong: rgba(231, 226, 216, 0.2);
+  --alkDivider: color-mix(in srgb, var(--alkBorder) 76%, transparent);
+  /* The brand accent is too dark for the 3:1 indicator floor on the dark card, so the ring rides
+     the brighter brand-text derivative — BY REFERENCE, so an accent change cascades here too. */
+  --alkFocusRing: var(--alkBrandText);
+
+  /* Brand — pine-teal */
+  /* ! DO NOT DELETE. THIS IS THE THEME COLOR OF THE FUTURE. */
+  /* --alkBrand: #1c7064; */ 
+  --alkBrand: #5e7748;
+  --alkBrandHover: oklch(from var(--alkBrand) calc(l + 0.07) c h);
+  --alkBrandActive: oklch(from var(--alkBrand) calc(l - 0.05) c h);
+  --alkBrandSoft: color-mix(in srgb, var(--alkBrand) 24%, transparent);
+  --alkBrandSubtle: color-mix(in srgb, var(--alkBrand) 12%, transparent);
+  /* An opened record's dress: a tinted head over a sunk body, closed by one edge. Composed from
+     the running theme's own brand and ground, so an editor theme these tokens have never met
+     still gets a head that reads and an edge that lands on both grounds. The edge is tuned to
+     the 3:1 floor a functional outline owes and no further — a frame far above it is what makes
+     a long ledger tiring to read. */
+  --alkOpenHead: color-mix(in srgb, var(--alkBrand) 22%, var(--alkCardBg));
+  --alkOpenEdge: color-mix(in srgb, var(--alkBrand) 86%, var(--alkPrimaryText));
+  /* White, not a dark ink: the pine is dark enough that dark text on it falls below the 4.5:1 AA
+     floor (the light status fills keep the dark ink). */
+  --alkOnBrand: #ffffff;
+  /* DERIVED from the one accent dial (like Hover/Active above), never a hardcoded hue — the reading
+     ink must follow a brand change. +0.26 L turns pine #1c7064 into #63bcae and generalizes to
+     any accent. */
+  --alkBrandText: oklch(from var(--alkBrand) calc(l + 0.26) c h);
+
+  /* Filled actions. Each rank owns its interaction ladder; fields and list selections never
+     substitute for a button state. Text and border stay invariant because neither environment
+     exposes state-specific roles for them. */
+  --alkActionPrimaryBg: var(--alkBrand);
+  /* Dark hover steps toward the active green so white on-brand text stays above 4.5:1. */
+  --alkActionPrimaryBgHover: oklch(from var(--alkBrand) calc(l - 0.02) c h);
+  --alkActionPrimaryBgActive: var(--alkBrandActive);
+  --alkActionPrimaryText: var(--alkOnBrand);
+  --alkActionPrimaryBorder: transparent;
+  --alkActionSecondaryBg: var(--alkRaisedBg);
+  --alkActionSecondaryBgHover: color-mix(in srgb, var(--alkPrimaryText) 6%, var(--alkRaisedBg));
+  --alkActionSecondaryBgActive: color-mix(in srgb, var(--alkPrimaryText) 11%, var(--alkRaisedBg));
+  --alkActionSecondaryText: var(--alkPrimaryText);
+  --alkActionSecondaryBorder: var(--alkBorderStrong);
+
+  /* Status — earthen */
+  --alkSuccess: #46a96e;
+  --alkSuccessSoft: color-mix(in srgb, var(--alkSuccess) 14%, transparent);
+  --alkSuccessText: #74cf99;
+  --alkDanger: #c75640;
+  --alkDangerSoft: color-mix(in srgb, var(--alkDanger) 16%, transparent);
+  --alkDangerText: #ec9580;
+  --alkWarning: #d8a23f;
+  --alkWarningSoft: color-mix(in srgb, var(--alkWarning) 16%, transparent);
+  --alkWarningText: #e2b557;
+  /* Brass — the rare precious-metal accent, spent only on the most precious reading (a sealed
+     assay, a confirmed reading). Warm metal, never a glow. */
+  --alkBrass: #c9a45a;
+  --alkInfo: #6f9aff;
+  --alkInfoSoft: color-mix(in srgb, var(--alkInfo) 16%, transparent);
+  --alkInfoText: oklch(from var(--alkInfo) 0.84 c h);
+
+  /* Diff colors — a code diff's add / remove line + gutter. Alkera's warm green / clay red (derived
+     from the status fills), but inside VS Code each adopts the editor's own diff colors so a diff
+     preview matches the user's theme. Same pattern as CodeBlock's editor background/foreground. */
+  --alkDiffAddBg: var(--vscode-diffEditor-insertedLineBackground, var(--vscode-diffEditor-insertedTextBackground, color-mix(in srgb, var(--alkSuccess) 15%, transparent)));
+  --alkDiffAddGutterBg: var(--vscode-diffEditorGutter-insertedLineBackground, color-mix(in srgb, var(--alkSuccess) 24%, transparent));
+  --alkDiffAddFg: var(--vscode-editor-foreground, var(--alkSuccessText));
+  --alkDiffRemoveBg: var(--vscode-diffEditor-removedLineBackground, var(--vscode-diffEditor-removedTextBackground, color-mix(in srgb, var(--alkDanger) 16%, transparent)));
+  --alkDiffRemoveGutterBg: var(--vscode-diffEditorGutter-removedLineBackground, color-mix(in srgb, var(--alkDanger) 26%, transparent));
+  --alkDiffRemoveFg: var(--vscode-editor-foreground, var(--alkDangerText));
+  --alkDiffHunkBg: var(--vscode-diffEditor-diagonalFill, color-mix(in srgb, var(--alkInfo) 12%, transparent));
+
+  /* Categorical — earthen, desaturated. Solid=dot, Soft=pill bg, Text=pill fg. The origin/trust
+     pigments a concern needs (lineage, knowledge) live with that concern, mapped onto these. */
+  --alkCatNeutralSolid: oklch(0.68 0.012 95);
+  --alkCatNeutralSoft: oklch(0.31 0.008 95);
+  --alkCatNeutralText: oklch(0.85 0.012 95);
+  --alkBadgeBg: var(--alkCatNeutralSoft);
+  --alkBadgeText: var(--alkCatNeutralText);
+  --alkBadgeMark: var(--alkCatNeutralSolid);
+  --alkCat1Solid: oklch(0.66 0.07 165);  --alkCat1Soft: oklch(0.31 0.035 165);  --alkCat1Text: oklch(0.84 0.06 165);
+  --alkCat2Solid: oklch(0.64 0.08 45);   --alkCat2Soft: oklch(0.31 0.04 45);    --alkCat2Text: oklch(0.83 0.07 45);
+  --alkCat3Solid: oklch(0.64 0.07 120);  --alkCat3Soft: oklch(0.31 0.035 120);  --alkCat3Text: oklch(0.83 0.06 120);
+  --alkCat4Solid: oklch(0.66 0.07 85);   --alkCat4Soft: oklch(0.31 0.035 85);   --alkCat4Text: oklch(0.84 0.06 85);
+  --alkCat5Solid: oklch(0.64 0.05 250);  --alkCat5Soft: oklch(0.31 0.03 250);   --alkCat5Text: oklch(0.83 0.05 250);
+  --alkCat6Solid: oklch(0.62 0.09 35);   --alkCat6Soft: oklch(0.31 0.04 35);    --alkCat6Text: oklch(0.82 0.07 35);
+  --alkCat7Solid: oklch(0.66 0.06 145);  --alkCat7Soft: oklch(0.31 0.03 145);   --alkCat7Text: oklch(0.84 0.05 145);
+  --alkCat8Solid: oklch(0.63 0.05 300);  --alkCat8Soft: oklch(0.31 0.03 300);   --alkCat8Text: oklch(0.83 0.05 300);
+
+  /* Effects */
+  --alkShadowSm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --alkShadowMd: 0 4px 14px rgba(0, 0, 0, 0.32);
+  --alkShadowLg: 0 12px 32px rgba(0, 0, 0, 0.42);
+  --alkScrollbarThumb: rgba(140, 152, 173, 0.28);
+
+  /* Spacing & radius */
+  --alkSpace0: 2px;
+  --alkSpace1: 4px;
+  --alkSpace2: 6px;
+  --alkSpace3: 8px;
+  --alkSpace4: 10px;
+  --alkSpace5: 12px;
+  --alkSpace6: 14px;
+  --alkSpace7: 16px;
+  --alkSpace8: 18px;
+  --alkSpaceLg: 24px;
+  --alkSpaceXl: 32px;
+  --alkSpace2xl: 40px;
+  --alkRadiusSm: 4px;
+  --alkRadiusMd: 8px;
+  /* Surfaces (cards, modals, panels) — the resolved 12, a step up from controls. */
+  --alkRadiusLg: 12px;
+  --alkRadiusFull: 999px;
+
+  /* Typography */
+  --alkFontUi: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --alkFontDisplay: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
+  --alkFontMono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", monospace;
+  /* Type scale — 16px body (the readability/zoom baseline) on a dense-UI ladder; each size has a
+     line-height partner (small text gets more relative leading, display gets less). */
+  --alkTextXs: 11px;
+  --alkTextSm: 12px;
+  --alkTextMd: 14px;
+  --alkTextLg: 16px;
+  --alkTextXl: 18px;
+  --alkText2xl: 20px;
+  --alkText3xl: 24px;
+  --alkText4xl: 30px;
+  /* Display leading — the tightest step, for serif headings + big mono readings (a masthead, a KPI).
+     Below --alkLeadingTight; the ink sits close so a heading reads as one mass, not spaced lines. */
+  --alkLeadingDisplay: 1.1;
+  --alkLeadingTight: 1.15;
+  --alkLeadingHeading: 1.3;
+  --alkLeadingSnug: 1.45;
+  --alkLeadingNormal: 1.5;
+  --alkLeadingRelaxed: 1.7;
+  --alkWeightRegular: 400;
+  --alkWeightMedium: 500;
+  --alkWeightSemibold: 600;
+  --alkWeightBold: 700;
+
+  /* Motion & sizing */
+  --alkDurationFast: 100ms;
+  --alkDurationNormal: 120ms;
+  --alkDurationSlow: 180ms;
+  --alkEaseStandard: cubic-bezier(0.2, 0, 0, 1);
+  --alkEaseEmphasized: cubic-bezier(0.3, 0, 0, 1.1);
+  /* Decelerate-only — an element arriving at rest (an unfold, a re-flow glide): all the speed is
+     spent up front, so the settle reads calm. */
+  --alkEaseDecelerate: cubic-bezier(0, 0, 0, 1);
+  /* Stacking order, bottom → top. The floating layer (menus, popovers, tooltips) sits ABOVE dialogs:
+     a Select opened inside a Modal must show its options over that modal, never behind it. Toasts top
+     everything. useFloating mirrors --alkZFloating in JS (it sets a float's z-index inline). */
+  /* In-page chrome that must sit above the ordinary page flow but BELOW the topbar and any overlay
+     (a belowTopbar SidePanel + its scrim, an expanded in-page search). */
+  --alkZBelowTopbar: 30;
+  --alkZOverlay: 1100;
+  --alkZModal: 1200;
+  --alkZFloating: 1250;
+  --alkZToast: 1400;
+  --alkControlSm: 28px;
+  --alkControlMd: 32px;
+  --alkControlLg: 38px;
+  /* Per-size horizontal padding, paired with the --alkControl* heights — TWO registers so a control's
+     inner air scales with its height from ONE source of truth (not six hand-copied ladders): a tighter
+     FIELD register for bordered text inputs (input, select) and a roomier CONTROL register for buttons
+     and toolbar controls (button, search, segmented, dropdown-trigger). Spacing is scheme-independent,
+     so these live once here. */
+  --alkFieldPadSm: var(--alkSpace2);
+  --alkFieldPadMd: var(--alkSpace3);
+  --alkFieldPadLg: var(--alkSpace4);
+  --alkControlPadSm: var(--alkSpace3);
+  --alkControlPadMd: var(--alkSpace4);
+  --alkControlPadLg: var(--alkSpace5);
+  /* A bounded preview — a code plate, a result grid — is capped so a long one scrolls inside its
+     card instead of pushing the page. Scheme-independent, so it lives once here. */
+  --alkPreviewMaxHeightSm: 150px;
+  --alkPreviewMaxHeightMd: 320px;
+  --alkIconSm: 14px;
+  --alkIconMd: 16px;
+  --alkIconLg: 20px;
+}
+
+/* Light scheme — the scheme attr (root or sub-tree) or the host/preview body class. */
+:root[data-alkera-color-scheme="light"],
+[data-alkera-color-scheme="light"],
+body.vscode-light,
+body.vscode-high-contrast-light {
+  color-scheme: light;
+
+  --alkDarkOnly: none;
+  --alkLightOnly: block;
+
+  --alkChartSeries1: #2a78d6;
+  --alkChartSeries2: #eb6834;
+  --alkChartSeries3: #1baf7a;
+  --alkChartSeries4: #eda100;
+  --alkChartSeries5: #e87ba4;
+  --alkChartSeries6: #008300;
+  --alkChartSeries7: #4a3aa7;
+  --alkChartSeries8: #e34948;
+
+  --alkPageBg: #f4f3f0;
+  --alkCardBg: #ffffff;
+  --alkRaisedBg: #faf8f4;
+  --alkOverlayBg: #ffffff;
+  --alkControlBg: #ffffff;
+  --alkHoverBg: color-mix(in srgb, var(--alkPrimaryText) 5%, transparent);
+  --alkSelectedBg: color-mix(in srgb, var(--alkBrand) 16%, transparent);
+  --alkScrim: rgba(0, 0, 0, 0.45);
+
+  --alkPrimaryText: #1b1a17;
+  --alkSecondaryText: #5f5b53;
+  --alkOnAccentText: #ffffff;
+
+  --alkBorder: rgba(60, 52, 40, 0.14);
+  --alkBorderStrong: rgba(60, 52, 40, 0.26);
+
+  /* Both are restated here, not inherited: a color-mix in a custom property resolves against the
+     element it is DECLARED on, and this block lands on `body` while the dark one lands on the
+     root, so a head declared only up there would keep mixing the dark card. The dark edge lifts
+     the brand toward the ink to clear a dark head; on a light head the brand already sits near
+     the floor, so this one steps toward the card instead of past it. */
+  --alkOpenHead: color-mix(in srgb, var(--alkBrand) 22%, var(--alkCardBg));
+  --alkOpenEdge: color-mix(in srgb, var(--alkBrand) 94%, var(--alkCardBg));
+
+  /* ! DO NOT DELETE. THIS IS THE THEME COLOR OF THE FUTURE. */
+  /* --alkBrand: #1c7064; */
+  /* --alkBrandHover: #14564c; */
+  /* --alkBrandActive: #0f463d; */
+  /* --alkBrandText: #14564c; */
+  /* The pine clears 5.9:1 on the bone card, so the ring is the brand itself in light. */
+  /* --alkFocusRing: #1c7064; */
+
+  --alkBrand: #697a49;
+  --alkBrandHover: #5b6c3b;
+  --alkBrandActive: #3f4b0a;
+  --alkBrandText: #3c4a0b;
+  /* The pine clears 5.9:1 on the bone card, so the ring is the brand itself in light. */
+  --alkFocusRing: #80955a;
+
+  --alkActionPrimaryBg: var(--alkBrand);
+  --alkActionPrimaryBgHover: var(--alkBrandHover);
+  --alkActionPrimaryBgActive: var(--alkBrandActive);
+  --alkActionPrimaryText: var(--alkOnBrand);
+  --alkActionPrimaryBorder: transparent;
+  --alkActionSecondaryBg: var(--alkRaisedBg);
+  --alkActionSecondaryBgHover: color-mix(in srgb, var(--alkPrimaryText) 6%, var(--alkRaisedBg));
+  --alkActionSecondaryBgActive: color-mix(in srgb, var(--alkPrimaryText) 11%, var(--alkRaisedBg));
+  --alkActionSecondaryText: var(--alkPrimaryText);
+  --alkActionSecondaryBorder: var(--alkBorderStrong);
+
+  --alkSuccess: #2f8a5b;
+  --alkSuccessText: #1d6b43;
+  --alkDanger: #b8462f;
+  --alkDangerText: #963620;
+  --alkWarning: #9a7b2e;
+  --alkWarningText: #835a12;
+  --alkBrass: #93701f;
+  --alkInfoText: oklch(from var(--alkInfo) 0.42 c h);
+
+  /* Diff colors, re-stated for light (they derive from the scheme-varying status fills; VS Code diff
+     colors still win when present). Softer mixes read on parchment without the dark ground's contrast. */
+  --alkDiffAddBg: var(--vscode-diffEditor-insertedLineBackground, var(--vscode-diffEditor-insertedTextBackground, color-mix(in srgb, var(--alkSuccess) 12%, transparent)));
+  --alkDiffAddGutterBg: var(--vscode-diffEditorGutter-insertedLineBackground, color-mix(in srgb, var(--alkSuccess) 20%, transparent));
+  --alkDiffAddFg: var(--vscode-editor-foreground, var(--alkSuccessText));
+  --alkDiffRemoveBg: var(--vscode-diffEditor-removedLineBackground, var(--vscode-diffEditor-removedTextBackground, color-mix(in srgb, var(--alkDanger) 13%, transparent)));
+  --alkDiffRemoveGutterBg: var(--vscode-diffEditorGutter-removedLineBackground, color-mix(in srgb, var(--alkDanger) 22%, transparent));
+  --alkDiffRemoveFg: var(--vscode-editor-foreground, var(--alkDangerText));
+  --alkDiffHunkBg: var(--vscode-diffEditor-diagonalFill, color-mix(in srgb, var(--alkInfo) 10%, transparent));
+
+  /* Derived tokens MUST be re-stated per scheme: each references a scheme-varying base (secondary
+     text, brand text, border, status fill). A custom property's var() is substituted at the scope
+     where it's DECLARED, so a :root-only declaration bakes the dark base and inherits that resolved
+     value into light — e.g. a link rendering the bright dark pine (#63bcae, ~1.8:1 on bone) instead
+     of #14564c. Re-declaring here recomputes them against the light bases above. */
+  --alkTertiaryText: color-mix(in srgb, var(--alkSecondaryText) 74%, transparent);
+  --alkPlaceholderText: color-mix(in srgb, var(--alkSecondaryText) 62%, transparent);
+  --alkDisabledText: color-mix(in srgb, var(--alkSecondaryText) 50%, transparent);
+  --alkLinkText: var(--alkBrandText);
+  --alkDivider: color-mix(in srgb, var(--alkBorder) 76%, transparent);
+  --alkInsetBg: color-mix(in srgb, var(--alkCardBg) 60%, var(--alkPageBg));
+  --alkSuccessSoft: color-mix(in srgb, var(--alkSuccess) 14%, transparent);
+  --alkDangerSoft: color-mix(in srgb, var(--alkDanger) 16%, transparent);
+  --alkWarningSoft: color-mix(in srgb, var(--alkWarning) 16%, transparent);
+
+  --alkCatNeutralSolid: oklch(0.5 0.012 95);
+  --alkCatNeutralSoft: oklch(0.92 0.008 95);
+  --alkCatNeutralText: oklch(0.42 0.015 95);
+  --alkBadgeBg: var(--alkCatNeutralSoft);
+  --alkBadgeText: var(--alkCatNeutralText);
+  --alkBadgeMark: var(--alkCatNeutralSolid);
+  --alkCat1Solid: oklch(0.5 0.09 165);  --alkCat1Soft: oklch(0.93 0.035 165);  --alkCat1Text: oklch(0.42 0.08 165);
+  --alkCat2Solid: oklch(0.52 0.11 45);  --alkCat2Soft: oklch(0.93 0.04 45);    --alkCat2Text: oklch(0.43 0.1 45);
+  --alkCat3Solid: oklch(0.5 0.09 120);  --alkCat3Soft: oklch(0.93 0.035 120);  --alkCat3Text: oklch(0.42 0.08 120);
+  --alkCat4Solid: oklch(0.54 0.09 85);  --alkCat4Soft: oklch(0.93 0.035 85);   --alkCat4Text: oklch(0.44 0.08 85);
+  --alkCat5Solid: oklch(0.5 0.07 250);  --alkCat5Soft: oklch(0.93 0.03 250);   --alkCat5Text: oklch(0.42 0.07 250);
+  --alkCat6Solid: oklch(0.52 0.12 35);  --alkCat6Soft: oklch(0.93 0.04 35);    --alkCat6Text: oklch(0.43 0.1 35);
+  --alkCat7Solid: oklch(0.52 0.08 145); --alkCat7Soft: oklch(0.93 0.03 145);   --alkCat7Text: oklch(0.43 0.07 145);
+  --alkCat8Solid: oklch(0.5 0.07 300);  --alkCat8Soft: oklch(0.93 0.03 300);   --alkCat8Text: oklch(0.42 0.06 300);
+
+  --alkShadowSm: 0 1px 2px rgba(31, 30, 27, 0.08);
+  --alkShadowMd: 0 5px 18px rgba(31, 30, 27, 0.14);
+  --alkShadowLg: 0 16px 42px rgba(31, 30, 27, 0.18);
+  /* The dark scheme's thumb is a pale blue-grey, which on a near-white ground is
+     nearly the ground. Every scrolling surface reads this one name, so a light
+     value belongs here rather than in each of them. */
+  --alkScrollbarThumb: rgba(31, 30, 27, 0.26);
+}

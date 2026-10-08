@@ -1,0 +1,365 @@
+from __future__ import annotations
+
+import gc
+import weakref
+
+import pytest
+
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._output.hypertext import (
+    ContainerHtml,
+    Html,
+    patch_html_for_non_interactive_output,
+)
+from marimo._plugins.ui._impl.batch import batch as batch_plugin
+from marimo._plugins.ui._impl.input import button
+from marimo._plugins.ui._impl.table import table
+
+
+class _SingleChildContainer(ContainerHtml):
+    """Minimal ContainerHtml used to exercise the base-class contract."""
+
+    def _build_text(self) -> str:
+        return f"<div>{self._children[0].text}</div>"
+
+
+def test_html_initialization():
+    html = Html("<p>Hello, World!</p>")
+    assert html.text == "<p>Hello, World!</p>"
+
+
+def test_html_mime():
+    html = Html("<p>Test</p>")
+    mime_type, content = html._mime_()
+    assert mime_type == "text/html"
+    assert content == "<p>Test</p>"
+
+    assert html._serialized_mime_bundle == {
+        "mimetype": "text/html",
+        "data": "<p>Test</p>",
+    }
+
+
+def test_html_mime_with_script():
+    # Test that Html returns text/html even with script tags
+    # This is expected behavior - Html is for raw HTML that may include scripts
+    html = Html('<p>Test</p><script>console.log("hello")</script>')
+    mime_type, content = html._mime_()
+    assert mime_type == "text/html"
+    assert '<script>console.log("hello")</script>' in content
+
+
+def test_html_format():
+    html = Html("<p>\n  Hello\n</p>")
+    assert f"{html}" == "<p> Hello </p>"
+
+
+def test_html_format_multiline():
+    html = Html("""
+        <div>
+            <p>Hello</p>
+            <p>World</p>
+        </div>
+    """)
+    assert f"{html}" == "<div> <p>Hello</p> <p>World</p> </div>"
+
+
+def test_html_format_nested():
+    html = Html("""
+        <div>
+            <span>
+                Text
+            </span>
+        </div>
+    """)
+    assert f"{html}" == "<div> <span> Text </span> </div>"
+
+
+def test_html_format_attributes():
+    html = Html("""
+        <div class="test"
+             id="main">
+            Content
+        </div>
+    """)
+    assert f"{html}" == '<div class="test" id="main"> Content </div>'
+
+
+def test_html_format_empty():
+    html = Html("")
+    assert f"{html}" == ""
+
+
+def test_html_format_whitespace():
+    html = Html("  <p>  Lots   of    spaces  </p>  ")
+    assert f"{html}" == "<p>  Lots   of    spaces  </p>"
+
+
+def test_html_batch():
+    html = Html("Name: {name}")
+    batched = html.batch(name=button())
+    assert isinstance(batched, batch_plugin)
+
+
+def test_html_center():
+    html = Html("<p>Centered</p>")
+    centered = html.center()
+    # center/left/right use a column-direction stack with cross-axis
+    # alignment so multi-block content retains its block flow.
+    assert "flex-direction: column" in centered.text
+    assert "align-items: center" in centered.text
+
+
+def test_html_right():
+    html = Html("<p>Right</p>")
+    right_aligned = html.right()
+    assert "flex-direction: column" in right_aligned.text
+    assert "align-items: flex-end" in right_aligned.text
+
+
+def test_html_left():
+    html = Html("<p>Left</p>")
+    left_aligned = html.left()
+    assert "flex-direction: column" in left_aligned.text
+    assert "align-items: flex-start" in left_aligned.text
+
+
+def test_html_center_preserves_multi_block_markdown():
+    # Regression: markdown with multiple top-level blocks (e.g. heading +
+    # paragraph) must not be flattened into a horizontal row when centered,
+    # and must keep normal block-flow spacing (margin collapsing) rather
+    # than gaining extra space from flex-column gaps.
+    html = Html(
+        '<span class="markdown contents"><h1>Title</h1>'
+        '<span class="paragraph">Description</span></span>'
+    )
+    centered = html.center()
+    # Column-direction flex so the wrapper, not individual blocks, gets
+    # aligned; paragraph and heading must not be flex-row siblings.
+    assert "flex-direction: column" in centered.text
+    assert "flex-direction: row" not in centered.text
+    # gap=0 so the alignment wrapper doesn't add extra spacing.
+    assert "gap: 0rem" in centered.text
+    # The content is wrapped in a plain block <div> so inner blocks use
+    # normal block flow (margins collapse, no flex-item semantics leaked
+    # via `display: contents`).
+    assert (
+        '<div><span class="markdown contents"><h1>Title</h1>'
+        '<span class="paragraph">Description</span></span></div>'
+    ) in centered.text
+    # Heading precedes paragraph (document order preserved).
+    assert centered.text.index("<h1>") < centered.text.index("paragraph")
+
+
+def test_html_center_live_updates_propagate():
+    # The block wrapper must re-render on every text access so mutable
+    # children (e.g. spinners) keep updating live.
+    inner = Html("<div>initial</div>")
+    centered = inner.center()
+    assert "initial" in centered.text
+    inner._text = "<div>updated</div>"
+    assert "updated" in centered.text
+    assert "initial" not in centered.text
+
+
+def test_container_html_retains_children() -> None:
+    # ContainerHtml must hold strong references to its children. UI elements
+    # are held only weakly by the UI registry, so a container that dropped its
+    # children (e.g. by freezing child.text) would let them be garbage
+    # collected -- the root cause of the .style()/.callout() interactivity bug.
+    child = Html("<span>child</span>")
+    child_ref = weakref.ref(child)
+
+    container = _SingleChildContainer([child])
+    assert "child" in container.text
+
+    # Drop our only strong handle; the container must keep the child alive.
+    del child
+    gc.collect()
+
+    assert child_ref() is not None, (
+        "ContainerHtml did not retain a strong reference to its child"
+    )
+
+
+def test_container_html_renders_children_live() -> None:
+    # ContainerHtml re-renders from each child's live text on every access, so
+    # mutable children (e.g. mo.status.spinner) keep updating rather than being
+    # frozen at construction time.
+    child = Html("<div>initial</div>")
+    container = _SingleChildContainer([child])
+    assert "initial" in container.text
+
+    child._text = "<div>updated</div>"
+    assert "updated" in container.text
+    assert "initial" not in container.text
+
+
+def test_html_callout():
+    html = Html("<p>Important</p>")
+    callout = html.callout(kind="warn")
+    assert "marimo-callout" in callout.text
+    assert "warn" in callout.text
+
+
+def test_html_style():
+    html = Html("<p>Styled</p>")
+    styled = html.style({"color": "red", "font-size": "16px"})
+    assert "style=" in styled.text
+    assert "color:red" in styled.text
+    assert "font-size:16px" in styled.text
+
+
+# Add more tests as needed for edge cases and other functionalities
+
+
+def test_html_empty():
+    html = Html("")
+    assert html.text == ""
+
+
+def test_html_with_special_characters():
+    html = Html("<p>Hello & World</p>")
+    assert html.text == "<p>Hello & World</p>"
+
+
+def test_html_nested_elements():
+    html = Html("<div><p>Nested</p></div>")
+    assert html.text == "<div><p>Nested</p></div>"
+
+
+def test_html_multiple_elements():
+    html = Html("<p>First</p><p>Second</p>")
+    assert html.text == "<p>First</p><p>Second</p>"
+
+
+def test_html_with_attributes():
+    html = Html('<a href="https://example.com">Link</a>')
+    assert html.text == '<a href="https://example.com">Link</a>'
+
+
+def test_html_batch_multiple_inputs():
+    html = Html("Name: {name}, Age: {age}")
+    batched = html.batch(name=button(), age=button())
+    assert isinstance(batched, batch_plugin)
+
+
+def test_html_style_empty_dict():
+    html = Html("<p>No Style</p>")
+    styled = html.style({})
+    assert styled.text == "<div><p>No Style</p></div>"
+
+
+def test_html_repr_html():
+    html = Html("<p>Hello</p>")
+    assert html._repr_html_() == "<p>Hello</p>"
+
+
+def test_html_patch_for_non_interactive_output():
+    class ReprMarkdown(Html):
+        def _repr_markdown_(self) -> str:
+            return "Hello"
+
+    class ReprPng(Html):
+        def _repr_png_(self) -> bytes:
+            return b"Hello"
+
+    html = ReprMarkdown("<web-component>Hello</web-component>")
+    png = ReprPng("<web-component>Hello</web-component>")
+
+    assert html._mime_() == (
+        "text/html",
+        "<web-component>Hello</web-component>",
+    )
+    assert png._mime_() == (
+        "text/html",
+        "<web-component>Hello</web-component>",
+    )
+    with patch_html_for_non_interactive_output():
+        assert html._mime_() == ("text/markdown", "Hello")
+        assert png._mime_() == ("image/png", "Hello")
+
+    assert html._mime_() == (
+        "text/html",
+        "<web-component>Hello</web-component>",
+    )
+    assert png._mime_() == (
+        "text/html",
+        "<web-component>Hello</web-component>",
+    )
+
+
+@pytest.mark.skipif(
+    not DependencyManager.polars.has() or not DependencyManager.pandas.has(),
+    reason="Pandas and Polars not installed",
+)
+def test_html_rich_elems():
+    tbl = table({"button": button()})
+    html = Html(tbl)
+
+    assert isinstance(html._serialized_mime_bundle, dict)
+    assert html._serialized_mime_bundle == {
+        "mimetype": "text/html",
+        "data": tbl,
+    }
+
+    import pandas as pd
+
+    df = pd.DataFrame({"button": [button()]})
+    html = Html(df)
+    # ensure public copy exists
+    assert hasattr(html, "serialized_mime_bundle") is True
+    assert html.serialized_mime_bundle == {
+        "mimetype": "text/html",
+        "data": df,
+    }
+
+    import polars as pl
+
+    df = pl.DataFrame({"button": button()})
+    html = Html(df)
+    assert html._serialized_mime_bundle == {
+        "mimetype": "text/html",
+        "data": df,
+    }
+
+
+def test_nested_md_preserves_multiline_code_blocks():
+    """Test that nested mo.md() calls preserve multiline code blocks."""
+    from marimo._output.md import _md
+
+    # Create a markdown object with a multiline code block
+    inner_md = _md("""
+        ```python
+        multiline
+        text
+        ```
+    """)
+
+    # Create a nested markdown object that includes the inner one
+    outer_md = _md(f"{inner_md}")
+
+    # The nested markdown should preserve the multiline formatting
+    # The HTML should contain the newlines in the code block
+    assert 'multiline</span>\n<span class="n">text' in outer_md.text
+    assert (
+        'multiline</span> <span class="n">text' not in outer_md.text
+    )  # Should not be flattened
+
+
+def test_nested_md_format_method():
+    """Test that the __format__ method of _md returns markdown text."""
+    from marimo._output.md import _md
+
+    # Create a markdown object
+    md_obj = _md("""
+        ```python
+        line1
+        line2
+        ```
+    """)
+
+    # When formatted (e.g., in f-strings), it should return the original markdown
+    formatted = f"{md_obj}"
+    assert "line1\nline2" in formatted
+    assert "line1 line2" not in formatted  # Should not be flattened

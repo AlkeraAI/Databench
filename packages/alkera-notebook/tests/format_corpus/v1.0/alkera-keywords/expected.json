@@ -1,0 +1,77 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "0000000071": {
+        "defs": [
+          "x"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000072": {
+        "defs": [
+          "y"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "x = 1",
+        "config": {
+          "hide_code": true
+        },
+        "extra": {
+          "alkera_owner": null,
+          "alkera_pinned": true,
+          "alkera_weight": 1.5
+        },
+        "id": "0000000071",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "x = 1"
+      },
+      {
+        "code": "y = 2",
+        "config": {
+          "column": 2,
+          "disabled": true,
+          "expand_output": true
+        },
+        "extra": {
+          "alkera_note": "it's \"quoted\"",
+          "alkera_rank": 3
+        },
+        "id": "0000000072",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "y = 2"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

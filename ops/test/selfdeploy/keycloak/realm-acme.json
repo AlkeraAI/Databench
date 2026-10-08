@@ -1,0 +1,97 @@
+{
+  "realm": "acme",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 300,
+  "clients": [
+    {
+      "clientId": "alkera-portal",
+      "name": "Alkera Self-Hosted Portal (OIDC)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "alkera-portal-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "consentRequired": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "http://backend:8000/*",
+        "http://localhost/*"
+      ],
+      "webOrigins": ["+"],
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "groups": [
+    { "name": "alkera-admins" }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "email": "alice@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Alice",
+      "lastName": "Anders",
+      "groups": ["/alkera-admins"],
+      "credentials": [
+        { "type": "password", "value": "Wonderland123!", "temporary": false }
+      ]
+    },
+    {
+      "username": "mallory",
+      "email": "mallory@evil.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Mallory",
+      "lastName": "Crook",
+      "credentials": [
+        { "type": "password", "value": "Outsider123!", "temporary": false }
+      ]
+    },
+    {
+      "username": "bob",
+      "email": "bob@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Bob",
+      "lastName": "Burns",
+      "credentials": [
+        { "type": "password", "value": "Builder123!", "temporary": false }
+      ]
+    },
+    {
+      "username": "carol",
+      "email": "carol@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Carol",
+      "lastName": "Diaz",
+      "credentials": [
+        { "type": "password", "value": "Carol12345!", "temporary": false }
+      ]
+    }
+  ]
+}

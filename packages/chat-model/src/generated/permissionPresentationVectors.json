@@ -1,0 +1,2424 @@
+[
+  {
+    "name": "shell_named",
+    "ask": {
+      "permissionKind": "bash",
+      "canonicalKind": "shell",
+      "patterns": [
+        "git status"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "shell",
+        "effect": "read",
+        "operation": "git_status",
+        "targets": []
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "shell",
+      "label": "Run a shell command",
+      "title": "Run this command?",
+      "subject": {
+        "text": "git status",
+        "format": "command",
+        "language": "bash"
+      },
+      "facts": [],
+      "effect": "read",
+      "alwaysScope": "Always allow covers every git status command.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "shell_unnamed",
+    "ask": {
+      "permissionKind": "bash",
+      "canonicalKind": "shell",
+      "patterns": [],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "shell",
+      "label": "Run a shell command",
+      "title": "Run a command?",
+      "missingSubject": "Requested by the bash tool.",
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "shell_waiting",
+    "ask": {
+      "permissionKind": "bash",
+      "canonicalKind": "shell",
+      "patterns": [],
+      "subjectPending": true,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "shell",
+      "label": "Run a shell command",
+      "title": "Run a command?",
+      "waiting": "Waiting for the command…",
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "shell_recovered_from_call",
+    "ask": {
+      "permissionKind": "bash",
+      "canonicalKind": "shell",
+      "patterns": [],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ],
+      "call": {
+        "name": "bash",
+        "input": {
+          "command": "ls -la /opt/alkera-work"
+        }
+      }
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "shell",
+      "label": "Run a shell command",
+      "title": "Run this command?",
+      "subject": {
+        "text": "ls -la /opt/alkera-work",
+        "format": "command",
+        "language": "bash"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "shell_secrets",
+    "ask": {
+      "permissionKind": "bash",
+      "canonicalKind": "shell",
+      "patterns": [
+        "GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwx0123 curl -H 'Authorization: Bearer abc.def.ghi' https://deploy:hunter2@example.com/hook --password s3cret"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "shell",
+      "label": "Run a shell command",
+      "title": "Run this command?",
+      "subject": {
+        "text": "GITHUB_TOKEN=[redacted] curl -H 'Authorization: Bearer [redacted]' https://deploy:[redacted]@example.com/hook --password [redacted]",
+        "format": "command",
+        "language": "bash"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "shell_exact_command",
+    "ask": {
+      "permissionKind": "bash",
+      "canonicalKind": "shell",
+      "patterns": [
+        "rm -rf build/"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "shell",
+        "effect": "destroy",
+        "operation": "rm",
+        "targets": []
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow this exact command"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Deny"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "shell",
+      "label": "Run a shell command",
+      "title": "Run this command?",
+      "subject": {
+        "text": "rm -rf build/",
+        "format": "command",
+        "language": "bash"
+      },
+      "facts": [],
+      "effect": "destroy",
+      "alwaysScope": "Always allow covers this exact command.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow this exact command",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Deny",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "shell_long",
+    "ask": {
+      "permissionKind": "bash",
+      "canonicalKind": "shell",
+      "patterns": [
+        "echo line 1\necho line 2\necho line 3\necho line 4\necho line 5\necho line 6\necho line 7\necho line 8\necho line 9\necho line 10\necho line 11\necho line 12\necho line 13\necho line 14\necho line 15\necho line 16\necho line 17\necho line 18\necho line 19\necho line 20\necho line 21\necho line 22\necho line 23\necho line 24\necho line 25\necho line 26\necho line 27\necho line 28\necho line 29\necho line 30\necho line 31\necho line 32\necho line 33\necho line 34\necho line 35\necho line 36\necho line 37\necho line 38\necho line 39\necho line 40\necho line 41\necho line 42\necho line 43\necho line 44\necho line 45\necho line 46\necho line 47\necho line 48\necho line 49\necho line 50\necho line 51\necho line 52\necho line 53\necho line 54\necho line 55\necho line 56\necho line 57\necho line 58\necho line 59\necho line 60\necho line 61\necho line 62\necho line 63\necho line 64\necho line 65\necho line 66\necho line 67\necho line 68\necho line 69\necho line 70\necho line 71\necho line 72\necho line 73\necho line 74\necho line 75\necho line 76\necho line 77\necho line 78\necho line 79\necho line 80\necho line 81\necho line 82\necho line 83\necho line 84\necho line 85\necho line 86\necho line 87\necho line 88\necho line 89\necho line 90\necho line 91\necho line 92\necho line 93\necho line 94\necho line 95\necho line 96\necho line 97\necho line 98\necho line 99\necho line 100\necho line 101\necho line 102\necho line 103\necho line 104\necho line 105\necho line 106\necho line 107\necho line 108\necho line 109\necho line 110\necho line 111\necho line 112\necho line 113\necho line 114\necho line 115\necho line 116\necho line 117\necho line 118\necho line 119\necho line 120\necho line 121\necho line 122\necho line 123\necho line 124\necho line 125\necho line 126\necho line 127\necho line 128\necho line 129\necho line 130\necho line 131\necho line 132\necho line 133\necho line 134\necho line 135\necho line 136\necho line 137\necho line 138\necho line 139\necho line 140\necho line 141\necho line 142\necho line 143\necho line 144\necho line 145\necho line 146\necho line 147\necho line 148\necho line 149\necho line 150\necho line 151\necho line 152\necho line 153\necho line 154\necho line 155\necho line 156\necho line 157\necho line 158\necho line 159\necho line 160\necho line 161\necho line 162\necho line 163\necho line 164\necho line 165\necho line 166\necho line 167\necho line 168\necho line 169\necho line 170\necho line 171\necho line 172\necho line 173\necho line 174\necho line 175\necho line 176\necho line 177\necho line 178\necho line 179\necho line 180\necho line 181\necho line 182\necho line 183\necho line 184\necho line 185\necho line 186\necho line 187\necho line 188\necho line 189\necho line 190\necho line 191\necho line 192\necho line 193\necho line 194\necho line 195\necho line 196\necho line 197\necho line 198\necho line 199\necho line 200"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "shell",
+      "label": "Run a shell command",
+      "title": "Run this command?",
+      "subject": {
+        "text": "echo line 1\necho line 2\necho line 3\necho line 4\necho line 5\necho line 6\necho line 7\necho line 8\necho line 9\necho line 10\necho line 11\necho line 12\necho line 13\necho line 14\necho line 15\necho line 16\necho line 17\necho line 18\necho line 19\necho line 20\necho line 21\necho line 22\necho line 23\necho line 24\necho line 25\necho line 26\necho line 27\necho line 28\necho line 29\necho line 30\necho line 31\necho line 32\necho line 33\necho line 34\necho line 35\necho line 36\necho line 37\necho line 38\necho line 39\necho line 40\necho line 41\necho line 42\necho line 43\necho line 44\necho line 45\necho line 46\necho line 47\necho line 48\necho line 49\necho line 50\necho line 51\necho line 52\necho line 53\necho line 54\necho line 55\necho line 56\necho line 57\necho line 58\necho line 59\necho line 60\necho line 61\necho line 62\necho line 63\necho line 64\necho line 65\necho line 66\necho line 67\necho line 68\necho line 69\necho line 70\necho line 71\necho line 72\necho line 73\necho line 74\necho line 75\necho line 76\necho line 77\necho line 78\necho line 79\necho line 80\necho line 81\necho line 82\necho line 83\necho line 84\necho line 85\necho line 86\necho line 87\necho line 88\necho line 89\necho line 90\necho line 91\necho line 92\necho line 93\necho line 94\necho line 95\necho line 96\necho line 97\necho line 98\necho line 99\necho line 100\necho line 101\necho line 102\necho line 103\necho line 104\necho line 105\necho line 106\necho line 107\necho line 108\necho line 109\necho line 110\necho line 111\necho line 112\necho line 113\necho line 114\necho line 115\necho line 116\necho line 117\necho line 118\necho line 119\necho line 120\necho line 121\necho line 122\necho line 123\necho line 124\necho line 125\necho line 126\necho line 127\necho line 128\necho line 129\necho line 130\necho line 131\necho line 132\necho line 133\necho line 134\necho line 135\necho line 136\necho line 137\necho line 138\necho line 139\necho line 140\necho line 141\necho line 142\necho line 143\necho line 144\necho line 145\necho line 146\necho line 147\necho line 148\necho line 149\necho line 150\necho line 151\necho line 152\necho line 153\necho line 154\necho line 155\necho line 156\necho line 157\necho line 158\necho line 159\necho line 160\necho line 161\necho line 162\necho line 163\necho line 164\necho line 165\necho line 166\necho line 167\necho line 168\necho line 169\necho line 170\necho line 171\necho line 172\necho line 173\necho line 174\necho line 175\necho line 176\necho line 177\necho line 178\necho line 179\necho line 180\necho line 181\necho line 182\necho line 183\necho line 184\necho line 185\necho line 186\necho line 187\necho line 188\necho line 189\necho line 190\necho line 191\necho line 192\necho line 193\necho line 194\necho line 195\necho line 196\necho line 197\necho line 198\necho line 199\necho line 200",
+        "format": "command",
+        "language": "bash"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "edit_diff",
+    "ask": {
+      "permissionKind": "edit",
+      "canonicalKind": "edit",
+      "patterns": [
+        "src/app.ts"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "fs",
+        "effect": "write",
+        "operation": "edit",
+        "targets": []
+      },
+      "preview": {
+        "kind": "diff",
+        "title": "app.ts",
+        "content": "@@ -1,1 +1,1 @@\n-const key = 'old'\n+const key = 'new'\n",
+        "truncated": false
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "edit",
+      "label": "Edit files",
+      "title": "Edit these files?",
+      "subject": {
+        "text": "src/app.ts",
+        "format": "path"
+      },
+      "change": {
+        "title": "app.ts",
+        "content": "@@ -1,1 +1,1 @@\n-const key = 'old'\n+const key = 'new'\n"
+      },
+      "facts": [],
+      "effect": "write",
+      "alwaysScope": "Always allow covers every edit file action.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "change",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "edit_unnamed",
+    "ask": {
+      "permissionKind": "edit",
+      "canonicalKind": "edit",
+      "patterns": [],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "edit",
+      "label": "Edit files",
+      "title": "Edit a file?",
+      "missingSubject": "Requested by the edit tool.",
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "network_named",
+    "ask": {
+      "permissionKind": "webfetch",
+      "canonicalKind": "network",
+      "patterns": [
+        "https://example.com/feed"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "network",
+      "label": "Fetch a web address",
+      "title": "Fetch this address?",
+      "subject": {
+        "text": "https://example.com/feed",
+        "format": "url"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "task_named",
+    "ask": {
+      "permissionKind": "task",
+      "canonicalKind": "task",
+      "patterns": [
+        "spawn a reviewer subagent"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "task",
+      "label": "Delegate to a subagent",
+      "title": "Delegate this work?",
+      "subject": {
+        "text": "spawn a reviewer subagent",
+        "format": "code"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "external_tool",
+    "ask": {
+      "permissionKind": "mcp__alkera__blob.query",
+      "canonicalKind": "external",
+      "patterns": [
+        "select 1"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "external",
+      "label": "Use an external tool",
+      "title": "Allow blob.query?",
+      "subject": {
+        "text": "select 1",
+        "format": "code"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "generic_named_tool",
+    "ask": {
+      "permissionKind": "alkera_blob_query",
+      "canonicalKind": "other",
+      "patterns": [
+        "select * from results"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "generic",
+      "label": "Use a tool",
+      "title": "Allow blob.query?",
+      "subject": {
+        "text": "select * from results",
+        "format": "code"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "generic_unknown_tool",
+    "ask": {
+      "permissionKind": "acme_deploy",
+      "canonicalKind": "other",
+      "patterns": [],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ],
+      "call": {
+        "name": "mcp__acme__deploy",
+        "input": {
+          "service": "billing",
+          "replicas": 3,
+          "ratio": 0.5,
+          "dryRun": false,
+          "api_key": "sk-live-abcdefghijklmnop",
+          "env": {
+            "DATABASE_PASSWORD": "pw",
+            "REGION": "us-east-1"
+          },
+          "notes": "rotate STRIPE_SECRET=abc123 after"
+        }
+      }
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "generic",
+      "label": "Use a tool",
+      "title": "Allow this action?",
+      "details": {
+        "tool": "deploy",
+        "input": "{\n  \"service\": \"billing\",\n  \"replicas\": 3,\n  \"ratio\": 0.5,\n  \"dryRun\": false,\n  \"api_key\": \"[redacted]\",\n  \"env\": {\n    \"DATABASE_PASSWORD\": \"[redacted]\",\n    \"REGION\": \"us-east-1\"\n  },\n  \"notes\": \"rotate STRIPE_SECRET=[redacted] after\"\n}"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "details",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "generic_unknown_bare",
+    "ask": {
+      "permissionKind": "some_future_guard",
+      "canonicalKind": "other",
+      "patterns": [],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "generic",
+      "label": "Use a tool",
+      "title": "Allow this action?",
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "sql_destroy_with_cost",
+    "ask": {
+      "permissionKind": "mcp__alkera__sql.query",
+      "canonicalKind": "other",
+      "patterns": [
+        "delete from analytics.orders where id = 7"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "sql",
+        "effect": "destroy",
+        "operation": "delete",
+        "targets": [
+          {
+            "kind": "table",
+            "name": "analytics.orders",
+            "connection": "snow-prod"
+          }
+        ],
+        "cost": {
+          "usd": 0.425,
+          "bytesScanned": 1288490188
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "sql",
+      "label": "Run a SQL query",
+      "title": "Run this destructive query?",
+      "subject": {
+        "text": "delete from analytics.orders where id = 7",
+        "format": "code",
+        "language": "sql"
+      },
+      "facts": [
+        "analytics.orders",
+        "$0.43",
+        "1.2 GB scanned"
+      ],
+      "effect": "destroy",
+      "alwaysScope": "Always allow covers every delete statement.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "facts",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "sql_egress_rows",
+    "ask": {
+      "permissionKind": "sql",
+      "canonicalKind": "other",
+      "patterns": [
+        "copy into @stage from orders"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "sql",
+        "effect": "egress",
+        "operation": "copy_into",
+        "targets": [],
+        "cost": {
+          "usd": 3.0,
+          "rowsScanned": 1234567,
+          "currency": "credits"
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "sql",
+      "label": "Run a SQL query",
+      "title": "Run this query? It exports data.",
+      "subject": {
+        "text": "copy into @stage from orders",
+        "format": "code",
+        "language": "sql"
+      },
+      "facts": [
+        "3 credits",
+        "1,234,567 rows scanned"
+      ],
+      "effect": "egress",
+      "alwaysScope": "Always allow covers every copy into statement.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "facts",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "sql_exec",
+    "ask": {
+      "permissionKind": "mcp__alkera__sql.query",
+      "canonicalKind": "other",
+      "patterns": [
+        "COPY t TO '/tmp/out.csv'"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "sql",
+        "effect": "exec",
+        "operation": "copy_file",
+        "targets": []
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "sql",
+      "label": "Run a SQL query",
+      "title": "Allow this to run a program or use files on the database server?",
+      "subject": {
+        "text": "COPY t TO '/tmp/out.csv'",
+        "format": "code",
+        "language": "sql"
+      },
+      "facts": [],
+      "effect": "exec",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "sql_by_kind_alone",
+    "ask": {
+      "permissionKind": "sql",
+      "canonicalKind": "other",
+      "patterns": [],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ],
+      "call": {
+        "name": "sql.query",
+        "input": {
+          "sql": "insert into t values (1)"
+        }
+      }
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "sql",
+      "label": "Run a SQL query",
+      "title": "Run this query?",
+      "subject": {
+        "text": "insert into t values (1)",
+        "format": "code",
+        "language": "sql"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "knowledge_share",
+    "ask": {
+      "permissionKind": "knowledge",
+      "canonicalKind": "other",
+      "patterns": [
+        "Share with the Team Knowledge Base:\nRevenue\nRefunds are netted."
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "knowledge",
+        "effect": "egress",
+        "operation": "knowledge_share",
+        "targets": [
+          {
+            "kind": "knowledge",
+            "name": "Team Knowledge Base"
+          }
+        ]
+      },
+      "preview": {
+        "kind": "text",
+        "title": "Revenue",
+        "content": "Refunds are **netted** out of revenue.\n\nOn the day they settle.",
+        "truncated": false
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "knowledge",
+      "label": "Write to a knowledge base",
+      "title": "Share with the Team Knowledge Base?",
+      "note": {
+        "title": "Revenue",
+        "body": "Refunds are **netted** out of revenue.\n\nOn the day they settle.",
+        "truncated": false
+      },
+      "facts": [
+        "Team Knowledge Base"
+      ],
+      "effect": "egress",
+      "alwaysScope": "Always allow covers every share with the Team Knowledge Base.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "note",
+        "facts",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "knowledge_unshare",
+    "ask": {
+      "permissionKind": "knowledge",
+      "canonicalKind": "other",
+      "patterns": [
+        "withdraw 'fact:revenue' from the Team Knowledge Base"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "knowledge",
+        "effect": "egress",
+        "operation": "knowledge_unshare",
+        "targets": []
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "knowledge",
+      "label": "Write to a knowledge base",
+      "title": "Withdraw from the Team Knowledge Base?",
+      "subject": {
+        "text": "Withdraw 'fact:revenue' from the Team Knowledge Base",
+        "format": "sentence"
+      },
+      "facts": [],
+      "effect": "egress",
+      "alwaysScope": "Always allow covers every withdrawal from the Team Knowledge Base.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "knowledge_note",
+    "ask": {
+      "permissionKind": "knowledge",
+      "canonicalKind": "other",
+      "patterns": [
+        "Save a note"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "knowledge",
+        "effect": "memory",
+        "operation": "knowledge_note",
+        "targets": []
+      },
+      "preview": {
+        "kind": "text",
+        "content": "Churn is measured monthly.",
+        "truncated": true
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "knowledge",
+      "label": "Write to a knowledge base",
+      "title": "Save to the Project Knowledge Base?",
+      "note": {
+        "body": "Churn is measured monthly.",
+        "truncated": true
+      },
+      "facts": [],
+      "effect": "memory",
+      "alwaysScope": "Always allow covers every save to the Project Knowledge Base.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "note",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "mongodb_destroy",
+    "ask": {
+      "permissionKind": "mongodb",
+      "canonicalKind": "other",
+      "patterns": [
+        "[{\"$merge\": \"orders\"}]"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "mongodb",
+        "effect": "destroy",
+        "operation": "merge",
+        "targets": []
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "mongodb",
+      "label": "Run a MongoDB aggregation",
+      "title": "Run this destructive aggregation?",
+      "subject": {
+        "text": "[{\"$merge\": \"orders\"}]",
+        "format": "code"
+      },
+      "facts": [],
+      "effect": "destroy",
+      "alwaysScope": "Always allow covers every merge aggregation.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "elasticsearch_write",
+    "ask": {
+      "permissionKind": "elasticsearch",
+      "canonicalKind": "other",
+      "patterns": [
+        "PUT /logs/_settings"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "elasticsearch",
+        "effect": "write",
+        "operation": "put_settings",
+        "targets": []
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "elasticsearch",
+      "label": "Send a search request",
+      "title": "Send this request?",
+      "subject": {
+        "text": "PUT /logs/_settings",
+        "format": "code"
+      },
+      "facts": [],
+      "effect": "write",
+      "alwaysScope": "Always allow covers every put settings request.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "integration_sdk_on_connection",
+    "ask": {
+      "permissionKind": "integration_sdk",
+      "canonicalKind": "other",
+      "patterns": [
+        "for job in client.jobs.list():\n    print(job.name)"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "integration_sdk",
+        "effect": "destroy",
+        "operation": "call_integration_sdk",
+        "targets": [
+          {
+            "kind": "connection",
+            "name": "dbx-prod",
+            "connection": "dbx-prod"
+          }
+        ]
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "integration_sdk",
+      "label": "Run code against a connection",
+      "title": "Run this code against dbx-prod?",
+      "subject": {
+        "text": "for job in client.jobs.list():\n    print(job.name)",
+        "format": "code",
+        "language": "python"
+      },
+      "facts": [
+        "dbx-prod"
+      ],
+      "effect": "destroy",
+      "alwaysScope": "Always allow covers every call integration sdk SDK call.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "facts",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "graph_file",
+    "ask": {
+      "permissionKind": "graph",
+      "canonicalKind": "other",
+      "patterns": [
+        "create graph orders"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "file",
+        "effect": "write",
+        "operation": "graph_create",
+        "targets": []
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "graph_file",
+      "label": "Write a graph file",
+      "title": "Write this graph file?",
+      "subject": {
+        "text": "Create graph orders",
+        "format": "sentence"
+      },
+      "facts": [],
+      "effect": "write",
+      "alwaysScope": "Always allow covers every graph create.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "connection_action",
+    "ask": {
+      "permissionKind": "snowflake",
+      "canonicalKind": "other",
+      "patterns": [
+        "suspend warehouse WH_1"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "snowflake",
+        "effect": "write",
+        "operation": "suspend_warehouse",
+        "targets": [
+          {
+            "kind": "warehouse",
+            "name": "WH_1",
+            "connection": "snow-prod"
+          }
+        ]
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "connection_action",
+      "label": "Act on a connection",
+      "title": "Allow this action on snow-prod?",
+      "subject": {
+        "text": "Suspend warehouse WH_1",
+        "format": "sentence"
+      },
+      "facts": [
+        "WH_1"
+      ],
+      "effect": "write",
+      "alwaysScope": "Always allow covers every suspend warehouse action.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "facts",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "connection_action_unbound",
+    "ask": {
+      "permissionKind": "databricks",
+      "canonicalKind": "other",
+      "patterns": [
+        "run job 42"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "databricks",
+        "effect": "write",
+        "operation": "run_job",
+        "targets": []
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "generic",
+      "label": "Use a tool",
+      "title": "Allow this action?",
+      "subject": {
+        "text": "Run job 42",
+        "format": "sentence"
+      },
+      "facts": [],
+      "effect": "write",
+      "alwaysScope": "Always allow covers every run job action.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "mechanism_external_directory",
+    "ask": {
+      "permissionKind": "external_directory",
+      "canonicalKind": "external",
+      "patterns": [
+        "/opt/alkera-work/notes.md"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "external_directory",
+      "label": "Reach outside the project",
+      "title": "Allow access outside the project?",
+      "subject": {
+        "text": "/opt/alkera-work/notes.md",
+        "format": "code"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "mechanism_repo_clone",
+    "ask": {
+      "permissionKind": "repo_clone",
+      "canonicalKind": "external",
+      "patterns": [
+        "https://github.com/acme/app"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "repo_clone",
+      "label": "Clone a repository",
+      "title": "Clone this repository?",
+      "subject": {
+        "text": "https://github.com/acme/app",
+        "format": "code"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "mechanism_repo_overview",
+    "ask": {
+      "permissionKind": "repo_overview",
+      "canonicalKind": "other",
+      "patterns": [
+        "acme/app"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "repo_overview",
+      "label": "Read a cached repository",
+      "title": "Read this cached repository?",
+      "subject": {
+        "text": "acme/app",
+        "format": "code"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "mechanism_doom_loop",
+    "ask": {
+      "permissionKind": "doom_loop",
+      "canonicalKind": "shell",
+      "patterns": [
+        "npm test"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "doom_loop",
+      "label": "Repeat a call",
+      "title": "Repeat this call again?",
+      "subject": {
+        "text": "npm test",
+        "format": "command",
+        "language": "bash"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "mechanism_workflow_step",
+    "ask": {
+      "permissionKind": "workflow_tool_approval",
+      "canonicalKind": "shell",
+      "patterns": [
+        "deploy staging"
+      ],
+      "subjectPending": false,
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "workflow_tool_approval",
+      "label": "Run a workflow step",
+      "title": "Allow this workflow step?",
+      "subject": {
+        "text": "deploy staging",
+        "format": "command",
+        "language": "bash"
+      },
+      "facts": [],
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "notebook_run",
+    "ask": {
+      "permissionKind": "notebook",
+      "canonicalKind": "other",
+      "patterns": [
+        "Run 2 cells in analysis.alknb.py"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "notebook",
+        "effect": "write",
+        "confidence": "unknown",
+        "operation": "notebook_run",
+        "targets": [
+          {
+            "kind": "notebook",
+            "name": "/opt/alkera-work/.alkera/workspaces/w1/files/analysis.alknb.py"
+          }
+        ],
+        "scope": "command"
+      },
+      "preview": {
+        "kind": "notebook",
+        "title": "Run 2 cells in analysis.alknb.py",
+        "truncated": false,
+        "notebook": {
+          "lead": "Run 2 cells in",
+          "fileName": "analysis.alknb.py",
+          "filePath": "analysis.alknb.py",
+          "tail": "",
+          "cells": [
+            {
+              "name": "setup",
+              "code": "import alkera",
+              "role": "dependency"
+            },
+            {
+              "name": "Cell 2",
+              "code": "import polars as pl\n\nAPI_TOKEN = 'abc123'\ndf = pl.read_csv('x')",
+              "role": "target"
+            },
+            {
+              "name": "load",
+              "code": "rows = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1",
+              "role": "target"
+            }
+          ],
+          "packages": []
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "notebook",
+      "label": "Use a notebook",
+      "title": "Run 2 cells in analysis.alknb.py",
+      "notebook": {
+        "lead": "Run 2 cells in",
+        "fileName": "analysis.alknb.py",
+        "filePath": "analysis.alknb.py",
+        "tail": "",
+        "reason": "Can't tell if it changes anything",
+        "cells": [
+          {
+            "name": "Cell 2",
+            "previewLines": [
+              "import polars as pl",
+              "API_TOKEN = [redacted] …"
+            ],
+            "role": "target"
+          },
+          {
+            "name": "load",
+            "previewLines": [
+              "rows = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + …"
+            ],
+            "role": "target"
+          }
+        ],
+        "related": [
+          {
+            "name": "setup",
+            "previewLines": [
+              "import alkera"
+            ],
+            "role": "dependency"
+          }
+        ],
+        "relatedLine": "Also runs 1 cell they depend on",
+        "packages": []
+      },
+      "facts": [],
+      "effect": "write",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "notebook",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "notebook_run_always",
+    "ask": {
+      "permissionKind": "notebook",
+      "canonicalKind": "other",
+      "patterns": [
+        "Run 1 cell in reports/q3.alknb.py"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "notebook",
+        "effect": "write",
+        "confidence": "exact",
+        "operation": "notebook_run",
+        "targets": [
+          {
+            "kind": "notebook",
+            "name": "/opt/alkera-work/reports/q3.alknb.py"
+          },
+          {
+            "kind": "table",
+            "name": "orders",
+            "connection": "warehouse"
+          }
+        ],
+        "scope": "command"
+      },
+      "preview": {
+        "kind": "notebook",
+        "truncated": false,
+        "notebook": {
+          "lead": "Run 1 cell in",
+          "fileName": "q3.alknb.py",
+          "filePath": "reports/q3.alknb.py",
+          "tail": "",
+          "cells": [
+            {
+              "name": "Cell 4",
+              "code": "CREATE TABLE orders AS SELECT 1",
+              "role": "target"
+            },
+            {
+              "name": "chart",
+              "code": "alkera.chart(orders)",
+              "role": "dependent"
+            },
+            {
+              "name": "Cell 6",
+              "code": "print(len(orders))",
+              "role": "dependent"
+            }
+          ],
+          "packages": []
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "allow_always",
+          "name": "Always allow"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "notebook",
+      "label": "Use a notebook",
+      "title": "Run 1 cell in q3.alknb.py",
+      "notebook": {
+        "lead": "Run 1 cell in",
+        "fileName": "q3.alknb.py",
+        "filePath": "reports/q3.alknb.py",
+        "tail": "",
+        "reason": "May change files or data",
+        "cells": [
+          {
+            "name": "Cell 4",
+            "previewLines": [
+              "CREATE TABLE orders AS SELECT 1"
+            ],
+            "role": "target"
+          }
+        ],
+        "related": [
+          {
+            "name": "chart",
+            "previewLines": [
+              "alkera.chart(orders)"
+            ],
+            "role": "dependent"
+          },
+          {
+            "name": "Cell 6",
+            "previewLines": [
+              "print(len(orders))"
+            ],
+            "role": "dependent"
+          }
+        ],
+        "relatedLine": "Also runs 2 cells that depend on it",
+        "packages": []
+      },
+      "facts": [
+        "orders"
+      ],
+      "effect": "write",
+      "alwaysScope": "Always allow skips this question whenever the agent asks to run 1 cell in reports/q3.alknb.py.",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "allow_always",
+          "label": "Always allow",
+          "role": "always"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "notebook",
+        "facts",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "notebook_install",
+    "ask": {
+      "permissionKind": "notebook",
+      "canonicalKind": "other",
+      "patterns": [
+        "Install polars into the environment of analysis.alknb.py"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "notebook",
+        "effect": "egress",
+        "operation": "notebook_install",
+        "targets": []
+      },
+      "preview": {
+        "kind": "notebook",
+        "truncated": false,
+        "notebook": {
+          "lead": "Install polars into the environment of",
+          "fileName": "analysis.alknb.py",
+          "filePath": "analysis.alknb.py",
+          "tail": "",
+          "cells": [],
+          "packages": [
+            "polars"
+          ]
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "notebook",
+      "label": "Use a notebook",
+      "title": "Install polars into the environment of analysis.alknb.py",
+      "notebook": {
+        "lead": "Install polars into the environment of",
+        "fileName": "analysis.alknb.py",
+        "filePath": "analysis.alknb.py",
+        "tail": "",
+        "reason": "Downloads packages from the internet",
+        "cells": [],
+        "related": [],
+        "packages": [
+          "polars"
+        ]
+      },
+      "facts": [],
+      "effect": "egress",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "notebook",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "notebook_kernel_others",
+    "ask": {
+      "permissionKind": "notebook",
+      "canonicalKind": "other",
+      "patterns": [
+        "Interrupt the kernel of analysis.alknb.py (ends work started by Bob)"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "notebook",
+        "effect": "destroy",
+        "operation": "notebook_kernel",
+        "targets": []
+      },
+      "preview": {
+        "kind": "notebook",
+        "truncated": false,
+        "notebook": {
+          "lead": "Interrupt the kernel of",
+          "fileName": "analysis.alknb.py",
+          "filePath": "analysis.alknb.py",
+          "tail": " (ends work started by Bob)",
+          "cells": [],
+          "packages": []
+        }
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "notebook",
+      "label": "Use a notebook",
+      "title": "Interrupt the kernel of analysis.alknb.py (ends work started by Bob)",
+      "notebook": {
+        "lead": "Interrupt the kernel of",
+        "fileName": "analysis.alknb.py",
+        "filePath": "analysis.alknb.py",
+        "tail": " (ends work started by Bob)",
+        "reason": "Stops code running in the notebook",
+        "cells": [],
+        "related": [],
+        "packages": []
+      },
+      "facts": [],
+      "effect": "destroy",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "notebook",
+        "decisions"
+      ]
+    }
+  },
+  {
+    "name": "notebook_without_detail",
+    "ask": {
+      "permissionKind": "notebook",
+      "canonicalKind": "other",
+      "patterns": [
+        "Run 1 cell in analysis.alknb.py"
+      ],
+      "subjectPending": false,
+      "subject": {
+        "capability": "notebook",
+        "effect": "write",
+        "operation": "notebook_run",
+        "targets": []
+      },
+      "options": [
+        {
+          "optionId": "allow_once",
+          "name": "Allow once"
+        },
+        {
+          "optionId": "reject_once",
+          "name": "Reject once"
+        }
+      ]
+    },
+    "presentation": {
+      "version": "1.1.0",
+      "presenter": "notebook",
+      "label": "Use a notebook",
+      "title": "Allow this notebook action?",
+      "subject": {
+        "text": "Run 1 cell in analysis.alknb.py",
+        "format": "sentence"
+      },
+      "facts": [],
+      "effect": "write",
+      "decisions": [
+        {
+          "optionId": "allow_once",
+          "label": "Allow once",
+          "role": "allow"
+        },
+        {
+          "optionId": "reject_once",
+          "label": "Reject once",
+          "role": "deny"
+        }
+      ],
+      "primary": [
+        "title",
+        "subject",
+        "decisions"
+      ]
+    }
+  }
+]

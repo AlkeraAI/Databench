@@ -1,0 +1,76 @@
+@import "./tokens.css";
+
+/* The capability register, shared with the skill card: both answer what this
+   agent can do here. */
+
+:global(.chat-root) [data-tool="search_tools"] .searchToolsShared {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  border-bottom: 1px solid var(--chat-hairline);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+  overflow-wrap: anywhere;
+}
+
+
+:global(.chat-root) [data-tool="search_tools"] .searchToolsCard {
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-2);
+}
+
+:global(.chat-root) [data-tool="search_tools"] .searchToolsCardHead {
+  margin: 0;
+}
+
+:global(.chat-root) [data-tool="search_tools"] .searchToolsCardName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--chat-fs-mono, inherit);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+}
+
+/* The app a tool belongs to is the axis a reader groups by when a query returns
+   eight tools from four plugins. */
+:global(.chat-root) [data-tool="search_tools"] .searchToolsCardApp {
+  --chat-tool-chip-line: var(--chat-tool-id-line);
+  flex: none;
+  margin-left: auto;
+  background: var(--chat-tool-id-wash);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-tool-id);
+}
+
+:global(.chat-root) [data-tool="search_tools"] .searchToolsCardDesc {
+  margin: var(--chat-sp-1) 0 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+/* The signature is machine text: an argument the caller must supply reads a tier
+   brighter than one it may omit. */
+:global(.chat-root) [data-tool="search_tools"] .searchToolsArgs {
+  display: block;
+  margin-top: var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-4);
+  overflow-wrap: anywhere;
+}
+
+:global(.chat-root) [data-tool="search_tools"] .searchToolsShared .searchToolsArgs {
+  display: inline;
+  margin-top: 0;
+}
+
+:global(.chat-root) [data-tool="search_tools"] .searchToolsArg[data-required] {
+  color: var(--chat-ink-2);
+}

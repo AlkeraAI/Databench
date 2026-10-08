@@ -1,0 +1,24 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {},
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

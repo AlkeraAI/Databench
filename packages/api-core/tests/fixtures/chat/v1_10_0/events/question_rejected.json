@@ -1,0 +1,11 @@
+{
+  "event_id": "01H_question_rejected",
+  "event_type": "question.rejected",
+  "metadata": {},
+  "provider_metadata": {},
+  "reason": null,
+  "request_id": "qr1",
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

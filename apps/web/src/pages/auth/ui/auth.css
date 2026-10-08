@@ -1,0 +1,322 @@
+/* The auth surface. A single centered card on a self-drafting vine background,
+ * with the brand wordmark top-left and a light/dark toggle top-right. The card content
+ * (title / lede / form / footer) comes from each page; the controls inside the card are
+ * @alkera/ui primitives (TextInput / PasswordInput / Button), sized up here to a 46px tall,
+ * warm recessed well with a 16px value.
+ *
+ * Own `pa-auth*` prefix so no global CSS can bleed in. Colors are the shared ui --alk*
+ * tokens; the lone page-scoped token is --pa-auth-vine (the background ink). */
+
+/* ── Page frame ───────────────────────────────────────────────────────────── */
+
+.pa-auth {
+  --pa-auth-vine: #d9d0bf;
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: var(--alkPageBg);
+  color: var(--alkPrimaryText);
+}
+
+[data-alkera-color-scheme="dark"] .pa-auth,
+:root:not([data-alkera-color-scheme="light"]) .pa-auth {
+  /* Lift the vine ink on the dark ground: ~0.16 keeps it ambient but legible against the
+     near-black bg. */
+  --pa-auth-vine: rgba(231, 226, 216, 0.16);
+}
+
+/* ── Top bar: wordmark left, theme toggle right ───────────────────────────── */
+
+.pa-auth__topbar {
+  position: absolute;
+  top: 24px;
+  left: 32px;
+  right: 32px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pa-auth__logo {
+  display: inline-flex;
+  color: var(--alkPrimaryText);
+}
+
+.pa-auth__theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--alkSecondaryText);
+  background: transparent;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  cursor: pointer;
+  transition:
+    background-color var(--alkDurationNormal) var(--alkEaseStandard),
+    color var(--alkDurationNormal) var(--alkEaseStandard),
+    border-color var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+.pa-auth__theme-toggle:hover {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+  border-color: var(--alkBorderStrong);
+}
+
+/* ── Card ─────────────────────────────────────────────────────────────────── */
+
+.pa-auth__card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 396px;
+  padding: 40px;
+  background: var(--alkCardBg);
+  border: 1px solid var(--alkBorder);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(58, 48, 33, 0.05),
+    0 8px 20px rgba(58, 48, 33, 0.07),
+    0 24px 50px rgba(58, 48, 33, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  /* The shared rise-in entrance (theme/motion.css); a short 6px settle for the auth card. */
+  --alk-rise-from: 6px;
+  animation: alk-rise-in var(--alkDurationSlow) var(--alkEaseStandard) both;
+}
+
+[data-alkera-color-scheme="dark"] .pa-auth__card,
+:root:not([data-alkera-color-scheme="light"]) .pa-auth__card {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 18px 44px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.pa-auth__title {
+  margin: 0;
+  font-family: var(--alkFontDisplay);
+  font-size: 28px;
+  font-weight: var(--alkWeightMedium);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  color: var(--alkPrimaryText);
+}
+
+/* A heading over one of several forms on one card (the no-organization landing). */
+.pa-auth__section {
+  margin: 20px 0 0;
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightMedium);
+  color: var(--alkPrimaryText);
+}
+
+.pa-auth__sub {
+  margin: 8px 0 0;
+  font-size: var(--alkTextMd);
+  line-height: var(--alkLeadingNormal);
+  color: var(--alkSecondaryText);
+}
+
+/* ── Form ─────────────────────────────────────────────────────────────────── */
+
+.pa-auth__form {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* The side-by-side First / Last name row (signup). */
+.pa-auth__names {
+  display: flex;
+  gap: 14px;
+}
+
+.pa-auth__names > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* "Forgot password?" sits on the label's row, opposite the field label. The ui
+   PasswordInput owns the label, so the link is pulled up onto the label line, absolutely
+   positioned against a position:relative wrapper the page sets inline. */
+.pa-auth__forgot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: var(--alkTextSm);
+}
+
+/* ── ui control sizing inside the card ───────────────────────────────────── */
+
+.pa-auth__card .alk-field {
+  gap: 7px;
+}
+
+.pa-auth__card .alk-field__label {
+  font-size: 13px;
+}
+
+/* Required marker: a small danger dot in place of the asterisk. The
+   ui label renders the "*" text node, which we hide, and draw a dot via the dedicated
+   span so the meaning isn't carried by color alone (shape + the aria still read). */
+.pa-auth__card .alk-field__req {
+  width: 5px;
+  height: 5px;
+  margin-left: 1px;
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkDanger);
+  font-size: 0;
+  line-height: 0;
+  align-self: center;
+}
+
+.pa-auth__card .alk-input {
+  height: 46px;
+  min-height: 46px;
+  padding: 0 14px;
+  background: var(--alkRaisedBg);
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.pa-auth__card .alk-input:focus-visible {
+  background: var(--alkCardBg);
+}
+
+.pa-auth__card .alk-password__input {
+  padding-right: 44px;
+}
+
+.pa-auth__card .alk-password__toggle {
+  width: 44px;
+  border-radius: 10px;
+}
+
+.pa-auth__card .alk-btn {
+  height: 46px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.pa-auth__card .alk-field__desc {
+  font-size: 12px;
+}
+
+/* The form's primary submit gets a small top nudge so it sits a touch off the field above;
+   the form gap already spaces the rest. */
+.pa-auth__form > .alk-btn {
+  margin-top: 2px;
+}
+
+/* ── Divider + OAuth ──────────────────────────────────────────────────────── */
+
+.pa-oauth__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+  font-size: 13px;
+  color: var(--alkSecondaryText);
+}
+
+.pa-oauth__divider::before,
+.pa-oauth__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--alkBorder);
+}
+
+.pa-oauth__row {
+  display: flex;
+  gap: 10px;
+}
+
+.pa-oauth__row > * {
+  flex: 1;
+}
+
+/* The OAuth buttons read a touch lighter than the primary: a 44px height and the
+   card-surface fill. */
+.pa-oauth__row .alk-btn {
+  height: 44px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: var(--alkWeightMedium);
+  background: var(--alkCardBg);
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+
+.pa-auth__foot {
+  margin: 24px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--alkBorder);
+  text-align: center;
+  font-size: var(--alkTextMd);
+  color: var(--alkSecondaryText);
+}
+
+/* ── Success / confirmation panel ─────────────────────────────────────────── */
+
+.pa-auth__success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 28px;
+}
+
+.pa-auth__success-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkBrandSubtle);
+  color: var(--alkBrandText);
+  margin-bottom: 18px;
+}
+
+.pa-auth__success-body {
+  margin: 10px 0 0;
+  max-width: 32ch;
+  font-size: var(--alkTextMd);
+  line-height: var(--alkLeadingSnug);
+  color: var(--alkSecondaryText);
+}
+
+.pa-auth__success-action {
+  margin-top: 24px;
+  width: 100%;
+}
+
+/* ── Narrow viewport ──────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .pa-auth__topbar {
+    top: 20px;
+    left: 22px;
+    right: 22px;
+  }
+  .pa-auth__card {
+    padding: 28px 22px;
+  }
+  .pa-auth__names {
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pa-auth__card {
+    animation: none;
+  }
+}

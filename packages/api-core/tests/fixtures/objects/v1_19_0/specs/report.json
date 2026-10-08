@@ -1,0 +1,62 @@
+{
+  "connections": [
+    {
+      "handle": "tideline-warehouse",
+      "metadata": {},
+      "plugin": "postgres",
+      "schema_version": "1.0.0"
+    }
+  ],
+  "metadata": {},
+  "narrative": "What moved this period, and what the movement is attributable to.",
+  "questions": [
+    {
+      "enum_values": [
+        "emea",
+        "amer"
+      ],
+      "label": "Region",
+      "metadata": {},
+      "name": "region",
+      "prompt": "Which region should this report cover?",
+      "required": true,
+      "schema_version": "1.3.0",
+      "type": "enum"
+    },
+    {
+      "enum_values": [],
+      "label": "Period",
+      "metadata": {},
+      "name": "period",
+      "prompt": "Which date range should the report cover?",
+      "required": true,
+      "schema_version": "1.3.0",
+      "type": "daterange"
+    }
+  ],
+  "rendering": {
+    "format": "pdf",
+    "metadata": {},
+    "schema_version": "1.0.0",
+    "template": "Summary, then one section per region, then the methodology."
+  },
+  "schema_version": "1.0.0",
+  "source_chat_id": "5f1f0a3c-2f0e-4a2b-9d5c-71a3c9f0b111",
+  "steps": [
+    {
+      "connection": "tideline-warehouse",
+      "kind": "query",
+      "metadata": {},
+      "schema_version": "1.0.0",
+      "text": "SELECT week_start, count(*) AS mentions FROM mentions WHERE region = {region} AND run_day BETWEEN {period.start} AND {period.end} GROUP BY week_start ORDER BY week_start"
+    },
+    {
+      "connection": "",
+      "kind": "render",
+      "metadata": {},
+      "schema_version": "1.0.0",
+      "text": "One line chart, then the table beneath it."
+    }
+  ],
+  "title": "Weekly mentions"
+}

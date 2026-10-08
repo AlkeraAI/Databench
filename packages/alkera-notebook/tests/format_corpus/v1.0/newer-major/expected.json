@@ -1,0 +1,50 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "00000000d5": {
+        "defs": [
+          "x"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "x = 1",
+        "config": {},
+        "extra": {},
+        "id": "00000000d5",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "x = 1"
+      }
+    ],
+    "format": "2.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": "newer_format",
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "future_only = true",
+    "violations": [
+      [
+        "newer_format",
+        1
+      ]
+    ]
+  }
+}

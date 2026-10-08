@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "computed_at": "2026-10-05T12:00:00Z",
+  "orgs": [
+    {
+      "schema_version": "1.0.0",
+      "org_id": "00000000-0000-4000-8000-00000000000a",
+      "fate": "leave",
+      "transfer_to_user_id": "00000000-0000-4000-8000-000000000002",
+      "shared_items": 3,
+      "private_items": 2
+    },
+    {
+      "schema_version": "1.0.0",
+      "org_id": "00000000-0000-4000-8000-00000000000b",
+      "fate": "close",
+      "transfer_to_user_id": null,
+      "shared_items": 0,
+      "private_items": 5
+    }
+  ],
+  "blockers": [],
+  "forfeited_credit_nanos": 1500000000
+}

@@ -1,0 +1,1513 @@
+from __future__ import annotations
+
+import textwrap
+from collections.abc import Callable
+from functools import wraps
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+from unittest.mock import patch
+
+import pytest
+
+from marimo._config.config import PartialMarimoConfig, merge_default_config
+from marimo._config.manager import (
+    EnvConfigManager,
+    MarimoConfigManager,
+    MarimoConfigReaderWithOverrides,
+    ProjectConfigManager,
+    ScriptConfigManager,
+    SecurityConfigManager,
+    UserConfigManager,
+    get_default_config_manager,
+)
+from marimo._config.settings import GLOBAL_SETTINGS
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def restore_config(f: F) -> F:
+    config = UserConfigManager().get_config()
+
+    @wraps(f)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return f(*args, **kwargs)
+        finally:
+            UserConfigManager().save_config(config)
+
+    return wrapper  # type: ignore
+
+
+@restore_config
+@patch("tomlkit.dump")
+def test_save_config(mock_dump: Any) -> None:
+    mock_config = merge_default_config(PartialMarimoConfig())
+    manager = UserConfigManager()
+    manager._load_config = lambda: mock_config
+
+    result = manager.save_config(mock_config)
+
+    assert result == mock_config
+
+    assert mock_dump.mock_calls[0][1][0] == mock_config
+
+
+@restore_config
+def test_save_config_is_deterministic(tmp_path: Path) -> None:
+    """Two configs with identical content but different dict insertion
+    order must serialize to the same bytes.
+
+    Probabilistic guard: order depends on PYTHONHASHSEED, so this test catches
+    the regression on roughly 9 in 10 random pytest invocations rather than
+    every run. The fixture is intentionally wide (many out-of-order keys across
+    several tables) to maximize the per-seed catch rate.
+    """
+    from typing import cast
+
+    from marimo._config.config import MarimoConfig
+
+    config_path = tmp_path / "marimo.toml"
+    manager = UserConfigManager()
+    manager.get_config_path = lambda: str(config_path)  # type: ignore[method-assign]
+
+    a = PartialMarimoConfig(
+        runtime={  # type: ignore[typeddict-item]
+            "auto_reload": "off",
+            "auto_instantiate": True,
+            "on_cell_change": "autorun",
+            "watcher_on_save": "lazy",
+            "reactive_tests": False,
+        },
+        ai={
+            "open_ai": {"api_key": "k", "model": "m", "base_url": "u"},
+            "models": {  # type: ignore[typeddict-item]
+                "chat_model": "c",
+                "edit_model": "e",
+                "autocomplete_model": "a",
+            },
+        },
+        display={  # type: ignore[typeddict-item]
+            "theme": "light",
+            "code_editor_font_size": 14,
+            "cell_output": "below",
+            "dataframes": "rich",
+            "default_table_page_size": 10,
+        },
+        save={  # type: ignore[typeddict-item]
+            "autosave": "off",
+            "autosave_delay": 1000,
+            "format_on_save": False,
+        },
+        completion={  # type: ignore[typeddict-item]
+            "activate_on_typing": True,
+            "signature_hint_on_typing": True,
+            "copilot": False,
+        },
+        keymap={"preset": "default", "destructive_delete": False},  # type: ignore[typeddict-item]
+        server={  # type: ignore[typeddict-item]
+            "browser": "default",
+            "follow_symlink": False,
+        },
+        package_management={"manager": "uv"},
+        formatting={"line_length": 79},
+    )
+    # b is `a` with every dict's keys reversed.
+    b = PartialMarimoConfig(
+        formatting={"line_length": 79},
+        package_management={"manager": "uv"},
+        server={  # type: ignore[typeddict-item]
+            "follow_symlink": False,
+            "browser": "default",
+        },
+        keymap={"destructive_delete": False, "preset": "default"},  # type: ignore[typeddict-item]
+        completion={  # type: ignore[typeddict-item]
+            "copilot": False,
+            "signature_hint_on_typing": True,
+            "activate_on_typing": True,
+        },
+        save={  # type: ignore[typeddict-item]
+            "format_on_save": False,
+            "autosave_delay": 1000,
+            "autosave": "off",
+        },
+        display={  # type: ignore[typeddict-item]
+            "default_table_page_size": 10,
+            "dataframes": "rich",
+            "cell_output": "below",
+            "code_editor_font_size": 14,
+            "theme": "light",
+        },
+        ai={
+            "models": {  # type: ignore[typeddict-item]
+                "autocomplete_model": "a",
+                "edit_model": "e",
+                "chat_model": "c",
+            },
+            "open_ai": {"base_url": "u", "model": "m", "api_key": "k"},
+        },
+        runtime={  # type: ignore[typeddict-item]
+            "reactive_tests": False,
+            "watcher_on_save": "lazy",
+            "on_cell_change": "autorun",
+            "auto_instantiate": True,
+            "auto_reload": "off",
+        },
+    )
+
+    manager._load_config = lambda: cast(MarimoConfig, dict(a))
+    manager.save_config(a)
+    bytes_a = config_path.read_bytes()
+
+    manager._load_config = lambda: cast(MarimoConfig, dict(b))
+    manager.save_config(b)
+    bytes_b = config_path.read_bytes()
+
+    assert bytes_a == bytes_b
+
+
+@restore_config
+@patch("tomlkit.dump")
+def test_save_config_none_deletes_key(mock_dump: Any) -> None:
+    """None-as-delete: sending {ai: {max_tokens: None}} removes the key."""
+    mock_config = merge_default_config(
+        PartialMarimoConfig(ai={"max_tokens": 8192, "rules": "be terse"})
+    )
+    manager = UserConfigManager()
+    manager._load_config = lambda: mock_config
+
+    manager.save_config(
+        cast(
+            PartialMarimoConfig,
+            {"ai": {"max_tokens": None}},
+        )
+    )
+
+    written = mock_dump.mock_calls[0][1][0]
+    assert "max_tokens" not in written["ai"]
+    # sibling key untouched
+    assert written["ai"]["rules"] == "be terse"
+
+
+@restore_config
+def test_save_config_with_none_does_not_raise(tmp_path: Path) -> None:
+    """Regression guard: TOML has no null type, so a None value reaching
+    tomlkit.dump raises ConvertError. _drop_none_values must strip it first,
+    making the real (unmocked) save succeed and omit the key."""
+    config_path = tmp_path / "marimo.toml"
+    mock_config = merge_default_config(
+        PartialMarimoConfig(ai={"max_tokens": 8192, "rules": "be terse"})
+    )
+    manager = UserConfigManager()
+    manager._load_config = lambda: mock_config
+
+    with patch.object(
+        manager, "get_config_path", return_value=str(config_path)
+    ):
+        manager.save_config(
+            cast(PartialMarimoConfig, {"ai": {"max_tokens": None}})
+        )
+
+    contents = config_path.read_text()
+    assert "max_tokens" not in contents
+    assert "be terse" in contents
+
+
+def test_user_config_drops_hollow_dotenv(tmp_path: Path) -> None:
+    """An empty runtime.dotenv on disk is a masked value, so it is ignored."""
+    config_path = tmp_path / "marimo.toml"
+    config_path.write_text("[runtime]\ndotenv = []\n")
+    manager = UserConfigManager()
+    manager.get_config_path = lambda: str(config_path)  # type: ignore[method-assign]
+
+    config = manager.get_config(hide_secrets=False)
+    assert "dotenv" not in config["runtime"]
+
+
+def test_user_config_keeps_populated_dotenv(tmp_path: Path) -> None:
+    config_path = tmp_path / "marimo.toml"
+    dotenv = tmp_path / ".env.user"
+    config_path.write_text(f'[runtime]\ndotenv = ["{dotenv.as_posix()}"]\n')
+    manager = UserConfigManager()
+    manager.get_config_path = lambda: str(config_path)  # type: ignore[method-assign]
+
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [dotenv.as_posix()]
+
+
+def test_drop_none_values_strips_nested_none() -> None:
+    from marimo._config.manager import _drop_none_values
+
+    d: dict[str, Any] = {
+        "keep": 1,
+        "drop": None,
+        "nested": {"keep": "x", "drop": None},
+    }
+    _drop_none_values(d)
+    assert d == {"keep": 1, "nested": {"keep": "x"}}
+
+
+@restore_config
+@patch("tomlkit.dump")
+def test_can_save_secrets(mock_dump: Any) -> None:
+    mock_config = merge_default_config(PartialMarimoConfig())
+    manager = UserConfigManager()
+    manager._load_config = lambda: mock_config
+
+    new_config = manager.save_config(
+        merge_default_config(
+            PartialMarimoConfig(ai={"open_ai": {"api_key": "super_secret"}})
+        )
+    )
+    manager._load_config = lambda: new_config
+
+    assert (
+        mock_dump.mock_calls[0][1][0]["ai"]["open_ai"]["api_key"]
+        == "super_secret"
+    )
+
+    # Do not overwrite secrets
+    manager.save_config(
+        merge_default_config(
+            PartialMarimoConfig(ai={"open_ai": {"api_key": "********"}})
+        )
+    )
+    assert (
+        mock_dump.mock_calls[1][1][0]["ai"]["open_ai"]["api_key"]
+        == "super_secret"
+    )
+
+
+@restore_config
+def test_can_read_secrets() -> None:
+    manager = UserConfigManager()
+    mock_config = merge_default_config(
+        PartialMarimoConfig(ai={"open_ai": {"api_key": "super_secret"}})
+    )
+    manager._load_config = lambda: mock_config
+
+    assert manager.get_config()["ai"]["open_ai"]["api_key"] == "********"
+    assert (
+        manager.get_config(hide_secrets=False)["ai"]["open_ai"]["api_key"]
+        == "super_secret"
+    )
+
+
+@restore_config
+def test_get_config() -> None:
+    mock_config = merge_default_config(PartialMarimoConfig())
+    manager = UserConfigManager()
+    manager._load_config = lambda: mock_config
+
+    result = manager.get_config()
+
+    assert result == mock_config
+
+
+@restore_config
+def test_get_config_with_override() -> None:
+    mock_config = merge_default_config(PartialMarimoConfig())
+    user = UserConfigManager()
+    user._load_config = lambda: mock_config
+
+    manager = MarimoConfigManager(
+        user,
+        MarimoConfigReaderWithOverrides(
+            {
+                "runtime": {
+                    "on_cell_change": "autorun",
+                    "auto_instantiate": True,
+                    "auto_reload": "lazy",
+                    "watcher_on_save": "lazy",
+                }
+            }
+        ),
+    )
+    assert manager.get_config()["runtime"]["auto_reload"] == "lazy"
+
+    manager = get_default_config_manager(current_path=None).with_overrides(
+        {
+            "runtime": {
+                "on_cell_change": "autorun",
+                "auto_instantiate": True,
+                "auto_reload": "lazy",
+                "watcher_on_save": "lazy",
+            }
+        }
+    )
+    assert manager.get_config()["runtime"]["auto_reload"] == "lazy"
+
+
+@restore_config
+def test_with_multiple_overrides() -> None:
+    manager = get_default_config_manager(current_path=None).with_overrides(
+        {
+            "package_management": {
+                "manager": "pixi",
+            }
+        }
+    )
+    assert manager.get_config()["package_management"]["manager"] == "pixi"
+
+    next_manager = manager.with_overrides(
+        {
+            "package_management": {
+                "manager": "uv",
+            }
+        }
+    )
+    assert next_manager.get_config()["package_management"]["manager"] == "uv"
+
+    assert manager.get_config()["package_management"]["manager"] == "pixi"
+
+
+def test_project_config_default_dotenv(tmp_path: Path) -> None:
+    # Even if the pyproject.toml does not have a marimo section,
+    # at runtime the dotenv default should be injected.
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_content = ""
+    pyproject_path.write_text(textwrap.dedent(pyproject_content))
+
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = "import marimo as mo"
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(tmp_path / ".env")]
+
+
+def test_project_config_dotenv_without_pyproject(tmp_path: Path) -> None:
+    # Standalone notebooks (e.g. PEP 723 sandboxes) have no pyproject.toml to
+    # anchor on, so the dotenv default resolves next to the notebook.
+    notebook_path = tmp_path / "notebook.py"
+    notebook_path.write_text("import marimo as mo")
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(tmp_path / ".env")]
+
+
+def test_project_config_dotenv_without_pyproject_directory(
+    tmp_path: Path,
+) -> None:
+    manager = get_default_config_manager(current_path=str(tmp_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(tmp_path / ".env")]
+
+
+def test_default_dotenv_is_masked_with_the_other_secrets(
+    tmp_path: Path,
+) -> None:
+    # The computed default is a runtime.dotenv entry like any other, so a
+    # masked read must hide it too.
+    notebook_path = tmp_path / "notebook.py"
+    notebook_path.write_text("import marimo as mo")
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    assert manager.get_config()["runtime"]["dotenv"] == []
+    assert manager.get_config(hide_secrets=False)["runtime"]["dotenv"] == [
+        str(tmp_path / ".env")
+    ]
+
+
+def test_project_config_empty_dotenv_opts_out(tmp_path: Path) -> None:
+    # A user-level [] is dropped as a masked leftover, but a pyproject.toml is
+    # never written back masked, so its [] is a deliberate "load nothing".
+    notebook_path = _write_dotenv_project(tmp_path, "")
+    (notebook_path.parent / ".env").write_text("KEY=value")
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    assert manager.get_config(hide_secrets=False)["runtime"]["dotenv"] == []
+
+
+def test_default_dotenv_skips_the_home_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # `marimo edit ~/nb.py`, or `marimo edit` run from ~, would otherwise load
+    # ~/.env and list its keys in the secrets panel.
+    _isolate_user_config(monkeypatch, tmp_path, "")
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".env").write_text("KEY=value")
+    _set_home(monkeypatch, home)
+    notebook_path = home / "nb.py"
+    notebook_path.write_text("import marimo as mo")
+
+    for start_path in (notebook_path, home):
+        manager = get_default_config_manager(current_path=str(start_path))
+        config = manager.get_config(hide_secrets=False)
+        assert "dotenv" not in config["runtime"]
+
+
+def test_default_dotenv_applies_to_a_pyproject_in_the_home_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A pyproject.toml in ~ is a deliberate project root, so the pre-existing
+    # default stays.
+    _isolate_user_config(monkeypatch, tmp_path, "")
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "pyproject.toml").write_text("")
+    _set_home(monkeypatch, home)
+    notebook_path = home / "nb.py"
+    notebook_path.write_text("import marimo as mo")
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(home / ".env")]
+
+
+def test_explicit_dotenv_resolves_in_the_home_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate_user_config(monkeypatch, tmp_path, "")
+    home = tmp_path / "home"
+    home.mkdir()
+    _set_home(monkeypatch, home)
+    notebook_path = home / "nb.py"
+    notebook_path.write_text(
+        textwrap.dedent(
+            """
+            # /// script
+            # [tool.marimo.runtime]
+            # dotenv = [".env"]
+            # ///
+            import marimo as mo
+            """
+        )
+    )
+
+    config = ScriptConfigManager(str(notebook_path)).get_config(
+        hide_secrets=False
+    )
+    assert config["runtime"]["dotenv"] == [str(home / ".env")]
+
+
+def test_directory_workspace_dotenv_anchors_on_the_notebook(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # `marimo edit repo/` reads project config from repo/, but each session
+    # layers the notebook's script config on top. The notebook-level default
+    # follows the same precedence, so repo/sub/app.py gets repo/sub/.env.
+    _isolate_user_config(monkeypatch, tmp_path, "")
+    repo = tmp_path / "repo"
+    sub = repo / "sub"
+    sub.mkdir(parents=True)
+    (repo / ".env").write_text("KEY=repo")
+    (sub / ".env").write_text("KEY=sub")
+    notebook_path = sub / "app.py"
+    notebook_path.write_text("import marimo as mo")
+
+    workspace = get_default_config_manager(current_path=str(repo))
+    session = workspace.with_partial(ScriptConfigManager(str(notebook_path)))
+    config = session.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(sub / ".env")]
+    assert "runtime" not in session.get_config_overrides(hide_secrets=False)
+
+
+def test_directory_workspace_dotenv_keeps_the_pyproject_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate_user_config(monkeypatch, tmp_path, "")
+    repo = tmp_path / "repo"
+    sub = repo / "sub"
+    sub.mkdir(parents=True)
+    (repo / "pyproject.toml").write_text("")
+    notebook_path = sub / "app.py"
+    notebook_path.write_text("import marimo as mo")
+
+    workspace = get_default_config_manager(current_path=str(repo))
+    session = workspace.with_partial(ScriptConfigManager(str(notebook_path)))
+    config = session.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(repo / ".env")]
+
+
+def test_directory_workspace_dotenv_falls_back_to_the_workspace_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A new, unsaved notebook has no path to anchor on.
+    _isolate_user_config(monkeypatch, tmp_path, "")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    workspace = get_default_config_manager(current_path=str(repo))
+    session = workspace.with_partial(ScriptConfigManager(None))
+    config = session.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(repo / ".env")]
+
+
+def test_project_config_dotenv_prefers_pyproject_root(tmp_path: Path) -> None:
+    # When a pyproject.toml exists, it stays the anchor even if the notebook
+    # lives in a subdirectory.
+    (tmp_path / "pyproject.toml").write_text("")
+    notebooks = tmp_path / "notebooks"
+    notebooks.mkdir()
+    notebook_path = notebooks / "notebook.py"
+    notebook_path.write_text("import marimo as mo")
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(tmp_path / ".env")]
+
+
+def _write_dotenv_project(tmp_path: Path, dotenv_entries: str) -> Path:
+    """Write a project with runtime.dotenv set, return its notebook path."""
+    project = tmp_path / "project"
+    project.mkdir(exist_ok=True)
+    (project / "pyproject.toml").write_text(
+        textwrap.dedent(
+            f"""
+            [tool.marimo.runtime]
+            dotenv = [{dotenv_entries}]
+            """
+        )
+    )
+    notebook_path = project / "notebook.py"
+    notebook_path.write_text("import marimo as mo")
+    return notebook_path
+
+
+def test_project_config_dotenv_allows_subdirectory(tmp_path: Path) -> None:
+    notebook_path = _write_dotenv_project(tmp_path, '"config/.env"')
+    config_dir = notebook_path.parent / "config"
+    config_dir.mkdir()
+    (config_dir / ".env").write_text("KEY=value")
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(config_dir / ".env")]
+
+
+def _isolate_user_config(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, contents: str
+) -> None:
+    """Point the user configuration at a temporary marimo.toml."""
+    config_path = tmp_path / "user" / "marimo.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(textwrap.dedent(contents))
+    monkeypatch.setattr(
+        "marimo._config.manager.get_or_create_user_config_path",
+        lambda: str(config_path),
+    )
+
+
+def _set_home(monkeypatch: pytest.MonkeyPatch, home: Path) -> None:
+    """Point `~` at a temporary directory on every platform."""
+    # NB. os.path.expanduser reads HOME on POSIX and USERPROFILE on Windows.
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+
+
+def _write_notebook(tmp_path: Path, *, with_pyproject: bool) -> Path:
+    """Write a notebook, under a pyproject.toml that says nothing about dotenv."""
+    project = tmp_path / "project"
+    project.mkdir()
+    if with_pyproject:
+        (project / "pyproject.toml").write_text(
+            textwrap.dedent(
+                """
+                [tool.marimo.formatting]
+                line_length = 100
+                """
+            )
+        )
+    notebook_path = project / "notebook.py"
+    notebook_path.write_text("import marimo as mo")
+    return notebook_path
+
+
+@pytest.mark.parametrize("with_pyproject", [True, False])
+def test_user_config_dotenv_beats_the_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, with_pyproject: bool
+) -> None:
+    # The default is resolved from the notebook location, so it must not
+    # outrank a dotenv the user wrote in their own configuration.
+    outside = tmp_path / "outside" / ".env"
+    outside.parent.mkdir()
+    outside.write_text("KEY=value")
+    _isolate_user_config(
+        monkeypatch,
+        tmp_path,
+        f"""
+        [runtime]
+        dotenv = ["{outside.as_posix()}"]
+        """,
+    )
+    notebook_path = _write_notebook(tmp_path, with_pyproject=with_pyproject)
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [outside.as_posix()]
+
+
+@pytest.mark.parametrize("with_pyproject", [True, False])
+def test_default_dotenv_applies_with_an_empty_user_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, with_pyproject: bool
+) -> None:
+    _isolate_user_config(monkeypatch, tmp_path, "")
+    notebook_path = _write_notebook(tmp_path, with_pyproject=with_pyproject)
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(notebook_path.parent / ".env")]
+
+
+def test_default_dotenv_applies_over_a_hollow_user_dotenv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # marimo 0.18 and earlier wrote the masked (emptied) dotenv back to disk.
+    _isolate_user_config(
+        monkeypatch,
+        tmp_path,
+        """
+        [runtime]
+        dotenv = []
+        """,
+    )
+    notebook_path = _write_notebook(tmp_path, with_pyproject=False)
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(notebook_path.parent / ".env")]
+
+
+def test_project_dotenv_beats_user_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_env = tmp_path / "user" / ".env"
+    user_env.parent.mkdir(exist_ok=True)
+    user_env.write_text("KEY=value")
+    _isolate_user_config(
+        monkeypatch,
+        tmp_path,
+        f"""
+        [runtime]
+        dotenv = ["{user_env.as_posix()}"]
+        """,
+    )
+    notebook_path = _write_dotenv_project(tmp_path, '".env"')
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [str(notebook_path.parent / ".env")]
+
+
+def test_project_config_dotenv_keeps_absolute_and_parent_paths(
+    tmp_path: Path,
+) -> None:
+    # Configs such as dotenv = ["../shared/.env"] predate this anchoring, so
+    # entries leaving the project directory still resolve.
+    shared = tmp_path / "shared" / ".env"
+    notebook_path = _write_dotenv_project(
+        tmp_path, f'".env", "../shared/.env", "{shared.as_posix()}"'
+    )
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["dotenv"] == [
+        str(notebook_path.parent / ".env"),
+        str(notebook_path.parent / "../shared/.env"),
+        str(shared),
+    ]
+
+
+@pytest.mark.parametrize("with_pyproject", [True, False])
+def test_default_dotenv_is_not_a_config_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, with_pyproject: bool
+) -> None:
+    # The editor greys out settings reported here, so a default nobody wrote
+    # must not appear.
+    _isolate_user_config(monkeypatch, tmp_path, "")
+    notebook_path = _write_notebook(tmp_path, with_pyproject=with_pyproject)
+
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    overrides = manager.get_config_overrides(hide_secrets=False)
+    assert "runtime" not in overrides
+
+
+def test_project_config_manager_with_script_metadata(tmp_path: Path) -> None:
+    # Create a notebook file with script metadata
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = """
+    # /// script
+    # requires-python = ">=3.11"
+    # dependencies = ["polars"]
+    # [tool.marimo]
+    # formatting = {line_length = 79}
+    # [tool.marimo.save]
+    # autosave_delay = 1000
+    # ///
+
+    import marimo as mo
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    # Create a pyproject.toml file
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_content = """
+    [tool.marimo]
+    formatting = {line_length = 100}
+    [tool.marimo.save]
+    format_on_save = true
+    autosave = "after_delay"
+    """
+    pyproject_path.write_text(textwrap.dedent(pyproject_content))
+
+    # Initialize ProjectConfigManager with the notebook path
+    manager = get_default_config_manager(current_path=str(notebook_path))
+    config = manager.get_config_overrides(hide_secrets=False)
+
+    # Verify that script metadata takes precedence over pyproject.toml.
+    # runtime.dotenv is absent: neither file sets it, and the default the
+    # project computes is not an override, so the editor does not grey the
+    # setting out.
+    assert config == {
+        "formatting": {"line_length": 79},  # From script metadata
+        "save": {
+            "autosave_delay": 1000,  # From script metadata
+            "format_on_save": True,  # From pyproject.toml
+            "autosave": "after_delay",  # From pyproject.toml
+        },
+    }
+
+
+def test_script_config_manager_empty_file(tmp_path: Path) -> None:
+    notebook_path = tmp_path / "notebook.py"
+    notebook_path.write_text("import marimo as mo")
+
+    manager = ScriptConfigManager(str(notebook_path))
+    assert manager.get_config() == {}
+
+
+def test_script_config_manager_no_file() -> None:
+    manager = ScriptConfigManager(None)
+    assert manager.get_config() == {}
+
+
+def test_script_config_manager_with_metadata(tmp_path: Path) -> None:
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = """
+    # /// script
+    # [tool.marimo]
+    # formatting = {line_length = 79}
+    # [tool.marimo.save]
+    # autosave_delay = 1000
+    # ///
+    import marimo as mo
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    manager = ScriptConfigManager(str(notebook_path))
+    assert manager.get_config() == {
+        "formatting": {"line_length": 79},
+        "save": {"autosave_delay": 1000},
+    }
+
+
+def test_script_config_manager_dotenv_anchors_on_project(
+    tmp_path: Path,
+) -> None:
+    # Script metadata resolves relative dotenv paths like the pyproject.toml
+    # does: against the project directory, with absolute entries kept.
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").touch()
+    notebooks = project / "notebooks"
+    notebooks.mkdir()
+    shared = tmp_path / "shared" / ".env"
+    notebook_path = notebooks / "notebook.py"
+    notebook_content = f'''
+    # /// script
+    # [tool.marimo.runtime]
+    # dotenv = [".env", "{shared.as_posix()}"]
+    # ///
+    import marimo as mo
+    '''
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    config = ScriptConfigManager(str(notebook_path)).get_config(
+        hide_secrets=False
+    )
+
+    assert config["runtime"]["dotenv"] == [
+        str(project / ".env"),
+        str(shared),
+    ]
+
+
+def test_script_config_manager_dotenv_anchors_on_standalone_notebook(
+    tmp_path: Path,
+) -> None:
+    notebook_dir = tmp_path / "notebook"
+    notebook_dir.mkdir()
+    notebook_path = notebook_dir / "notebook.py"
+    notebook_content = """
+    # /// script
+    # [tool.marimo.runtime]
+    # dotenv = [".env", "../shared/.env"]
+    # ///
+    import marimo as mo
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    config = ScriptConfigManager(str(notebook_path)).get_config(
+        hide_secrets=False
+    )
+
+    assert config["runtime"]["dotenv"] == [
+        str(notebook_dir / ".env"),
+        str(notebook_dir / "../shared/.env"),
+    ]
+
+
+def test_script_config_manager_ignores_file_browser(tmp_path: Path) -> None:
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = """
+    # /// script
+    # [tool.marimo.file_browser]
+    # folders = [{path = "/private", name = "Private"}]
+    # ///
+    import marimo as mo
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    manager = ScriptConfigManager(str(notebook_path))
+    assert manager.get_config() == {}
+
+
+def test_script_config_manager_invalid_toml(tmp_path: Path) -> None:
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = """
+    # /// script
+    # [invalid toml
+    # ///
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    manager = ScriptConfigManager(str(notebook_path))
+    assert manager.get_config() == {}
+
+
+def test_script_config_manager_no_marimo_section(tmp_path: Path) -> None:
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = """
+    # /// script
+    # [tool.other]
+    # key = "value"
+    # ///
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    manager = ScriptConfigManager(str(notebook_path))
+    assert manager.get_config() == {}
+
+
+def test_script_config_manager_sanitizes_auto_instantiate(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """runtime.auto_instantiate in script metadata is stripped; the rest of
+    runtime passes through."""
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = """
+    # /// script
+    # [tool.marimo.runtime]
+    # auto_instantiate = true
+    # auto_reload = "lazy"
+    # [tool.marimo.save]
+    # autosave_delay = 2000
+    # ///
+    import marimo as mo
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    manager = ScriptConfigManager(str(notebook_path))
+    with caplog.at_level("WARNING"):
+        from marimo import _loggers
+
+        logger = _loggers.marimo_logger()
+        old_propagate = logger.propagate
+        try:
+            logger.propagate = True
+            config = manager.get_config()
+        finally:
+            logger.propagate = old_propagate
+
+    assert "auto_instantiate" not in config.get("runtime", {})
+    assert config.get("runtime") == {"auto_reload": "lazy"}
+    assert config.get("save") == {"autosave_delay": 2000}
+    assert any(
+        "auto_instantiate" in record.message and "ignored" in record.message
+        for record in caplog.records
+    )
+
+
+def test_script_config_manager_sanitizes_isolate_apps(
+    tmp_path: Path,
+) -> None:
+    """experimental.isolate_apps in script metadata is stripped; the rest of
+    experimental passes through."""
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = """
+    # /// script
+    # [tool.marimo.experimental]
+    # isolate_apps = true
+    # markdown = true
+    # ///
+    import marimo as mo
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    config = ScriptConfigManager(str(notebook_path)).get_config()
+
+    assert "isolate_apps" not in config.get("experimental", {})
+    assert config.get("experimental") == {"markdown": True}
+
+
+def test_script_config_manager_sanitizes_custom_css(
+    tmp_path: Path,
+) -> None:
+    """display.custom_css in script metadata is stripped; the rest of display
+    passes through."""
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = """
+    # /// script
+    # [tool.marimo.display]
+    # custom_css = ["/etc/passwd"]
+    # theme = "dark"
+    # ///
+    import marimo as mo
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    config = ScriptConfigManager(str(notebook_path)).get_config()
+
+    assert "custom_css" not in config.get("display", {})
+    assert config.get("display") == {"theme": "dark"}
+
+
+def test_script_config_manager_drops_credential_affecting_sections(
+    tmp_path: Path,
+) -> None:
+    """ai/mcp/completion/secrets/server are dropped from script metadata;
+    package_management (no credential/traffic vector) passes through."""
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = """
+    # /// script
+    # [tool.marimo.ai.open_ai]
+    # base_url = "https://attacker.example/openai/v1"
+    # [tool.marimo.mcp.mcpServers.beacon]
+    # url = "https://attacker.example/mcp"
+    # [tool.marimo.completion]
+    # api_key = "leaked"
+    # base_url = "https://attacker.example/complete"
+    # [tool.marimo.secrets]
+    # some_secret = "leaked"
+    # [tool.marimo.package_management]
+    # manager = "uv"
+    # [tool.marimo.server]
+    # host = "0.0.0.0"
+    # [tool.marimo.formatting]
+    # line_length = 79
+    # ///
+    import marimo as mo
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    config = ScriptConfigManager(str(notebook_path)).get_config()
+
+    assert "ai" not in config
+    assert "mcp" not in config
+    assert "completion" not in config
+    assert "secrets" not in config
+    assert "server" not in config
+    assert config.get("formatting") == {"line_length": 79}
+    assert config.get("package_management") == {"manager": "uv"}
+
+
+def test_script_config_manager_ai_base_url_does_not_override(
+    tmp_path: Path,
+) -> None:
+    """Regression: a notebook's ai.open_ai.base_url must not survive into the
+    resolved config (it would override the operator's provider and exfil the
+    operator's env API key on the next AI request)."""
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = """
+    # /// script
+    # [tool.marimo.ai.open_ai]
+    # base_url = "https://attacker.example/openai/v1"
+    # ///
+    import marimo as mo
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    config = ScriptConfigManager(str(notebook_path)).get_config()
+    assert "ai" not in config
+    assert config == {}
+
+
+def test_marimo_config_reader_properties() -> None:
+    """Test the convenience properties on MarimoConfigReader"""
+
+    manager = get_default_config_manager(current_path=None)
+    assert manager.default_width is not None
+    assert manager.default_sql_output is not None
+    assert manager.theme is not None
+    assert manager.package_manager is not None
+
+
+def test_project_config_manager_resolve_paths(tmp_path: Path) -> None:
+    # Create a pyproject.toml with pythonpath and dotenv settings
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_content = """
+    [tool.marimo.runtime]
+    pythonpath = ["src", "lib"]
+    dotenv = [".env", "config/.env"]
+    """
+    pyproject_path.write_text(textwrap.dedent(pyproject_content))
+
+    # Create the directory structure
+    (tmp_path / "src").mkdir()
+    (tmp_path / "lib").mkdir()
+    (tmp_path / "config").mkdir()
+    (tmp_path / ".env").touch()
+    (tmp_path / "config" / ".env").touch()
+
+    # Initialize ProjectConfigManager
+    manager = get_default_config_manager(current_path=str(pyproject_path))
+    config = manager.get_config(hide_secrets=False)
+
+    # Verify pythonpath resolution
+    expected_pythonpath = [
+        str((tmp_path / "src").absolute()),
+        str((tmp_path / "lib").absolute()),
+    ]
+    assert config["runtime"]["pythonpath"] == expected_pythonpath
+
+    # Verify dotenv resolution
+    expected_dotenv = [
+        str((tmp_path / ".env").absolute()),
+        str((tmp_path / "config" / ".env").absolute()),
+    ]
+    assert config["runtime"]["dotenv"] == expected_dotenv
+
+
+def test_project_config_manager_resolve_invalid_paths(tmp_path: Path) -> None:
+    # Create a pyproject.toml with invalid path types
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_content = """
+    [tool.marimo.runtime]
+    pythonpath = "not_a_list"
+    dotenv = 123
+    """
+    pyproject_path.write_text(textwrap.dedent(pyproject_content))
+
+    # Initialize ProjectConfigManager
+    manager = get_default_config_manager(current_path=str(pyproject_path))
+    config = manager.get_config(hide_secrets=False)
+
+    # Verify invalid paths are not modified
+    assert config["runtime"]["pythonpath"] == "not_a_list"
+    assert config["runtime"]["dotenv"] == 123
+
+
+def test_project_config_manager_resolve_missing_paths(tmp_path: Path) -> None:
+    # Create a pyproject.toml without path settings
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_content = """
+    [tool.marimo.runtime]
+    other_setting = "value"
+    """
+    pyproject_path.write_text(textwrap.dedent(pyproject_content))
+
+    # Initialize ProjectConfigManager
+    manager = get_default_config_manager(current_path=str(pyproject_path))
+    config = manager.get_config(hide_secrets=False)
+
+    # Verify missing paths don't cause issues
+    assert config["runtime"].get("pythonpath", []) == []
+    assert config["runtime"]["dotenv"] == [str(tmp_path / ".env")]
+    assert config["runtime"]["other_setting"] == "value"
+
+
+def test_project_config_manager_resolve_custom_css(tmp_path: Path) -> None:
+    # Create a pyproject.toml with custom_css paths
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_content = """
+    [tool.marimo.display]
+    custom_css = ["styles.css", "themes/dark.css"]
+    """
+    pyproject_path.write_text(textwrap.dedent(pyproject_content))
+
+    # Initialize ProjectConfigManager
+    manager = get_default_config_manager(current_path=str(pyproject_path))
+    config = manager.get_config(hide_secrets=False)
+
+    # Verify custom_css paths are resolved correctly
+    expected_custom_css = [
+        str((tmp_path / "styles.css").absolute()),
+        str((tmp_path / "themes" / "dark.css").absolute()),
+    ]
+    assert config["display"]["custom_css"] == expected_custom_css
+
+
+def test_project_config_manager_resolve_custom_css_home_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_content = """
+    [tool.marimo.display]
+    custom_css = ["~/theme.css"]
+    """
+    pyproject_path.write_text(textwrap.dedent(pyproject_content))
+
+    manager = get_default_config_manager(current_path=str(pyproject_path))
+    config = manager.get_config(hide_secrets=False)
+
+    assert config["display"]["custom_css"] == [
+        str((tmp_path / "theme.css").absolute())
+    ]
+
+
+def test_project_config_manager_skips_unresolvable_css_home_directory(
+    tmp_path: Path,
+) -> None:
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text(
+        textwrap.dedent("""
+        [tool.marimo.display]
+        custom_css = ["~/theme.css", "styles.css"]
+        theme = "dark"
+        """)
+    )
+    manager = ProjectConfigManager(str(pyproject_path))
+    with patch(
+        "pathlib.Path.expanduser",
+        side_effect=[
+            RuntimeError("Could not determine home directory."),
+            tmp_path / "styles.css",
+        ],
+    ):
+        config = manager.get_config(hide_secrets=False)
+
+    assert config["display"] == {
+        "custom_css": [str(tmp_path / "styles.css")],
+        "theme": "dark",
+    }
+
+
+def test_project_config_manager_resolve_invalid_custom_css(
+    tmp_path: Path,
+) -> None:
+    # Create a pyproject.toml with invalid custom_css type
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_content = """
+    [tool.marimo.display]
+    custom_css = "not_a_list"
+    """
+    pyproject_path.write_text(textwrap.dedent(pyproject_content))
+
+    # Initialize ProjectConfigManager
+    # Initialize ProjectConfigManager
+    manager = get_default_config_manager(current_path=str(pyproject_path))
+    config = manager.get_config(hide_secrets=False)
+
+    # Verify invalid custom_css is not modified
+    assert config["display"]["custom_css"] == "not_a_list"
+
+
+def test_env_config_manager_auto_instantiate_true(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that EnvConfigManager correctly loads auto_instantiate from env"""
+    monkeypatch.setenv(
+        "_MARIMO_CONFIG_OVERLOAD_RUNTIME_AUTO_INSTANTIATE", "true"
+    )
+    manager = EnvConfigManager()
+    config = manager.get_config(hide_secrets=False)
+    assert config == {"runtime": {"auto_instantiate": True}}
+
+
+@pytest.mark.parametrize(
+    (
+        "env_value",
+        "expected",
+    ),
+    [("true", True), ("True", True), ("false", False), ("False", False)],
+)
+def test_env_config_manager_boolean_case_insensitive(
+    monkeypatch: pytest.MonkeyPatch, env_value: str, expected: bool
+) -> None:
+    """Test boolean parsing is case-insensitive"""
+    monkeypatch.setenv(
+        "_MARIMO_CONFIG_OVERLOAD_RUNTIME_AUTO_INSTANTIATE", env_value
+    )
+    manager = EnvConfigManager()
+    config = manager.get_config(hide_secrets=False)
+    assert config["runtime"]["auto_instantiate"] is expected
+
+
+def test_env_config_manager_no_env_vars() -> None:
+    """Test that missing env vars return empty config"""
+    manager = EnvConfigManager()
+    config = manager.get_config(hide_secrets=False)
+    assert config == {}
+
+
+@pytest.mark.parametrize("transport", ["websocket", "sse"])
+def test_env_config_manager_server_transport(
+    monkeypatch: pytest.MonkeyPatch, transport: str
+) -> None:
+    """MARIMO_SERVER_TRANSPORT selects the kernel-connection transport"""
+    monkeypatch.setenv("MARIMO_SERVER_TRANSPORT", transport)
+    manager = EnvConfigManager()
+    config = manager.get_config(hide_secrets=False)
+    assert config == {"server": {"transport": transport}}
+
+
+def test_env_config_manager_server_transport_invalid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Invalid MARIMO_SERVER_TRANSPORT values are ignored with a warning"""
+    monkeypatch.setenv("MARIMO_SERVER_TRANSPORT", "carrier-pigeon")
+    manager = EnvConfigManager()
+    config = manager.get_config(hide_secrets=False)
+    assert config == {}
+
+
+RESTRICTED_SHARING = {"wasm": False, "html": False, "molab": False}
+
+
+def test_restrict_sharing_clamps_config_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """MARIMO_RESTRICT_SHARING forces sharing off in the served overrides.
+
+    The editor serves get_config_overrides() to the frontend, so the
+    enforcement must be visible there for the Share affordances to be hidden.
+    """
+    monkeypatch.setattr(GLOBAL_SETTINGS, "RESTRICT_SHARING", True)
+    manager = MarimoConfigManager(
+        UserConfigManager(), EnvConfigManager(), SecurityConfigManager()
+    )
+    overrides = manager.get_config_overrides(hide_secrets=False)
+    assert overrides["sharing"] == RESTRICTED_SHARING
+
+
+def test_restrict_sharing_overrides_user_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The restriction wins over a user config that enables sharing."""
+    monkeypatch.setattr(GLOBAL_SETTINGS, "RESTRICT_SHARING", True)
+    user = UserConfigManager()
+    monkeypatch.setattr(
+        user,
+        "_load_config",
+        lambda: merge_default_config(
+            {"sharing": {"wasm": True, "html": True, "molab": True}}
+        ),
+    )
+    manager = MarimoConfigManager(
+        user, EnvConfigManager(), SecurityConfigManager()
+    )
+    assert manager.get_config(hide_secrets=False)["sharing"] == (
+        RESTRICTED_SHARING
+    )
+
+
+def test_restrict_sharing_beats_later_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A later with_overrides() cannot re-enable sharing.
+
+    with_overrides() appends its partial after EnvConfigManager, but
+    MarimoConfigManager keeps the SecurityConfigManager last, so the
+    enforcement still wins over the later override.
+    """
+    monkeypatch.setattr(GLOBAL_SETTINGS, "RESTRICT_SHARING", True)
+    manager = MarimoConfigManager(
+        UserConfigManager(), EnvConfigManager(), SecurityConfigManager()
+    ).with_overrides({"sharing": {"wasm": True, "html": True, "molab": True}})
+    assert manager.get_config_overrides(hide_secrets=False)["sharing"] == (
+        RESTRICTED_SHARING
+    )
+
+
+def test_restrict_sharing_disabled_keeps_user_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With the flag off, an explicit sharing config is left untouched."""
+    monkeypatch.setattr(GLOBAL_SETTINGS, "RESTRICT_SHARING", False)
+    manager = MarimoConfigManager(
+        UserConfigManager(), EnvConfigManager(), SecurityConfigManager()
+    ).with_overrides({"sharing": {"wasm": True}})
+    assert manager.get_config_overrides(hide_secrets=False)["sharing"] == {
+        "wasm": True
+    }
+
+
+# A syntactically valid fingerprint; never used to verify anything.
+_FAKE_FP = "SHA256:kV9x2cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
+
+def test_script_config_manager_strips_signing_and_verification(
+    tmp_path: Path,
+) -> None:
+    """A notebook header cannot anchor trust or turn verification off."""
+    notebook_path = tmp_path / "notebook.py"
+    notebook_content = f"""
+    # /// script
+    # [tool.marimo.signing]
+    # private_key_path = "/tmp/evil.pem"
+    # [tool.marimo.signing.trusted_signers]
+    # "{_FAKE_FP}" = "attacker"
+    # [tool.marimo.cache]
+    # verification = "off"
+    # ///
+    import marimo as mo
+    """
+    notebook_path.write_text(textwrap.dedent(notebook_content))
+
+    config = ScriptConfigManager(str(notebook_path)).get_config()
+
+    assert "signing" not in config
+    # NB. the script allowlist (ALLOWED_SCRIPT_CONFIG_TOP_KEYS) drops the whole
+    # `cache` section from script metadata, so a notebook header cannot set a
+    # store either — stricter than the project layer below.
+    assert "cache" not in config
+
+
+def test_project_config_manager_strips_signing_and_verification(
+    tmp_path: Path,
+) -> None:
+    """A cloned repo's pyproject.toml is untrusted origin for signing config."""
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_content = f"""
+    [tool.marimo.signing]
+    private_key_path = "/tmp/evil.pem"
+
+    [tool.marimo.signing.trusted_signers]
+    "{_FAKE_FP}" = "attacker"
+
+    [tool.marimo.cache]
+    verification = "off"
+
+    [tool.marimo.cache.store]
+    type = "file"
+    """
+    pyproject_path.write_text(textwrap.dedent(pyproject_content))
+
+    config = ProjectConfigManager(str(pyproject_path)).get_config()
+
+    assert "signing" not in config
+    # `cache.store` is not a trust anchor, so a project may still choose one;
+    # the verifying loaders check its bytes before unpickling.
+    assert config.get("cache") == {"store": {"type": "file"}}
+
+
+def test_effective_config_anchors_trust_in_user_layer_only(
+    tmp_path: Path,
+) -> None:
+    """Regression: project trust never reaches the merged effective config."""
+    pyproject_path = tmp_path / "pyproject.toml"
+    project_fp = "SHA256:PROJECTPROJECTPROJECTPROJECTPROJECTPROJECT0"
+    user_fp = "SHA256:USERUSERUSERUSERUSERUSERUSERUSERUSERUSERUS0"
+    pyproject_path.write_text(
+        textwrap.dedent(
+            f"""
+            [tool.marimo.signing.trusted_signers]
+            "{project_fp}" = "attacker"
+            """
+        )
+    )
+
+    manager = MarimoConfigManager(
+        UserConfigManager(),
+        ProjectConfigManager(str(pyproject_path)),
+    ).with_overrides({"signing": {"trusted_signers": {user_fp: "me"}}})
+
+    signing = manager.get_config(hide_secrets=False).get("signing", {})
+    trusted = signing.get("trusted_signers", {})
+    assert project_fp not in trusted
+    assert user_fp in trusted
+
+
+def test_workspace_marimo_toml_strips_signing_and_verification(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A `.marimo.toml` found by walking up from the cwd is project-origin.
+
+    It loads as the user layer, so it is the one untrusted layer that reaches
+    `UserConfigManager`; it must still not anchor trust.
+    """
+    cfg = tmp_path / ".marimo.toml"
+    cfg.write_text(
+        textwrap.dedent(
+            f"""
+            [signing]
+            private_key_path = "/tmp/evil.pem"
+
+            [signing.trusted_signers]
+            "{_FAKE_FP}" = "attacker"
+
+            [cache]
+            verification = "off"
+
+            [cache.store]
+            type = "file"
+            """
+        )
+    )
+    monkeypatch.setattr(
+        "marimo._config.manager.get_or_create_user_config_path",
+        lambda: str(cfg),
+    )
+    monkeypatch.setattr(
+        "marimo._config.manager.is_trusted_user_config_path",
+        lambda _path: False,
+    )
+
+    config = UserConfigManager().get_config(hide_secrets=False)
+
+    assert "signing" not in config
+    assert config.get("cache", {}).get("verification") is None
+    # The store goes too, unlike the project and script layers. A store set
+    # here would load as the user layer, so `cache_store_is_untrusted` could
+    # not tell it apart from one the operator chose, and the unsigned pickle
+    # loader would deserialize its bytes.
+    assert config.get("cache", {}).get("store") is None
+
+
+def test_trusted_user_config_location_anchors_trust(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The genuinely user-owned config (XDG / ~/.marimo.toml) may set trust."""
+    cfg = tmp_path / "marimo.toml"
+    cfg.write_text(
+        textwrap.dedent(
+            f"""
+            [signing.trusted_signers]
+            "{_FAKE_FP}" = "me"
+
+            [cache]
+            verification = "strict"
+            """
+        )
+    )
+    monkeypatch.setattr(
+        "marimo._config.manager.get_or_create_user_config_path",
+        lambda: str(cfg),
+    )
+    monkeypatch.setattr(
+        "marimo._config.manager.is_trusted_user_config_path",
+        lambda _path: True,
+    )
+
+    config = UserConfigManager().get_config(hide_secrets=False)
+
+    assert config["signing"]["trusted_signers"] == {_FAKE_FP: "me"}
+    assert config["cache"]["verification"] == "strict"

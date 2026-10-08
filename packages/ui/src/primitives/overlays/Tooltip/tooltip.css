@@ -1,0 +1,55 @@
+/* ── Tooltip ─────────────────────────────────────────────────────────────── */
+/* A small label on the inked surface — the bench's annotation, not a card. Inverted ground (primary
+ * ink fill, card text) the way a plate's caption stamp reads against the paper. Portaled to the
+ * themed root so it inherits the active scheme; position (top/left/z-index) is set inline by
+ * useFloating, so this owns only the look + the open/close fade. `pointer-events: none` so the tip
+ * never steals the hover that summoned it. Only a fade + a faint scale here — no rise; a tooltip
+ * should appear AT its mark, not drift in. */
+
+.alk-tooltip {
+  max-width: 240px;
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkPrimaryText);
+  color: var(--alkCardBg);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+  line-height: var(--alkLeadingSnug);
+  font-weight: var(--alkWeightMedium);
+  box-shadow: var(--alkShadowMd);
+  pointer-events: none;
+  /* Enter/exit: usePresence commits the closed start-state before flipping to open, so it animates
+     in rather than teleporting, and stays mounted through the exit so it animates out too. */
+  opacity: 0;
+  transform: scale(0.96);
+  transform-origin: center;
+  transition: opacity var(--alkDurationNormal) var(--alkEaseStandard),
+    transform var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+.alk-tooltip[data-wrap="true"] {
+  max-width: min(360px, calc(100vw - 24px));
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: auto;
+  /* A tip is `pointer-events: none`, so anything past the fold cannot be
+     scrolled to. A wrapped label that would outrun the viewport is cut to a
+     readable block instead of a panel with no way into its own tail. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 12;
+  overflow: hidden;
+}
+
+.alk-tooltip[data-state="open"] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-tooltip {
+    transition: opacity var(--alkDurationNormal) var(--alkEaseStandard);
+    transform: none;
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "00000000d6": {
+        "defs": [
+          "x"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "x = 1",
+        "config": {},
+        "extra": {
+          "alkera_future": 1
+        },
+        "id": "00000000d6",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "x = 1"
+      }
+    ],
+    "format": "1.7",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "new_setting = \"x\"",
+    "violations": []
+  }
+}

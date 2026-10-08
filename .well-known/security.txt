@@ -1,0 +1,6 @@
+# Alkera security contact (RFC 9116). Canonical copy; serve this at
+# https://<your-alkera-host>/.well-known/security.txt
+Contact: mailto:security@alkera.ai
+Expires: 2027-06-28T00:00:00.000Z
+Preferred-Languages: en
+Policy: https://github.com/AlkeraAI/Databench/blob/main/SECURITY.md

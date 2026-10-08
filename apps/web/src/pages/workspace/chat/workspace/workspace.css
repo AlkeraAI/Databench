@@ -1,0 +1,496 @@
+/* The panes and tabs the chat opens beside its transcript.
+ *
+ * Every rule here is measured against the pane it sits in, never against the
+ * viewport: the workspace is one column of a resizable split, so a height in
+ * `vh` would size a file preview against the window and push the chat off the
+ * screen when the reader drags the gutter. The column is `min-height: 0` all the
+ * way down so the preview, not the page, is what scrolls.
+ */
+
+.alk-ws-file {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+/* The bar over a file: what it is, on the left; what can be done with it, on the
+ * right. ONE line, always — the dock is a column the reader drags, and a bar
+ * that answers a narrow one by taking a second row charges the file itself for
+ * the controls above it. A long name is cut with the whole chat-relative path on
+ * its `title`; the readings come off the line and join that title when there is
+ * no room for them; and an action that no longer fits folds into the menu at the
+ * end rather than being drawn as half a control. */
+.alk-ws-file__bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--alkSpace2);
+  padding: var(--alkSpace1) var(--alkSpace2);
+  border-bottom: 1px solid var(--alkBorder);
+  background: var(--alkCardBg);
+}
+
+.alk-ws-file__name {
+  font-weight: var(--alkWeightSemibold);
+  color: var(--alkPrimaryText);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+/* The readings give way before the name does: they shrink (and cut) far
+ * faster, so a long file name is cut only once they are gone. */
+.alk-ws-file__fact {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs, var(--alkTextSm));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 0 100 auto;
+}
+
+/* Pushed to the trailing edge so the facts keep the space they need and the
+ * actions stay where the reader's hand expects them. Never wraps: the count
+ * that fits is decided from the measured width, and the rest are in the menu. */
+.alk-ws-file__actions {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0;
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+}
+
+/* A glyph row is denser than the control scale's own padding allows: the square
+ * target stays a comfortable 26px, the gap between two of them goes. */
+.alk-ws-file__actions .alk-btn[data-icon] {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+}
+
+/* The pane the preview is given, and nothing more. It does NOT scroll: every
+   renderer scrolls inside itself, and a scrolling ancestor here is what a
+   sticky header or a pinned bar inside the preview would answer to instead of
+   its own box — which is how the CSV pager came to be drawn across the middle
+   of the table in this embedding and not in the Files page's modal. */
+.alk-ws-file__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.alk-ws-file__body > .alk-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Text a live document could not keep, offered back: a row above the body. */
+.alk-live-edits-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  padding: var(--alkSpace2) var(--alkSpace3);
+  color: var(--alkWarningText);
+  background: var(--alkWarningSoft);
+  font-size: var(--alkTextSm);
+}
+
+.alk-live-edits-notice__message {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.alk-ws-file__refusal {
+  margin: 0;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  color: var(--alkDangerText);
+  background: var(--alkDangerSoft);
+  font-size: var(--alkTextSm);
+}
+
+/* The two spoken lines. They carry text only when something has just happened,
+ * so they take no room in the bar and never push the preview down. */
+.alk-ws-file__copied,
+.alk-ws-file__live {
+  margin: 0;
+  padding: 0 var(--alkSpace3);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.alk-ws-file__copied:empty,
+.alk-ws-file__live:empty {
+  padding: 0;
+}
+
+.alk-ws-file--gone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--alkSpace5);
+}
+
+/* The pane itself: a strip of tabs over one panel. It is a column that may
+ * shrink all the way down, which is what puts the scrollbar on the panel rather
+ * than on the page — the split view gives this pane a width, its host gives it
+ * a height, and nothing here asks the window for either. */
+.alk-ws {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  background: var(--alkPageBg);
+}
+
+/* The panel under the strip. One tab's panel is mounted at a time, so this box
+ * is the whole of what the reader is looking at. */
+.alk-ws__panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.alk-ws__panel > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The editor groups. A split is a flex line along its axis; each cell takes its
+ * share of the line through `flex-grow` (set inline from the layout) from a zero
+ * basis, so the shares are the widths whatever the contents want. */
+.alk-ws-groups {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.alk-ws-groups > .alk-ws-group,
+.alk-ws-groups > .alk-ws-split {
+  flex: 1 1 0;
+}
+
+.alk-ws-split {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.alk-ws-split[data-axis="column"] {
+  flex-direction: column;
+}
+
+.alk-ws-split__cell {
+  display: flex;
+  flex-basis: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.alk-ws-split__cell > * {
+  flex: 1 1 0;
+}
+
+/* The boundary between two groups: a hairline to look at, a wider band to grab. */
+.alk-ws-split__divider {
+  position: relative;
+  flex: 0 0 1px;
+  background: var(--alkDivider);
+  touch-action: none;
+}
+
+.alk-ws-split__divider::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+}
+
+.alk-ws-split__divider[data-axis="row"] {
+  cursor: col-resize;
+}
+
+.alk-ws-split__divider[data-axis="row"]::after {
+  inset: 0 calc(var(--alkSpace1) * -1);
+}
+
+.alk-ws-split__divider[data-axis="column"] {
+  cursor: row-resize;
+}
+
+.alk-ws-split__divider[data-axis="column"]::after {
+  inset: calc(var(--alkSpace1) * -1) 0;
+}
+
+.alk-ws-split__divider:hover,
+.alk-ws-split__divider:focus-visible {
+  background: var(--alkBrandText);
+  outline: none;
+}
+
+.alk-ws-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Where the keyboard and a new file go, among several groups. */
+.alk-ws-group[data-active] .alk-tabstrip {
+  box-shadow: inset 0 2px 0 0 var(--alkFocusRing);
+}
+
+.alk-ws-group__actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+.alk-ws-group__actions .alk-btn[data-icon] {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+}
+
+.alk-ws-group .alk-ws__panel {
+  position: relative;
+}
+
+/* Over a group's panel while a tab is dragged: it takes the drag from whatever
+ * the panel holds (a framed page would swallow it) and shows where it lands. */
+.alk-ws-drop {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+
+.alk-ws-drop__target {
+  position: absolute;
+  inset: 0;
+  background: var(--alkSelectedBg);
+  border: 2px solid var(--alkBrandText);
+  border-radius: var(--alkRadiusSm);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.alk-ws-drop__target[data-zone="left"] {
+  right: 50%;
+}
+
+.alk-ws-drop__target[data-zone="right"] {
+  left: 50%;
+}
+
+.alk-ws-drop__target[data-zone="up"] {
+  bottom: 50%;
+}
+
+.alk-ws-drop__target[data-zone="down"] {
+  top: 50%;
+}
+
+/* The switch between a file's source and its rendering, on the file's bar. */
+.alk-ws-file__views {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+.alk-ws-file__views + .alk-ws-file__actions {
+  margin-inline-start: var(--alkSpace1);
+}
+
+.alk-ws-file__mode {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0;
+  padding: var(--alkSpace1) var(--alkSpace3);
+  border-bottom: 1px solid var(--alkDivider);
+}
+
+.alk-ws-file__badge {
+  padding: var(--alkSpace0) var(--alkSpace2);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkBadgeBg);
+  color: var(--alkBadgeText);
+  font-size: var(--alkTextXs);
+}
+
+/* The chat's file explorer, as a tab.
+ *
+ * The explorer's own sheet (`treegrid.css`) styles the trail, the buttons and
+ * the rows; the Files PAGE's sheet is not loaded beside a conversation, so the
+ * few rules that sheet would have contributed are here, scoped to this tab. */
+.alk-ws-files {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+/* The listing's columns, at the width the reader dragged the dock to.
+ *
+ * The page's own list layout is one of the rules this sheet stands in for, and
+ * it is the one the dock cannot simply borrow: five tracks whose floors add up
+ * to nearly 600px inside a 395px pane cut every header to a letter or two
+ * ("K…", "Mo…", "Owne") and wrapped the values under them. `dockColumns.ts`
+ * decides which columns this pane can draw whole and hands the tracks that are
+ * left over; Name is always among them and is allowed to shrink, because a name
+ * cut with an ellipsis is still a row the reader can use. */
+.alk-ws-files .alk-files-grid[data-view="list"] .alk-files-grid__row,
+.alk-ws-files .alk-files-grid[data-view="list"] .alk-files-grid__lane {
+  grid-template-columns: var(--chat-dock-grid, minmax(0, 2.6fr) minmax(72px, 0.9fr) minmax(64px, 0.7fr) minmax(150px, 1.6fr) minmax(110px, 1.1fr));
+}
+
+/* One line per cell, ended with an ellipsis: a cell that wraps grows the row
+ * and pushes its text into the neighbour's, which is what a full name in Owner
+ * and a date plus an actor in Modified did here. */
+.alk-ws-files .alk-files-grid[data-view="list"] .alk-files-grid__cell[data-column="kind"],
+.alk-ws-files .alk-files-grid[data-view="list"] .alk-files-grid__cell[data-column="modified"],
+.alk-ws-files .alk-files-grid[data-view="list"] .alk-files-grid__cell[data-column="owner"] {
+  display: block;
+  overflow: hidden;
+  line-height: 32px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The columns this pane gave up. Named by the tab, so the header cell and every
+ * row cell go together and the tracks handed over above stay in step with them. */
+.alk-ws-files[data-hide-columns~="kind"] .alk-files-grid .alk-files-grid__cell[data-column="kind"],
+.alk-ws-files[data-hide-columns~="size"] .alk-files-grid .alk-files-grid__cell[data-column="size"],
+.alk-ws-files[data-hide-columns~="modified"]
+  .alk-files-grid
+  .alk-files-grid__cell[data-column="modified"],
+.alk-ws-files[data-hide-columns~="owner"]
+  .alk-files-grid
+  .alk-files-grid__cell[data-column="owner"] {
+  display: none;
+}
+
+/* The folder line is one line. The trail gives back whatever width the buttons
+ * beside it need, and a title longer than what is left is cut rather than
+ * wrapped — the whole title is on the segment's `title`. */
+.alk-ws-files .alk-files-crumbs {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+}
+
+.alk-ws-files .alk-files-crumbs__list {
+  flex-wrap: nowrap;
+}
+
+/* The mark belongs to the name beside it. Every svg is a block by the reset, so
+ * without this the chat's glyph takes the first line on its own and the title
+ * falls to the second. */
+.alk-ws-files .alk-files-crumbs__current .alk-ic,
+.alk-ws-files .alk-files-crumbs__link .alk-ic {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-inline-end: var(--alkSpace1);
+}
+
+/* Everything that acts on this folder, kept together at the end of the line. */
+.alk-ws-files__acts {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  margin-inline-start: auto;
+}
+
+.alk-ws-files .alk-files-browser__creates {
+  margin-inline-start: 0;
+}
+
+/* Sized to its glyph so it reads as a control beside the words, not as a word. */
+.alk-ws-files__popout,
+.alk-ws-files__trash {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  padding: 2px;
+  color: var(--alkSecondaryText);
+  text-decoration: none;
+}
+
+.alk-ws-files__popout:hover,
+.alk-ws-files__trash:not(:disabled):hover {
+  color: var(--alkPrimaryText);
+}
+
+/* The status bar: one row pinned under the listing saying what is happening to
+ * the folder. Fixed slots in a fixed order — state, machine, time, counts —
+ * because a narrow panel must shorten the bar, never turn it into a paragraph
+ * that eats the rows above it. */
+.alk-ws-status {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  /* Last in the column and never taller than its row: the auto margin above it
+   * takes whatever height the listing did not, so the bar is at the foot of the
+   * panel and not under the last file. */
+  flex: 0 0 auto;
+  margin-block-start: auto;
+  min-width: 0;
+  padding: var(--alkSpace1) var(--alkSpace3);
+  border-top: 1px solid var(--alkBorder);
+  color: var(--alkSecondaryText);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextXs);
+  line-height: var(--alkLeadingSnug);
+}
+
+/* The bar is a footnote, so every chip on it reads at the bar's own size
+ * rather than the chip's default. */
+.alk-ws-status .alk-pill {
+  font-size: var(--alkTextXs);
+}
+
+/* The one part that can be arbitrarily long. It gives way first, and the whole
+ * name is on the title. */
+.alk-ws-status__machine {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-ws-status__when {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Counts end the row, so they stay in one place as the name beside them grows
+ * and shrinks. */
+.alk-ws-status__chips {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+/* A notebook on its way: said in the bar until it opens beside the listing. */
+.alk-ws-files__creating {
+  overflow: hidden;
+  max-inline-size: 16rem;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

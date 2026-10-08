@@ -1,0 +1,32 @@
+{
+  "$model": "alkera_core.schemas.files.operation.OperationState",
+  "bytes": 65536,
+  "conflicts": [
+    {
+      "code": "files.name_taken",
+      "conflict_node_id": null,
+      "metadata": {},
+      "node_id": "n-1",
+      "schema_version": "1.0.0"
+    }
+  ],
+  "cursor": "cursor-17",
+  "done": 17,
+  "errors": [
+    {
+      "code": "files.quota_exceeded",
+      "metadata": {},
+      "node_id": "n-2",
+      "schema_version": "1.0.0"
+    }
+  ],
+  "heartbeat_at": "2026-01-01T12:00:00Z",
+  "kind": "move",
+  "metadata": {},
+  "result_url": null,
+  "result_url_expires_at": null,
+  "schema_version": "1.0.0",
+  "skipped": 1,
+  "state": "running",
+  "total": 100
+}

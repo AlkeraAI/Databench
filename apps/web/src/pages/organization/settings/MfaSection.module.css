@@ -1,0 +1,41 @@
+/* Two-factor (MFA) enrollment flow — the step body and the code-field row are ui Stack/Inline
+   at the call sites. The setup-key reading is the shared CopyReading (via ReadingField); alk-num
+   supplies the mono voice, alk-muted the prose ink — this owns only the layout those roles don't. */
+/* The instructional prose caps to a readable measure and tightens its leading. */
+.mfaCopy {
+  line-height: var(--alkLeadingSnug);
+  max-width: 56ch;
+}
+/* The QR tile stays white in every theme — scanners need dark modules on a light ground — and
+   its padding doubles as the quiet zone the spec asks for around the modules. The QR + setup-key
+   pair row is an ui Inline at the call site. */
+.mfaQr {
+  display: inline-flex;
+  padding: var(--alkSpace7);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: #fff;
+}
+/* The backup-code grid: a two-column block of mono codes in a single brass plate (the reading
+   accent) — a genuine equal-width grid so the short codes align digit-for-digit down each column. */
+.mfaCodes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 24px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--alkPigSeed) 45%, var(--alkBorder));
+  border-radius: var(--alkRadiusMd);
+  background: color-mix(in srgb, var(--alkPigSeed) 8%, var(--alkHoverBg));
+}
+/* Each code (a direct child of the grid) reads a touch wider-spaced than a dense reading — the
+   element selector outranks alk-num's tighter tracking — and is one-click selectable. */
+.mfaCodes > code {
+  color: var(--alkPrimaryText);
+  letter-spacing: 0.04em;
+  user-select: all;
+}
+@media (max-width: 560px) {
+  .mfaCodes {
+    grid-template-columns: 1fr;
+  }
+}

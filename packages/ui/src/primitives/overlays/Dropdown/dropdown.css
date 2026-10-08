@@ -1,0 +1,236 @@
+/* ── Dropdown (alk-dropdown) ────────────────────────────────────────────────
+ * The one anchored popover-menu primitive. The panel is portaled to the themed page root, so it
+ * inherits the active scheme while escaping any scroll-clipping ancestor. The trigger is the
+ * caller's own chrome; only the panel + its rows are styled here. Every value is a role token. */
+
+.alk-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ── the menu panel ──────────────────────────────────────────────────────────
+ * Position (top/left/z-index) is set inline by useFloating; this owns only the look + the
+ * open/close animation, which rides `transform` (free, since the hook positions via top/left). */
+/* Surface + open/close animation come from .alk-floating-surface; only the menu's own bounds +
+   row padding live here. */
+.alk-dropdown-panel {
+  min-width: 200px;
+  max-width: 320px;
+  padding: var(--alkSpace2);
+}
+
+/* ── a grouped run of rows ──────────────────────────────────────────────────── */
+.alk-dropdown-group {
+  display: flex;
+  flex-direction: column;
+}
+.alk-dropdown-group__eyebrow {
+  padding: var(--alkSpace3) var(--alkSpace5) var(--alkSpace1);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextXs);
+  font-weight: var(--alkWeightSemibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--alkSecondaryText);
+}
+
+/* ── a hairline divider between groups ────────────────────────────────────────
+ * A clearly visible separator line, not a void: ride the strong border ink so it reads on the
+ * overlay fill, and keep the margins tight so the line sits close to the rows it parts. */
+.alk-dropdown-divider {
+  height: 1px;
+  margin: var(--alkSpace1) var(--alkSpace3);
+  background: var(--alkBorderStrong);
+}
+
+/* ── a menu row: leading tick/glyph · label · optional trailing reading ─────── */
+.alk-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace4);
+  width: 100%;
+  appearance: none;
+  border: 0;
+  background: none;
+  /* Rows sit on the control ladder: same 28px as an sm Button, so a menu opened off a
+     control reads as its peer. min-height (not height) keeps a wrapping label safe. */
+  min-height: var(--alkControlSm);
+  padding: var(--alkSpace1) var(--alkSpace5);
+  border-radius: var(--alkRadiusSm);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextMd);
+  line-height: 1.2;
+  color: var(--alkPrimaryText);
+  cursor: pointer;
+  text-align: left;
+  /* The shared hover/state cross-fade — see theme/motion.css. */
+  transition: var(--alk-control-transition);
+}
+.alk-dropdown-item:hover {
+  background: var(--alkHoverBg);
+}
+.alk-dropdown-item:focus-visible {
+  outline-offset: -2px;
+}
+/* The row's mark box is the shared .alk-option-mark — primitives/base.css.
+   Right-tick rows flush left (no leading mark column); the stretching label (`flex: 1`) pushes the
+   trailing mark flush to the row's trailing edge, and the row `gap` spaces it off the label/trail. */
+.alk-dropdown-item__label {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+.alk-dropdown-item__trail {
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+.alk-dropdown-item[data-on] {
+  color: var(--alkBrandText);
+  font-weight: var(--alkWeightMedium);
+}
+
+/* Destructive command — label, mark, and hover all read danger. The mark selector out-specifies the
+   shared `.alk-option-mark` muted default so the glyph is red, not grey. */
+.alk-dropdown-item[data-danger] {
+  color: var(--alkDangerText);
+}
+.alk-dropdown-item[data-danger]:not([data-on]) .alk-dropdown-item__mark {
+  color: var(--alkDangerText);
+}
+.alk-dropdown-item[data-danger]:hover {
+  background: var(--alkDangerSoft);
+}
+
+/* Unavailable command — dimmed + inert (the native `disabled` also blocks the click + hover), kept in
+   the menu so the set reads whole and the reason it's unavailable stays discoverable. */
+.alk-dropdown-item[data-disabled] {
+  color: var(--alkSecondaryText);
+  opacity: 0.55;
+  cursor: default;
+}
+.alk-dropdown-item[data-disabled] .alk-dropdown-item__mark {
+  color: var(--alkSecondaryText);
+}
+
+/* ── Dropdown trigger: the `select` chrome ───────────────────────────────────
+ * The select-like trigger surface (was the standalone DropdownTrigger, now a Dropdown trigger
+ * `kind`): a control-height button carrying a leading icon, a dimmed label, the emphasized value, a
+ * trailing slot, and a rotating chevron. `data-on` lights it brand for a non-default selection. */
+.alk-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  appearance: none;
+  /* Size ladder — lg (the default) matches the toolbar's action button + the SearchBar, so a filter
+     row lines up; sm/md shrink height + padding together for a denser row. */
+  --alk-dt-h: var(--alkControlLg);
+  --alk-dt-px: var(--alkControlPadLg);
+  min-height: var(--alk-dt-h);
+  padding: 0 var(--alk-dt-px);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkControlBg);
+  color: var(--alkPrimaryText);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextMd);
+  cursor: pointer;
+  white-space: nowrap;
+  /* The shared hover/state cross-fade — see theme/motion.css. */
+  transition: var(--alk-control-transition);
+}
+.alk-dropdown-trigger:where([data-size="md"]) {
+  --alk-dt-h: var(--alkControlMd);
+  --alk-dt-px: var(--alkControlPadMd);
+}
+.alk-dropdown-trigger:where([data-size="sm"]) {
+  --alk-dt-h: var(--alkControlSm);
+  --alk-dt-px: var(--alkControlPadSm);
+}
+.alk-dropdown-trigger:hover {
+  background: var(--alkHoverBg);
+}
+.alk-dropdown-trigger:focus-visible {
+  outline-offset: 1px;
+}
+
+/* A non-default selection lights the trigger with the brand. */
+.alk-dropdown-trigger[data-on] {
+  border-color: var(--alkBrand);
+  color: var(--alkBrandText);
+}
+
+.alk-dropdown-trigger__lead {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.alk-dropdown-trigger__label {
+  color: var(--alkSecondaryText);
+}
+.alk-dropdown-trigger[data-on] .alk-dropdown-trigger__label {
+  color: var(--alkBrandText);
+}
+.alk-dropdown-trigger__value {
+  font-weight: var(--alkWeightSemibold);
+}
+
+/* The constant-width value box (DropdownTriggerValue): every option stacks in ONE grid cell so the
+   box is as wide as the WIDEST option; only the selected one shows, so the trigger never resizes. */
+.alk-dropdown-trigger__valuestack {
+  display: grid;
+  align-items: center;
+  justify-items: start;
+}
+.alk-dropdown-trigger__valueopt {
+  grid-area: 1 / 1;
+  font-weight: var(--alkWeightSemibold);
+  white-space: nowrap;
+  visibility: hidden;
+}
+.alk-dropdown-trigger__valueopt[data-shown] {
+  visibility: visible;
+}
+
+.alk-dropdown-trigger__chev {
+  display: inline-flex;
+  margin-left: auto;
+  color: var(--alkSecondaryText);
+  transition: transform var(--alkDurationSlow) var(--alkEaseStandard);
+}
+.alk-dropdown-trigger__chev[data-open] {
+  transform: rotate(180deg);
+}
+
+/* ── Dropdown trigger: the `menu` kind (page-styled escape) ───────────────────
+ * The caller's `className` owns the whole look + layout (a role chip, a model picker, a filter
+ * button); the base only guarantees a focus ring and lets Dropdown's trailing chevron sit right
+ * after the content (not auto-pushed to the far edge like the select box). Deliberately does NOT
+ * reset appearance/background/border — that's the page's, and resetting here could out-cascade it. */
+.alk-dropdown-menu-trigger {
+  cursor: pointer;
+}
+.alk-dropdown-menu-trigger:focus-visible {
+  outline-offset: 1px;
+}
+.alk-dropdown-menu-trigger .alk-dropdown-trigger__chev {
+  margin-left: 0;
+}
+
+/* Menu rows sit on the control ladder like every other control. A menu opened off
+   a full-height select reads as part of it rather than as a smaller popup with its
+   own scale. Unsized menus keep the compact default. */
+.alk-dropdown-panel[data-size="lg"] .alk-dropdown-item {
+  min-height: var(--alkControlLg);
+}
+.alk-dropdown-panel[data-size="md"] .alk-dropdown-item {
+  min-height: var(--alkControlMd);
+}
+
+/* A select that fills its row. The trailing chevron stays at the far edge, so the
+   value reads from the same left margin as a text input's. */
+.alk-dropdown-trigger:where([data-block]) {
+  width: 100%;
+  justify-content: flex-start;
+}
+.alk-dropdown-trigger:where([data-block]) > :last-child {
+  margin-left: auto;
+}

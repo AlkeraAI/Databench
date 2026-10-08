@@ -1,0 +1,54 @@
+/* ── Submenu (alk-submenu) ────────────────────────────────────────────────────
+ * A menu row that opens a flyout of further rows. The row keeps the look its caller gives it and
+ * adds only the label / chevron layout; the flyout wears the shared .alk-floating-surface and sets
+ * its own bounds and the vertical rhythm of the rows the caller puts in it. */
+
+.alk-submenu__row {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+}
+
+.alk-submenu__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-submenu__chev {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+}
+
+.alk-submenu {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-width: 320px;
+  padding: var(--alkSpace5);
+  color: var(--alkPrimaryText);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextMd);
+}
+
+/* Flyouts slide in from the row they grow out of, not up from below. */
+.alk-submenu[data-side="right"] {
+  transform-origin: left center;
+  transform: translateX(-4px) scale(0.98);
+}
+.alk-submenu[data-side="left"] {
+  transform-origin: right center;
+  transform: translateX(4px) scale(0.98);
+}
+.alk-submenu[data-state="open"] {
+  transform: translateX(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-submenu[data-side] {
+    transform: none;
+  }
+}

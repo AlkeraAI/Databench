@@ -1,0 +1,26 @@
+{
+  "content_deltas": [],
+  "error_text": null,
+  "event_id": "01H_tool_call_update_input",
+  "event_type": "tool.call_update",
+  "input": {
+    "path": "/tmp/example.txt"
+  },
+  "metadata": {
+    "answers": [
+      [
+        "Snowflake"
+      ],
+      [
+        "incremental"
+      ]
+    ]
+  },
+  "output": null,
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "status": "completed",
+  "time": "2026-05-26T00:00:00Z",
+  "tool_call_id": "tc1"
+}

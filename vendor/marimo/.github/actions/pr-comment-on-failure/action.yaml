@@ -1,0 +1,20 @@
+name: "Job Summary on Failure"
+description: "Adds a job summary when checks fail, helping contributors fix issues"
+inputs:
+  check-name:
+    description: "The name of the check that failed"
+    required: true
+  command:
+    description: "The command that contributors should run"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Add failure summary
+      shell: bash
+      env:
+        CHECK_NAME: ${{ inputs.check-name }}
+        COMMAND: ${{ inputs.command }}
+      run: |
+        printf '### 👋 The **%s** check failed\n\nTo fix this locally, please run:\n\n```bash\n%s\n```\n' "$CHECK_NAME" "$COMMAND" >> "$GITHUB_STEP_SUMMARY"

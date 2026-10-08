@@ -1,0 +1,11 @@
+{
+  "doc_id": "sess-01J7Q3M8",
+  "doc_type": "chat",
+  "epoch": 0,
+  "kind": "hello",
+  "metadata": {},
+  "payload": {},
+  "peer_id": "p:3f9a1c2b4d6e",
+  "schema_version": "2.1.0",
+  "seq": 0
+}

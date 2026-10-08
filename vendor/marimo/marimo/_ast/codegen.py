@@ -1,0 +1,729 @@
+# Copyright 2026 Marimo. All rights reserved.
+# Modified by Alkera (fenced `# == ALKERA EDIT` blocks); see vendor/marimo/README.alkera.md
+from __future__ import annotations
+
+import ast
+import io
+import os
+import re
+import sys
+import textwrap
+import tokenize
+from typing import TYPE_CHECKING, Any, Literal
+
+from marimo import _loggers
+from marimo._ast.app_config import _AppConfig
+from marimo._ast.cell import CellConfig, CellImpl
+from marimo._ast.compiler import compile_cell
+from marimo._ast.names import (
+    DEFAULT_CELL_NAME,
+    SETUP_CELL_NAME,
+    TOPLEVEL_CELL_PREFIX,
+)
+from marimo._ast.parse import ast_parse
+from marimo._ast.toplevel import TopLevelExtraction, TopLevelStatus
+from marimo._ast.variables import BUILTINS
+from marimo._ast.visitor import Name, VariableData
+from marimo._convert.converters import MarimoConvert
+from marimo._schemas.serialization import (
+    ClassCell,
+    FunctionCell,
+    NotebookSerializationV1,
+)
+from marimo._types.ids import CellId_t
+from marimo._utils.marimo_path import MarimoPath
+from marimo._version import __version__
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+from typing import TypeAlias
+
+Cls: TypeAlias = type
+
+INDENT = "    "
+MAX_LINE_LENGTH = 80
+
+BRACES: dict[Literal["(", "["], tuple[str, str]] = {
+    "(": ("(", ")"),
+    "[": ("[", "]"),
+}
+
+Decorators = Literal["cell", "function", "class_definition"]
+
+LOGGER = _loggers.marimo_logger()
+
+
+def pop_setup_cell(
+    code: list[str],
+    names: list[str],
+    configs: list[CellConfig],
+) -> CellImpl | None:
+    # Find the cell named setup, compile, and remove the index from all lists.
+    if SETUP_CELL_NAME not in names:
+        return None
+    setup_index = names.index(SETUP_CELL_NAME)
+    try:
+        cell = compile_cell(
+            code[setup_index], cell_id=CellId_t(SETUP_CELL_NAME)
+        ).configure(configs[setup_index])
+    except SyntaxError:
+        return None
+    code.pop(setup_index)
+    names.pop(setup_index)
+    configs.pop(setup_index)
+    return cell
+
+
+def indent_text(text: str) -> str:
+    # == ALKERA EDIT START indent-lines
+    # textwrap.indent splits with str.splitlines(), which also breaks lines at
+    # \x0b, \x0c, \x1c-\x1e, \x85, \u2028 and \u2029; inside a string
+    # literal those are ordinary characters, and indenting after them
+    # changes the cell's code. Split only where Python ends a line.
+    return "".join(
+        INDENT + line if line not in ("", "\n") else line
+        for line in re.split(r"(?<=\n)", text)
+    )
+    # == ALKERA EDIT END
+
+
+def _format_arg(arg: Any) -> str:
+    if isinstance(arg, str):
+        return f'"{arg}"'.replace("\\", "\\\\")
+    elif isinstance(arg, list):
+        return f"[{', '.join([_format_arg(item) for item in arg])}]"
+    else:
+        return str(arg)
+
+
+def format_tuple_elements(
+    code: str,
+    elems: tuple[str, ...],
+    indent: bool = False,
+    allowed_naked: bool = False,
+    trail_comma: bool = True,
+    brace: Literal["(", "["] = "(",
+) -> str:
+    """
+    Replaces (...) with the elements in elems, formatted as a tuple.
+    Adjusts for multiple lines as needed.
+    """
+    left, right = BRACES[brace]
+    maybe_indent = indent_text if indent else (lambda x: x)
+    suffix = "," if trail_comma else ""
+    if not elems:
+        if allowed_naked:
+            return maybe_indent(code.replace("(...)", "").rstrip())
+        return maybe_indent(code.replace("(...)", left + right))
+
+    if allowed_naked and len(elems) == 1:
+        allowed_naked = False
+        elems = (f"{elems[0]}{suffix}",)
+
+    tuple_str = ", ".join(elems)
+    if allowed_naked:
+        attempt = code.replace("(...)", tuple_str).rstrip()
+    else:
+        attempt = code.replace("(...)", f"{left}{tuple_str}{right}")
+
+    attempt = maybe_indent(attempt)
+    if len(attempt) < MAX_LINE_LENGTH:
+        return attempt
+
+    # Edgecase for very long variables
+    if len(elems) == 1:
+        elems = (elems[0].strip(","),)
+
+    multiline_tuple = "\n".join(
+        [left, indent_text(",\n".join(elems)) + suffix, right]
+    )
+    return maybe_indent(code.replace("(...)", multiline_tuple))
+
+
+def _needs_trailing_blank_line(mod: ast.Module, code: str) -> bool:
+    """Check if AST ends with a statement requiring a blank line after.
+
+    Ruff formatter adds a blank line after imports, function defs, and class defs.
+    Only adds blank line if the statement is truly the last content (no trailing
+    comments).
+    """
+    if not mod.body:
+        return False
+    last_stmt = mod.body[-1]
+    if not isinstance(
+        last_stmt,
+        (
+            ast.Import,
+            ast.ImportFrom,
+            ast.FunctionDef,
+            ast.AsyncFunctionDef,
+            ast.ClassDef,
+        ),
+    ):
+        return False
+    # Check if there's trailing content (like comments) after the last statement
+    # If so, don't add a blank line - the existing formatting should be preserved
+    code_lines = code.rstrip().count("\n") + 1
+    return last_stmt.end_lineno == code_lines
+
+
+# == ALKERA EDIT START alkera-kwargs
+def _format_literal(value: Any) -> str:
+    """A passthrough keyword value as a Python literal (`repr`, strings
+    double-quoted when `repr` allows it)."""
+    if isinstance(value, str):
+        text = repr(value)
+        if text.startswith("'") and '"' not in value:
+            return '"' + text[1:-1] + '"'
+        return text
+    return repr(value)
+
+
+def _passthrough_kwargs(config: CellConfig | None) -> list[str]:
+    if config is None:
+        return []
+    return [
+        f"{key}={_format_literal(value)}"
+        for key, value in config.passthrough.items()
+    ]
+
+
+# == ALKERA EDIT END
+
+
+def to_decorator(
+    config: CellConfig | None,
+    fn: Decorators = "cell",
+) -> str:
+    if config is None or not config.is_different_from_default():
+        return f"@app.{fn}"
+
+    # Only include non-defaults in the decorator call
+    # == ALKERA EDIT START alkera-kwargs
+    # Passthrough keywords come first, then marimo's own configuration.
+    return format_tuple_elements(
+        f"@app.{fn}(...)",
+        tuple(
+            _passthrough_kwargs(config)
+            + [
+                f"{key}={value}"
+                for key, value in config.asdict_without_defaults().items()
+                if key != "passthrough"
+            ]
+        ),
+    )
+    # == ALKERA EDIT END
+
+
+def format_markdown(cell: CellImpl) -> str:
+    markdown = cell.markdown or ""
+    # AST does not preserve string quote types or types, so directly use
+    # tokenize.
+    tokens = tokenize.tokenize(io.BytesIO(cell.code.encode("utf-8")).readline)
+    tag = ""
+    # Anything outside the `mo.md(...)` call (comments, and the whitespace
+    # around them) is kept verbatim, so track where the call starts and ends
+    # in the source rather than rebuilding it from tokens, which drop
+    # whitespace.
+    line_starts = [0]
+    for match in re.finditer(r"\r\n|\r|\n", cell.code):
+        line_starts.append(match.end())
+
+    def offset(position: tuple[int, int]) -> int:
+        row, col = position
+        return line_starts[row - 1] + col
+
+    call_start = 0
+    call_end = len(cell.code)
+    depth = 0
+    tokenizes_fstring = sys.version_info >= (3, 12)
+    start_tokens = (
+        (tokenize.STRING, tokenize.FSTRING_START)
+        if tokenizes_fstring
+        else (tokenize.STRING,)
+    )
+    fstring = False
+    for tok in tokens:
+        # if string
+        if tok.type in start_tokens:
+            tag = ""
+            # rf"""/ f"/ r"/ "more
+            start = tok.string[:5]
+            for _ in range(2):
+                if start[0].lower() in "rtf":
+                    tag += start[0]
+                    start = start[1:]
+            fstring = "f" in tag.lower()
+        elif tok.string == "mo":
+            call_start = offset(tok.start)
+            depth = 0
+        elif tok.string == "(":
+            depth += 1
+        elif tok.string == ")":
+            depth -= 1
+            if depth == 0:
+                call_end = offset(tok.end)
+
+    if fstring:
+        # We can blanket replace, because cell.markdown is not set
+        # on f-strings with values.
+        markdown = markdown.replace("{", "{{").replace("}", "}}")
+    markdown = markdown.replace('""', '"\\"')
+
+    # We always use """ as per front end.
+    body = construct_markdown_call(markdown, '"""', tag)
+    return "".join([cell.code[:call_start], body, cell.code[call_end:]])
+
+
+def construct_markdown_call(markdown: str, quote: str, tag: str) -> str:
+    return "\n".join(
+        [
+            f"mo.md({tag}{quote}",
+            markdown,
+            f"{quote})",
+        ]
+    )
+
+
+def build_setup_section(setup_cell: CellImpl | None) -> str:
+    if setup_cell is None:
+        return ""
+    block = setup_cell.code
+    # == ALKERA EDIT START empty-setup
+    # An empty setup cell with passthrough keywords (its id) is kept, as
+    # `pass`, instead of disappearing from the file.
+    empty = not block.strip()
+    if empty:
+        if not setup_cell.config.passthrough:
+            return ""
+        block = "pass"
+    # == ALKERA EDIT END
+    prefix = "" if not setup_cell.is_coroutine() else "async "
+
+    has_only_comments = all(
+        not line.strip() or line.strip().startswith("#")
+        for line in setup_cell.code.splitlines()
+    )
+    # Fails otherwise
+    # == ALKERA EDIT START empty-setup
+    if has_only_comments and not empty:
+        block += "\npass"
+    # == ALKERA EDIT END
+
+    # == ALKERA EDIT START alkera-kwargs
+    setup_kwargs = _passthrough_kwargs(setup_cell.config)
+    if setup_cell.config.hide_code:
+        setup_kwargs.append("hide_code=True")
+    if setup_kwargs:
+        setup_line = f"{prefix}with app.setup({', '.join(setup_kwargs)}):"
+    else:
+        setup_line = f"{prefix}with app.setup:"
+    # == ALKERA EDIT END
+
+    return "\n".join(
+        [
+            setup_line,
+            indent_text(block),
+            "\n",
+        ]
+    )
+
+
+def to_annotated_string(
+    variable_data: dict[Name, VariableData],
+    names: tuple[Name, ...],
+    allowed_refs: set[Name],
+) -> dict[str, str]:
+    """Checks relevant variables for annotation data, and if found either
+    represents the type directly or as a string (as a safety measure)"""
+    response: dict[str, str] = {}
+    if not variable_data:
+        return response
+    for name in names:
+        if variable_data.get(name):
+            variable = variable_data[name]
+            annotation = variable.annotation_data
+            if annotation:
+                if annotation.refs - allowed_refs:
+                    # replace unescaped quotes with escaped quotes
+                    safe_repr = re.sub(r'(?<!\\)"', r'\\"', annotation.repr)
+                    response[name] = f'"{safe_repr}"'
+                else:
+                    response[name] = annotation.repr
+    return response
+
+
+def to_functiondef(
+    cell: CellImpl,
+    name: str,
+    allowed_refs: set[Name] | None = None,
+    used_refs: set[Name] | None = None,
+    fn: Literal["cell"] = "cell",
+    variable_data: dict[str, VariableData] | None = None,
+) -> str:
+    # allowed refs are a combination of top level imports and unshadowed
+    # builtins.
+    # unshadowed builtins is the set of builtins that haven't been
+    # overridden (shadowed) by other cells in the app. These names
+    # should not be taken as args by a cell's functiondef (since they are
+    # already in globals)
+    if allowed_refs is None:
+        allowed_refs = BUILTINS
+
+    refs: tuple[str, ...] = ()
+    sorted_refs = sorted(cell.refs)
+    for ref in sorted_refs:
+        if ref not in allowed_refs:
+            if not ref.isidentifier():
+                # Filter out refs that are not valid Python identifiers
+                # If not, function signatures will have invalid parameters
+                # eg. `def _(mo, my_schema.my_table):`
+                LOGGER.debug(f"Found non-identifier ref: {ref}")
+                continue
+            refs += (ref,)
+
+    # Check to see if any of the refs have an explicit type assigned to them.
+    annotation_lookups = to_annotated_string(
+        variable_data or {}, refs, allowed_refs
+    )
+    refs = tuple(
+        f"{ref}: {annotation_lookups[ref]}"
+        if ref in annotation_lookups
+        else ref
+        for ref in refs
+    )
+
+    # Used refs are a collection of all the references that cells make to some
+    # external call. We collect them such that we can determine if a variable
+    # def is actually ever used. This is a nice little trick such that mypy and
+    # other static analysis tools can capture unused variables across cells.
+    defs: tuple[str, ...] = ()
+    if cell.defs:
+        # SQL defs should not be included in the return value.
+        # == ALKERA EDIT START sql-defs-per-cell
+        # Only this cell's defs can be filtered out, so only they are looked
+        # up; walking every variable of the notebook for every cell made
+        # writing a notebook quadratic in its size.
+        sql_defs = (
+            {
+                name
+                for name in cell.defs
+                if name in variable_data
+                and variable_data[name].language == "sql"
+            }
+            if variable_data
+            else set()
+        )
+        # == ALKERA EDIT END
+        # There are possible name error cases where a cell defines, and also
+        # requires a variable. We remove defs from the signature such that
+        # this causes a lint error in pyright.
+        defs = tuple(
+            name for name in sorted(cell.defs) if name not in sql_defs
+        )
+        if used_refs is not None:
+            defs = tuple(name for name in defs if name in used_refs)
+
+    decorator = to_decorator(cell.config, fn=fn)
+    prefix = "" if not cell.is_coroutine() else "async "
+    signature = format_tuple_elements(f"{prefix}def {name}(...):", refs)
+
+    definition_body = [decorator, signature]
+    # Handle markdown cells with formatting
+    if cell.markdown:
+        definition_body.append(indent_text(format_markdown(cell)))
+    elif body := indent_text(cell.code):
+        definition_body.append(body)
+
+    returns = format_tuple_elements(
+        "return (...)",
+        defs,
+        indent=True,
+        allowed_naked=True,
+        # maybe consider "return Edges(...)"
+        # Such that the return type can simply be 'Edges'
+    )
+    # Add blank line before return for ruff compatibility when last statement
+    # is an import, function def, or class def
+    if _needs_trailing_blank_line(cell.mod, cell.code):
+        definition_body.append("")
+    definition_body.append(returns)
+    return "\n".join(definition_body)
+
+
+def to_top_functiondef(
+    cell: CellImpl, allowed_refs: set[str] | None = None
+) -> str:
+    # For the top-level function criteria to be satisfied,
+    # the cell, it must pass basic checks in the cell impl.
+    if allowed_refs is None:
+        allowed_refs = BUILTINS
+    toplevel_var = cell.toplevel_variable
+
+    assert toplevel_var, "Cell is not a top-level function"
+    if cell.code:
+        assert toplevel_var.kind in ("function", "class"), (
+            "Unexpected cell kind, please report an issue to github.com/marimo-team/marimo"
+        )
+        if toplevel_var.kind == "class":
+            decorator = to_decorator(cell.config, fn="class_definition")
+        else:
+            decorator = to_decorator(cell.config, fn="function")
+        return f"{decorator}\n{cell.code.strip()}"
+    return ""
+
+
+def generate_unparsable_cell(
+    code: str, name: str | None, config: CellConfig
+) -> str:
+    text = ["app._unparsable_cell("]
+    # If code contains triple quotes, we can't use raw strings with delimiters
+    # Instead, use a normal string with proper escaping
+    if '"""' in code:
+        # Use normal string with escaping for backslashes and quotes
+        escaped_code = code.replace("\\", "\\\\").replace('"', '\\"')
+        code_as_str = f'"""\n{escaped_code}\n"""'
+    else:
+        # Use raw string to preserve backslashes and other special chars
+        code_as_str = f'r"""\n{code}\n"""'
+
+    # == ALKERA EDIT START alkera-kwargs
+    # Passthrough keywords follow `name`; marimo's own configuration keeps
+    # its place before it.
+    own = {
+        key: value
+        for key, value in config.asdict().items()
+        if key != "passthrough"
+    }
+    default = {
+        key: value
+        for key, value in CellConfig().asdict().items()
+        if key != "passthrough"
+    }
+    flags = dict(own) if own != default else {}
+
+    if name is not None:
+        flags["name"] = name
+
+    kwargs = ", ".join(
+        [f"{key}={_format_arg(value)}" for key, value in flags.items()]
+        + _passthrough_kwargs(config)
+    )
+    # == ALKERA EDIT END
+    if kwargs:
+        text.extend([indent_text(f"{code_as_str},"), indent_text(kwargs)])
+    else:
+        text.append(indent_text(code_as_str))
+
+    text.append(")")
+
+    return "\n".join(text)
+
+
+def serialize_cell(
+    extraction: TopLevelExtraction, status: TopLevelStatus
+) -> str:
+    if status.is_unparsable:
+        return generate_unparsable_cell(
+            code=status.code, config=status.cell_config, name=status.name
+        )
+    cell = status._cell
+    assert cell is not None
+    if status.is_cell:
+        return to_functiondef(
+            cell,
+            status.name,
+            # There are possible NameError cases where a cell defines and also
+            # requires a variable. We remove defs from the signature such that
+            # this causes a lint error in programs like pyright.
+            extraction.allowed_refs | cell.defs,
+            extraction.used_refs,
+            fn="cell",
+            variable_data=extraction.variables,
+        )
+    elif status.is_toplevel:
+        return to_top_functiondef(cell, extraction.allowed_refs)
+    else:
+        raise ValueError("Unknown cell status, please report this issue.")
+
+
+def safe_serialize_cell(
+    extraction: TopLevelExtraction, status: TopLevelStatus
+) -> str:
+    """Additional defensive layer- we should _never_ generate invalid code."""
+    code = serialize_cell(extraction, status)
+    try:
+        ast_parse(code)
+    except SyntaxError as e:
+        LOGGER.warning(
+            f"Generated code for cell {status.name} is invalid, "
+            "falling back to unparsable cell. Please report this error. "
+            f"Error: {e}"
+        )
+        return generate_unparsable_cell(
+            code=status.code, config=status.cell_config, name=status.name
+        )
+    return code
+
+
+def generate_app_constructor(config: _AppConfig | None) -> str:
+    updates = {}
+    # only include a config setting if it's not a default setting, to
+    # avoid unnecessary edits to the app file
+    if config is not None:
+        updates = config.asdict_difference()
+
+    kwargs = tuple(
+        f"{key}={_format_arg(value)}" for key, value in updates.items()
+    )
+    return format_tuple_elements("app = marimo.App(...)", kwargs)
+
+
+def generate_filecontents_from_ir(ir: NotebookSerializationV1) -> str:
+    # Markdown frontmatter may contain non-config metadata (e.g., author,
+    # description). Suppress warnings for unrecognized keys from markdown.
+    silent = (
+        MarimoPath(ir.filename).is_markdown()
+        if ir.filename and ir.filename != "<marimo>"
+        else False
+    )
+    header_comments = _extract_header_comments(ir)
+    # Mark toplevel-style cells with TOPLEVEL_CELL_PREFIX (mirroring
+    # ir_cell_factory in compiler.py) so the reversion logic in
+    # TopLevelExtraction can reset names to `_` if they are demoted.
+    names = [
+        f"{TOPLEVEL_CELL_PREFIX}{cell.name}"
+        if isinstance(cell, (FunctionCell, ClassCell))
+        else cell.name
+        for cell in ir.cells
+    ]
+    return generate_filecontents(
+        codes=[cell.code for cell in ir.cells],
+        names=names,
+        cell_configs=[CellConfig.from_dict(cell.options) for cell in ir.cells],
+        config=_AppConfig.from_untrusted_dict(ir.app.options, silent=silent),
+        header_comments=header_comments,
+    )
+
+
+def _extract_header_comments(ir: NotebookSerializationV1) -> str | None:
+    """Extract script preamble from header.
+
+    For markdown notebooks, Header.value may contain YAML-encoded frontmatter
+    metadata (with a 'header' key for the script preamble, and/or a
+    'pyproject' key for inline dependencies). For Python notebooks, it's the
+    raw script preamble.
+    """
+    if not ir.header or not ir.header.value:
+        return None
+    from marimo._utils import yaml
+
+    try:
+        parsed = yaml.load(ir.header.value)
+        if isinstance(parsed, dict):
+            # YAML dict means frontmatter metadata; extract script preamble
+            header = parsed.get("header", None)
+            pyproject = parsed.get("pyproject", None)
+            if header:
+                return str(header)
+            if pyproject:
+                from marimo._environments.script_metadata import wrap_block
+
+                return wrap_block(pyproject)
+            return None
+    except (yaml.YAMLError, AssertionError):
+        pass
+    return ir.header.value
+
+
+def generate_filecontents(
+    codes: list[str],
+    names: list[str],
+    cell_configs: list[CellConfig],
+    config: _AppConfig | None = None,
+    header_comments: str | None = None,
+) -> str:
+    """Translates a sequences of codes (cells) to a Python file"""
+
+    # Normalize internal cell names. Empty names would emit ``def ():``
+    # (invalid Python) and fall back to the unparsable-cell path;
+    # ``"__"`` is a legacy internal marker.
+    for idx, name in enumerate(names):
+        if name == "__" or not name:
+            names[idx] = DEFAULT_CELL_NAME
+
+    setup_cell = pop_setup_cell(codes, names, cell_configs)
+    toplevel_defs: set[Name] = set()
+    if setup_cell:
+        toplevel_defs = set(setup_cell.defs)
+    extraction = TopLevelExtraction(codes, names, cell_configs, toplevel_defs)
+    cell_blocks = [
+        safe_serialize_cell(extraction, status) for status in extraction
+    ]
+
+    filecontents = []
+    if header_comments is not None:
+        filecontents = [header_comments.rstrip(), ""]
+
+    filecontents.extend(
+        [
+            "import marimo",
+            "",
+            f'__generated_with = "{__version__}"',
+            generate_app_constructor(config),
+            "",
+            build_setup_section(setup_cell),
+            "\n\n\n".join(cell_blocks),
+            "\n",
+            'if __name__ == "__main__":',
+            indent_text("app.run()"),
+            "",
+        ]
+    )
+    return "\n".join(filecontents).lstrip()
+
+
+def recover(filepath: Path) -> str:
+    """Generate a module for code recovered from a disconnected frontend"""
+    import json
+
+    contents = filepath.read_text(encoding="utf-8")
+    return MarimoConvert.from_notebook_v1(json.loads(contents)).to_py()
+
+
+def is_multiline_comment(node: ast.stmt) -> bool:
+    """Checks if a node is a docstring or a multiline comment."""
+    return isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+
+
+def get_header_comments(filename: str | Path) -> str | None:
+    """Gets the header comments from a file. Returns
+    None if the file does not exist or the header is
+    invalid, which is determined by:
+        1. If the file is does not contain the marimo
+            import statement
+        2. If the section before the marimo import
+            statement contains any non-comment code
+    """
+
+    if not os.path.exists(filename):
+        return None
+
+    with open(filename, encoding="utf-8") as f:
+        contents = f.read()
+
+    if "import marimo" not in contents:
+        return None
+    header, _ = re.split(
+        r"^import marimo", contents, maxsplit=1, flags=re.MULTILINE
+    )
+
+    # Ensure the header only contains non-executable code
+    # ast parses out single line comments, so we only
+    # need to check that every node is not a multiline comment
+    module = ast_parse(header)
+    if any(not is_multiline_comment(node) for node in module.body):
+        return None
+
+    return header

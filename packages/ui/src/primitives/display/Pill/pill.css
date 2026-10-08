@@ -1,0 +1,242 @@
+/* Pill — component styles for @alkera/ui. Every value is a role token (tokens.css). */
+
+.alk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  padding: 3px var(--alkSpace3);
+  /* An interactive pill is a real <button> — without this reset the UA's default button border seeps
+     through on every soft chip. The outline variant re-adds its own hairline below. */
+  border: 0;
+  border-radius: var(--alkRadiusFull);
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+  line-height: var(--alkLeadingSnug);
+  white-space: nowrap;
+}
+
+.alk-pill__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: var(--alkRadiusFull);
+  background: var(--alk-pill-dot, currentColor);
+}
+
+/* A leading glyph slot — distinct from the colored `dot`. The chip's gap spaces it from the label. */
+.alk-pill__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+/* brand — like every tone, the DEFAULT (soft) treatment is the low-emphasis wash: a brand-subtle
+   ground with readable brand ink. The full-strength brand chip is `variant="solid"` below (the former
+   `softBrand`/`brand` split collapsed into the one tone × variant model). */
+.alk-pill:where([data-tone="brand"]) {
+  background: var(--alkBrandSubtle);
+  color: var(--alkBrandText);
+  --alk-pill-dot: var(--alkBrand);
+  --alk-pill-solid: var(--alkBrand);
+}
+.alk-pill:where([data-tone="neutral"]) {
+  background: var(--alkBadgeBg);
+  color: var(--alkBadgeText);
+  --alk-pill-dot: var(--alkBadgeMark);
+  --alk-pill-solid: var(--alkBadgeMark);
+}
+.alk-pill:where([data-tone="catNeutral"]) {
+  background: var(--alkCatNeutralSoft);
+  color: var(--alkCatNeutralText);
+  --alk-pill-dot: var(--alkCatNeutralSolid);
+  --alk-pill-solid: var(--alkCatNeutralSolid);
+}
+.alk-pill:where([data-tone="success"]) {
+  background: var(--alkSuccessSoft);
+  color: var(--alkSuccessText);
+  --alk-pill-dot: var(--alkSuccess);
+  --alk-pill-solid: var(--alkSuccess);
+}
+.alk-pill:where([data-tone="danger"]) {
+  background: var(--alkDangerSoft);
+  color: var(--alkDangerText);
+  --alk-pill-dot: var(--alkDanger);
+  --alk-pill-solid: var(--alkDanger);
+}
+.alk-pill:where([data-tone="warning"]) {
+  background: var(--alkWarningSoft);
+  color: var(--alkWarningText);
+  --alk-pill-dot: var(--alkWarning);
+  --alk-pill-solid: var(--alkWarning);
+}
+.alk-pill:where([data-tone="info"]) {
+  background: var(--alkInfoSoft);
+  color: var(--alkInfoText);
+  --alk-pill-dot: var(--alkInfo);
+  --alk-pill-solid: var(--alkInfo);
+}
+.alk-pill:where([data-tone="cat1"]) {
+  background: var(--alkCat1Soft);
+  color: var(--alkCat1Text);
+  --alk-pill-dot: var(--alkCat1Solid);
+  --alk-pill-solid: var(--alkCat1Solid);
+}
+.alk-pill:where([data-tone="cat2"]) {
+  background: var(--alkCat2Soft);
+  color: var(--alkCat2Text);
+  --alk-pill-dot: var(--alkCat2Solid);
+  --alk-pill-solid: var(--alkCat2Solid);
+}
+.alk-pill:where([data-tone="cat3"]) {
+  background: var(--alkCat3Soft);
+  color: var(--alkCat3Text);
+  --alk-pill-dot: var(--alkCat3Solid);
+  --alk-pill-solid: var(--alkCat3Solid);
+}
+.alk-pill:where([data-tone="cat4"]) {
+  background: var(--alkCat4Soft);
+  color: var(--alkCat4Text);
+  --alk-pill-dot: var(--alkCat4Solid);
+  --alk-pill-solid: var(--alkCat4Solid);
+}
+.alk-pill:where([data-tone="cat5"]) {
+  background: var(--alkCat5Soft);
+  color: var(--alkCat5Text);
+  --alk-pill-dot: var(--alkCat5Solid);
+  --alk-pill-solid: var(--alkCat5Solid);
+}
+.alk-pill:where([data-tone="cat6"]) {
+  background: var(--alkCat6Soft);
+  color: var(--alkCat6Text);
+  --alk-pill-dot: var(--alkCat6Solid);
+  --alk-pill-solid: var(--alkCat6Solid);
+}
+.alk-pill:where([data-tone="cat7"]) {
+  background: var(--alkCat7Soft);
+  color: var(--alkCat7Text);
+  --alk-pill-dot: var(--alkCat7Solid);
+  --alk-pill-solid: var(--alkCat7Solid);
+}
+.alk-pill:where([data-tone="cat8"]) {
+  background: var(--alkCat8Soft);
+  color: var(--alkCat8Text);
+  --alk-pill-dot: var(--alkCat8Solid);
+  --alk-pill-solid: var(--alkCat8Solid);
+}
+
+/* solid — the full-strength fill: the tone's solid colour under on-accent ink (brand keeps its
+   dedicated on-brand ink). Declared after the tone blocks so it overrides their soft wash. */
+.alk-pill--solid {
+  background: var(--alk-pill-solid, var(--alkBrand));
+  color: var(--alkOnAccentText);
+  --alk-pill-dot: currentColor;
+}
+.alk-pill--solid:where([data-tone="brand"]) {
+  color: var(--alkOnBrand);
+}
+
+/* The bordered choice-chip variant: a hairline on the surface, transparent fill. Declared after the
+   tone blocks so it overrides their soft fill. The dot keeps its tone/`--alk-pill-dot` colour. */
+.alk-pill--outline {
+  background: transparent;
+  border: 1px solid var(--alkBorder);
+}
+
+/* plain — a chip-less inline mark: drop the fill + the chip's horizontal padding so it sits inside a
+   line of text (a field label, a row name) without growing the line. Keeps the tone's text colour. */
+.alk-pill--plain {
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* md — a fixed-height badge (the small-control height), a middle step between the compact inline sm
+   and the action-height lg. For a status that wants more presence than the inline chip without
+   filling a button slot. Radius stays owned by `shape`. */
+.alk-pill--md {
+  height: var(--alkControlSm);
+  padding-left: var(--alkSpace3);
+  padding-right: var(--alkSpace3);
+}
+
+/* lg — a status sized to the action-button height, so a row's trailing slot keeps one height whether
+   it holds a status (This device / Connected) or a button (Revoke / Connect). Radius is NOT set here:
+   it's owned by `shape` (an lg status standing in for a button passes shape="rect"). */
+.alk-pill--lg {
+  height: var(--alkControlLg);
+  padding-left: var(--alkSpace4);
+  padding-right: var(--alkSpace4);
+}
+
+/* shape — the chip's corner. The default (.alk-pill) is the fully-round pill; `rect` is the
+   rounded-rectangular badge (a trust grade, a role chip). Mirrors SegmentedControl's shape vocab. */
+.alk-pill--rect {
+  border-radius: var(--alkRadiusMd);
+}
+
+/* numeric — a compact, centred, min-width tabular-nums counter: a count
+   riding a button / nav item / segment. The tone (a brand wash, a neutral grey — or variant="solid" for full strength)
+   already comes from the tone class; here only the counter geometry. */
+.alk-pill--numeric {
+  justify-content: center;
+  min-width: 18px;
+  padding-left: var(--alkSpace2);
+  padding-right: var(--alkSpace2);
+  font-size: var(--alkTextXs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* code — an inline mono code mark: a mono identifier in a line of prose,
+   0.85em so it stays within the line, a subtle wash + small radius. Overrides the chip's font / fill
+   / radius / padding; the element is a real <code> (see Pill.tsx), so the tone is ignored. */
+.alk-pill--code {
+  font-family: var(--alkFontMono);
+  font-size: 0.85em;
+  font-weight: var(--alkWeightRegular);
+  gap: var(--alkSpace1);
+  padding: 1px var(--alkSpace1);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkHoverBg);
+  color: var(--alkBrandText);
+}
+
+/* Interactive pill — a clickable chip (filter, navigable neighbour). Shared affordances first, then
+   the per-variant hover/selected treatment. */
+.alk-pill--interactive {
+  appearance: none;
+  cursor: pointer;
+  font-family: var(--alkFontUi);
+  transition:
+    border-color var(--alkDurationNormal) var(--alkEaseStandard),
+    background-color var(--alkDurationNormal) var(--alkEaseStandard),
+    box-shadow var(--alkDurationNormal) var(--alkEaseStandard),
+    color var(--alkDurationNormal) var(--alkEaseStandard);
+}
+.alk-pill--interactive:focus-visible {
+  outline-offset: 1px;
+}
+
+/* soft (filled) interactive: a tone-aware inset ring drawn from the pill's own `currentColor`, so it
+   reads on any tone; the chosen toggle keeps a full-strength ring. */
+.alk-pill--soft.alk-pill--interactive:hover {
+  filter: brightness(1.05);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 38%, transparent);
+}
+.alk-pill--soft.alk-pill--interactive:active {
+  filter: brightness(0.97);
+}
+.alk-pill--soft.alk-pill--interactive[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* outline interactive: the border strengthens on hover; the chosen toggle goes brand (border + soft
+   brand wash + primary ink) — the choice-chip selection treatment. Listed after hover so a hovered
+   selected pill stays brand. */
+.alk-pill--outline.alk-pill--interactive:hover {
+  border-color: var(--alkBorderStrong);
+  color: var(--alkPrimaryText);
+}
+.alk-pill--outline.alk-pill--interactive[aria-pressed="true"] {
+  border-color: var(--alkBrand);
+  background: var(--alkBrandSubtle);
+  color: var(--alkPrimaryText);
+}

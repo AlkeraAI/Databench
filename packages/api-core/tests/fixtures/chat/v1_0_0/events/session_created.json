@@ -1,0 +1,21 @@
+{
+  "agent": "general",
+  "cwd": "/Users/x/proj",
+  "event_id": "01H_session_created",
+  "event_type": "session.created",
+  "harness": {
+    "name": "alkera-cli",
+    "version": "0.1.0"
+  },
+  "metadata": {},
+  "model": {
+    "model_id": "claude-opus-4-7",
+    "provider_id": "anthropic"
+  },
+  "parent_session_id": null,
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z",
+  "title": "Investigate slow query"
+}

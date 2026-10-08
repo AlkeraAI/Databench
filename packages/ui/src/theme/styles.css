@@ -1,0 +1,84 @@
+/* @alkera/ui/styles — the full design-system stylesheet.
+ *
+ * One import at an app entry point wires the reset (box model), the token layer
+ * (color + scale), and the base-component styles:
+ *
+ *   import "@alkera/ui/styles";
+ *
+ * Fonts load separately (see ./fonts.css) so an app can choose whether to bundle
+ * the typefaces.
+ */
+
+@import "./reset.css";
+@import "./tokens.css";
+@import "./motion.css";
+@import "./typography.css";
+@import "../primitives/base.css";
+@import "../primitives/floating-surface.css";
+
+/* primitives/layout — flex composition (Stack, Inline). Owns the shared .alk-stack / .alk-inline
+   classes (moved here from the portal's concept-tokens so raw + component use share one source). */
+@import "../primitives/layout/Stack/stack.css";
+@import "../primitives/layout/Inline/inline.css";
+@import "../primitives/layout/Toolbar/toolbar.css";
+
+/* primitives/controls */
+@import "../primitives/controls/Button/button.css";
+@import "../primitives/controls/CopyButton/copybutton.css";
+@import "../primitives/controls/IconChip/iconchip.css";
+@import "../primitives/controls/Caret/caret.css";
+@import "../primitives/controls/Checkbox/checkbox.css";
+@import "../primitives/controls/Switch/switch.css";
+@import "../primitives/controls/SegmentedControl/segmentedcontrol.css";
+@import "../primitives/controls/Tabs/tabs.css";
+@import "../primitives/controls/TabStrip/tabstrip.css";
+
+/* primitives/inputs (TextInput / Textarea / Field / affixes / collapsible search share inputs.css). */
+@import "../primitives/inputs/inputs.css";
+@import "../primitives/inputs/Select/select.css";
+@import "../primitives/inputs/DateInput/dateinput.css";
+
+/* primitives/overlays */
+@import "../primitives/overlays/Modal/modal.css";
+@import "../primitives/overlays/ConfirmDialog/confirmdialog.css";
+@import "../primitives/overlays/SidePanel/sidepanel.css";
+@import "../primitives/overlays/ContextMenu/contextmenu.css";
+@import "../primitives/overlays/Dropdown/dropdown.css";
+@import "../primitives/overlays/Popover/popover.css";
+@import "../primitives/overlays/Submenu/submenu.css";
+@import "../primitives/overlays/Tooltip/tooltip.css";
+@import "../primitives/overlays/Toast/toast.css";
+
+/* primitives/display */
+@import "../primitives/display/Avatar/avatar.css";
+@import "../primitives/display/Identity/identity.css";
+@import "../primitives/display/NodeLabel/node-label.css";
+@import "../primitives/display/Callout/callout.css";
+@import "../primitives/display/Pill/pill.css";
+@import "../primitives/display/StatusPill/statusPill.css";
+@import "../primitives/display/Skeleton/skeleton.css";
+@import "../primitives/display/Anchor/anchor.css";
+@import "../primitives/display/Tree/tree.css";
+@import "../primitives/display/Table/table.css";
+@import "../primitives/display/SortHeader/sortheader.css";
+@import "../primitives/display/Card/card.css";
+@import "../primitives/display/StatCard/statcard.css";
+@import "../primitives/display/DescList/desclist.css";
+@import "../primitives/display/EmptyState/emptystate.css";
+@import "../primitives/display/Meter/meter.css";
+@import "../primitives/display/LoadingIndicator/loading-indicator.css";
+@import "../primitives/display/Collapse/collapse.css";
+@import "../primitives/display/CopyReading/copyreading.css";
+@import "../primitives/display/Text/text.css";
+
+/* primitives/render (code, terminal; markdown + resources CSS load via their components) */
+@import "../primitives/render/CodeBlock/codeblock.css";
+@import "../primitives/render/Terminal/terminal.css";
+
+/* viz — data-ink marks (Ring, Sparkline, MiniBars). */
+@import "../viz/viz.css";
+@import "../viz/Ring/ring.css";
+@import "../viz/Sparkline/sparkline.css";
+@import "../viz/MiniBars/minibars.css";
+/* charts — the Vega-Lite chart frame (AlkeraChart). */
+@import "../charts/charts.css";

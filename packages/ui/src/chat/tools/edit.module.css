@@ -1,0 +1,58 @@
+@import "./tokens.css";
+
+/* The change and where it landed: located hunks, a sign gutter, context dimmed. */
+
+/* The caption names the block the change sits in. A hairline under it keeps it
+   from reading as one more line of the file. */
+:global(.chat-root) [data-tool="edit"] .hunkAt {
+  display: flex;
+  gap: var(--chat-sp-3);
+  margin: 0 0 var(--chat-sp-1);
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-1);
+  border-bottom: 1px solid var(--chat-hairline);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="edit"] .hunkLine {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+:global(.chat-root) [data-tool="edit"] .hunkCtx {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+}
+
+
+:global(.chat-root) [data-tool="edit"] .diff {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+/* The file's own line numbers locate a line, so they hold at ink-3 (the dimmest
+   an informational figure may take) and keep the column at the widest number in
+   the patch so code starts at one x. */
+:global(.chat-root) [data-tool="edit"] .diffNo {
+  flex: none;
+  width: var(--chat-edit-gutter, 2ch);
+  text-align: right;
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+:global(.chat-root) [data-tool="edit"] .diffLine[data-tone="add"] .diffNo {
+  color: var(--chat-tool-good);
+}
+
+:global(.chat-root) [data-tool="edit"] .diffLine[data-tone="del"] .diffNo {
+  color: var(--chat-tool-bad);
+}
+

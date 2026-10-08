@@ -1,0 +1,197 @@
+/* Modal — centre dialog. Scrim + surface both animate (enter AND exit) off the scrim's
+   data-state, driven by usePresence. Every value is a role token from tokens.css. */
+
+.alk-modal-scrim {
+  /* The frame between the dialog and the edge of the screen, named once: the
+     scrim pads by it and the dialog subtracts it from the viewport, so the two
+     cannot drift apart. */
+  --alk-modal-gutter: var(--alkSpace6);
+  position: fixed;
+  inset: 0;
+  z-index: var(--alkZModal);
+  display: grid;
+  place-items: center;
+  padding: var(--alk-modal-gutter);
+  /* A dialog that somehow outgrows the viewport stays reachable rather than
+     hanging off the bottom: centred overflow puts half of it out of reach in
+     both directions, and the top half is the half with the title in it. */
+  overflow: auto;
+  background: var(--alkScrim);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity var(--alkDurationSlow) var(--alkEaseStandard);
+}
+.alk-modal-scrim[data-state="open"] {
+  opacity: 1;
+}
+
+.alk-modal {
+  width: min(var(--alk-modal-w, 488px), 100%);
+  /* A grid item's automatic minimum size is its CONTENT's min-content width, and
+     that beats the `width` above. A 40-column spreadsheet therefore widened the
+     dialog, the scrim's auto-sized track grew with it, and `place-items: center`
+     put the centre of that enormous box ~3,000px to the right of a 1,440px
+     screen: the reader saw the page dim and nothing else. Floored here and
+     bounded against the viewport below, so content that does not fit has to
+     scroll inside the dialog instead of moving it. */
+  min-width: 0;
+  max-width: calc(100vw - 2 * var(--alk-modal-gutter));
+  max-height: calc(100dvh - 2 * var(--alkSpace6));
+  display: flex;
+  flex-direction: column;
+  background: var(--alkCardBg);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusLg);
+  box-shadow: var(--alkShadowLg);
+  /* The surface rides its own enter/exit off the scrim's state. */
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transition:
+    opacity var(--alkDurationSlow) var(--alkEaseStandard),
+    transform var(--alkDurationSlow) var(--alkEaseStandard);
+}
+.alk-modal-scrim[data-state="open"] .alk-modal {
+  opacity: 1;
+  transform: none;
+}
+.alk-modal[data-size="sm"] {
+  --alk-modal-w: 408px;
+}
+.alk-modal[data-size="md"] {
+  --alk-modal-w: 488px;
+}
+.alk-modal[data-size="lg"] {
+  --alk-modal-w: 600px;
+}
+/* For a dialog carrying a column of its own beside the fields. */
+.alk-modal[data-size="xl"] {
+  --alk-modal-w: 720px;
+}
+
+/* For LOOKING at something — a file preview — rather than filling something in. It takes
+   the viewport it is given, bounded on both axes: an unbounded width puts a 3,800px line
+   of text on a 4K screen, and an unbounded height pushes the action row off the bottom.
+
+   Both bounds are measured against the VIEWPORT. They used to read `min(94vh, 100%)`, and
+   that `100%` is a percentage of the scrim's auto-sized grid row — a row sized to this very
+   box. A percentage against a size that depends on the percentage is cyclic, so it resolves
+   as `auto` and takes the whole `min()` with it: nothing clamped the dialog at all. A long
+   file then grew it past the screen, and because the dialog itself grew, the body never
+   became the scroller — which is why the content ran off the bottom with no scrollbar. */
+.alk-modal[data-size="full"] {
+  --alk-modal-w: min(96vw, 1600px);
+  height: calc(100dvh - 2 * var(--alkSpace6));
+  max-height: calc(100dvh - 2 * var(--alkSpace6));
+}
+
+.alk-modal__head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--alkSpace5);
+  padding: var(--alkSpace7) var(--alkSpace7) var(--alkSpace5);
+}
+.alk-modal__id {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace4);
+}
+.alk-modal__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--alkSecondaryText);
+  /* The serif title's caps sit ~2px above the line-box centre, so a box-centred icon reads low next
+     to them; lift it to the cap optical centre. */
+  transform: translateY(-2px);
+}
+.alk-modal__heading {
+  min-width: 0;
+}
+.alk-modal__title {
+  margin: 0;
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alkText2xl);
+  font-weight: var(--alkWeightMedium);
+  /* Tight leading so the line box hugs the glyphs — the serif sits high in a looser box, which would
+     drop the icon below the optical centre. With this, align-items:center reads as visually centred. */
+  line-height: 1.1;
+  color: var(--alkPrimaryText);
+  /* A title is sometimes a single unbreakable token — a connection handle admits
+     no spaces by construction and runs to 128 characters. Without this it paints
+     straight through the close button instead of wrapping. */
+  overflow-wrap: anywhere;
+}
+.alk-modal__sub {
+  margin: var(--alkSpace1) 0 0;
+  font-size: var(--alkTextMd);
+  line-height: var(--alkLeadingNormal);
+  color: var(--alkSecondaryText);
+}
+/* The close button is a ghost icon-only Button (size md). This only pulls it to the head's corner so
+   the glyph optically aligns with the head padding; all the button chrome comes from .alk-btn. */
+.alk-modal__x {
+  margin: calc(-1 * var(--alkSpace1)) calc(-1 * var(--alkSpace1)) 0 0;
+}
+
+.alk-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--alkSpace7) var(--alkSpace7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace5);
+}
+
+/* A body paragraph (a confirm dialog's one line, a form's helper text) reads with comfortable
+   leading and no stray default margin. */
+.alk-modal__body p {
+  margin: 0;
+  line-height: var(--alkLeadingNormal);
+}
+
+/* The action row — pinned below the (scrollable) body, right-aligned. No rule by default: the body's
+   own bottom padding sets the gap, so the buttons read as part of the dialog, not a walled-off tray.
+   Present only when the caller passes a footer. `footerDivided` adds the hairline back for a long,
+   scrolling body where a pinned rule anchors the action row. */
+.alk-modal__foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--alkSpace3);
+  padding: 0 var(--alkSpace7) var(--alkSpace7);
+}
+.alk-modal__foot--divided {
+  padding-top: var(--alkSpace5);
+  border-top: 1px solid var(--alkBorder);
+}
+
+/* Below the width where a card still reads as a card, the preview surface IS the screen:
+   a 24px frame around it spends the only space a narrow window has. Scoped to `full` —
+   a confirm dialog stays a card at every width. */
+@media (max-width: 900px) {
+  .alk-modal-scrim:has(.alk-modal[data-size="full"]) {
+    --alk-modal-gutter: 0px;
+  }
+  .alk-modal[data-size="full"] {
+    --alk-modal-w: 100%;
+    /* The viewport again, for the same reason as above — the scrim's padding is
+       zero here, so the whole of it is the dialog. */
+    height: 100dvh;
+    max-height: 100dvh;
+    border: none;
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-modal-scrim,
+  .alk-modal {
+    transition: opacity var(--alkDurationNormal) var(--alkEaseStandard);
+    transform: none;
+  }
+}

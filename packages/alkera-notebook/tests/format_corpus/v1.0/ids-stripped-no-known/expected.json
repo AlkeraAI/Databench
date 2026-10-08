@@ -1,0 +1,140 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "d9wy3tj8wk": {
+        "defs": [
+          "total"
+        ],
+        "errors": [],
+        "refs": [
+          "df"
+        ],
+        "sql_tables": []
+      },
+      "ptw94nvm5p": {
+        "defs": [],
+        "errors": [],
+        "refs": [
+          "total"
+        ],
+        "sql_tables": []
+      },
+      "sh6zg9jp2d": {
+        "defs": [
+          "df"
+        ],
+        "errors": [],
+        "refs": [
+          "pl"
+        ],
+        "sql_tables": []
+      },
+      "t2zs6e2t95": {
+        "defs": [
+          "pl"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "d9wy3tj8wk",
+        "ptw94nvm5p"
+      ],
+      [
+        "sh6zg9jp2d",
+        "d9wy3tj8wk"
+      ],
+      [
+        "t2zs6e2t95",
+        "sh6zg9jp2d"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "import polars as pl",
+        "config": {},
+        "extra": {},
+        "id": "t2zs6e2t95",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "minted",
+        "source": "import polars as pl"
+      },
+      {
+        "code": "df = pl.read_csv('orders.csv')",
+        "config": {},
+        "extra": {},
+        "id": "sh6zg9jp2d",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "df = pl.read_csv('orders.csv')"
+      },
+      {
+        "code": "total = df['amount'].sum()",
+        "config": {},
+        "extra": {},
+        "id": "d9wy3tj8wk",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "total = df['amount'].sum()"
+      },
+      {
+        "code": "print(f'total: {total}')",
+        "config": {},
+        "extra": {},
+        "id": "ptw94nvm5p",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "print(f'total: {total}')"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": [
+      [
+        "settings_missing",
+        0
+      ],
+      [
+        "id_missing",
+        6
+      ],
+      [
+        "id_missing",
+        10
+      ],
+      [
+        "id_missing",
+        16
+      ],
+      [
+        "id_missing",
+        22
+      ]
+    ]
+  }
+}

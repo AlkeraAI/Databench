@@ -1,0 +1,54 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "00000000c4": {
+        "defs": [],
+        "errors": [
+          {
+            "code": "syntax_error"
+          }
+        ],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": "3.13",
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "try:\n    pass\nexcept ValueError, TypeError:\n    pass",
+        "config": {},
+        "extra": {},
+        "id": "00000000c4",
+        "kind": "unparsable",
+        "meta": {
+          "verbatim": "@app.cell(alkera_id=\"00000000c4\")\ndef _():\n    try:\n        pass\n    except ValueError, TypeError:\n        pass\n    return"
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "try:\n    pass\nexcept ValueError, TypeError:\n    pass"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": [
+      [
+        "syntax_error",
+        10
+      ]
+    ]
+  }
+}

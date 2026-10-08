@@ -1,0 +1,240 @@
+from __future__ import annotations
+
+import json
+import os
+import pathlib
+import subprocess
+import sys
+
+import pytest
+
+from marimo._messaging.msgspec_encoder import asdict
+from marimo._utils.uv_tree import (
+    DependencyTag,
+    DependencyTreeNode,
+    parse_uv_tree,
+)
+from tests.mocks import snapshotter
+
+skip_if_below_py312 = pytest.mark.skipif(
+    sys.version_info < (3, 12),
+    reason="uv resolution snapshots only run on Python 3.12+",
+)
+
+skip_if_windows = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="uv tree output differs on Windows",
+)
+
+UV_BIN = os.environ.get("UV")
+SELF_DIR = pathlib.Path(__file__).parent
+snapshot_test = snapshotter(__file__)
+
+
+def serialize(tree: DependencyTreeNode) -> str:
+    return json.dumps(asdict(tree), indent=2)
+
+
+def uv(cmd: list[str], cwd: str | None = None) -> str:
+    assert UV_BIN, "Must have uv installed to use."
+    env = {
+        **os.environ,
+        "UV_PYTHON": "3.13",
+        "UV_EXCLUDE_NEWER": "2025-06-19T00:00:00-02:00",
+        # Override CI's lowest-direct resolution which can cause uv add to fail
+        "UV_RESOLUTION": "highest",
+    }
+    result = subprocess.run(
+        [UV_BIN] + cmd,
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        env=env,
+    )
+    return result.stdout
+
+
+def test_uv_tree_distinguishes_deduplication_from_cycles() -> None:
+    repeated = parse_uv_tree(
+        "root v1.0.0\n"
+        "└── shared v2.0.0 (*)\n"
+        "(*) Package tree already displayed\n"
+    )
+    cycle = parse_uv_tree(
+        "root v1.0.0\n└── root v1.0.0 (*)\n(*) Package tree is a cycle\n"
+    )
+
+    assert repeated.dependencies[0].dependencies[0].tags == [
+        DependencyTag(kind="dedupe", value="true")
+    ]
+    assert cycle.dependencies[0].dependencies[0].tags == [
+        DependencyTag(kind="cycle", value="true")
+    ]
+
+
+@pytest.mark.skipif(UV_BIN is None, reason="requires uv executable.")
+@skip_if_windows
+def test_complex_project_tree(tmp_path: pathlib.Path) -> None:
+    uv(["init", "blah"], cwd=str(tmp_path))
+    project_dir = tmp_path / "blah"
+    uv(["add", "anywidget", "marimo"], cwd=str(project_dir))
+    uv(["add", "--dev", "pytest"], cwd=str(project_dir))
+    uv(["add", "--optional", "bar", "pandas"], cwd=str(project_dir))
+    raw = uv(["tree", "--no-dedupe"], cwd=str(project_dir))
+    tree = parse_uv_tree(raw)
+    assert tree is not None
+    snapshot_test("complex_project_tree.json", serialize(tree))
+
+
+@pytest.mark.skipif(UV_BIN is None, reason="requires uv executable.")
+def test_empty_project_tree(tmp_path: pathlib.Path) -> None:
+    uv(["init", "blah"], cwd=str(tmp_path))
+    project_dir = tmp_path / "blah"
+    raw = uv(["tree", "--no-dedupe"], cwd=str(project_dir))
+    tree = parse_uv_tree(raw)
+    snapshot_test("empty_project_tree.json", serialize(tree))
+
+
+@pytest.mark.skipif(UV_BIN is None, reason="requires uv executable.")
+@skip_if_windows
+def test_simple_project_tree(tmp_path: pathlib.Path) -> None:
+    uv(["init", "blah"], cwd=str(tmp_path))
+    project_dir = tmp_path / "blah"
+    uv(["add", "polars", "pandas"], cwd=str(project_dir))
+    raw = uv(["tree", "--no-dedupe"], cwd=str(project_dir))
+    tree = parse_uv_tree(raw)
+    snapshot_test("simple_project_tree.json", serialize(tree))
+
+
+@pytest.mark.skipif(UV_BIN is None, reason="requires uv executable.")
+@skip_if_below_py312
+def test_script_tree(tmp_path: pathlib.Path) -> None:
+    script_path = tmp_path / "blah.py"
+    uv(["init", "--script", str(script_path)])
+    uv(["add", "--script", str(script_path), "polars", "pandas", "anywidget"])
+    raw = uv(["tree", "--no-dedupe", "--script", str(script_path)])
+    tree = parse_uv_tree(raw)
+    snapshot_test("script_tree.json", serialize(tree))
+
+
+@pytest.mark.skipif(UV_BIN is None, reason="requires uv executable.")
+def test_empty_script_tree_stable_output(tmp_path: pathlib.Path) -> None:
+    script_path = tmp_path / "blah.py"
+    uv(["init", "--script", str(script_path)])
+    raw = uv(["tree", "--no-dedupe", "--script", str(script_path)])
+    tree = parse_uv_tree(raw)
+    snapshot_test("empty_script_tree.json", serialize(tree))
+
+
+@pytest.mark.xfail(reason="TODO: fix this. fails in CI.")
+def test_complex_project_tree_raw_snapshot() -> None:
+    raw = """blah v0.1.0
+├── anywidget v0.9.18
+│   ├── ipywidgets v8.1.7
+│   │   ├── comm v0.2.2
+│   │   │   └── traitlets v5.14.3
+│   │   ├── ipython v9.3.0
+│   │   │   ├── decorator v5.2.1
+│   │   │   ├── ipython-pygments-lexers v1.1.1
+│   │   │   │   └── pygments v2.19.1
+│   │   │   ├── jedi v0.19.2
+│   │   │   │   └── parso v0.8.4
+│   │   │   ├── matplotlib-inline v0.1.7
+│   │   │   │   └── traitlets v5.14.3
+│   │   │   ├── pexpect v4.9.0
+│   │   │   │   └── ptyprocess v0.7.0
+│   │   │   ├── prompt-toolkit v3.0.51
+│   │   │   │   └── wcwidth v0.2.13
+│   │   │   ├── pygments v2.19.1
+│   │   │   ├── stack-data v0.6.3
+│   │   │   │   ├── asttokens v3.0.0
+│   │   │   │   ├── executing v2.2.0
+│   │   │   │   └── pure-eval v0.2.3
+│   │   │   └── traitlets v5.14.3
+│   │   ├── jupyterlab-widgets v3.0.15
+│   │   ├── traitlets v5.14.3
+│   │   └── widgetsnbextension v4.0.14
+│   ├── psygnal v0.13.0
+│   └── typing-extensions v4.14.0
+├── marimo v0.0.0
+│   ├── click v8.2.1
+│   ├── docutils v0.21.2
+│   ├── itsdangerous v2.2.0
+│   ├── jedi v0.19.2
+│   │   └── parso v0.8.4
+│   ├── loro v1.5.1
+│   ├── markdown v3.8.1
+│   ├── narwhals v1.42.1
+│   ├── packaging v25.0
+│   ├── psutil v7.0.0
+│   ├── pygments v2.19.1
+│   ├── pymdown-extensions v10.15
+│   │   ├── markdown v3.8.1
+│   │   └── pyyaml v6.0.2
+│   ├── pyyaml v6.0.2
+│   ├── starlette v0.47.0
+│   │   └── anyio v4.9.0
+│   │       ├── idna v3.10
+│   │       └── sniffio v1.3.1
+│   ├── tomlkit v0.13.3
+│   ├── uvicorn v0.34.3
+│   │   ├── click v8.2.1
+│   │   └── h11 v0.16.0
+│   └── websockets v15.0.1
+├── pandas v2.3.0 (extra: bar)
+│   ├── numpy v2.3.0
+│   ├── python-dateutil v2.9.0.post0
+│   │   └── six v1.17.0
+│   ├── pytz v2025.2
+│   └── tzdata v2025.2
+└── pytest v8.4.1 (group: dev)
+    ├── iniconfig v2.1.0
+    ├── packaging v25.0
+    ├── pluggy v1.6.0
+    └── pygments v2.19.1"""
+    tree = parse_uv_tree(raw)
+    snapshot_test("complex_project_tree_from_raw.json", serialize(tree))
+
+
+def test_script_tree_raw_snapshot() -> None:
+    raw = """polars v1.31.0
+pandas v2.3.0
+├── numpy v2.3.0
+├── python-dateutil v2.9.0.post0
+│   └── six v1.17.0
+├── pytz v2025.2
+└── tzdata v2025.2
+anywidget v0.9.18
+├── ipywidgets v8.1.7
+│   ├── comm v0.2.2
+│   │   └── traitlets v5.14.3
+│   ├── ipython v9.3.0
+│   │   ├── decorator v5.2.1
+│   │   ├── ipython-pygments-lexers v1.1.1
+│   │   │   └── pygments v2.19.1
+│   │   ├── jedi v0.19.2
+│   │   │   └── parso v0.8.4
+│   │   ├── matplotlib-inline v0.1.7
+│   │   │   └── traitlets v5.14.3
+│   │   ├── pexpect v4.9.0
+│   │   │   └── ptyprocess v0.7.0
+│   │   ├── prompt-toolkit v3.0.51
+│   │   │   └── wcwidth v0.2.13
+│   │   ├── pygments v2.19.1
+│   │   ├── stack-data v0.6.3
+│   │   │   ├── asttokens v3.0.0
+│   │   │   ├── executing v2.2.0
+│   │   │   └── pure-eval v0.2.3
+│   │   └── traitlets v5.14.3
+│   ├── jupyterlab-widgets v3.0.15
+│   ├── traitlets v5.14.3
+│   └── widgetsnbextension v4.0.14
+├── psygnal v0.13.0
+└── typing-extensions v4.14.0"""
+    tree = parse_uv_tree(raw)
+    # Use keep_version=True to avoid jedi v0.19.2 being incorrectly
+    # sanitized when marimo version is 0.19.2
+    snapshot_test(
+        "script_tree_from_raw.json", serialize(tree), keep_version=True
+    )

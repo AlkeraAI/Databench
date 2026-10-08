@@ -1,0 +1,20 @@
+{% extends "base.mjml" %}
+{% from "_macros.mjml" import cta %}
+{# `brand_suffix` is " on <product>", or empty when the org name already carries the
+   brand — the sender computes it (alkera_core.email._brand_suffix) so the Subject,
+   which never passes through Jinja, reads exactly like the preheader beside it. #}
+{% block title %}You're invited to {{ org_name }}{{ brand_suffix }}{% endblock %}
+{% block preview %}{{ inviter }} invited you to join {{ org_name }}{{ brand_suffix }}.{% endblock %}
+{% block content %}
+<mj-text font-family="{{ tokens.FONT_DISPLAY }}" font-size="18px" font-weight="600" padding-bottom="8px">
+  You've been invited
+</mj-text>
+<mj-text>
+  {{ inviter }} invited you to join
+  {% if team_name %}the <strong>{{ team_name }}</strong> team in <strong>{{ org_name }}</strong>{% else %}the <strong>{{ org_name }}</strong> organization{% endif %}{{ brand_suffix }}.
+</mj-text>
+{{ cta(accept_url, "Accept invitation") }}
+<mj-text font-size="13px" color="{{ tokens.MUTED }}" padding-top="8px">
+  This invitation expires on {{ expires }}. If you didn't expect this email, you can safely ignore it.
+</mj-text>
+{% endblock %}

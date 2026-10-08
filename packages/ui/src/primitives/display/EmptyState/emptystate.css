@@ -1,0 +1,129 @@
+/* EmptyState — the centred state plate a data view resolves into when there's nothing to show or a
+ * fetch failed. A mark over a Newsreader heading, a plain-language body, an optional raw-detail
+ * disclosure, and one next action. Shared across pages so empty / fail-to-load surfaces match.
+ *
+ * A three-step size ladder scales the plate's WEIGHT — the base (`lg`, no `data-size`) is the
+ * full-view takeover; `data-size="md"` and `="sm"` step down the min-height, mark margin, gaps, and
+ * the title + body type together, so an empty state reads at the right rank for its container (a
+ * whole view, a card body, a tight inline note). */
+
+.alk-emptystate {
+  /* Plate metrics scale with the size ladder from ONE place — the base is the lg full-view takeover
+     (a tall min-height, the wide body measure); md/sm step these down. Off-scale values (the fold
+     min-height, the ch reading measures) carry the literal as a component-local default. */
+  --alk-emptystate-min-h: 360px;
+  --alk-emptystate-body-measure: 46ch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* justify-content: center; */
+  text-align: center;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace2xl) var(--alkSpace6);
+  min-height: var(--alk-emptystate-min-h);
+}
+.alk-emptystate__mark {
+  display: inline-flex;
+  color: var(--alkPrimaryText);
+  margin-bottom: var(--alkSpace2);
+}
+.alk-emptystate[data-tone="alert"] .alk-emptystate__mark {
+  color: var(--alkDangerText);
+}
+.alk-emptystate__title {
+  margin: 0;
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alkText3xl);
+  font-weight: var(--alkWeightMedium);
+  letter-spacing: -0.01em;
+  color: var(--alkPrimaryText);
+}
+.alk-emptystate__body {
+  margin: 0 0 var(--alkSpace2);
+  max-width: var(--alk-emptystate-body-measure);
+  font-size: var(--alkTextLg);
+  line-height: 1.5;
+  color: var(--alkSecondaryText);
+}
+
+/* The raw-error disclosure — subtle and muted; the technical message reads as a mono block,
+   scrollable so a long error stays contained. Opening it is a recovery path, not the headline. */
+.alk-emptystate__details {
+  max-width: 46ch;
+  margin: 0 0 var(--alkSpace2);
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+  text-align: left;
+}
+.alk-emptystate__details > summary {
+  text-align: center;
+  list-style: none;
+  cursor: pointer;
+  color: var(--alkSecondaryText);
+  border-radius: var(--alkRadiusSm);
+  /* The shared hover/state cross-fade — see theme/motion.css. */
+  transition: var(--alk-control-transition);
+}
+.alk-emptystate__details > summary::-webkit-details-marker {
+  display: none;
+}
+.alk-emptystate__details > summary:hover {
+  color: var(--alkPrimaryText);
+}
+.alk-emptystate__raw {
+  margin: var(--alkSpace3) 0 0;
+  padding: var(--alkSpace3) var(--alkSpace5);
+  max-height: 8.5em;
+  overflow: auto;
+  background: var(--alkHoverBg);
+  border-radius: var(--alkRadiusMd);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  color: var(--alkPrimaryText);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.alk-emptystate__action {
+  display: flex;
+  gap: var(--alkSpace5);
+}
+
+/* ── md (in-card) ─────────────────────────────────────────────────────────────
+ * The compact plate for use INSIDE a card / panel body (a no-matches state below a populated
+ * toolbar): no min-height (it sizes to its content, not the fold), tighter padding + gaps, and a
+ * smaller mark + title + body so it reads as a state within a surface, not a whole-view takeover. */
+.alk-emptystate:where([data-size="md"]) {
+  --alk-emptystate-min-h: 0px;
+  --alk-emptystate-body-measure: 42ch;
+  gap: var(--alkSpace2);
+  padding: var(--alkSpace8) var(--alkSpace6) var(--alkSpaceLg);
+}
+.alk-emptystate:where([data-size="md"]) .alk-emptystate__mark {
+  margin-bottom: var(--alkSpace1);
+}
+.alk-emptystate:where([data-size="md"]) .alk-emptystate__title {
+  font-size: var(--alkTextXl);
+}
+.alk-emptystate:where([data-size="md"]) .alk-emptystate__body {
+  font-size: var(--alkTextMd);
+}
+
+/* ── sm (inline note) ─────────────────────────────────────────────────────────
+ * The tightest step — a small inline note, not a plate: the smallest mark, a Lg title, an Sm body,
+ * and the closest gaps + padding, so a "nothing here" reads as a quiet line within a dense row. */
+.alk-emptystate:where([data-size="sm"]) {
+  --alk-emptystate-min-h: 0px;
+  --alk-emptystate-body-measure: 38ch;
+  gap: var(--alkSpace1);
+  padding: var(--alkSpace5) var(--alkSpace6);
+}
+.alk-emptystate:where([data-size="sm"]) .alk-emptystate__mark {
+  margin-bottom: var(--alkSpace0);
+}
+.alk-emptystate:where([data-size="sm"]) .alk-emptystate__title {
+  font-size: var(--alkTextLg);
+}
+.alk-emptystate:where([data-size="sm"]) .alk-emptystate__body {
+  margin-bottom: 0;
+  font-size: var(--alkTextSm);
+}

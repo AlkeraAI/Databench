@@ -1,0 +1,15 @@
+{
+  "events": [
+    {
+      "delta": "Th",
+      "event_id": "e4",
+      "event_type": "agent.message_chunk"
+    }
+  ],
+  "fields": {},
+  "intent": "chunk",
+  "meta": {},
+  "metadata": {},
+  "op_id": "op-chunk-1",
+  "schema_version": "1.0.0"
+}

@@ -1,0 +1,43 @@
+[project]
+name = "alkera-core"
+version = "0.0.0"
+description = "Shared Python building blocks for Alkera (settings, logging, db, models, schemas)."
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29.0",
+    "pydantic[email]>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "structlog>=24.4.0",
+    "python-json-logger>=2.0.7",
+    "prometheus-client>=0.20.0",
+    "sentry-sdk>=2.0.0",
+    "stripe>=12,<16",
+    "pyjwt>=2.15.1",
+    "aiosmtplib>=3.0",
+    "cryptography>=50.0.0",               # Fernet secret-box + Ed25519 entitlement tokens
+    "asyncssh[bcrypt]>=2.21.0",           # SSH to a machine an org adds; bcrypt opens passphrase keys
+    "blake3>=1.0,<2",                     # BLAKE3 content hashes for Files (every hop hashes)
+    "boto3>=1.34",                        # S3-compatible store driver; only alkera_core/files/store/ may import it
+    "botocore>=1.34",                     # signing + error types behind the same store driver
+    "aioboto3>=13.0.0",                   # async S3 calls on the request path, same store driver
+
+    "jinja2>=3.1",                    # HTML email templating (variable substitution into MJML)
+    "mrml==0.2.4",                    # MJML→HTML renderer (Rust engine); pinned so output is deterministic
+    # Temporal SDK: the shared task-queue contract + client factory live here so the
+    # backend can start / signal workflows without depending on the worker package.
+    "temporalio>=1.32,<2",
+    # Outbound HTTP (alkera_core.http) and the egress guard's IDNA host handling
+    # (alkera_core.egress); declared here rather than reached through another
+    # package's dependency tree.
+    "httpx>=0.27.0",
+    "idna>=3.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["alkera_core"]

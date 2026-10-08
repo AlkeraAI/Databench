@@ -1,0 +1,1282 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import asyncio
+import os
+import sys
+from contextlib import contextmanager
+from functools import partial
+from pathlib import Path
+from typing import TYPE_CHECKING, cast, get_args
+
+import click
+
+from marimo._cli.errors import MarimoCLIMissingDependencyError
+from marimo._cli.export.cloudflare import create_cloudflare_files
+from marimo._cli.export.output import STDERR, STDOUT
+from marimo._cli.export.session import session
+from marimo._cli.export.thumbnail import thumbnail
+from marimo._cli.help_formatter import ColoredCommand, ColoredGroup
+from marimo._cli.install_hints import get_playwright_chromium_setup_commands
+from marimo._cli.parse_args import parse_args
+from marimo._cli.print import (
+    echo,
+    green,
+)
+from marimo._cli.sandbox import maybe_prompt_run_in_sandbox, run_in_sandbox
+from marimo._cli.utils import prompt_to_overwrite
+from marimo._convert.common.filename import parse_title
+from marimo._convert.markdown.flavor.base import MarkdownFlavorName
+from marimo._convert.script import UnsupportedAsyncCodeError
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._dependencies.errors import ManyModulesNotFoundError
+from marimo._export._status import PDFExportStatusEvent
+from marimo._export.exporter import Exporter
+from marimo._export.file import (
+    export_html,
+    export_ipynb,
+    export_markdown,
+    export_pdf,
+    export_script,
+    export_wasm,
+    notebook_uses_slides_layout,
+)
+from marimo._export.local_modules import (
+    LocalWheelError,
+    UVNotFoundError,
+    resolve_notebook_local_modules,
+)
+from marimo._export.local_wheels import (
+    WASM_WHEEL_DIR,
+    auto_wheel_dependencies,
+    build_local_module_wheels,
+    copy_local_wheels,
+    resolve_metadata_wheel_dependencies,
+    wheel_dependency_names,
+    with_wheel_dependencies,
+)
+from marimo._export.offline import (
+    OfflineExportError,
+    check_offline_export_browser,
+)
+from marimo._export.requests import (
+    ExportResult,
+    HTMLFileExportRequest,
+    IPYNBFileExportRequest,
+    MarkdownFileExportRequest,
+    NotebookExecutionOptions,
+    PDFFileExportRequest,
+    ScriptFileExportRequest,
+    WASMFileExportRequest,
+)
+from marimo._pyodide.pyodide_constraints import PYODIDE_PYTHON_VERSION
+from marimo._schemas.export_options import (
+    ExportPDFPreset,
+    HTMLExportOptions,
+    IPYNBExportOptions,
+    IPYNBSortMode,
+    MarkdownExportOptions,
+    PDFExportOptions,
+    PDFRasterizationOptions,
+    PDFRasterServer,
+    WASMExportOptions,
+    WASMMode,
+)
+from marimo._server.utils import asyncio_run
+from marimo._templates import get_default_asset_url
+from marimo._utils.file_watcher import FileWatcher
+from marimo._utils.marimo_path import MarimoPath
+from marimo._utils.paths import maybe_make_dirs
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+    from typing import Protocol
+
+    class _ExportWithCodeTransform(Protocol):
+        def __call__(
+            self,
+            *,
+            code_transform: Callable[[str], str],
+            local_wheel_paths: tuple[Path, ...],
+        ) -> ExportResult: ...
+
+
+_watch_message = (
+    "Watch notebook for changes and regenerate the output on modification. "
+    "If watchdog is installed, it will be used to watch the file. "
+    "Otherwise, file watcher will poll the file every 1s."
+)
+
+_sandbox_message = (
+    "Run the command in an isolated virtual environment using "
+    "`uv run --isolated`. Requires `uv`."
+)
+
+
+@click.group(
+    cls=ColoredGroup, help="""Export a notebook to various formats."""
+)
+def export() -> None:
+    pass
+
+
+class _PDFExportCLIReporter:
+    def __call__(self, event: PDFExportStatusEvent) -> None:
+        message = event.message
+        if event.current is not None and event.total is not None:
+            progress = f" [{event.current}/{event.total}]"
+            if message.endswith("..."):
+                message = f"{message[:-3]}{progress}..."
+            elif message.endswith("."):
+                message = f"{message[:-1]}{progress}."
+            else:
+                message = f"{message}{progress}"
+        echo(f"{green('Exporting PDF', bold=True)}: {message}", err=True)
+
+
+@contextmanager
+def _live_notebook_page_url(
+    filepath: str,
+    argv: tuple[str, ...],
+) -> Iterator[str]:
+    from marimo._cli.export.live_notebook_server import LiveNotebookServer
+
+    with LiveNotebookServer(filepath=filepath, argv=list(argv)) as server:
+        yield server.page_url
+
+
+def watch_and_export(
+    marimo_path: MarimoPath,
+    output: Path | None,
+    watch: bool,
+    export_callback: Callable[[MarimoPath], ExportResult],
+    force: bool,
+    *,
+    initial_export_in_watch: bool = False,
+) -> None:
+    if watch and not output:
+        raise click.UsageError(
+            "Cannot use --watch without providing "
+            + "an output file with --output."
+        )
+
+    def write_result(result: ExportResult) -> None:
+        if output:
+            # Make dirs if needed
+            maybe_make_dirs(output)
+            output.write_bytes(result.bytez)
+        else:
+            echo(result.text)
+        return
+
+    if output:
+        output_path = Path(output)
+        if not force and not watch:
+            if not prompt_to_overwrite(output_path):
+                return
+
+    # No watch, just run once
+    if not watch:
+        result = export_callback(marimo_path)
+        write_result(result)
+        if result.did_error:
+            raise click.ClickException(
+                "Export was successful, but some cells failed to execute."
+            )
+        return
+
+    # Watch mode: optionally do an initial export before waiting for changes
+    if initial_export_in_watch:
+        result = export_callback(marimo_path)
+        write_result(result)
+        if result.did_error:
+            echo(
+                "Warning: Export was successful, but some cells failed to execute.",
+                err=True,
+            )
+
+    async def on_file_changed(file_path: Path) -> None:
+        if output:
+            echo(
+                f"File {file_path!s} changed. Re-exporting to {green(str(output))}"
+            )
+        try:
+            # `export_callback` may call `asyncio_run()` internally. This callback
+            # runs inside the file watcher's event loop, so we must execute the
+            # export in a separate thread to avoid `asyncio.run()` nesting.
+            result = await asyncio.to_thread(
+                export_callback, MarimoPath(file_path)
+            )
+        except Exception as e:
+            echo(f"Error: {e}", err=True)
+            return
+
+        write_result(result)
+        if result.did_error:
+            echo(
+                "Warning: Export was successful, but some cells failed to execute.",
+                err=True,
+            )
+
+    async def start() -> None:
+        # Watch the file for changes
+        watcher = FileWatcher.create(marimo_path.path, on_file_changed)
+        echo(f"Watching {green(marimo_path.relative_name)} for changes...")
+        watcher.start()
+        try:
+            # Run forever
+            while True:  # noqa: ASYNC110
+                await asyncio.sleep(1)
+        except KeyboardInterrupt:
+            watcher.stop()
+
+    asyncio_run(start())
+
+
+@click.command(
+    cls=ColoredCommand,
+    help="""Run a notebook and export it as an HTML file.
+
+Example:
+
+    marimo export html notebook.py -o notebook.html
+
+Optionally pass CLI args to the notebook:
+
+    marimo export html notebook.py -o notebook.html -- -arg1 foo -arg2 bar
+""",
+)
+@click.option(
+    "--include-code/--no-include-code",
+    default=True,
+    type=bool,
+    help="Include notebook code in the exported HTML file.",
+)
+@click.option(
+    "--watch/--no-watch",
+    default=False,
+    type=bool,
+    help=_watch_message,
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    default=None,
+    help=(
+        "Output file to save the HTML to. "
+        "If not provided, the HTML will be printed to stdout."
+    ),
+)
+@click.option(
+    "--sandbox/--no-sandbox",
+    is_flag=True,
+    default=None,
+    type=bool,
+    help=_sandbox_message,
+)
+@click.option(
+    "-f",
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Force overwrite of the output file if it already exists.",
+)
+@click.argument(
+    "name",
+    required=True,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+)
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def html(
+    name: str,
+    include_code: bool,
+    output: Path,
+    watch: bool,
+    sandbox: bool | None,
+    force: bool,
+    args: tuple[str],
+) -> None:
+    """Run a notebook and export it as an HTML file."""
+    # Set default, if not provided
+    if sandbox is None:
+        sandbox = maybe_prompt_run_in_sandbox(name)
+
+    if sandbox:
+        sys.exit(run_in_sandbox(sys.argv[1:], name=name))
+
+    cli_args = parse_args(args)
+
+    def export_callback(file_path: MarimoPath) -> ExportResult:
+        return asyncio_run(
+            export_html(
+                HTMLFileExportRequest(
+                    path=file_path,
+                    options=HTMLExportOptions(
+                        files=(),
+                        include_code=include_code,
+                    ),
+                    execution=NotebookExecutionOptions(
+                        cli_args=cli_args,
+                        argv=list(args),
+                        stderr=STDERR,
+                    ),
+                )
+            )
+        )
+
+    return watch_and_export(
+        MarimoPath(name), output, watch, export_callback, force
+    )
+
+
+@click.command(
+    cls=ColoredCommand,
+    help="""
+Export a marimo notebook as a flat script, in topological order.
+
+Example:
+
+    marimo export script notebook.py -o notebook.script.py
+
+Watch for changes and regenerate the script on modification:
+
+    marimo export script notebook.py -o notebook.script.py --watch
+""",
+)
+@click.option(
+    "--watch/--no-watch",
+    default=False,
+    type=bool,
+    help=_watch_message,
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    default=None,
+    help=(
+        "Output file to save the script to. "
+        "If not provided, the script will be printed to stdout."
+    ),
+)
+@click.option(
+    "--sandbox/--no-sandbox",
+    is_flag=True,
+    default=None,
+    type=bool,
+    help=_sandbox_message,
+)
+@click.option(
+    "-f",
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Force overwrite of the output file if it already exists.",
+)
+@click.argument(
+    "name",
+    required=True,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+)
+def script(
+    name: str, output: Path, watch: bool, sandbox: bool | None, force: bool
+) -> None:
+    """
+    Export a marimo notebook as a flat script, in topological order.
+    """
+    if sandbox:
+        sys.exit(run_in_sandbox(sys.argv[1:], name=name))
+
+    def export_callback(file_path: MarimoPath) -> ExportResult:
+        try:
+            return export_script(ScriptFileExportRequest(path=file_path))
+        except UnsupportedAsyncCodeError as error:
+            raise click.ClickException(str(error)) from None
+
+    return watch_and_export(
+        MarimoPath(name), output, watch, export_callback, force
+    )
+
+
+@click.command(
+    cls=ColoredCommand,
+    help="""
+Export a marimo notebook as a code fenced Markdown file.
+
+Example:
+
+    marimo export md notebook.py -o notebook.md
+
+Watch for changes and regenerate the script on modification:
+
+    marimo export md notebook.py -o notebook.md --watch
+""",
+)
+@click.option(
+    "--watch/--no-watch",
+    default=False,
+    type=bool,
+    help=_watch_message,
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    default=None,
+    help=(
+        "Output file to save the markdown to. "
+        "If --flavor is omitted, this file's extension selects the "
+        "markdown flavor. If not provided, markdown will be printed to "
+        "stdout; shell redirection is not inspected for flavor inference."
+    ),
+)
+@click.option(
+    "--sandbox/--no-sandbox",
+    is_flag=True,
+    default=None,
+    type=bool,
+    help=_sandbox_message,
+)
+@click.option(
+    "--flavor",
+    type=click.Choice(get_args(MarkdownFlavorName)),
+    default=None,
+    help="Markdown flavor to export.",
+)
+@click.option(
+    "-f",
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Force overwrite of the output file if it already exists.",
+)
+@click.argument(
+    "name",
+    required=True,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+)
+def md(
+    name: str,
+    output: Path,
+    watch: bool,
+    sandbox: bool | None,
+    flavor: MarkdownFlavorName | None,
+    force: bool,
+) -> None:
+    """
+    Export a marimo notebook as a code fenced markdown document.
+    """
+    if sandbox:
+        sys.exit(run_in_sandbox(sys.argv[1:], name=name))
+
+    filename = str(output) if output is not None else None
+
+    def export_callback(file_path: MarimoPath) -> ExportResult:
+        return export_markdown(
+            MarkdownFileExportRequest(
+                path=file_path,
+                options=MarkdownExportOptions(
+                    flavor=flavor,
+                    filename=filename,
+                ),
+            )
+        )
+
+    return watch_and_export(
+        MarimoPath(name), output, watch, export_callback, force
+    )
+
+
+@click.command(
+    cls=ColoredCommand,
+    help="""
+Export a marimo notebook as a Jupyter notebook in topological order.
+
+Example:
+
+    marimo export ipynb notebook.py -o notebook.ipynb
+
+Watch for changes and regenerate the script on modification:
+
+    marimo export ipynb notebook.py -o notebook.ipynb --watch
+
+Optionally pass CLI args to the notebook:
+
+    marimo export ipynb notebook.py -o notebook.ipynb --include-outputs -- -arg1 foo -arg2 bar
+
+Requires nbformat to be installed.
+""",
+)
+@click.option(
+    "--sort",
+    type=click.Choice(get_args(IPYNBSortMode)),
+    default="topological",
+    help="Sort cells top-down or in topological order.",
+)
+@click.option(
+    "--watch/--no-watch",
+    default=False,
+    type=bool,
+    help=_watch_message,
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    default=None,
+    help=(
+        "Output file to save the ipynb file to. "
+        "If not provided, the ipynb contents will be printed to stdout."
+    ),
+)
+@click.option(
+    "--include-outputs/--no-include-outputs",
+    default=False,
+    type=bool,
+    help="Run the notebook and include outputs in the exported ipynb file.",
+)
+@click.option(
+    "--sandbox/--no-sandbox",
+    is_flag=True,
+    default=None,
+    type=bool,
+    help=_sandbox_message,
+)
+@click.option(
+    "-f",
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Force overwrite of the output file if it already exists.",
+)
+@click.argument(
+    "name",
+    required=True,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+)
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def ipynb(
+    name: str,
+    output: Path,
+    watch: bool,
+    sort: IPYNBSortMode,
+    include_outputs: bool,
+    sandbox: bool | None,
+    force: bool,
+    args: tuple[str],
+) -> None:
+    """
+    Export a marimo notebook as a Jupyter notebook in topological order.
+    """
+    if include_outputs:
+        # Set default, if not provided
+        if sandbox is None:
+            sandbox = maybe_prompt_run_in_sandbox(name)
+
+        if sandbox:
+            sys.exit(
+                run_in_sandbox(
+                    sys.argv[1:],
+                    name=name,
+                    command_deps=["nbformat"],
+                )
+            )
+
+    try:
+        DependencyManager.nbformat.require(
+            why="to convert marimo notebooks to ipynb"
+        )
+    except ModuleNotFoundError as e:
+        package = getattr(e, "name", None) or "nbformat"
+        raise MarimoCLIMissingDependencyError(str(e), package) from None
+
+    cli_args = parse_args(args) if include_outputs else {}
+
+    def export_callback(file_path: MarimoPath) -> ExportResult:
+        return asyncio_run(
+            export_ipynb(
+                IPYNBFileExportRequest(
+                    path=file_path,
+                    options=IPYNBExportOptions(sort_mode=sort),
+                    execution=(
+                        NotebookExecutionOptions(
+                            cli_args=cli_args,
+                            argv=list(args),
+                            stderr=STDERR,
+                        )
+                        if include_outputs
+                        else None
+                    ),
+                    stderr=STDERR,
+                )
+            )
+        )
+
+    return watch_and_export(
+        MarimoPath(name), output, watch, export_callback, force
+    )
+
+
+@click.command(
+    cls=ColoredCommand,
+    help="""Export a marimo notebook as a PDF file.
+
+Example:
+
+    marimo export pdf notebook.py -o notebook.pdf
+
+Optionally pass CLI args to the notebook:
+
+    marimo export pdf notebook.py -o notebook.pdf -- -arg1 foo -arg2 bar
+
+Export PDFs in a specific format such as slides:
+
+    marimo export pdf notebook.py -o notebook.pdf --as=slides
+
+Requires nbformat and nbconvert to be installed.
+""",
+)
+@click.option(
+    "--include-outputs/--no-include-outputs",
+    default=True,
+    type=bool,
+    help="Run the notebook and include outputs in the exported PDF file.",
+)
+@click.option(
+    "--include-inputs/--no-include-inputs",
+    default=True,
+    type=bool,
+    help="Include code cell inputs in the exported PDF file.",
+)
+@click.option(
+    "--webpdf/--no-webpdf",
+    default=True,
+    type=bool,
+    help=(
+        "Use nbconvert's WebPDF exporter (Chromium). If disabled, marimo will "
+        "try standard PDF export (pandoc + TeX) first and fall back to WebPDF."
+    ),
+)
+@click.option(
+    "--rasterize-outputs/--no-rasterize-outputs",
+    default=True,
+    type=bool,
+    help=(
+        "Rasterize marimo widget HTML and Vega outputs to PNG fallbacks before PDF "
+        "conversion (enabled by default)."
+    ),
+)
+@click.option(
+    "--raster-scale",
+    type=click.FloatRange(min=1.0, max=4.0),
+    default=4.0,
+    help="Scale factor for rasterized output screenshots.",
+)
+@click.option(
+    "--raster-server",
+    type=click.Choice(get_args(PDFRasterServer), case_sensitive=False),
+    default="static",
+    help=(
+        "Server mode used for raster capture. Use 'static' (default) for "
+        "faster captures, or 'live' if outputs require a live Python connection. "
+        "For --as=slides, 'live' is recommended."
+    ),
+)
+@click.option(
+    "--as",
+    "export_as",
+    type=click.Choice(get_args(ExportPDFPreset)),
+    default=None,
+    help=(
+        "PDF export preset. Use `slides` for reveal.js slide-style output. "
+        "If omitted, marimo exports as a standard document PDF."
+    ),
+)
+@click.option(
+    "--watch/--no-watch",
+    default=False,
+    type=bool,
+    help=_watch_message,
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    required=True,
+    help="Output PDF file to save to.",
+)
+@click.option(
+    "--sandbox/--no-sandbox",
+    is_flag=True,
+    default=None,
+    type=bool,
+    help=_sandbox_message,
+)
+@click.option(
+    "-f",
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Force overwrite of the output file if it already exists.",
+)
+@click.argument(
+    "name",
+    required=True,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+)
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+@click.pass_context
+def pdf(
+    ctx: click.Context,
+    name: str,
+    output: Path,
+    watch: bool,
+    include_outputs: bool,
+    include_inputs: bool,
+    webpdf: bool,
+    rasterize_outputs: bool,
+    raster_scale: float,
+    raster_server: str,
+    export_as: ExportPDFPreset | None,
+    sandbox: bool | None,
+    force: bool,
+    args: tuple[str],
+) -> None:
+    """Run a notebook and export it as a PDF file."""
+    if not include_outputs:
+        rasterize_source = ctx.get_parameter_source("rasterize_outputs")
+        raster_scale_source = ctx.get_parameter_source("raster_scale")
+        raster_server_source = ctx.get_parameter_source("raster_server")
+        if (
+            rasterize_source is not click.core.ParameterSource.DEFAULT
+            or raster_scale_source is not click.core.ParameterSource.DEFAULT
+            or raster_server_source is not click.core.ParameterSource.DEFAULT
+        ):
+            raise click.ClickException(
+                "Rasterization options require --include-outputs."
+            )
+
+    if include_outputs:
+        # Set default, if not provided
+        if sandbox is None:
+            sandbox = maybe_prompt_run_in_sandbox(name)
+
+        if sandbox:
+            export_deps = ["nbformat"]
+            # Adding webpdf extras to sandbox even if `webpdf` is False, since standard PDF export may fall back to it.
+            export_deps.append("nbconvert[webpdf]")
+            sys.exit(
+                run_in_sandbox(
+                    sys.argv[1:],
+                    name=name,
+                    command_deps=export_deps,
+                )
+            )
+
+    try:
+        DependencyManager.require_many(
+            "for PDF export",
+            DependencyManager.nbformat,
+            DependencyManager.nbconvert,
+            source="server",
+        )
+    except ManyModulesNotFoundError as e:
+        sandbox_rerun_command = (
+            f"marimo export pdf {name} --output {output} --sandbox"
+        )
+        raise MarimoCLIMissingDependencyError(
+            str(e),
+            e.package_names,
+            followup_commands=sandbox_rerun_command,
+            followup_label="Alternative:",
+            additional_tip="Requires uv.",
+        ) from None
+
+    if export_as is None and notebook_uses_slides_layout(MarimoPath(name)):
+        echo(
+            f"{green('Tip:')} Notebook is using slides layout. "
+            "Use --as=slides for slide-style PDF export.",
+            err=True,
+        )
+
+    cli_args = parse_args(args) if include_outputs else {}
+    rasterization_enabled = include_outputs and rasterize_outputs
+    if (
+        export_as == "slides"
+        and rasterization_enabled
+        and raster_server.lower() != "live"
+    ):
+        echo(
+            f"{green('Tip:')} For --as=slides, prefer --raster-server=live "
+            "for better aspect-ratio capture and widget compatibility.",
+            err=True,
+        )
+
+    if rasterization_enabled:
+        try:
+            DependencyManager.playwright.require(
+                "for rasterized PDF output export"
+            )
+        except ModuleNotFoundError as e:
+            if getattr(e, "name", None) == "playwright":
+                raise MarimoCLIMissingDependencyError(
+                    "Playwright is required to rasterize HTML outputs for PDF export.",
+                    "playwright",
+                    followup_commands=get_playwright_chromium_setup_commands(),
+                ) from None
+            raise
+
+    raster_server_mode = cast(PDFRasterServer, raster_server)
+    rasterization_options = PDFRasterizationOptions(
+        enabled=rasterization_enabled,
+        scale=raster_scale,
+        server_mode=raster_server_mode,
+    )
+    report_status = _PDFExportCLIReporter()
+
+    def export_callback(
+        file_path: MarimoPath,
+    ) -> ExportResult:
+        try:
+            result = asyncio_run(
+                export_pdf(
+                    PDFFileExportRequest(
+                        path=file_path,
+                        options=PDFExportOptions(
+                            webpdf=webpdf,
+                            preset=export_as or "document",
+                            include_inputs=include_inputs,
+                        ),
+                        rasterization=rasterization_options,
+                        execution=(
+                            NotebookExecutionOptions(
+                                cli_args=cli_args,
+                                argv=list(args),
+                                stderr=STDERR,
+                            )
+                            if include_outputs
+                            else None
+                        ),
+                        live_page_url=(
+                            partial(
+                                _live_notebook_page_url,
+                                file_path.absolute_name,
+                                args,
+                            )
+                            if rasterization_enabled
+                            and raster_server == "live"
+                            else None
+                        ),
+                        status_callback=report_status,
+                    )
+                )
+            )
+        except ModuleNotFoundError as e:
+            if getattr(e, "name", None) == "playwright":
+                raise MarimoCLIMissingDependencyError(
+                    "Playwright is required for WebPDF export.",
+                    "nbconvert[webpdf]",
+                    followup_commands=get_playwright_chromium_setup_commands(),
+                ) from None
+            raise
+        except Exception as e:
+            raise click.ClickException(f"Failed to export PDF: {e}") from None
+        if result is None:
+            raise click.ClickException("Failed to export PDF.")
+        return result
+
+    return watch_and_export(
+        MarimoPath(name),
+        output,
+        watch,
+        export_callback,
+        force,
+        initial_export_in_watch=True,
+    )
+
+
+@click.command(
+    cls=ColoredCommand,
+    help="""Export a notebook as a WASM-powered standalone HTML file.
+
+Example:
+
+    marimo export html-wasm notebook.py -o notebook.wasm.html
+
+The exported HTML file runs the notebook using WebAssembly, without a local
+Python or marimo installation. This lets you share interactive notebooks on
+the web without setting up infrastructure to run Python code. By default, the
+browser downloads the Python runtime and packages from hosted sources.
+
+The exported notebook runs using Pyodide, which supports most
+but not all Python packages. To learn more, see the Pyodide
+documentation.
+
+By default, the export must be served over HTTP. Use --single-file to load
+assets from a CDN and open the HTML file directly. Internet access is required.
+""",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    required=True,
+    help="Output directory or HTML file.",
+)
+@click.option(
+    "--single-file",
+    is_flag=True,
+    help="Export one HTML file with CDN assets that can be opened directly.",
+)
+@click.option(
+    "--mode",
+    type=click.Choice(get_args(WASMMode)),
+    default="run",
+    help="Whether the notebook code should be editable or readonly.",
+    required=True,
+)
+@click.option(
+    "--watch/--no-watch",
+    default=False,
+    help=("Whether to watch the original file and export upon change"),
+)
+@click.option(
+    "--show-code/--no-show-code",
+    default=False,
+    help=(
+        "Whether to show code by default in the exported HTML file; "
+        "only relevant for run mode."
+    ),
+)
+@click.option(
+    "--include-cloudflare/--no-include-cloudflare",
+    default=False,
+    help=(
+        "Whether to include Cloudflare Worker configuration files"
+        " (index.js and wrangler.jsonc) for easy deployment."
+    ),
+)
+@click.option(
+    "--sandbox/--no-sandbox",
+    is_flag=True,
+    default=None,
+    type=bool,
+    help=_sandbox_message,
+)
+@click.option(
+    "-f",
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Force overwrite of the output file if it already exists.",
+)
+@click.option(
+    "--execute/--no-execute",
+    default=False,
+    help=(
+        "Execute the notebook before exporting and embed outputs as a "
+        "preview. Runs in an isolated environment pinned to WASM-compatible "
+        "packages when possible."
+    ),
+)
+@click.option(
+    "--offline",
+    is_flag=True,
+    help="Download the Python runtime and notebook packages into the export directory.",
+)
+@click.argument(
+    "name",
+    required=True,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+)
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def html_wasm(
+    name: str,
+    output: Path,
+    single_file: bool,
+    mode: WASMMode,
+    watch: bool,
+    show_code: bool,
+    include_cloudflare: bool,
+    sandbox: bool | None,
+    force: bool,
+    execute: bool,
+    offline: bool,
+    args: tuple[str, ...],
+) -> None:
+    """Export a notebook as a WASM-powered standalone HTML file."""
+    if single_file and offline:
+        raise click.UsageError(
+            "--single-file and --offline cannot be used together."
+        )
+    if single_file and include_cloudflare:
+        raise click.UsageError(
+            "--single-file and --include-cloudflare cannot be used together."
+        )
+    if execute and watch:
+        raise click.UsageError(
+            "--execute and --watch cannot be used together."
+        )
+
+    # When --execute is set, take ownership of sandboxing so we can layer
+    # the pyodide-lock constraints on top. Re-entry marker keeps the
+    # in-sandbox invocation from looping back here.
+    _BOOTSTRAPPED_ENV = "MARIMO_HTML_WASM_SANDBOX_BOOTSTRAPPED"
+    if execute and os.environ.get(_BOOTSTRAPPED_ENV) != "1":
+        if sandbox is not False and DependencyManager.which("uv"):
+            # Surface inner export failures via the outer process exit code
+            # — the bootstrap shell is a transparent wrapper, not its own
+            # success/failure boundary.
+            sys.exit(
+                run_in_sandbox(
+                    sys.argv[1:],
+                    name=name,
+                    command_deps=["playwright"] if offline else None,
+                    pyodide_constraints=True,
+                    python_version_override=PYODIDE_PYTHON_VERSION,
+                    extra_env={_BOOTSTRAPPED_ENV: "1"},
+                )
+            )
+        if sandbox is not False:
+            echo(
+                "warn: uv not found; running --execute in current "
+                "environment without isolation or pyodide-lock "
+                "verification. Install uv "
+                "(https://docs.astral.sh/uv) for verified exports.",
+                err=True,
+            )
+
+    # No --execute (or already bootstrapped): keep the standard
+    # --sandbox prompt path.
+    if not execute:
+        if sandbox is None:
+            sandbox = maybe_prompt_run_in_sandbox(name)
+
+        if sandbox:
+            sys.exit(
+                run_in_sandbox(
+                    sys.argv[1:],
+                    name=name,
+                    command_deps=["playwright"] if offline else None,
+                )
+            )
+
+    if offline:
+        if not DependencyManager.playwright.has():
+            raise MarimoCLIMissingDependencyError(
+                "Playwright is required to resolve packages for offline WASM export.",
+                "playwright",
+                followup_commands=get_playwright_chromium_setup_commands(),
+            )
+        try:
+            asyncio_run(check_offline_export_browser())
+        except Exception as error:
+            setup_command = get_playwright_chromium_setup_commands()[0]
+            raise click.ClickException(
+                "Chromium could not start for offline WASM export.\n"
+                f"Install the browser with: {setup_command}\n\n{error}"
+            ) from error
+        echo("Downloading the Python runtime and notebook packages...")
+
+    out_dir = output
+    filename = "index.html"
+    # If ends with .html, get the directory
+    if output.suffix == ".html":
+        out_dir = output.parent
+        filename = output.name
+
+    marimo_file = MarimoPath(name)
+
+    def export_with_local_wheels(
+        file_path: MarimoPath,
+        export_callback: _ExportWithCodeTransform,
+    ) -> ExportResult:
+        """Export with notebook-local wheels injected into PEP 723 metadata."""
+        metadata_wheels = resolve_metadata_wheel_dependencies(file_path)
+        metadata_wheel_names = wheel_dependency_names(metadata_wheels)
+        try:
+            modules = tuple(
+                resolve_notebook_local_modules(
+                    file_path.absolute_name,
+                    exclude_names=metadata_wheel_names,
+                )
+            )
+        except UVNotFoundError as error:
+            raise MarimoCLIMissingDependencyError(
+                str(error),
+                "uv",
+                additional_tip=(
+                    "Install uv from https://github.com/astral-sh/uv"
+                ),
+            ) from error
+
+        if single_file and (modules or metadata_wheels):
+            raise click.UsageError(
+                "Local modules and wheels require a directory export. "
+                "Omit --single-file."
+            )
+
+        try:
+            with build_local_module_wheels(modules) as local_wheels:
+                wheel_dependencies = (
+                    *metadata_wheels,
+                    *auto_wheel_dependencies(local_wheels),
+                )
+                wheel_paths = tuple(
+                    dependency.path for dependency in wheel_dependencies
+                )
+                result = export_callback(
+                    code_transform=partial(
+                        with_wheel_dependencies,
+                        wheel_dependencies=wheel_dependencies,
+                    ),
+                    local_wheel_paths=wheel_paths,
+                )
+                if not single_file:
+                    copy_local_wheels(
+                        out_dir,
+                        wheel_paths,
+                        source_wheel_dir=file_path.path.parent
+                        / WASM_WHEEL_DIR,
+                    )
+                return result
+        except LocalWheelError as error:
+            raise click.UsageError(str(error)) from error
+        except OfflineExportError as error:
+            raise click.ClickException(str(error)) from error
+
+    wasm_options = WASMExportOptions(
+        mode=mode,
+        show_code=show_code,
+        asset_url=get_default_asset_url() if single_file else None,
+    )
+
+    if execute:
+        cli_args = parse_args(args)
+
+        # Run WASM compatibility lint pass. When bootstrapped, this runs
+        # inside the uv sandbox so MW003 introspects the resolved env.
+        from marimo._lint import run_check
+
+        run_check(
+            (name,),
+            lint_config={"select": ["MW"]},
+            pipe=lambda msg: echo(msg, err=True),
+        )
+
+        def export_executed_wasm(
+            file_path: MarimoPath,
+            *,
+            code_transform: Callable[[str], str],
+            local_wheel_paths: tuple[Path, ...],
+        ) -> ExportResult:
+            return asyncio_run(
+                export_wasm(
+                    WASMFileExportRequest(
+                        path=file_path,
+                        options=wasm_options,
+                        offline_export_dir=out_dir if offline else None,
+                        local_wheel_paths=local_wheel_paths,
+                        execution=NotebookExecutionOptions(
+                            cli_args=cli_args,
+                            argv=list(args),
+                            stderr=STDERR,
+                        ),
+                        cache_export_dir=None if single_file else out_dir,
+                        code_transform=code_transform,
+                        stdout=STDOUT,
+                    )
+                )
+            )
+
+        def export_callback(file_path: MarimoPath) -> ExportResult:
+            return export_with_local_wheels(
+                file_path,
+                partial(export_executed_wasm, file_path),
+            )
+
+        echo("Executing notebook...")
+    else:
+
+        def export_unexecuted_wasm(
+            file_path: MarimoPath,
+            *,
+            code_transform: Callable[[str], str],
+            local_wheel_paths: tuple[Path, ...],
+        ) -> ExportResult:
+            return asyncio_run(
+                export_wasm(
+                    WASMFileExportRequest(
+                        path=file_path,
+                        options=wasm_options,
+                        offline_export_dir=out_dir if offline else None,
+                        local_wheel_paths=local_wheel_paths,
+                        code_transform=code_transform,
+                        stdout=STDOUT,
+                    )
+                )
+            )
+
+        def export_callback(file_path: MarimoPath) -> ExportResult:
+            return export_with_local_wheels(
+                file_path,
+                partial(export_unexecuted_wasm, file_path),
+            )
+
+    if single_file:
+        echo(
+            "Open the exported HTML file in a browser. Internet access is required."
+        )
+        return watch_and_export(
+            marimo_file, out_dir / filename, watch, export_callback, force
+        )
+
+    # Export assets first
+    Exporter().export_assets(out_dir)
+
+    # Create .nojekyll file to prevent GitHub Pages from interfering with asset
+    # resolution
+    (Path(out_dir) / ".nojekyll").touch()
+
+    echo(
+        f"Assets copied to {green(str(out_dir))}. These assets are required for the "
+        "notebook to run in the browser."
+    )
+
+    did_export_public = Exporter().export_public_folder(out_dir, marimo_file)
+    if did_export_public:
+        echo(
+            f"The public folder next to your notebook was copied to "
+            f"{green(str(out_dir))}."
+        )
+
+    echo(
+        "To run the exported notebook, use:\n"
+        f"  python -m http.server --directory {out_dir}\n"
+        "Then open the URL that is printed to your terminal."
+    )
+
+    if include_cloudflare:
+        create_cloudflare_files(parse_title(name), out_dir)
+
+    outfile = out_dir / filename
+    # NB. with --execute, the callback also bundles session caches into the
+    # export's public/cache/.
+    return watch_and_export(
+        MarimoPath(name),
+        outfile,
+        watch,
+        export_callback,
+        force,
+    )
+
+
+export.add_command(html)
+export.add_command(script)
+export.add_command(md)
+export.add_command(ipynb)
+export.add_command(pdf)
+export.add_command(html_wasm)
+export.add_command(thumbnail)
+export.add_command(session)

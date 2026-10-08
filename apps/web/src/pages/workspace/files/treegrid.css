@@ -1,0 +1,585 @@
+/* The treegrid, its two views and the breadcrumb trail. Product tokens only, so light and
+ * dark come for free. Dense rows, no cards, no gradients; the mono face is reserved for
+ * paths and hashes, which in this surface is the breadcrumb trail. */
+
+.alk-files-browser {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.alk-files-browser__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border-bottom: 1px solid var(--alkDivider);
+}
+
+.alk-files-browser__views {
+  display: flex;
+  flex-shrink: 0;
+  gap: 1px;
+}
+
+.alk-files-browser__creates {
+  display: flex;
+  gap: var(--alkSpace2);
+  margin-inline-start: auto;
+}
+
+.alk-files-browser__create {
+  padding: 2px var(--alkSpace2);
+  border: 1px solid var(--alkDivider);
+  border-radius: var(--alkRadiusSm, 4px);
+  background: var(--alkControlBg);
+  color: var(--alkPrimaryText);
+  font: inherit;
+  font-size: var(--alkTextSm);
+  cursor: pointer;
+}
+
+/* The way to the workspace whose files are listed: the one bar action that
+   leaves Files, drawn in the primary action colour. */
+.alk-files-browser__create--page {
+  border-color: var(--alkActionPrimaryBorder);
+  background: var(--alkActionPrimaryBg);
+  color: var(--alkActionPrimaryText);
+}
+
+.alk-files-browser__create--page:hover {
+  background: var(--alkActionPrimaryBgHover);
+}
+
+.alk-files-browser__create--page:active {
+  background: var(--alkActionPrimaryBgActive);
+}
+
+/* Refused while a machine holds the folder. `not-allowed` rather than
+   `pointer-events: none` so the tooltip naming the lease still opens. */
+.alk-files-browser__create:disabled {
+  color: var(--alkDisabledText);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.alk-files-browser__view {
+  padding: 2px var(--alkSpace2);
+  border: 1px solid var(--alkDivider);
+  background: var(--alkControlBg);
+  color: var(--alkSecondaryText);
+  font: inherit;
+  font-size: var(--alkTextSm);
+  cursor: pointer;
+}
+
+.alk-files-browser__view[aria-pressed="true"] {
+  background: var(--alkSelectedBg);
+  color: var(--alkPrimaryText);
+  border-color: var(--alkBorderStrong);
+}
+
+.alk-files-browser__hidden-toggle {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* A system entry shown only because the viewer asked to see hidden files. */
+.alk-files-grid__lane[data-hidden-entry="true"] > *,
+.alk-files-grid__tile[data-hidden-entry="true"] > * {
+  opacity: 0.55;
+}
+
+/* Breadcrumbs ------------------------------------------------------------- */
+
+/* The trail shares the browser's bar with the create buttons. As a rigid row it was cut mid-word
+   by the New-folder button beside it; now it takes the width that is left, wraps when the trail
+   is deeper than the line, and a segment too long for the line ends in an ellipsis. */
+.alk-files-crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+/* The way up, before the trail. Driven by the folder's own parent, so it is there
+   on a deep link whose trail has one segment; disabled, not gone, on a root, so
+   the line reads the same at every depth. */
+.alk-files-crumbs__up {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--alkDivider);
+  background: var(--alkControlBg);
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+}
+
+.alk-files-crumbs__up:hover:not(:disabled) {
+  background: var(--alkSelectedBg);
+  color: var(--alkPrimaryText);
+}
+
+.alk-files-crumbs__up:disabled {
+  color: var(--alkDisabledText);
+  cursor: default;
+}
+
+.alk-files-crumbs__up .alk-ic {
+  display: block;
+}
+
+/* The fold: the segments between the first and the last, when the trail is deeper
+   than three. Their names are on its title; pressing it opens them in place. */
+.alk-files-crumbs__fold {
+  border: 0;
+  background: none;
+  padding: 0 var(--alkSpace1);
+  font: inherit;
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+}
+
+.alk-files-crumbs__list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--alkSpace2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+  min-width: 0;
+}
+
+.alk-files-crumbs__item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* On a line too narrow for the whole trail, the folder the reader is IN keeps its
+   name and the folders above it give up width first: the last segment shrinks a
+   quarter as readily as any other. */
+.alk-files-crumbs__item:not(:last-child) {
+  flex: 0 4 auto;
+}
+
+.alk-files-crumbs__item:last-child {
+  flex: 0 1 auto;
+}
+
+/* A segment is its mark and its name on ONE line. The product reset draws every svg as a block, so
+   as a plain block the mark took the first line on its own and the name fell to the second — the
+   header over a chat's folder read as two rows. The name is what gives width back: it is cut with
+   an ellipsis, and the whole name is on the segment's `title`. */
+.alk-files-crumbs__link,
+.alk-files-crumbs__current {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The mark belongs to the name beside it, and never gives up width to it. */
+.alk-files-crumbs__link .alk-ic,
+.alk-files-crumbs__current .alk-ic {
+  display: inline-block;
+  flex: none;
+  margin-inline-end: var(--alkSpace1);
+}
+
+.alk-files-crumbs__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-files-crumbs__item + .alk-files-crumbs__item::before {
+  content: "/";
+  margin-right: var(--alkSpace2);
+  color: var(--alkDisabledText);
+}
+
+.alk-files-crumbs__link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+}
+
+.alk-files-crumbs__link:hover {
+  color: var(--alkPrimaryText);
+  text-decoration: underline;
+}
+
+.alk-files-crumbs__current {
+  color: var(--alkPrimaryText);
+}
+
+.alk-files-crumbs__item[data-drop-active="true"] {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 2px;
+}
+
+/* Treegrid ---------------------------------------------------------------- */
+
+.alk-files-grid {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+/* Visually hidden, never display:none — a hidden live region is not announced. */
+.alk-files-grid__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.alk-files-grid__scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.alk-files-grid__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--alkPageBg);
+  border-bottom: 1px solid var(--alkDivider);
+}
+
+.alk-files-grid__body {
+  position: relative;
+  width: 100%;
+}
+
+.alk-files-grid[data-view="list"] .alk-files-grid__row,
+.alk-files-grid[data-view="list"] .alk-files-grid__lane {
+  display: grid;
+  grid-template-columns: minmax(220px, 3fr) 1fr 1fr 1.4fr 1fr;
+  align-items: center;
+}
+
+.alk-files-grid__lane {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+/* The tracks are NOT declared here. `auto-fill` counts the columns from the lane's own
+   width, and the component counts them again to slice the tiles into lanes; the two
+   disagreed by one across a band of widths around every breakpoint, and the tile that did
+   not fit wrapped onto a second row of a lane that is one row high — drawn on top of the
+   next lane's first tile. The lane's `grid-template-columns` is now inline, spelled from
+   the one count that also sliced its tiles. Keep the gap and the padding on `--alkSpace2`:
+   `TILE_GAP` in `Treegrid.tsx` is that token's value, and a test holds them equal. */
+.alk-files-grid[data-view="grid"] .alk-files-grid__lane {
+  display: grid;
+  gap: var(--alkSpace2);
+  padding: 0 var(--alkSpace2);
+}
+
+/* Grid items default to a min-width of `auto`, i.e. their longest word — a long file name grew
+   the track and pushed the lane past the scroller. */
+.alk-files-grid[data-view="grid"] .alk-files-grid__tile {
+  min-width: 0;
+}
+
+.alk-files-grid__cell {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  padding: 0 var(--alkSpace3);
+  height: 32px;
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+  min-width: 0;
+}
+
+.alk-files-grid__cell[data-column="name"] {
+  color: var(--alkPrimaryText);
+}
+
+.alk-files-grid__cell[data-numeric="true"] {
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.alk-files-grid__cell--head {
+  color: var(--alkSecondaryText);
+  border-bottom: 1px solid var(--alkDivider);
+}
+
+.alk-files-grid__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+  min-width: 0;
+  max-width: 100%;
+  border: 0;
+  background: none;
+  padding: 0 var(--alkSpace1);
+  margin: 0 calc(-1 * var(--alkSpace1));
+  border-radius: var(--alkRadiusSm);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Every sortable header has to LOOK like a control, not only the sorted one — otherwise
+   the only discoverable sort is the column that already happens to be sorted. */
+.alk-files-grid__sort:hover {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+
+.alk-files-grid__sort-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One glyph for both directions: the chevron points down for descending and is flipped
+   for ascending, so the two arrows are exact mirrors rather than two drawings. */
+.alk-files-grid__sort-arrow {
+  display: inline-flex;
+  flex: none;
+  color: var(--alkPrimaryText);
+}
+
+.alk-files-grid__sort-arrow[data-direction="asc"] {
+  transform: rotate(180deg);
+}
+
+/* The folder a feed row lives in, which is a way INTO that folder as well as a label —
+   so it is a control, cut with an ellipsis like the name beside it. */
+.alk-files-grid__location {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.alk-files-grid__location:hover {
+  color: var(--alkPrimaryText);
+  text-decoration: underline;
+}
+
+.alk-files-grid__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The row's mark keeps its size. As a flex item it shrank with the rest of the cell,
+   and beside a 200-character name the folder glyph was squeezed to a dot while the
+   name took the width; the name is the one that gives way, behind its ellipsis. */
+.alk-files-grid__cell > .alk-language-icon,
+.alk-files-grid__tile > .alk-language-icon {
+  flex-shrink: 0;
+}
+
+/* A tile centres its children, so the name took its own content width and ran straight over the
+   tile beside it: two names printed as one string with no gutter between them. Bounded by the
+   tile, the same ellipsis the list rows use does the work. */
+.alk-files-grid__tile > .alk-files-grid__name {
+  max-width: 100%;
+  align-self: stretch;
+}
+
+.alk-files-grid__lane:hover .alk-files-grid__cell,
+.alk-files-grid__tile:hover {
+  background: var(--alkHoverBg);
+}
+
+.alk-files-grid__lane[aria-selected="true"] .alk-files-grid__cell,
+.alk-files-grid__tile[aria-selected="true"] {
+  background: var(--alkSelectedBg);
+  color: var(--alkPrimaryText);
+}
+
+.alk-files-grid__lane:focus-visible,
+.alk-files-grid__tile:focus-visible,
+.alk-files-grid__sort:focus-visible,
+.alk-files-browser__view:focus-visible,
+.alk-files-browser__create:focus-visible,
+.alk-files-crumbs__link:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}
+
+.alk-files-grid__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--alkSpace2);
+  height: 112px;
+  padding: var(--alkSpace2);
+  border: 1px solid transparent;
+  font-size: var(--alkTextSm);
+  color: var(--alkPrimaryText);
+  min-width: 0;
+  text-align: center;
+  transition: background var(--alkDurationFast) var(--alkEaseStandard);
+}
+
+.alk-files-grid__meta {
+  color: var(--alkSecondaryText);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-files-grid__tile {
+    transition: none;
+  }
+}
+
+/* Below the portal breakpoint the bar is a column: the trail owns the first line in full and the
+ * create buttons and the view switch fall underneath it rather than crowding it. */
+@media (max-width: 900px) {
+  .alk-files-crumbs {
+    flex: 1 0 100%;
+  }
+}
+
+/* Drag and drop ------------------------------------------------------------ */
+
+/* The folder under a dragged row or a desktop drag: a ring in the focus colour and
+   the selected tint, so the target reads the same whether the row was selected or
+   not. Painted on the cells (the lane is a transparent positioning box) and on the
+   tile, the two places a row's background lives. */
+.alk-files-grid__lane[data-drop-active="true"] .alk-files-grid__cell,
+.alk-files-grid__tile[data-drop-active="true"] {
+  background: var(--alkSelectedBg);
+  color: var(--alkPrimaryText);
+}
+
+.alk-files-grid__lane[data-drop-active="true"] {
+  box-shadow: inset 0 0 0 2px var(--alkFocusRing);
+}
+
+.alk-files-grid__tile[data-drop-active="true"] {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}
+
+.alk-files-grid__lane[draggable="true"],
+.alk-files-grid__tile[draggable="true"] {
+  cursor: default;
+}
+
+/* Here rather than with the Files page: the chat's Files pane draws the same
+   form, and a cold load of a chat never loads the page's sheet. */
+/* The New-folder form, in the browser bar where the create buttons were. Opening it
+   swaps the buttons for a field and two buttons of the same height, so the trail, the
+   header and the rows stay exactly where they are; a refusal hangs below the form over
+   the header row instead of taking a line of its own. */
+.alk-files__new-folder {
+  position: relative;
+  display: flex;
+  flex: 1 1 12rem;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--alkSpace2);
+  min-inline-size: 0;
+  margin-inline-start: auto;
+}
+
+.alk-files__new-folder input {
+  flex: 0 1 12rem;
+  min-inline-size: 5rem;
+  padding: 2px var(--alkSpace2);
+  border: 1px solid var(--alkDivider);
+  border-radius: var(--alkRadiusSm, 4px);
+  background: var(--alkControlBg);
+  color: var(--alkPrimaryText);
+  font: inherit;
+  font-size: var(--alkTextSm);
+}
+
+.alk-files__new-folder button {
+  padding: 2px var(--alkSpace2);
+  border: 1px solid var(--alkDivider);
+  border-radius: var(--alkRadiusSm, 4px);
+  background: var(--alkControlBg);
+  color: var(--alkPrimaryText);
+  font: inherit;
+  font-size: var(--alkTextSm);
+  cursor: pointer;
+}
+
+.alk-files__new-folder input:focus-visible,
+.alk-files__new-folder button:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+}
+
+.alk-files__new-folder .alk-files__error {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-inline-size: 24rem;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border: 1px solid var(--alkDivider);
+  border-inline-start: 2px solid var(--alkDangerText);
+  border-radius: var(--alkRadiusSm, 4px);
+  background: var(--alkCardBg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+}
+
+/* The Windows note hangs below the form the way a refusal does. As a flex item
+   of the browser bar it was squeezed to the width of one word and stood the bar
+   up a word per line. */
+.alk-files__new-folder .alk-files-rename__note {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 5;
+  inline-size: max-content;
+  max-inline-size: 24rem;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border: 1px solid var(--alkDivider);
+  border-radius: var(--alkRadiusSm, 4px);
+  background: var(--alkCardBg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+}

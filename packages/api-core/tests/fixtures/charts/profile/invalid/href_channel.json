@@ -1,0 +1,21 @@
+{
+  "path": "encoding",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "encoding": {
+      "href": {
+        "field": "a",
+        "type": "nominal"
+      }
+    },
+    "mark": "point"
+  },
+  "unsafe": true
+}

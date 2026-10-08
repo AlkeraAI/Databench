@@ -1,0 +1,67 @@
+{
+  "captured": "2026-09-29",
+  "note": "The providers' published numbers as read on the capture date, in the providers' own terms (their model ids, their column names, $ per 1M tokens). Re-capture from the sources when a price changes; never edit a number to match the catalog.",
+  "anthropic": {
+    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "limits_source": "GET https://api.anthropic.com/v1/models/{id} (max_input_tokens, max_tokens)",
+    "columns": ["base_input", "cache_write_5m", "cache_write_1h", "cache_hits", "output"],
+    "prices": {
+      "claude-fable-5-1": [10, 12.5, 20, 0.25, 50],
+      "claude-fable-5": [10, 12.5, 20, 1, 50],
+      "claude-opus-5-5": [4, 5, 8, 0.2, 20],
+      "claude-opus-5": [5, 6.25, 10, 0.5, 25],
+      "claude-opus-4-8": [5, 6.25, 10, 0.5, 25],
+      "claude-opus-4-7": [5, 6.25, 10, 0.5, 25],
+      "claude-opus-4-6": [5, 6.25, 10, 0.5, 25],
+      "claude-sonnet-5-5": [2, 2.5, 4, 0.2, 10],
+      "claude-sonnet-5": [2, 2.5, 4, 0.2, 10],
+      "claude-sonnet-4-6": [3, 3.75, 6, 0.3, 15],
+      "claude-haiku-4-5": [1, 1.25, 2, 0.1, 5]
+    },
+    "limits": {
+      "claude-sonnet-5-5": {"max_input_tokens": 1000000, "max_tokens": 128000},
+      "claude-opus-5-5": {"max_input_tokens": 1000000, "max_tokens": 128000},
+      "claude-fable-5-1": {"max_input_tokens": 1000000, "max_tokens": 128000},
+      "claude-sonnet-5": {"max_input_tokens": 1000000, "max_tokens": 128000},
+      "claude-opus-5": {"max_input_tokens": 1000000, "max_tokens": 128000}
+    }
+  },
+  "openai": {
+    "pricing_source": "https://developers.openai.com/api/docs/pricing (Standard tier; long context = more than 272K input tokens; null = the table prints '-')",
+    "limits_source": "https://developers.openai.com/api/docs/models/{id}",
+    "long_context_above_input_tokens": 272000,
+    "columns": ["input", "cached_input", "cache_writes", "output"],
+    "short_context": {
+      "gpt-6-astra": [10, 1, 12.5, 50],
+      "gpt-6.1-sol": [2, 0.1, 2.5, 10],
+      "gpt-6-luna": [0.1, 0.01, 0.125, 0.5],
+      "gpt-6-sol": [2, 0.2, 2.5, 10],
+      "gpt-5.6-sol": [4, 0.4, 5, 20],
+      "gpt-5.6-terra": [2, 0.2, 2.5, 12],
+      "gpt-5.6-luna": [0.2, 0.02, 0.25, 1.2],
+      "gpt-5.5": [5, 0.5, null, 30],
+      "gpt-5.5-pro": [30, null, null, 180],
+      "gpt-5.4": [2.5, 0.25, null, 15],
+      "gpt-5.4-mini": [0.75, 0.075, null, 4.5],
+      "gpt-5.4-nano": [0.2, 0.02, null, 1.25]
+    },
+    "long_context": {
+      "gpt-6.1-sol": [4, 0.2, 5, 15],
+      "gpt-6-sol": [4, 0.4, 5, 15],
+      "gpt-6-luna": [0.2, 0.02, 0.25, 0.75],
+      "gpt-6-astra": [20, 2, 25, 75],
+      "gpt-5.6-sol": [8, 0.8, 10, 30],
+      "gpt-5.6-terra": [4, 0.4, 5, 18],
+      "gpt-5.6-luna": [0.4, 0.04, 0.5, 1.8],
+      "gpt-5.5": [10, 1, null, 45],
+      "gpt-5.5-pro": [60, null, null, 270],
+      "gpt-5.4": [5, 0.5, null, 22.5]
+    },
+    "limits": {
+      "gpt-6-astra": {"context_window": 1050000, "max_output_tokens": 128000},
+      "gpt-6.1-sol": {"context_window": 1050000, "max_output_tokens": 128000},
+      "gpt-6-sol": {"context_window": 1050000, "max_output_tokens": 128000},
+      "gpt-6-luna": {"context_window": 1050000, "max_output_tokens": 128000}
+    }
+  }
+}

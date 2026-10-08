@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/SchemaStore/schemastore/refs/heads/master/src/schemas/json/github-issue-forms.json
+name: '🐞 Bug report'
+description: Report an issue with marimo
+labels: [bug]
+type: Bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for filing this bug report and helping us improve marimo!
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Describe the bug
+      description: |
+        A clear and concise description of the bug. If you have a workaround or plan to submit a PR for this issue, please let us know.
+        You may also include a stack trace or screenshots here.
+      placeholder: What happened?
+    validations:
+      required: true
+  - type: checkboxes
+    id: will-submit-pr
+    attributes:
+      label: Will you submit a PR?
+      description: |
+        If you plan to submit a PR for this issue, please let us know. We'd love to review a PR!
+      options:
+        - label: 'Yes'
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: |
+        In marimo, open **Send feedback → Report an issue** and click **Open GitHub issue** to prefill this field, or copy the environment details with the copy icon and paste below. Otherwise, paste the output of `marimo env`.
+      placeholder: |
+        Paste the copied environment details here; they render as a collapsible section. If you ran `marimo env` instead, paste its output.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction-code
+    attributes:
+      label: Code to reproduce
+      description: |
+        Help us help you!
+        If possible, paste a minimal reproducible example or link to a repository that reproduces the issue.
+        And use `marimo edit --sandbox` to include the package dependencies in the bug report.
+      placeholder: |
+        ```python
+        # /// script
+        # requires-python = ">=3.11"
+        # dependencies = [
+        #     "marimo",
+        # ]
+        # ///
+
+        import marimo
+        ...
+
+        ```

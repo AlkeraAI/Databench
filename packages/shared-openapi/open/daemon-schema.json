@@ -1,0 +1,3972 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AlkeraDaemonProtocol",
+  "$defs": {
+    "AuthCancelDeviceLoginRequest": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "AuthCancelDeviceLoginRequest",
+      "type": "object"
+    },
+    "AuthCancelDeviceLoginResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "cancelled": {
+          "title": "Cancelled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cancelled"
+      ],
+      "title": "AuthCancelDeviceLoginResponse",
+      "type": "object"
+    },
+    "AuthListOrgsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Path"
+        }
+      },
+      "title": "AuthListOrgsRequest",
+      "type": "object"
+    },
+    "AuthOrgInfo": {
+      "additionalProperties": false,
+      "description": "One org the person belongs to, and whether this machine holds a sign-in\nfor it.",
+      "properties": {
+        "org_team_id": {
+          "title": "Org Team Id",
+          "type": "string"
+        },
+        "org_name": {
+          "title": "Org Name",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "sso_required": {
+          "default": false,
+          "title": "Sso Required",
+          "type": "boolean"
+        },
+        "stored": {
+          "title": "Stored",
+          "type": "boolean"
+        },
+        "current": {
+          "title": "Current",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "org_team_id",
+        "org_name",
+        "role",
+        "stored",
+        "current"
+      ],
+      "title": "AuthOrgInfo",
+      "type": "object"
+    },
+    "AuthListOrgsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "orgs": {
+          "items": {
+            "$ref": "#/$defs/AuthOrgInfo"
+          },
+          "title": "Orgs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "orgs"
+      ],
+      "title": "AuthListOrgsResponse",
+      "type": "object"
+    },
+    "AuthLogoutRequest": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "AuthLogoutRequest",
+      "type": "object"
+    },
+    "AuthStatusResponse": {
+      "additionalProperties": false,
+      "description": "Current auth state.\n\n``reason`` is non-null only when ``authenticated`` is False \u2014 it\ndrives the editor's LoginPanel subtitle.\n\n``frontend_url`` is the config-resolved web-app URL (per-worktree localhost\nin dev, the prod app otherwise). It's a config value, not auth state, but\nit rides this payload because the auth snapshot is the existing seam that\nflows daemon \u2192 extension host \u2192 webview \u2014 the editor's \"open web app\" button\nreads it from here rather than via a separate RPC.",
+      "properties": {
+        "authenticated": {
+          "title": "Authenticated",
+          "type": "boolean"
+        },
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Email"
+        },
+        "api_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Api Url"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expires At"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing",
+                "expired",
+                "invalid",
+                "network",
+                "email_verification_required"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "frontend_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frontend Url"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "enum": [
+                "gateway_rejected",
+                "login_failed",
+                "org_refused"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "org_team_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Org Team Id"
+        },
+        "org_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Org Name"
+        }
+      },
+      "required": [
+        "authenticated",
+        "email",
+        "api_url",
+        "expires_at"
+      ],
+      "title": "AuthStatusResponse",
+      "type": "object"
+    },
+    "AuthLogoutResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/AuthStatusResponse"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "AuthLogoutResponse",
+      "type": "object"
+    },
+    "AuthStartDeviceLoginRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "org_team_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Org Team Id"
+        }
+      },
+      "title": "AuthStartDeviceLoginRequest",
+      "type": "object"
+    },
+    "AuthStartDeviceLoginResponse": {
+      "additionalProperties": false,
+      "description": "What the editor displays so the user can approve in a browser.\n\nThe daemon polls the backend in the background; the editor just shows the\ncode + URL and waits for an ``auth.changed`` notification.",
+      "properties": {
+        "user_code": {
+          "title": "User Code",
+          "type": "string"
+        },
+        "verification_uri": {
+          "title": "Verification Uri",
+          "type": "string"
+        },
+        "verification_uri_complete": {
+          "title": "Verification Uri Complete",
+          "type": "string"
+        },
+        "expires_in": {
+          "title": "Expires In",
+          "type": "integer"
+        },
+        "interval": {
+          "title": "Interval",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "user_code",
+        "verification_uri",
+        "verification_uri_complete",
+        "expires_in",
+        "interval"
+      ],
+      "title": "AuthStartDeviceLoginResponse",
+      "type": "object"
+    },
+    "AuthStatusRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Path"
+        }
+      },
+      "title": "AuthStatusRequest",
+      "type": "object"
+    },
+    "AuthSwitchOrgRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "org_team_id": {
+          "title": "Org Team Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "org_team_id"
+      ],
+      "title": "AuthSwitchOrgRequest",
+      "type": "object"
+    },
+    "AuthSwitchOrgResponse": {
+      "additionalProperties": false,
+      "description": "``switched`` when a stored sign-in for the org became current (then\n``status`` is the new state); otherwise a device login for the org started\nand ``login`` carries what to show, exactly as ``auth.startDeviceLogin``.",
+      "properties": {
+        "switched": {
+          "title": "Switched",
+          "type": "boolean"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthStatusResponse"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "login": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthStartDeviceLoginResponse"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "switched"
+      ],
+      "title": "AuthSwitchOrgResponse",
+      "type": "object"
+    },
+    "BlobFetchRequest": {
+      "additionalProperties": false,
+      "description": "Page a result blob a tool spilled (the editor analogue of the\n``fetch_result`` tool \u2014 lets the editor dereference a handle a tool result\ncarried).",
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "handle": {
+          "title": "Handle",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limit"
+        }
+      },
+      "required": [
+        "project_path",
+        "handle"
+      ],
+      "title": "BlobFetchRequest",
+      "type": "object"
+    },
+    "BlobFetchResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "additionalProperties": true,
+          "title": "Page",
+          "type": "object"
+        }
+      },
+      "title": "BlobFetchResponse",
+      "type": "object"
+    },
+    "EnvironmentGetRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path"
+      ],
+      "title": "EnvironmentGetRequest",
+      "type": "object"
+    },
+    "EnvironmentGetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "spec": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spec"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "instructions": {
+          "default": "",
+          "title": "Instructions",
+          "type": "string"
+        }
+      },
+      "title": "EnvironmentGetResponse",
+      "type": "object"
+    },
+    "HarnessCancelRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "HarnessCancelRequest",
+      "type": "object"
+    },
+    "HarnessOkResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "default": true,
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "title": "HarnessOkResponse",
+      "type": "object"
+    },
+    "HarnessCloseChatRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "HarnessCloseChatRequest",
+      "type": "object"
+    },
+    "HarnessDeleteChatRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "recursive": {
+          "default": false,
+          "title": "Recursive",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "project_path",
+        "session_id"
+      ],
+      "title": "HarnessDeleteChatRequest",
+      "type": "object"
+    },
+    "HarnessGetCostStateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "HarnessGetCostStateRequest",
+      "type": "object"
+    },
+    "HarnessCostStateResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "spent": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Spent",
+          "type": "object"
+        },
+        "caps": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Caps",
+          "type": "object"
+        },
+        "org_managed": {
+          "title": "Org Managed",
+          "type": "boolean"
+        },
+        "unknown_cost_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unknown Cost Keys",
+          "type": "array"
+        }
+      },
+      "required": [
+        "spent",
+        "caps",
+        "org_managed"
+      ],
+      "title": "HarnessCostStateResponse",
+      "type": "object"
+    },
+    "HarnessGetPermissionModeRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "HarnessGetPermissionModeRequest",
+      "type": "object"
+    },
+    "HarnessPermissionModeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "read_only",
+            "default",
+            "auto",
+            "plan",
+            "bypass"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "HarnessPermissionModeResponse",
+      "type": "object"
+    },
+    "HarnessListChatsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path"
+      ],
+      "title": "HarnessListChatsRequest",
+      "type": "object"
+    },
+    "HarnessListChatsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "chats": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Chats",
+          "type": "array"
+        }
+      },
+      "title": "HarnessListChatsResponse",
+      "type": "object"
+    },
+    "HarnessListCommandsRequest": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "HarnessListCommandsRequest",
+      "type": "object"
+    },
+    "SlashCommandInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "usage": {
+          "title": "Usage",
+          "type": "string"
+        },
+        "hidden": {
+          "default": false,
+          "title": "Hidden",
+          "type": "boolean"
+        },
+        "ui": {
+          "default": true,
+          "title": "Ui",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "summary",
+        "usage"
+      ],
+      "title": "SlashCommandInfo",
+      "type": "object"
+    },
+    "HarnessListCommandsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "items": {
+            "$ref": "#/$defs/SlashCommandInfo"
+          },
+          "title": "Commands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "commands"
+      ],
+      "title": "HarnessListCommandsResponse",
+      "type": "object"
+    },
+    "HarnessListCostLedgerRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "limit": {
+          "default": 200,
+          "minimum": 0,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "HarnessListCostLedgerRequest",
+      "type": "object"
+    },
+    "HarnessCostLedgerEntryView": {
+      "additionalProperties": false,
+      "description": "One warehouse charge in a chat's ledger. ``charged_usd`` is the amount\nthat counted toward the windows (settled actual where known, else estimate).",
+      "properties": {
+        "entry_id": {
+          "default": "",
+          "title": "Entry Id",
+          "type": "string"
+        },
+        "connection": {
+          "default": "",
+          "title": "Connection",
+          "type": "string"
+        },
+        "operation": {
+          "default": "",
+          "title": "Operation",
+          "type": "string"
+        },
+        "estimate_usd": {
+          "default": 0.0,
+          "title": "Estimate Usd",
+          "type": "number"
+        },
+        "actual_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Usd"
+        },
+        "charged_usd": {
+          "default": 0.0,
+          "title": "Charged Usd",
+          "type": "number"
+        },
+        "wallet_currency": {
+          "default": "usd",
+          "title": "Wallet Currency",
+          "type": "string"
+        },
+        "at": {
+          "default": 0.0,
+          "title": "At",
+          "type": "number"
+        }
+      },
+      "title": "HarnessCostLedgerEntryView",
+      "type": "object"
+    },
+    "HarnessListCostLedgerResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/HarnessCostLedgerEntryView"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "has_more": {
+          "default": false,
+          "title": "Has More",
+          "type": "boolean"
+        }
+      },
+      "title": "HarnessListCostLedgerResponse",
+      "type": "object"
+    },
+    "HarnessListDecisionsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "limit": {
+          "default": 200,
+          "minimum": 0,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "decided_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decided By"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "HarnessListDecisionsRequest",
+      "type": "object"
+    },
+    "HarnessDecisionView": {
+      "additionalProperties": false,
+      "description": "One audited permission decision, flattened for the editor's activity log.\nMirrors ``DecisionRecord`` minus the internals the UI doesn't render.",
+      "properties": {
+        "at": {
+          "default": 0.0,
+          "title": "At",
+          "type": "number"
+        },
+        "request_id": {
+          "default": "",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "source": {
+          "default": "",
+          "title": "Source",
+          "type": "string"
+        },
+        "capability": {
+          "default": "",
+          "title": "Capability",
+          "type": "string"
+        },
+        "effect": {
+          "default": "",
+          "title": "Effect",
+          "type": "string"
+        },
+        "operation": {
+          "default": "",
+          "title": "Operation",
+          "type": "string"
+        },
+        "targets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Targets",
+          "type": "array"
+        },
+        "mode": {
+          "default": "",
+          "title": "Mode",
+          "type": "string"
+        },
+        "decision": {
+          "default": "",
+          "title": "Decision",
+          "type": "string"
+        },
+        "decided_by": {
+          "default": "",
+          "title": "Decided By",
+          "type": "string"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        }
+      },
+      "title": "HarnessDecisionView",
+      "type": "object"
+    },
+    "HarnessListDecisionsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "decisions": {
+          "items": {
+            "$ref": "#/$defs/HarnessDecisionView"
+          },
+          "title": "Decisions",
+          "type": "array"
+        },
+        "has_more": {
+          "default": false,
+          "title": "Has More",
+          "type": "boolean"
+        }
+      },
+      "title": "HarnessListDecisionsResponse",
+      "type": "object"
+    },
+    "HarnessListEventsRequest": {
+      "additionalProperties": false,
+      "description": "A page of a chat's persisted events BELOW ordinal ``before`` \u2014 how the editor\nreads older transcript as the reader scrolls up. Lock-free, so it serves a chat\nthat is open here, open elsewhere, or not open at all.",
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "before": {
+          "minimum": 1,
+          "title": "Before",
+          "type": "integer"
+        },
+        "limit": {
+          "default": 200,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "project_path",
+        "session_id",
+        "before"
+      ],
+      "title": "HarnessListEventsRequest",
+      "type": "object"
+    },
+    "HarnessListEventsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "events": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "oldest_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Oldest Seq"
+        },
+        "has_older": {
+          "default": false,
+          "title": "Has Older",
+          "type": "boolean"
+        },
+        "cut": {
+          "default": false,
+          "title": "Cut",
+          "type": "boolean"
+        }
+      },
+      "title": "HarnessListEventsResponse",
+      "type": "object"
+    },
+    "HarnessListModelsRequest": {
+      "additionalProperties": false,
+      "description": "The gateway catalog as ``project_path``'s sign-in (the daemon's when None).",
+      "properties": {
+        "project_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Path"
+        }
+      },
+      "title": "HarnessListModelsRequest",
+      "type": "object"
+    },
+    "GatewayModelInfo": {
+      "additionalProperties": false,
+      "description": "A model the gateway can serve (from `GET /v1/models`), for the editor's\nmodel + variant picker.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        },
+        "wire": {
+          "enum": [
+            "anthropic",
+            "openai"
+          ],
+          "title": "Wire",
+          "type": "string"
+        },
+        "efforts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Efforts",
+          "type": "array"
+        },
+        "default_effort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Effort"
+        }
+      },
+      "required": [
+        "id",
+        "display_name",
+        "wire"
+      ],
+      "title": "GatewayModelInfo",
+      "type": "object"
+    },
+    "HarnessListModelsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "models": {
+          "items": {
+            "$ref": "#/$defs/GatewayModelInfo"
+          },
+          "title": "Models",
+          "type": "array"
+        }
+      },
+      "title": "HarnessListModelsResponse",
+      "type": "object"
+    },
+    "HarnessMarkSeenRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path",
+        "session_id"
+      ],
+      "title": "HarnessMarkSeenRequest",
+      "type": "object"
+    },
+    "HarnessMarkSeenResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "default": true,
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "last_seen_event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Seen Event Id"
+        }
+      },
+      "title": "HarnessMarkSeenResponse",
+      "type": "object"
+    },
+    "HarnessModelOptionsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "HarnessModelOptionsRequest",
+      "type": "object"
+    },
+    "HarnessModelOption": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "$ref": "#/$defs/GatewayModelInfo"
+        },
+        "state": {
+          "enum": [
+            "current",
+            "available",
+            "unavailable"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "enum": [
+                "model_not_offered",
+                "harness_wire_unsupported",
+                "reasoning_not_readable"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason Code"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "group_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group Message"
+        },
+        "escape_new_chat_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Escape New Chat Model"
+        }
+      },
+      "required": [
+        "model",
+        "state"
+      ],
+      "title": "HarnessModelOption",
+      "type": "object"
+    },
+    "HarnessModelOptionsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "current_model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Model Id"
+        },
+        "current_effort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Effort"
+        },
+        "can_switch": {
+          "default": true,
+          "title": "Can Switch",
+          "type": "boolean"
+        },
+        "applies": {
+          "default": "next_turn",
+          "enum": [
+            "next_turn",
+            "after_reopen"
+          ],
+          "title": "Applies",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/HarnessModelOption"
+          },
+          "title": "Options",
+          "type": "array"
+        }
+      },
+      "title": "HarnessModelOptionsResponse",
+      "type": "object"
+    },
+    "HarnessObserveChatRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "tail": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tail"
+        }
+      },
+      "required": [
+        "project_path",
+        "session_id"
+      ],
+      "title": "HarnessObserveChatRequest",
+      "type": "object"
+    },
+    "HarnessObserveChatResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "manifest": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manifest"
+        },
+        "recent_events": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Recent Events",
+          "type": "array"
+        },
+        "live": {
+          "default": false,
+          "title": "Live",
+          "type": "boolean"
+        },
+        "oldest_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Oldest Seq"
+        },
+        "has_older": {
+          "default": false,
+          "title": "Has Older",
+          "type": "boolean"
+        },
+        "cut": {
+          "default": false,
+          "title": "Cut",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "HarnessObserveChatResponse",
+      "type": "object"
+    },
+    "GatewayModelSelection": {
+      "additionalProperties": false,
+      "description": "A model the editor chose from ``harness.list_models``, sent on new/open so\nthe DAEMON builds the pinned manifest (via ``build_manifest_model``) \u2014 ONE\nsource for the pinned shape (provider id, effort ladder) across the CLI and\nthe editor, instead of the editor re-encoding the gateway provider ids and the\neffort-selection logic in TypeScript.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "display_name": {
+          "default": "",
+          "title": "Display Name",
+          "type": "string"
+        },
+        "wire": {
+          "enum": [
+            "anthropic",
+            "openai"
+          ],
+          "title": "Wire",
+          "type": "string"
+        },
+        "efforts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Efforts",
+          "type": "array"
+        },
+        "default_effort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Effort"
+        }
+      },
+      "required": [
+        "id",
+        "wire"
+      ],
+      "title": "GatewayModelSelection",
+      "type": "object"
+    },
+    "HarnessOpenChatRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "create": {
+          "default": false,
+          "title": "Create",
+          "type": "boolean"
+        },
+        "harness": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Harness"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GatewayModelSelection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "effort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effort"
+        },
+        "tail": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tail"
+        }
+      },
+      "required": [
+        "project_path"
+      ],
+      "title": "HarnessOpenChatRequest",
+      "type": "object"
+    },
+    "HarnessOpenChatResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "manifest": {
+          "additionalProperties": true,
+          "title": "Manifest",
+          "type": "object"
+        },
+        "recent_events": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Recent Events",
+          "type": "array"
+        },
+        "oldest_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Oldest Seq"
+        },
+        "has_older": {
+          "default": false,
+          "title": "Has Older",
+          "type": "boolean"
+        },
+        "cut": {
+          "default": false,
+          "title": "Cut",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "session_id",
+        "manifest"
+      ],
+      "title": "HarnessOpenChatResponse",
+      "type": "object"
+    },
+    "HarnessResolveFileRequest": {
+      "additionalProperties": false,
+      "description": "A chat-relative path out of a message, to be mapped to a file on disk.",
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "path"
+      ],
+      "title": "HarnessResolveFileRequest",
+      "type": "object"
+    },
+    "HarnessResolveFileResponse": {
+      "additionalProperties": false,
+      "description": "The absolute path, or ``None`` when the path leaves the chat's working\ndirectory or names nothing there.",
+      "properties": {
+        "abs_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Abs Path"
+        }
+      },
+      "title": "HarnessResolveFileResponse",
+      "type": "object"
+    },
+    "HarnessRunCommandRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "line": {
+          "title": "Line",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "line"
+      ],
+      "title": "HarnessRunCommandRequest",
+      "type": "object"
+    },
+    "HarnessRunCommandResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "ok",
+            "bad_usage",
+            "exit",
+            "cli_only",
+            "unknown"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "HarnessRunCommandResponse",
+      "type": "object"
+    },
+    "HarnessSendPromptRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        }
+      },
+      "required": [
+        "session_id",
+        "text"
+      ],
+      "title": "HarnessSendPromptRequest",
+      "type": "object"
+    },
+    "HarnessSetCostLimitsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "caps": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Caps",
+          "type": "object"
+        }
+      },
+      "required": [
+        "session_id",
+        "caps"
+      ],
+      "title": "HarnessSetCostLimitsRequest",
+      "type": "object"
+    },
+    "HarnessSetModelRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/GatewayModelSelection"
+        },
+        "effort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effort"
+        },
+        "expected_model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Model Id"
+        }
+      },
+      "required": [
+        "session_id",
+        "model"
+      ],
+      "title": "HarnessSetModelRequest",
+      "type": "object"
+    },
+    "HarnessSetModelResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "additionalProperties": true,
+          "title": "Model",
+          "type": "object"
+        },
+        "applies": {
+          "default": "next_turn",
+          "enum": [
+            "next_turn",
+            "after_reopen"
+          ],
+          "title": "Applies",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model"
+      ],
+      "title": "HarnessSetModelResponse",
+      "type": "object"
+    },
+    "HarnessSetModelEffortRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "effort": {
+          "title": "Effort",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "effort"
+      ],
+      "title": "HarnessSetModelEffortRequest",
+      "type": "object"
+    },
+    "HarnessSetModelEffortResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "additionalProperties": true,
+          "title": "Model",
+          "type": "object"
+        }
+      },
+      "required": [
+        "model"
+      ],
+      "title": "HarnessSetModelEffortResponse",
+      "type": "object"
+    },
+    "HarnessSetPermissionModeRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "read_only",
+            "default",
+            "auto",
+            "plan",
+            "bypass"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "mode"
+      ],
+      "title": "HarnessSetPermissionModeRequest",
+      "type": "object"
+    },
+    "HarnessStageFileRequest": {
+      "additionalProperties": false,
+      "description": "A file the reader pasted or attached in the webview, to be written into\nthe chat's working directory under a name the daemon picks.",
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "content_base64": {
+          "title": "Content Base64",
+          "type": "string"
+        },
+        "kind": {
+          "default": "file",
+          "title": "Kind",
+          "type": "string"
+        },
+        "n": {
+          "default": 1,
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "session_id",
+        "name",
+        "content_base64"
+      ],
+      "title": "HarnessStageFileRequest",
+      "type": "object"
+    },
+    "HarnessStageFileResponse": {
+      "additionalProperties": false,
+      "description": "Where the file landed, relative to the chat's working directory \u2014 the\npath the message carries.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "HarnessStageFileResponse",
+      "type": "object"
+    },
+    "HarnessStopObserveRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "HarnessStopObserveRequest",
+      "type": "object"
+    },
+    "HealthRequest": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "HealthRequest",
+      "type": "object"
+    },
+    "HealthResponse": {
+      "additionalProperties": false,
+      "description": "Lightweight liveness probe.\n\nDistinct from ``ping`` so the heartbeat loop's call pattern is visible\nin logs and we can later add cheap counters (queue depth, in-flight\nhandlers) without overloading ``ping``.",
+      "properties": {
+        "status": {
+          "const": "ok",
+          "title": "Status",
+          "type": "string"
+        },
+        "uptime_seconds": {
+          "title": "Uptime Seconds",
+          "type": "number"
+        },
+        "inflight_requests": {
+          "title": "Inflight Requests",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "uptime_seconds",
+        "inflight_requests"
+      ],
+      "title": "HealthResponse",
+      "type": "object"
+    },
+    "InfoRequest": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "InfoRequest",
+      "type": "object"
+    },
+    "InfoResponse": {
+      "additionalProperties": false,
+      "description": "Build + runtime introspection. Distinct from `ping` because it\ncarries machine-relevant detail (platform, pid, log path) that the\nextension surfaces in its status bar tooltip / debug output.",
+      "properties": {
+        "daemon_version": {
+          "title": "Daemon Version",
+          "type": "string"
+        },
+        "daemon_pid": {
+          "title": "Daemon Pid",
+          "type": "integer"
+        },
+        "platform": {
+          "title": "Platform",
+          "type": "string"
+        },
+        "python_version": {
+          "title": "Python Version",
+          "type": "string"
+        },
+        "log_file": {
+          "title": "Log File",
+          "type": "string"
+        },
+        "working_dir": {
+          "title": "Working Dir",
+          "type": "string"
+        }
+      },
+      "required": [
+        "daemon_version",
+        "daemon_pid",
+        "platform",
+        "python_version",
+        "log_file",
+        "working_dir"
+      ],
+      "title": "InfoResponse",
+      "type": "object"
+    },
+    "InstructionsGetRequest": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "InstructionsGetRequest",
+      "type": "object"
+    },
+    "InstructionsGetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "title": "InstructionsGetResponse",
+      "type": "object"
+    },
+    "InstructionsSetRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "title": "InstructionsSetRequest",
+      "type": "object"
+    },
+    "InstructionsSetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "title": "InstructionsSetResponse",
+      "type": "object"
+    },
+    "MaintenanceCleanupCacheRequest": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "MaintenanceCleanupCacheRequest",
+      "type": "object"
+    },
+    "MaintenanceCleanupCacheResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "removed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Removed",
+          "type": "array"
+        },
+        "kept_count": {
+          "title": "Kept Count",
+          "type": "integer"
+        },
+        "errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Errors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "removed",
+        "kept_count",
+        "errors"
+      ],
+      "title": "MaintenanceCleanupCacheResponse",
+      "type": "object"
+    },
+    "PingRequest": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "PingRequest",
+      "type": "object"
+    },
+    "PingResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "pong": {
+          "const": "pong",
+          "title": "Pong",
+          "type": "string"
+        },
+        "daemon_version": {
+          "title": "Daemon Version",
+          "type": "string"
+        },
+        "daemon_pid": {
+          "title": "Daemon Pid",
+          "type": "integer"
+        },
+        "uptime_seconds": {
+          "title": "Uptime Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "pong",
+        "daemon_version",
+        "daemon_pid",
+        "uptime_seconds"
+      ],
+      "title": "PingResponse",
+      "type": "object"
+    },
+    "PluginDisableRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path",
+        "name"
+      ],
+      "title": "PluginDisableRequest",
+      "type": "object"
+    },
+    "PluginDisableResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "disabled": {
+          "title": "Disabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "disabled"
+      ],
+      "title": "PluginDisableResponse",
+      "type": "object"
+    },
+    "PluginEnableRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path",
+        "name"
+      ],
+      "title": "PluginEnableRequest",
+      "type": "object"
+    },
+    "PluginEnableResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "title": "PluginEnableResponse",
+      "type": "object"
+    },
+    "PluginListRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path"
+      ],
+      "title": "PluginListRequest",
+      "type": "object"
+    },
+    "PluginInfo": {
+      "additionalProperties": false,
+      "description": "A discovered plugin's advertised shape + live state.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "default": "",
+          "title": "Version",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "surfaces": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Surfaces",
+          "type": "array"
+        },
+        "active": {
+          "default": false,
+          "title": "Active",
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "has_form": {
+          "default": false,
+          "title": "Has Form",
+          "type": "boolean"
+        },
+        "detected_connections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Detected Connections",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "PluginInfo",
+      "type": "object"
+    },
+    "PluginListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "plugins": {
+          "items": {
+            "$ref": "#/$defs/PluginInfo"
+          },
+          "title": "Plugins",
+          "type": "array"
+        }
+      },
+      "title": "PluginListResponse",
+      "type": "object"
+    },
+    "PreferencesGetRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Path"
+        }
+      },
+      "title": "PreferencesGetRequest",
+      "type": "object"
+    },
+    "PreferencesGetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "preferences": {
+          "additionalProperties": true,
+          "title": "Preferences",
+          "type": "object"
+        }
+      },
+      "required": [
+        "preferences"
+      ],
+      "title": "PreferencesGetResponse",
+      "type": "object"
+    },
+    "ResolveChatDefaultsRequest": {
+      "additionalProperties": false,
+      "description": "The resolution reads the saved prefs + the gateway catalog as\n``project_path``'s sign-in (the daemon's when None).",
+      "properties": {
+        "project_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Path"
+        }
+      },
+      "title": "ResolveChatDefaultsRequest",
+      "type": "object"
+    },
+    "ResolveChatDefaultsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "effort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effort"
+        }
+      },
+      "title": "ResolveChatDefaultsResponse",
+      "type": "object"
+    },
+    "PreferencesSetRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "preferences": {
+          "additionalProperties": true,
+          "title": "Preferences",
+          "type": "object"
+        },
+        "project_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Path"
+        }
+      },
+      "required": [
+        "preferences"
+      ],
+      "title": "PreferencesSetRequest",
+      "type": "object"
+    },
+    "PreferencesSetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "preferences": {
+          "additionalProperties": true,
+          "title": "Preferences",
+          "type": "object"
+        }
+      },
+      "required": [
+        "preferences"
+      ],
+      "title": "PreferencesSetResponse",
+      "type": "object"
+    },
+    "ProjectPreferencesGetRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path"
+      ],
+      "title": "ProjectPreferencesGetRequest",
+      "type": "object"
+    },
+    "ProjectPreferencesGetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "preferences": {
+          "additionalProperties": true,
+          "title": "Preferences",
+          "type": "object"
+        }
+      },
+      "required": [
+        "preferences"
+      ],
+      "title": "ProjectPreferencesGetResponse",
+      "type": "object"
+    },
+    "ProjectPreferencesSetRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "preferences": {
+          "additionalProperties": true,
+          "title": "Preferences",
+          "type": "object"
+        }
+      },
+      "required": [
+        "project_path",
+        "preferences"
+      ],
+      "title": "ProjectPreferencesSetRequest",
+      "type": "object"
+    },
+    "ProjectPreferencesSetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "preferences": {
+          "additionalProperties": true,
+          "title": "Preferences",
+          "type": "object"
+        }
+      },
+      "required": [
+        "preferences"
+      ],
+      "title": "ProjectPreferencesSetResponse",
+      "type": "object"
+    },
+    "ReportCrashRequest": {
+      "additionalProperties": false,
+      "description": "A user-consented crash report to submit on their behalf.",
+      "properties": {
+        "component": {
+          "default": "extension",
+          "enum": [
+            "cli",
+            "daemon",
+            "extension",
+            "web",
+            "backend",
+            "gateway"
+          ],
+          "title": "Component",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "error_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Type"
+        },
+        "stacktrace": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stacktrace"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comment"
+        },
+        "logs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Logs"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "ReportCrashRequest",
+      "type": "object"
+    },
+    "ReportCrashResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "submitted": {
+          "title": "Submitted",
+          "type": "boolean"
+        },
+        "report_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Report Id"
+        }
+      },
+      "required": [
+        "submitted"
+      ],
+      "title": "ReportCrashResponse",
+      "type": "object"
+    },
+    "SchedulerCancelRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path",
+        "job_id"
+      ],
+      "title": "SchedulerCancelRequest",
+      "type": "object"
+    },
+    "SchedulerCancelResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "stopped": {
+          "title": "Stopped",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "stopped"
+      ],
+      "title": "SchedulerCancelResponse",
+      "type": "object"
+    },
+    "SchedulerListRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path"
+      ],
+      "title": "SchedulerListRequest",
+      "type": "object"
+    },
+    "JobWire": {
+      "additionalProperties": false,
+      "description": "A scheduled job's wire shape (for ``scheduler.list``).",
+      "properties": {
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "plugin": {
+          "default": "",
+          "title": "Plugin",
+          "type": "string"
+        },
+        "kind": {
+          "default": "",
+          "title": "Kind",
+          "type": "string"
+        },
+        "connection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Connection"
+        },
+        "coalesce_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coalesce Key"
+        },
+        "state": {
+          "default": "scheduled",
+          "title": "State",
+          "type": "string"
+        },
+        "next_run_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Run At"
+        },
+        "last_run_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Run At"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "trigger": {
+          "additionalProperties": true,
+          "title": "Trigger",
+          "type": "object"
+        },
+        "last_outcome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Outcome"
+        },
+        "last_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Message"
+        },
+        "status_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status Text"
+        },
+        "progress_current": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Progress Current"
+        },
+        "progress_total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Progress Total"
+        },
+        "progress_updated_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Progress Updated At"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "title": "JobWire",
+      "type": "object"
+    },
+    "SchedulerListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "jobs": {
+          "items": {
+            "$ref": "#/$defs/JobWire"
+          },
+          "title": "Jobs",
+          "type": "array"
+        }
+      },
+      "title": "SchedulerListResponse",
+      "type": "object"
+    },
+    "SchedulerRunNowRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "reason": {
+          "default": "run_now",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path",
+        "job_id"
+      ],
+      "title": "SchedulerRunNowRequest",
+      "type": "object"
+    },
+    "SchedulerRunNowResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "started": {
+          "title": "Started",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "started"
+      ],
+      "title": "SchedulerRunNowResponse",
+      "type": "object"
+    },
+    "ShutdownRequest": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "ShutdownRequest",
+      "type": "object"
+    },
+    "ShutdownResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "const": "shutting down",
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "ShutdownResponse",
+      "type": "object"
+    },
+    "WorkingCopyAttachRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "title": "Root",
+          "type": "string"
+        }
+      },
+      "required": [
+        "root"
+      ],
+      "title": "WorkingCopyAttachRequest",
+      "type": "object"
+    },
+    "WorkingCopyAttachResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "attached": {
+          "title": "Attached",
+          "type": "boolean"
+        },
+        "kind": {
+          "default": "",
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "default": "",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attached"
+      ],
+      "title": "WorkingCopyAttachResponse",
+      "type": "object"
+    },
+    "WorkingCopyOpenRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "default": "chat",
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "location": {
+          "title": "Location",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "location"
+      ],
+      "title": "WorkingCopyOpenRequest",
+      "type": "object"
+    },
+    "WorkingCopyBackup": {
+      "additionalProperties": false,
+      "description": "A local version set aside before it was replaced.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "saved_at": {
+          "title": "Saved At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "saved_at"
+      ],
+      "title": "WorkingCopyBackup",
+      "type": "object"
+    },
+    "WorkingCopyConflict": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "reason"
+      ],
+      "title": "WorkingCopyConflict",
+      "type": "object"
+    },
+    "WorkingCopyRefusal": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "code",
+        "message"
+      ],
+      "title": "WorkingCopyRefusal",
+      "type": "object"
+    },
+    "WorkingCopyReport": {
+      "additionalProperties": false,
+      "description": "What one pass did, by path relative to the copy's root.",
+      "properties": {
+        "downloaded": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Downloaded",
+          "type": "array"
+        },
+        "uploaded": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Uploaded",
+          "type": "array"
+        },
+        "removed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Removed",
+          "type": "array"
+        },
+        "trashed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Trashed",
+          "type": "array"
+        },
+        "restored": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Restored",
+          "type": "array"
+        },
+        "pending": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pending",
+          "type": "array"
+        },
+        "conflicts": {
+          "items": {
+            "$ref": "#/$defs/WorkingCopyConflict"
+          },
+          "title": "Conflicts",
+          "type": "array"
+        },
+        "refused": {
+          "items": {
+            "$ref": "#/$defs/WorkingCopyRefusal"
+          },
+          "title": "Refused",
+          "type": "array"
+        },
+        "busy": {
+          "default": false,
+          "title": "Busy",
+          "type": "boolean"
+        },
+        "deletions_held": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deletions Held",
+          "type": "array"
+        },
+        "backups": {
+          "items": {
+            "$ref": "#/$defs/WorkingCopyBackup"
+          },
+          "title": "Backups",
+          "type": "array"
+        }
+      },
+      "title": "WorkingCopyReport",
+      "type": "object"
+    },
+    "WorkingCopyOpenResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "opened",
+            "invalid",
+            "unsupported",
+            "not_found",
+            "no_files",
+            "location_taken"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "message": {
+          "default": "",
+          "title": "Message",
+          "type": "string"
+        },
+        "root": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Root"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "report": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkingCopyReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "WorkingCopyOpenResponse",
+      "type": "object"
+    },
+    "WorkingCopyResolveRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "title": "Root",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "keep": {
+          "enum": [
+            "mine",
+            "theirs"
+          ],
+          "title": "Keep",
+          "type": "string"
+        }
+      },
+      "required": [
+        "root",
+        "path",
+        "keep"
+      ],
+      "title": "WorkingCopyResolveRequest",
+      "type": "object"
+    },
+    "WorkingCopyResolveResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "attached": {
+          "title": "Attached",
+          "type": "boolean"
+        },
+        "report": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkingCopyReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "attached"
+      ],
+      "title": "WorkingCopyResolveResponse",
+      "type": "object"
+    },
+    "WorkingCopyResolveDeletionsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "title": "Root",
+          "type": "string"
+        },
+        "apply": {
+          "title": "Apply",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "root",
+        "apply"
+      ],
+      "title": "WorkingCopyResolveDeletionsRequest",
+      "type": "object"
+    },
+    "WorkingCopyResolveDeletionsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "attached": {
+          "title": "Attached",
+          "type": "boolean"
+        },
+        "report": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkingCopyReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "attached"
+      ],
+      "title": "WorkingCopyResolveDeletionsResponse",
+      "type": "object"
+    },
+    "WorkingCopySetDirtyRequest": {
+      "additionalProperties": false,
+      "description": "The files under ``root`` with unsaved edits in the editor, as paths\nrelative to it. The whole set every time, so a lost message heals on the\nnext one.",
+      "properties": {
+        "root": {
+          "title": "Root",
+          "type": "string"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "root"
+      ],
+      "title": "WorkingCopySetDirtyRequest",
+      "type": "object"
+    },
+    "WorkingCopySetDirtyResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "attached": {
+          "title": "Attached",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "attached"
+      ],
+      "title": "WorkingCopySetDirtyResponse",
+      "type": "object"
+    },
+    "WorkingCopySyncRequest": {
+      "additionalProperties": false,
+      "description": "A save: send what changed under ``root``. Nothing is read back; the\ndrive's changes arrive through the realtime stream.",
+      "properties": {
+        "root": {
+          "title": "Root",
+          "type": "string"
+        }
+      },
+      "required": [
+        "root"
+      ],
+      "title": "WorkingCopySyncRequest",
+      "type": "object"
+    },
+    "WorkingCopySyncResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "attached": {
+          "title": "Attached",
+          "type": "boolean"
+        },
+        "report": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkingCopyReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "attached"
+      ],
+      "title": "WorkingCopySyncResponse",
+      "type": "object"
+    },
+    "HarnessPermissionRequiredRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "request": {
+          "additionalProperties": true,
+          "title": "Request",
+          "type": "object"
+        }
+      },
+      "required": [
+        "session_id",
+        "request"
+      ],
+      "title": "HarnessPermissionRequiredRequest",
+      "type": "object"
+    },
+    "HarnessPermissionRequiredResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "option_id": {
+          "enum": [
+            "allow_once",
+            "allow_always",
+            "reject_once",
+            "reject_always",
+            "cancelled"
+          ],
+          "title": "Option Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "option_id"
+      ],
+      "title": "HarnessPermissionRequiredResponse",
+      "type": "object"
+    },
+    "HarnessQuestionRequiredRequest": {
+      "additionalProperties": false,
+      "description": "Daemon \u2192 editor: a clarifier question awaits a user answer.",
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "request": {
+          "additionalProperties": true,
+          "title": "Request",
+          "type": "object"
+        }
+      },
+      "required": [
+        "session_id",
+        "request"
+      ],
+      "title": "HarnessQuestionRequiredRequest",
+      "type": "object"
+    },
+    "HarnessQuestionRequiredResponse": {
+      "additionalProperties": false,
+      "description": "Editor \u2192 daemon: how the user answered.\n\nDiscriminated by ``kind``:\n- ``\"answer\"`` carries ``answers: list[list[str]]`` parallel to\n  ``QuestionRequest.questions``.\n- ``\"reject\"`` carries an optional ``reason`` (free text); the\n  harness treats it as a hard rejection.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "answer",
+            "reject"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "answers": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Answers",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "HarnessQuestionRequiredResponse",
+      "type": "object"
+    },
+    "AuthChangedNotification": {
+      "additionalProperties": false,
+      "description": "Fired whenever the daemon's view of auth state changes:\n- successful device login (background poll resolved)\n- logout\n- cross-process update (another window logged in/out, file mtime changed)\n- cloud invalidation detected on a refresh\n\nThe editor extension uses this to update its UI without polling.",
+      "properties": {
+        "authenticated": {
+          "title": "Authenticated",
+          "type": "boolean"
+        },
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email"
+        },
+        "api_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Url"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing",
+                "expired",
+                "invalid",
+                "network",
+                "email_verification_required"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "frontend_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frontend Url"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "enum": [
+                "gateway_rejected",
+                "login_failed",
+                "org_refused"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "org_team_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Org Team Id"
+        },
+        "org_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Org Name"
+        }
+      },
+      "required": [
+        "authenticated"
+      ],
+      "title": "AuthChangedNotification",
+      "type": "object"
+    },
+    "HarnessEventNotification": {
+      "additionalProperties": false,
+      "description": "One IR event for a session.",
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "event": {
+          "additionalProperties": true,
+          "title": "Event",
+          "type": "object"
+        }
+      },
+      "required": [
+        "session_id",
+        "event"
+      ],
+      "title": "HarnessEventNotification",
+      "type": "object"
+    },
+    "HarnessLockHeldNotification": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "holder": {
+          "additionalProperties": true,
+          "title": "Holder",
+          "type": "object"
+        }
+      },
+      "required": [
+        "session_id",
+        "holder"
+      ],
+      "title": "HarnessLockHeldNotification",
+      "type": "object"
+    },
+    "HarnessSessionStateChangedNotification": {
+      "additionalProperties": false,
+      "description": "Server \u2192 client: session state the editor mirrors changed out-of-band\n(e.g. a plan approval flipped the permission mode). The client updates its\nview from this push instead of re-fetching on a timing guess. Extensible \u2014\nfurther mirrored fields can join ``permission_mode`` here.",
+      "properties": {
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "permission_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "read_only",
+                "default",
+                "auto",
+                "plan",
+                "bypass"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Permission Mode"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "HarnessSessionStateChangedNotification",
+      "type": "object"
+    },
+    "SchedulerJobEventNotification": {
+      "additionalProperties": false,
+      "description": "A job lifecycle transition (started / completed / failed).",
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "phase": {
+          "title": "Phase",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "project_path",
+        "job_id",
+        "kind",
+        "phase"
+      ],
+      "title": "SchedulerJobEventNotification",
+      "type": "object"
+    },
+    "WorkingCopySyncedNotification": {
+      "additionalProperties": false,
+      "description": "A pass of an attached copy did something, or failed outright.",
+      "properties": {
+        "root": {
+          "title": "Root",
+          "type": "string"
+        },
+        "report": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkingCopyReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "auth_required": {
+          "default": false,
+          "title": "Auth Required",
+          "type": "boolean"
+        },
+        "access_lost": {
+          "default": false,
+          "title": "Access Lost",
+          "type": "boolean"
+        },
+        "detached": {
+          "default": false,
+          "title": "Detached",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "root"
+      ],
+      "title": "WorkingCopySyncedNotification",
+      "type": "object"
+    }
+  },
+  "x-alkera-methods": {
+    "auth.cancelDeviceLogin": {
+      "request": "AuthCancelDeviceLoginRequest",
+      "response": "AuthCancelDeviceLoginResponse"
+    },
+    "auth.listOrgs": {
+      "request": "AuthListOrgsRequest",
+      "response": "AuthListOrgsResponse"
+    },
+    "auth.logout": {
+      "request": "AuthLogoutRequest",
+      "response": "AuthLogoutResponse"
+    },
+    "auth.startDeviceLogin": {
+      "request": "AuthStartDeviceLoginRequest",
+      "response": "AuthStartDeviceLoginResponse"
+    },
+    "auth.status": {
+      "request": "AuthStatusRequest",
+      "response": "AuthStatusResponse"
+    },
+    "auth.switchOrg": {
+      "request": "AuthSwitchOrgRequest",
+      "response": "AuthSwitchOrgResponse"
+    },
+    "blob.fetch": {
+      "request": "BlobFetchRequest",
+      "response": "BlobFetchResponse"
+    },
+    "environment.get": {
+      "request": "EnvironmentGetRequest",
+      "response": "EnvironmentGetResponse"
+    },
+    "harness.cancel": {
+      "request": "HarnessCancelRequest",
+      "response": "HarnessOkResponse"
+    },
+    "harness.close_chat": {
+      "request": "HarnessCloseChatRequest",
+      "response": "HarnessOkResponse"
+    },
+    "harness.delete_chat": {
+      "request": "HarnessDeleteChatRequest",
+      "response": "HarnessOkResponse"
+    },
+    "harness.get_cost_state": {
+      "request": "HarnessGetCostStateRequest",
+      "response": "HarnessCostStateResponse"
+    },
+    "harness.get_permission_mode": {
+      "request": "HarnessGetPermissionModeRequest",
+      "response": "HarnessPermissionModeResponse"
+    },
+    "harness.list_chats": {
+      "request": "HarnessListChatsRequest",
+      "response": "HarnessListChatsResponse"
+    },
+    "harness.list_commands": {
+      "request": "HarnessListCommandsRequest",
+      "response": "HarnessListCommandsResponse"
+    },
+    "harness.list_cost_ledger": {
+      "request": "HarnessListCostLedgerRequest",
+      "response": "HarnessListCostLedgerResponse"
+    },
+    "harness.list_decisions": {
+      "request": "HarnessListDecisionsRequest",
+      "response": "HarnessListDecisionsResponse"
+    },
+    "harness.list_events": {
+      "request": "HarnessListEventsRequest",
+      "response": "HarnessListEventsResponse"
+    },
+    "harness.list_models": {
+      "request": "HarnessListModelsRequest",
+      "response": "HarnessListModelsResponse"
+    },
+    "harness.mark_seen": {
+      "request": "HarnessMarkSeenRequest",
+      "response": "HarnessMarkSeenResponse"
+    },
+    "harness.model_options": {
+      "request": "HarnessModelOptionsRequest",
+      "response": "HarnessModelOptionsResponse"
+    },
+    "harness.observe_chat": {
+      "request": "HarnessObserveChatRequest",
+      "response": "HarnessObserveChatResponse"
+    },
+    "harness.open_chat": {
+      "request": "HarnessOpenChatRequest",
+      "response": "HarnessOpenChatResponse"
+    },
+    "harness.resolve_file": {
+      "request": "HarnessResolveFileRequest",
+      "response": "HarnessResolveFileResponse"
+    },
+    "harness.run_command": {
+      "request": "HarnessRunCommandRequest",
+      "response": "HarnessRunCommandResponse"
+    },
+    "harness.send_prompt": {
+      "request": "HarnessSendPromptRequest",
+      "response": "HarnessOkResponse"
+    },
+    "harness.set_cost_limits": {
+      "request": "HarnessSetCostLimitsRequest",
+      "response": "HarnessCostStateResponse"
+    },
+    "harness.set_model": {
+      "request": "HarnessSetModelRequest",
+      "response": "HarnessSetModelResponse"
+    },
+    "harness.set_model_effort": {
+      "request": "HarnessSetModelEffortRequest",
+      "response": "HarnessSetModelEffortResponse"
+    },
+    "harness.set_permission_mode": {
+      "request": "HarnessSetPermissionModeRequest",
+      "response": "HarnessPermissionModeResponse"
+    },
+    "harness.stage_file": {
+      "request": "HarnessStageFileRequest",
+      "response": "HarnessStageFileResponse"
+    },
+    "harness.stop_observe": {
+      "request": "HarnessStopObserveRequest",
+      "response": "HarnessOkResponse"
+    },
+    "health": {
+      "request": "HealthRequest",
+      "response": "HealthResponse"
+    },
+    "info": {
+      "request": "InfoRequest",
+      "response": "InfoResponse"
+    },
+    "instructions.get": {
+      "request": "InstructionsGetRequest",
+      "response": "InstructionsGetResponse"
+    },
+    "instructions.set": {
+      "request": "InstructionsSetRequest",
+      "response": "InstructionsSetResponse"
+    },
+    "maintenance.cleanupCache": {
+      "request": "MaintenanceCleanupCacheRequest",
+      "response": "MaintenanceCleanupCacheResponse"
+    },
+    "ping": {
+      "request": "PingRequest",
+      "response": "PingResponse"
+    },
+    "plugin.disable": {
+      "request": "PluginDisableRequest",
+      "response": "PluginDisableResponse"
+    },
+    "plugin.enable": {
+      "request": "PluginEnableRequest",
+      "response": "PluginEnableResponse"
+    },
+    "plugin.list": {
+      "request": "PluginListRequest",
+      "response": "PluginListResponse"
+    },
+    "preferences.get": {
+      "request": "PreferencesGetRequest",
+      "response": "PreferencesGetResponse"
+    },
+    "preferences.resolve_chat_defaults": {
+      "request": "ResolveChatDefaultsRequest",
+      "response": "ResolveChatDefaultsResponse"
+    },
+    "preferences.set": {
+      "request": "PreferencesSetRequest",
+      "response": "PreferencesSetResponse"
+    },
+    "project_preferences.get": {
+      "request": "ProjectPreferencesGetRequest",
+      "response": "ProjectPreferencesGetResponse"
+    },
+    "project_preferences.set": {
+      "request": "ProjectPreferencesSetRequest",
+      "response": "ProjectPreferencesSetResponse"
+    },
+    "report.submitCrash": {
+      "request": "ReportCrashRequest",
+      "response": "ReportCrashResponse"
+    },
+    "scheduler.cancel": {
+      "request": "SchedulerCancelRequest",
+      "response": "SchedulerCancelResponse"
+    },
+    "scheduler.list": {
+      "request": "SchedulerListRequest",
+      "response": "SchedulerListResponse"
+    },
+    "scheduler.run_now": {
+      "request": "SchedulerRunNowRequest",
+      "response": "SchedulerRunNowResponse"
+    },
+    "shutdown": {
+      "request": "ShutdownRequest",
+      "response": "ShutdownResponse"
+    },
+    "working_copy.attach": {
+      "request": "WorkingCopyAttachRequest",
+      "response": "WorkingCopyAttachResponse"
+    },
+    "working_copy.open": {
+      "request": "WorkingCopyOpenRequest",
+      "response": "WorkingCopyOpenResponse"
+    },
+    "working_copy.resolve": {
+      "request": "WorkingCopyResolveRequest",
+      "response": "WorkingCopyResolveResponse"
+    },
+    "working_copy.resolve_deletions": {
+      "request": "WorkingCopyResolveDeletionsRequest",
+      "response": "WorkingCopyResolveDeletionsResponse"
+    },
+    "working_copy.set_dirty": {
+      "request": "WorkingCopySetDirtyRequest",
+      "response": "WorkingCopySetDirtyResponse"
+    },
+    "working_copy.sync": {
+      "request": "WorkingCopySyncRequest",
+      "response": "WorkingCopySyncResponse"
+    }
+  },
+  "x-alkera-clientRequests": {
+    "harness.permission_required": {
+      "request": "HarnessPermissionRequiredRequest",
+      "response": "HarnessPermissionRequiredResponse"
+    },
+    "harness.question_required": {
+      "request": "HarnessQuestionRequiredRequest",
+      "response": "HarnessQuestionRequiredResponse"
+    }
+  },
+  "x-alkera-notifications": {
+    "auth.changed": "AuthChangedNotification",
+    "harness.event": "HarnessEventNotification",
+    "harness.lock_held": "HarnessLockHeldNotification",
+    "harness.session_state_changed": "HarnessSessionStateChangedNotification",
+    "scheduler.job_event": "SchedulerJobEventNotification",
+    "working_copy.synced": "WorkingCopySyncedNotification"
+  }
+}

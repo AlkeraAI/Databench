@@ -1,0 +1,22 @@
+comment:
+  require_bundle_changes: true
+  bundle_change_threshold: "10Kb"
+
+coverage:
+  status:
+    project:
+      default:
+        # We'll set this once we have better coverage; auto compares
+        # to previous commit
+        target: auto
+        # this allows a 5% drop from the previous base commit coverage
+        # we'll decrease this as our testing matures
+        threshold: 5%
+    patch:
+      default:
+        target: auto
+        # this allows a 50% drop from the previous base commit coverage
+        # we'll decrease this as our testing matures
+        threshold: 50%
+  ignore:
+    - 'marimo/_snippets/data/**'

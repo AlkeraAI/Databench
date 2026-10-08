@@ -1,0 +1,21 @@
+{
+  "path": "mark",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "encoding": {
+      "url": {
+        "field": "a",
+        "type": "nominal"
+      }
+    },
+    "mark": "image"
+  },
+  "unsafe": true
+}

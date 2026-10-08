@@ -1,0 +1,3459 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+from datetime import date, datetime, time
+from decimal import Decimal
+from typing import Any, cast
+
+import narwhals.stable.v2 as nw
+import pytest
+
+from marimo._plugins.ui._impl.dataframes.transforms.apply import (
+    TransformsContainer,
+    apply_transforms_to_df,
+)
+from marimo._plugins.ui._impl.dataframes.transforms.handlers import (
+    NarwhalsTransformHandler,
+)
+from marimo._plugins.ui._impl.dataframes.transforms.types import (
+    AggregateTransform,
+    ColumnConversionTransform,
+    DataFrameType,
+    ExpandDictTransform,
+    ExplodeColumnsTransform,
+    FilterCondition,
+    FilterGroup,
+    FilterRowsTransform,
+    GroupByTransform,
+    PivotTransform,
+    RangeValue,
+    RenameColumnTransform,
+    SampleRowsTransform,
+    SelectColumnsTransform,
+    ShuffleRowsTransform,
+    SortColumnTransform,
+    Transform,
+    Transformations,
+    TransformType,
+    UniqueTransform,
+)
+from marimo._plugins.ui._impl.tables.narwhals_table import (
+    NAN_VALUE,
+    NEGATIVE_INF,
+    POSITIVE_INF,
+)
+from marimo._utils.narwhals_utils import is_narwhals_lazyframe, make_lazy
+from tests._data.mocks import create_dataframes
+
+pytest.importorskip("ibis")
+pd = pytest.importorskip("pandas")
+pytest.importorskip("pyarrow")
+pytest.importorskip("polars")
+
+
+def apply(df: DataFrameType, transform: Transform) -> DataFrameType:
+    return apply_transforms_to_df(df, transform)
+
+
+def create_test_dataframes(
+    data: dict[str, list[Any]],
+    *,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    strict: bool = True,
+) -> list[DataFrameType]:
+    """Create test dataframes including ibis if available."""
+    return create_dataframes(
+        data,
+        include=include or ["pandas", "polars", "pyarrow", "ibis"],
+        exclude=exclude,
+        strict=strict,
+    )
+
+
+def collect_df(df: DataFrameType) -> nw.DataFrame[Any]:
+    nw_df = nw.from_native(df)
+    if is_narwhals_lazyframe(nw_df):
+        nw_df = nw_df.collect()
+    return nw_df
+
+
+def assert_frame_equal(a: DataFrameType, b: DataFrameType) -> None:
+    nw_a = collect_df(a)
+    nw_b = collect_df(b)
+    assert type(a) is type(b)
+    assert nw_a.to_dict(as_series=False) == nw_b.to_dict(as_series=False)
+
+
+def assert_frame_equal_with_nans(
+    a: DataFrameType,
+    b: DataFrameType,
+    allow_nan_equals_zero: bool = False,
+    allow_none_equals_nan: bool = False,
+) -> None:
+    """
+    Assert two dataframes are equal, treating NaNs in the same locations as equal.
+
+    Args:
+        a: First dataframe
+        b: Second dataframe
+        allow_nan_equals_zero: If True, treat NaN and 0.0 as equivalent values.
+            This is useful for pivot operations where missing aggregations may
+            be filled with 0.0 or NaN depending on the backend.
+        allow_none_equals_nan: If True, treat None and NaN as equivalent
+            missing values. This is useful when different backends materialise
+            missing numeric values differently.
+    """
+    import math
+
+    nw_a = collect_df(a)
+    nw_b = collect_df(b)
+
+    dict_a = nw_a.to_dict(as_series=False)
+    dict_b = nw_b.to_dict(as_series=False)
+
+    assert dict_a.keys() == dict_b.keys(), "DataFrame columns do not match."
+
+    for col in dict_a:
+        values_a = dict_a[col]
+        values_b = dict_b[col]
+        assert len(values_a) == len(values_b), (
+            f"Length mismatch in column {col}"
+        )
+        for idx, (val_a, val_b) in enumerate(
+            zip(values_a, values_b, strict=False)
+        ):
+            both_nan = (
+                isinstance(val_a, float)
+                and isinstance(val_b, float)
+                and math.isnan(val_a)
+                and math.isnan(val_b)
+            )
+            # For pivot operations, treat NaN and 0.0 as equivalent
+            nan_or_zero_match = (
+                allow_nan_equals_zero
+                and isinstance(val_a, (float, int))
+                and isinstance(val_b, (float, int))
+                and (
+                    (math.isnan(val_a) if isinstance(val_a, float) else False)
+                    or val_a == 0.0
+                )
+                and (
+                    (math.isnan(val_b) if isinstance(val_b, float) else False)
+                    or val_b == 0.0
+                )
+            )
+            # Useful for expand dict operations where None and nan are equal
+            none_nan_match = allow_none_equals_nan and (
+                (
+                    val_a is None
+                    and isinstance(val_b, float)
+                    and math.isnan(val_b)
+                )
+                or (
+                    val_b is None
+                    and isinstance(val_a, float)
+                    and math.isnan(val_a)
+                )
+            )
+            if not (
+                val_a == val_b
+                or both_nan
+                or nan_or_zero_match
+                or none_nan_match
+            ):
+                raise AssertionError(
+                    f"DataFrame values differ at column '{col}', row {idx}: {val_a} != {val_b}"
+                )
+
+
+def assert_frame_not_equal(df1: DataFrameType, df2: DataFrameType) -> None:
+    with pytest.raises(AssertionError):
+        assert_frame_equal(df1, df2)
+
+
+def df_size(df: DataFrameType) -> int:
+    nw_df = collect_df(df)
+    return nw_df.shape[0]
+
+
+class TestTransformHandler:
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": ["1", "2", "3"]}),
+                create_test_dataframes({"A": [1, 2, 3]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_column_conversion_string_to_int(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = ColumnConversionTransform(
+            type=TransformType.COLUMN_CONVERSION,
+            column_id="A",
+            data_type="int64",
+            errors="raise",
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1.1, 2.2, 3.3]}),
+                create_test_dataframes({"A": ["1.1", "2.2", "3.3"]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_column_conversion_float_to_string(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = ColumnConversionTransform(
+            type=TransformType.COLUMN_CONVERSION,
+            column_id="A",
+            data_type="str",
+            errors="raise",
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.skip(
+        reason="Column conversion with errors='ignore' not fully supported in narwhals"
+    )
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": ["1", "2", "3", "a"]}),
+                create_test_dataframes({"A": [1, 2, 3, None]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_column_conversion_ignore_errors(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = ColumnConversionTransform(
+            type=TransformType.COLUMN_CONVERSION,
+            column_id="A",
+            data_type="int64",
+            errors="ignore",
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3]}),
+                create_test_dataframes({"B": [1, 2, 3]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_rename_column(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = RenameColumnTransform(
+            type=TransformType.RENAME_COLUMN, column_id="A", new_column_id="B"
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected_asc", "expected_desc"),
+        list(
+            zip(
+                create_test_dataframes({"A": [3, 1, 2]}),
+                create_test_dataframes({"A": [1, 2, 3]}),
+                create_test_dataframes({"A": [3, 2, 1]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_sort_column(
+        df: DataFrameType,
+        expected_asc: DataFrameType,
+        expected_desc: DataFrameType,
+    ) -> None:
+        transform = SortColumnTransform(
+            type=TransformType.SORT_COLUMN,
+            column_id="A",
+            ascending=True,
+            na_position="last",
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected_asc)
+
+        transform = SortColumnTransform(
+            type=TransformType.SORT_COLUMN,
+            column_id="A",
+            ascending=False,
+            na_position="last",
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected_desc)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3]}),
+                create_test_dataframes({"A": [2, 3]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_1(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="A", operator=">=", value=2
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    def test_handle_filter_rows_string_na() -> None:
+        for operator in ["contains", "starts_with", "ends_with", "regex"]:
+            df = pd.DataFrame({"A": ["foo", "bar", None]})
+            transform = FilterRowsTransform(
+                type=TransformType.FILTER_ROWS,
+                operation="keep_rows",
+                where=FilterGroup(
+                    type="group",
+                    operator="and",
+                    children=[
+                        FilterCondition(
+                            type="condition",
+                            column_id="A",
+                            operator=cast(Any, operator),
+                            value="foo",
+                        )
+                    ],
+                ),
+            )
+            result = apply(df, transform)
+            assert_frame_equal(result, pd.DataFrame({"A": ["foo"]}))
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                create_test_dataframes({"A": [2], "B": [5]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_2(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="remove_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="B", operator="!=", value=5
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3, 4, 5]}),
+                create_test_dataframes({"A": [1, 2, 3]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_3(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="A", operator="<", value=4
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3]}),
+                create_test_dataframes({"A": [1, 3]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_4(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="remove_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="A", operator="==", value=2
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                create_test_dataframes({"A": [2, 3], "B": [5, 6]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_5(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="B", operator=">=", value=5
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                create_test_dataframes({"A": [3], "B": [6]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_6(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="remove_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="B", operator="<", value=6
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"date": [date(2001, 1, 1), date(2001, 1, 2)]},
+                    exclude=["pandas"],
+                ),
+                create_test_dataframes(
+                    {"date": [date(2001, 1, 1)]}, exclude=["pandas"]
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_date(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="date",
+                        operator="==",
+                        value=date(2001, 1, 1),
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                create_test_dataframes({"A": [1, 2], "B": [4, 5]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_in_operator(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="in",
+                        value=[1, 2],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        [
+            *zip(
+                create_test_dataframes(
+                    {"date": [date(2001, 1, 1), date(2001, 1, 2)]},
+                    exclude=["polars"],
+                ),
+                create_test_dataframes(
+                    {"date": [date(2001, 1, 1)]}, exclude=["polars"]
+                ),
+                strict=False,
+            ),
+        ],
+    )
+    def test_filter_rows_in_dates(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="date",
+                        operator="in",
+                        value=["2001-01-01"],  # Backend will receive as string
+                    ),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [Decimal("1.99"), Decimal("0.50"), Decimal("3.25")]},
+                    exclude=["pandas"],
+                ),
+                create_test_dataframes(
+                    {"A": [Decimal("1.99"), Decimal("3.25")]},
+                    exclude=["pandas"],
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_in_decimal(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="in",
+                        value=["1.99", "3.25"],
+                    ),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {
+                        "A": [
+                            Decimal("0.10"),
+                            Decimal("0.20"),
+                            Decimal("0.30"),
+                        ]
+                    },
+                    exclude=["pandas"],
+                ),
+                create_test_dataframes(
+                    {"A": [Decimal("0.10")]},
+                    exclude=["pandas"],
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_in_decimal_not_exactly_representable_as_float(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        """0.1 is not exactly representable as a float, but filtering should still work."""
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="in",
+                        value=["0.10"],
+                    ),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @pytest.mark.xfail(
+        reason="Casting both sides to Float64 causes precision loss at ~15 decimal places."
+    )
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes(
+            {
+                "A": [
+                    Decimal("1.12345678901234567"),
+                    Decimal("1.12345678901234568"),
+                ]
+            },
+            exclude=["pandas"],
+        ),
+    )
+    def test_filter_rows_in_decimal_precision_loss(
+        df: DataFrameType,
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="in",
+                        value=["1.12345678901234567"],
+                    ),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert df_size(result) == 1
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes(
+            {
+                "A": [
+                    Decimal("1.99"),
+                    Decimal("0.50"),
+                    Decimal("3.25"),
+                ]
+            },
+            exclude=["pandas"],
+        ),
+    )
+    def test_filter_rows_decimal_comparison_operators(
+        df: DataFrameType,
+    ) -> None:
+        """Test ==, >=, <, not_in on Decimal columns with string values."""
+        eq_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="==",
+                        value="0.50",
+                    )
+                ],
+            ),
+        )
+        assert df_size(apply(df, eq_transform)) == 1
+
+        gte_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator=">=",
+                        value="1.99",
+                    )
+                ],
+            ),
+        )
+        assert df_size(apply(df, gte_transform)) == 2
+
+        lt_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="<",
+                        value="1.00",
+                    )
+                ],
+            ),
+        )
+        assert df_size(apply(df, lt_transform)) == 1
+
+        not_in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="not_in",
+                        value=["0.50"],
+                    )
+                ],
+            ),
+        )
+        assert df_size(apply(df, not_in_transform)) == 2
+
+    @staticmethod
+    def test_filter_rows_in_decimal_pandas() -> None:
+        """Pandas stores Decimal as object dtype; filters should still work."""
+        df = pd.DataFrame(
+            {
+                "A": [Decimal("1.99"), Decimal("0.50"), Decimal("3.25")],
+            }
+        )
+
+        in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="in",
+                        value=["1.99", "3.25"],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, in_transform)
+        assert df_size(result) == 2
+
+        eq_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="==",
+                        value="0.50",
+                    )
+                ],
+            ),
+        )
+        assert df_size(apply(df, eq_transform)) == 1
+
+        gte_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator=">=",
+                        value="1.99",
+                    )
+                ],
+            ),
+        )
+        assert df_size(apply(df, gte_transform)) == 2
+
+    @staticmethod
+    def test_filter_rows_date_pandas_object_dtype() -> None:
+        """Pandas stores raw Python date objects as Object dtype.
+
+        The Object handler must sample correctly via a LazyFrame
+        (apply_transforms_to_df calls make_lazy) to detect the date type.
+        """
+        df = pd.DataFrame(
+            {"d": [date(2024, 1, 1), date(2024, 6, 15), date(2024, 12, 31)]}
+        )
+        # Confirm pandas stored these as object, not datetime64
+        assert df["d"].dtype == object
+
+        eq_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="d",
+                        operator="==",
+                        value="2024-06-15",
+                    )
+                ],
+            ),
+        )
+        assert df_size(apply(df, eq_transform)) == 1
+
+        in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="d",
+                        operator="in",
+                        value=["2024-01-01", "2024-12-31"],
+                    )
+                ],
+            ),
+        )
+        assert df_size(apply(df, in_transform)) == 2
+
+    @staticmethod
+    def test_filter_rows_date_pandas_object_dtype_with_leading_nulls() -> None:
+        """Type detection should work even when the first rows are null."""
+        df = pd.DataFrame(
+            {"d": [None, None, date(2024, 1, 1), date(2024, 6, 15)]}
+        )
+        assert df["d"].dtype == object
+
+        eq_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="d",
+                        operator="==",
+                        value="2024-06-15",
+                    )
+                ],
+            ),
+        )
+        assert df_size(apply(df, eq_transform)) == 1
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [[1, 2], [3, 4]]}, exclude=["pyarrow"]
+                ),
+                create_test_dataframes({"A": [[1, 2]]}, exclude=["pyarrow"]),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_in_operator_nested_list(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="in",
+                        value=[[1, 2]],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [{"a": 1, "b": 2}, {"a": 3, "b": 4}]},
+                    exclude=["ibis", "pyarrow"],
+                ),
+                create_test_dataframes(
+                    {"A": [{"a": 1, "b": 2}]}, exclude=["ibis", "pyarrow"]
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_in_operator_dicts(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="in",
+                        value=[{"a": 1, "b": 2}],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.xfail(
+        reason="Filtering dicts with None values is not yet supported"
+    )
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [{"a": 1, "b": None}, {"a": 3, "b": 4}]},
+                ),
+                create_test_dataframes(
+                    {"A": [{"a": 1, "b": None}]},
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_in_operator_dicts_with_nulls(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="in",
+                        value=[{"a": 1, "b": None}],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        [
+            *zip(
+                create_test_dataframes(
+                    {"A": [1, 2, None], "B": [4, 5, 6]}, exclude=["pandas"]
+                ),
+                create_test_dataframes(
+                    {"A": [None], "B": [6]}, exclude=["pandas"]
+                ),
+                strict=False,
+            ),
+        ],
+    )
+    def test_filter_rows_in_operator_null_rows(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="in",
+                        value=[None],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                create_test_dataframes({"A": [3], "B": [6]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_not_in_operator(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="not_in",
+                        value=[1, 2],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": ["foo", "bar", "baz"], "B": [1, 2, 3]}
+                ),
+                create_test_dataframes({"A": ["baz"], "B": [3]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_not_in_operator_strings(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="not_in",
+                        value=["foo", "bar"],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        [
+            *zip(
+                create_test_dataframes(
+                    {"A": [1, 2, 3, None], "B": [4, 5, 6, 7]},
+                    exclude=["ibis"],
+                ),
+                create_test_dataframes({"A": [3], "B": [6]}, exclude=["ibis"]),
+                strict=False,
+            ),
+        ],
+    )
+    def test_filter_rows_not_in_operator_with_nulls(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        # not_in with None in value should exclude rows where A is 1, 2, or null
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="not_in",
+                        value=[1, 2, None],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        [
+            *zip(
+                create_test_dataframes(
+                    {"A": [1, 2, 3, None], "B": [4, 5, 6, 7]},
+                    exclude=["ibis"],
+                ),
+                create_test_dataframes(
+                    {"A": [3, None], "B": [6, 7]}, exclude=["ibis"]
+                ),
+                strict=False,
+            ),
+        ],
+    )
+    def test_filter_rows_not_in_operator_keep_nulls(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        # not_in WITHOUT None in value should keep null rows (only exclude 1 and 2)
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="A",
+                        operator="not_in",
+                        value=[1, 2],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        if nw.dependencies.is_pandas_dataframe(result):
+            assert_frame_equal_with_nans(result, expected)
+        else:
+            assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [1, 2, 3, 4, 5], "B": [5, 4, 3, 2, 1]}
+                ),
+                create_test_dataframes({"A": [3, 4, 5], "B": [3, 2, 1]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_multiple_conditions_1(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="A", operator=">=", value=3
+                    ),
+                    FilterCondition(
+                        type="condition", column_id="B", operator="<=", value=3
+                    ),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [1, 2, 3, 4, 5], "B": [5, 4, 3, 2, 1]}
+                ),
+                create_test_dataframes({"A": [1, 3, 4, 5], "B": [5, 3, 2, 1]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_multiple_conditions_2(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="remove_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="A", operator="==", value=2
+                    ),
+                    FilterCondition(
+                        type="condition", column_id="B", operator="==", value=4
+                    ),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [True, False, True, False]}),
+                create_test_dataframes({"A": [True, True]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_boolean(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="A", operator="is_true"
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="remove_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="A", operator="is_false"
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3]}),
+                [KeyError],
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_filter_rows_unknown_column(
+        df: DataFrameType, expected: Exception
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="B", operator=">=", value=2
+                    )
+                ],
+            ),
+        )
+        with pytest.raises(expected):
+            apply(df, transform)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        [
+            *zip(
+                create_test_dataframes(
+                    {1: [1, 2, 3], 2: [4, 5, 6]}, include=["pandas"]
+                ),
+                create_test_dataframes(
+                    {1: [2, 3], 2: [5, 6]}, include=["pandas"]
+                ),
+                strict=False,
+            ),
+        ],
+    )
+    def test_handle_filter_rows_number_columns(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id=1, operator=">=", value=2
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes({"column_a": ["alpha", "beta", "gamma"]}),
+    )
+    def test_handle_filter_rows_categorical(df: DataFrameType) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="column_a",
+                        operator="equals",
+                        value="alpha",
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert df_size(result) == 1
+
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="column_a",
+                        operator="does_not_equal",
+                        value="alpha",
+                    )
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert df_size(result) == 2
+
+        ends_with_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="column_a",
+                        operator="ends_with",
+                        value="mma",
+                    )
+                ],
+            ),
+        )
+        result = apply(df, ends_with_transform)
+        assert df_size(result) == 1
+
+        contains_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="column_a",
+                        operator="contains",
+                        value="mma",
+                    )
+                ],
+            ),
+        )
+        result = apply(df, contains_transform)
+        assert df_size(result) == 1
+
+        does_not_contain_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="remove_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="column_a",
+                        operator="contains",
+                        value="mma",
+                    )
+                ],
+            ),
+        )
+        result = apply(df, does_not_contain_transform)
+        assert df_size(result) == 2
+
+        starts_with_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="column_a",
+                        operator="starts_with",
+                        value="alp",
+                    )
+                ],
+            ),
+        )
+        result = apply(df, starts_with_transform)
+        assert df_size(result) == 1
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        [
+            *zip(
+                create_test_dataframes(
+                    {"A": ["foo", "foo", "bar"], "B": [1, 2, 4]}
+                ),
+                create_test_dataframes({"A": ["foo", "bar"], "B_sum": [3, 4]}),
+                strict=False,
+            ),
+            *zip(
+                create_test_dataframes(
+                    {"A": ["foo", "foo", "bar", "bar"], "B": [1, 2, 3, 4]},
+                ),
+                create_test_dataframes({"A": ["foo", "bar"], "B_sum": [3, 7]}),
+                strict=False,
+            ),
+        ],
+    )
+    def test_handle_group_by(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = GroupByTransform(
+            type=TransformType.GROUP_BY,
+            column_ids=["A"],
+            drop_na=False,
+            aggregation="sum",
+            aggregation_column_ids=[],
+        )
+        result = apply(df, transform)
+        if not isinstance(result, pd.DataFrame):
+            order_by_a = SortColumnTransform(
+                type=TransformType.SORT_COLUMN,
+                column_id="A",
+                ascending=False,
+                na_position="last",
+            )
+            result = apply(result, order_by_a)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        [
+            *zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                create_test_dataframes({"A_sum": [6], "B_sum": [15]}),
+                strict=False,
+            ),
+        ],
+    )
+    def test_handle_aggregate_sum(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = AggregateTransform(
+            type=TransformType.AGGREGATE,
+            column_ids=["A", "B"],
+            aggregations=["sum"],
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                create_test_dataframes(
+                    {"A_min": [1], "B_min": [4], "A_max": [3], "B_max": [6]},
+                ),
+                strict=False,
+            ),
+        ),
+    )
+    def test_handle_aggregate_min_max(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = AggregateTransform(
+            type=TransformType.AGGREGATE,
+            column_ids=["A", "B"],
+            aggregations=["min", "max"],
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                create_test_dataframes({"A": [1, 2, 3]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_select_columns_single(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = SelectColumnsTransform(
+            type=TransformType.SELECT_COLUMNS, column_ids=["A"]
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_handle_select_columns_multiple(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = SelectColumnsTransform(
+            type=TransformType.SELECT_COLUMNS, column_ids=["A", "B"]
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+                create_test_dataframes({"A": [2, 3, 1], "B": [5, 6, 4]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_shuffle_rows(df: DataFrameType, expected: DataFrameType) -> None:
+        transform = ShuffleRowsTransform(
+            type=TransformType.SHUFFLE_ROWS, seed=42
+        )
+        result = apply(df, transform)
+        assert df_size(result) == df_size(expected)
+        nw_result = collect_df(result)
+        assert "A" in nw_result.columns
+        assert "B" in nw_result.columns
+        assert type(result) is type(expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes({"A": [1, 2, 3], "B": [4, 5, 6]}),
+    )
+    def test_sample_rows(df: DataFrameType) -> None:
+        transform = SampleRowsTransform(
+            type=TransformType.SAMPLE_ROWS, n=2, seed=42, replace=False
+        )
+        result = apply(df, transform)
+        assert df_size(result) == 2
+        nw_result = collect_df(result)
+        assert "A" in nw_result.columns
+        assert "B" in nw_result.columns
+        assert type(result) is type(df)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes(
+            {
+                "A": [[0, 1, 2], [1], [], [3, 4]],
+                "B": [1, 1, 1, 1],
+                "C": [["a", "b", "c"], ["foo"], [], ["d", "e"]],
+            },
+            strict=False,
+            exclude=[
+                "pandas",
+                "ibis",
+                "pyarrow",
+            ],  # pandas Object dtype and ibis multi-column explode not supported
+        ),
+    )
+    def test_explode_columns(df: DataFrameType) -> None:
+        transform = ExplodeColumnsTransform(
+            type=TransformType.EXPLODE_COLUMNS, column_ids=["A", "C"]
+        )
+        result = apply(df, transform)
+        nw_result = collect_df(result)
+        assert nw_result.columns == ["A", "B", "C"]
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [{"foo": 1, "bar": "hello"}, None], "B": [1, 2]},
+                ),
+                create_test_dataframes(
+                    {"B": [1, 2], "foo": [1, None], "bar": ["hello", None]},
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_expand_dict(df: DataFrameType, expected: DataFrameType) -> None:
+        transform = ExpandDictTransform(
+            type=TransformType.EXPAND_DICT, column_id="A"
+        )
+        result = apply(df, transform)
+        # Convert to narwhals and select sorted columns
+        nw_result = collect_df(result)
+        nw_expected = collect_df(expected)
+        result_cols = sorted(nw_result.columns)
+        expected_cols = sorted(nw_expected.columns)
+        assert_frame_equal_with_nans(
+            nw_expected.select(expected_cols),
+            nw_result.select(result_cols),
+            allow_none_equals_nan=True,
+        )
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {
+                        "A": [
+                            {"foo": 1, "nested": {"x": 2}},
+                            None,
+                        ],
+                        "B": [1, 2],
+                    },
+                    include=["pandas", "polars"],
+                ),
+                create_test_dataframes(
+                    {
+                        "B": [1, 2],
+                        "foo": [1, None],
+                        "nested": [{"x": 2}, None],
+                    },
+                    include=["pandas", "polars"],
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_expand_dict_nested_dicts(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = ExpandDictTransform(
+            type=TransformType.EXPAND_DICT, column_id="A"
+        )
+        result = apply(df, transform)
+        nw_result = collect_df(result)
+        nw_expected = collect_df(expected)
+        result_cols = sorted(nw_result.columns)
+        expected_cols = sorted(nw_expected.columns)
+        assert_frame_equal_with_nans(
+            nw_expected.select(expected_cols),
+            nw_result.select(result_cols),
+            allow_none_equals_nan=True,
+        )
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes(
+            {
+                "A": [{"B": 1}, {"B": 2}],
+                "B": [10, 20],
+            },
+            strict=False,
+        ),
+    )
+    def test_expand_dict_duplicate_columns_raises(
+        df: DataFrameType,
+    ) -> None:
+        transform = ExpandDictTransform(
+            type=TransformType.EXPAND_DICT, column_id="A"
+        )
+        with pytest.raises(nw.exceptions.InvalidOperationError):
+            apply(df, transform)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes(
+            {"A": [1, 2], "B": [10, 20]},
+            include=[
+                "pandas",
+                "polars",
+                "pyarrow",
+                "ibis",
+            ],
+        ),
+    )
+    def test_expand_dict_unsupported_column_raises(
+        df: DataFrameType,
+    ) -> None:
+        transform = ExpandDictTransform(
+            type=TransformType.EXPAND_DICT, column_id="A"
+        )
+        with pytest.raises(
+            nw.exceptions.InvalidOperationError,
+            match="Expand dict requires a struct-like column with named fields",
+        ):
+            apply(df, transform)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes(
+            {
+                "id": [1, 2],
+                "d": [{"x": 10, "y": 20}, {"x": 30, "y": 40}],
+                "name": ["a", "b"],
+            },
+            include=["pandas", "polars"],
+        ),
+    )
+    def test_expand_dict_preserves_column_position(
+        df: DataFrameType,
+    ) -> None:
+        transform = ExpandDictTransform(
+            type=TransformType.EXPAND_DICT, column_id="d"
+        )
+        result = collect_df(apply(df, transform))
+        assert result.columns == ["id", "x", "y", "name"]
+
+    @staticmethod
+    def test_expand_dict_pandas_na_like_values_treated_as_empty() -> None:
+        pd = pytest.importorskip("pandas")
+        df = pd.DataFrame(
+            {
+                "d": pd.Series(
+                    [{"x": 1}, None, pd.NA, pd.NaT, float("nan")],
+                    dtype=object,
+                ),
+                "id": [1, 2, 3, 4, 5],
+            }
+        )
+        transform = ExpandDictTransform(
+            type=TransformType.EXPAND_DICT, column_id="d"
+        )
+        result = collect_df(apply(df, transform))
+        assert result.columns == ["x", "id"]
+        assert result["x"].is_null().sum() == 4
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        (
+            "df",
+            "expected_first",
+            "expected_last",
+            "expected_none",
+            "expected_any",
+        ),
+        [
+            *[
+                (df, exp_first, exp_last, exp_none, exp_any)
+                for df, exp_first, exp_last, exp_none, exp_any in zip(
+                    create_test_dataframes(
+                        {"A": ["a", "a", "b", "b", "c"], "B": [1, 2, 3, 4, 5]},
+                    ),
+                    create_test_dataframes(
+                        {"A": ["a", "b", "c"], "B": [1, 3, 5]},
+                    ),
+                    create_test_dataframes(
+                        {"A": ["a", "b", "c"], "B": [2, 4, 5]},
+                    ),
+                    create_test_dataframes(
+                        {"A": ["c"], "B": [5]},
+                    ),
+                    create_test_dataframes(
+                        {"A": ["a", "b", "c"], "B": [1, 3, 5]},
+                    ),
+                    strict=False,
+                )
+            ],
+        ],
+    )
+    def test_unique(
+        df: DataFrameType,
+        expected_first: DataFrameType,
+        expected_last: DataFrameType,
+        expected_none: DataFrameType,
+        expected_any: DataFrameType,
+    ) -> None:
+        for keep, expected in [
+            ("first", expected_first),
+            ("last", expected_last),
+            ("none", expected_none),
+        ]:
+            transform = UniqueTransform(
+                type=TransformType.UNIQUE, column_ids=["A"], keep=keep
+            )
+            result = apply(df, transform)
+            # Order may not be preserved across backends, sort before comparing
+            nw_result = collect_df(result)
+            nw_expected = collect_df(expected)
+            assert_frame_equal(
+                nw_expected.sort("A"),
+                nw_result.sort("A"),
+            )
+
+        transform = UniqueTransform(
+            type=TransformType.UNIQUE, column_ids=["A"], keep="any"
+        )
+        result = apply(df, transform)
+        # For "any" mode, order is not guaranteed, so sort both before comparing
+        nw_result = collect_df(result)
+        nw_expected = collect_df(expected_any)
+        assert_frame_equal(
+            nw_expected.sort("A"),
+            nw_result.sort("A"),
+        )
+        assert type(result) is type(df)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected", "transform"),
+        [
+            *zip(
+                create_test_dataframes(
+                    {
+                        "A": [
+                            "foo",
+                            "foo",
+                            "foo",
+                            "foo",
+                            "foo",
+                            "bar",
+                            "bar",
+                            "bar",
+                            "bar",
+                        ],
+                        "B": [
+                            "one",
+                            "one",
+                            "one",
+                            "two",
+                            "two",
+                            "one",
+                            "one",
+                            "two",
+                            "two",
+                        ],
+                        "C": [
+                            "small",
+                            "large",
+                            "large",
+                            "small",
+                            "small",
+                            "large",
+                            "small",
+                            "small",
+                            "large",
+                        ],
+                        "D": [1, 2, 2, 3, 3, 4, 5, 6, 7],
+                    }
+                ),
+                create_test_dataframes(
+                    {
+                        "B": ["one", "two"],
+                        "D_foo_sum": [5, 6],
+                        "D_bar_sum": [9, 13],
+                    }
+                ),
+                [
+                    PivotTransform(
+                        type=TransformType.PIVOT,
+                        column_ids=["A"],
+                        index_column_ids=["B"],
+                        value_column_ids=["D"],
+                        aggregation="sum",
+                    )
+                ],
+                strict=False,
+            ),
+            *zip(
+                create_test_dataframes(
+                    {
+                        "A": [
+                            "foo",
+                            "foo",
+                            "foo",
+                            "foo",
+                            "foo",
+                            "bar",
+                            "bar",
+                            "bar",
+                            "bar",
+                        ],
+                        "B": [
+                            "one",
+                            "one",
+                            "one",
+                            "two",
+                            "two",
+                            "one",
+                            "one",
+                            "two",
+                            "two",
+                        ],
+                        "C": [
+                            "small",
+                            "large",
+                            "large",
+                            "small",
+                            "small",
+                            "large",
+                            "small",
+                            "small",
+                            "large",
+                        ],
+                        "D": [1, 2, 2, 3, 3, 4, 5, 6, 7],
+                    }
+                ),
+                create_test_dataframes(
+                    {
+                        "B": ["one", "one", "two", "two"],
+                        "C": ["large", "small", "large", "small"],
+                        "D_bar_sum": [4, 5, 7, 6],
+                        "D_foo_sum": [4, 1, None, 6],
+                    }
+                ),
+                [
+                    PivotTransform(
+                        type=TransformType.PIVOT,
+                        column_ids=["A"],
+                        index_column_ids=["B", "C"],
+                        value_column_ids=["D"],
+                        aggregation="sum",
+                    )
+                ],
+                strict=False,
+            ),
+            *zip(
+                create_test_dataframes(
+                    {
+                        "A": [
+                            "foo",
+                            "foo",
+                            "bar",
+                            "bar",
+                        ],
+                        "B": [
+                            "one",
+                            "two",
+                            "one",
+                            "two",
+                        ],
+                        "C": [
+                            "small",
+                            "large",
+                            "large",
+                            "small",
+                        ],
+                        "D": [1, 2, 3, 4],
+                    }
+                ),
+                create_test_dataframes(
+                    {
+                        "B": ["one", "one", "two", "two"],
+                        "C": ["large", "small", "large", "small"],
+                        "D_bar_sum": [3, None, None, 4],
+                        "D_foo_sum": [None, 1, 2, None],
+                    }
+                ),
+                [
+                    PivotTransform(
+                        type=TransformType.PIVOT,
+                        column_ids=["A"],
+                        index_column_ids=[],
+                        value_column_ids=["D"],
+                        aggregation="sum",
+                    )
+                ],
+                strict=False,
+            ),
+            *zip(
+                create_test_dataframes(
+                    {
+                        "A": [
+                            "foo",
+                            "foo",
+                            "bar",
+                            "bar",
+                        ],
+                        "B": [
+                            "one",
+                            "two",
+                            "one",
+                            "two",
+                        ],
+                        "D": [1, 2, 3, 4],
+                    }
+                ),
+                create_test_dataframes(
+                    {
+                        "B": ["one", "two"],
+                        "D_bar_sum": [3, 4],
+                        "D_foo_sum": [1, 2],
+                    }
+                ),
+                [
+                    PivotTransform(
+                        type=TransformType.PIVOT,
+                        column_ids=["A"],
+                        index_column_ids=["B"],
+                        value_column_ids=[],
+                        aggregation="sum",
+                    )
+                ],
+                strict=False,
+            ),
+        ],
+    )
+    def test_handle_pivot(
+        df: DataFrameType, expected: DataFrameType, transform: PivotTransform
+    ) -> None:
+        result = apply(df, transform)
+        # Allow NaN and 0.0 to be treated as equivalent for pivot operations
+        # since different backends may fill missing aggregations differently
+        assert_frame_equal_with_nans(
+            result, expected, allow_nan_equals_zero=True
+        )
+
+    @staticmethod
+    def test_pivot_count_preserves_boolean_index_dtype() -> None:
+        """fill_null(0) on value columns must not alter boolean index dtypes."""
+        import polars as pl
+
+        df = pl.DataFrame(
+            {
+                "category": ["x", "x", "y"],
+                "id": [1, 2, 1],
+                "flag": [True, False, True],
+                "value": [10, 20, 30],
+            }
+        )
+
+        transform = PivotTransform(
+            type=TransformType.PIVOT,
+            column_ids=["category"],
+            index_column_ids=["id", "flag"],
+            value_column_ids=["value"],
+            aggregation="count",
+        )
+
+        result = apply(df, transform)
+        nw_result = nw.from_native(result)
+        assert nw_result.schema["flag"] == nw.Boolean
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected", "expected2"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": [4, 6, 5]}),
+                create_test_dataframes({"A": [3, 2], "B": [5, 6]}),
+                create_test_dataframes({"A": [2], "B": [6]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_transforms_container(
+        df: DataFrameType, expected: DataFrameType, expected2: DataFrameType
+    ) -> None:
+        nw_df, undo = make_lazy(df)
+        container = TransformsContainer(nw_df, NarwhalsTransformHandler())
+
+        # Define some transformations
+        sort_transform = SortColumnTransform(
+            type=TransformType.SORT_COLUMN,
+            column_id="B",
+            ascending=True,
+            na_position="last",
+        )
+        filter_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="A", operator=">=", value=2
+                    )
+                ],
+            ),
+        )
+        transformations = Transformations([sort_transform, filter_transform])
+        # Verify the next transformation
+        assert container._is_superset(transformations) is False
+        assert (
+            container._get_next_transformations(transformations)
+            == transformations
+        )
+
+        # Apply the transformations
+        result, field_types = container.apply(transformations)
+
+        # Verify field_types: original + 2 transforms = 3 entries
+        assert len(field_types) == 3
+        # All steps should have columns A and B
+        for ft in field_types:
+            col_names = [name for name, _ in ft]
+            assert "A" in col_names
+            assert "B" in col_names
+
+        # Get the transformed dataframe
+        # Check that the transformations were applied correctly
+        assert_frame_equal(undo(result), expected)
+
+        # Reapply transforms by adding a new one
+        filter_again_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="remove_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition", column_id="B", operator="==", value=5
+                    )
+                ],
+            ),
+        )
+        transformations = Transformations(
+            [sort_transform, filter_transform, filter_again_transform]
+        )
+        # Verify the next transformation
+        assert container._is_superset(transformations) is True
+        assert container._get_next_transformations(
+            transformations
+        ) == Transformations([filter_again_transform])
+        result, field_types = container.apply(
+            transformations,
+        )
+        # Verify field_types: original + 3 transforms = 4 entries
+        assert len(field_types) == 4
+
+        # Check that the transformations were applied correctly
+        assert_frame_equal(undo(result), expected2)
+
+        transformations = Transformations([sort_transform, filter_transform])
+        # Verify the next transformation
+        assert container._is_superset(transformations) is False
+        assert (
+            container._get_next_transformations(transformations)
+            == transformations
+        )
+        # Reapply by removing the last transform
+        result, field_types = container.apply(
+            transformations,
+        )
+        # Verify field_types: original + 2 transforms = 3 entries
+        assert len(field_types) == 3
+
+        # Check that the transformations were applied correctly
+        assert_frame_equal(undo(result), expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes({"A": [1, 2, 3], "B": ["x", "y", "z"]}),
+    )
+    def test_apply_field_types_with_rename(df: DataFrameType) -> None:
+        """Test that field types correctly reflect column renames."""
+        nw_df, _ = make_lazy(df)
+        container = TransformsContainer(nw_df, NarwhalsTransformHandler())
+
+        rename_transform = RenameColumnTransform(
+            type=TransformType.RENAME_COLUMN,
+            column_id="A",
+            new_column_id="C",
+        )
+        transformations = Transformations([rename_transform])
+        _, field_types = container.apply(transformations)
+
+        # Should have 2 entries: original and after rename
+        assert len(field_types) == 2
+
+        # Original should have A and B
+        original_cols = [name for name, _ in field_types[0]]
+        assert "A" in original_cols
+        assert "B" in original_cols
+        assert "C" not in original_cols
+
+        # After rename should have C and B (no A)
+        renamed_cols = [name for name, _ in field_types[1]]
+        assert "A" not in renamed_cols
+        assert "B" in renamed_cols
+        assert "C" in renamed_cols
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes(
+            {"group": ["a", "a", "b"], "value": [1, 2, 3]},
+        ),
+    )
+    def test_apply_field_types_with_groupby(df: DataFrameType) -> None:
+        """Test that field types correctly reflect group by aggregation."""
+        nw_df, _ = make_lazy(df)
+        container = TransformsContainer(nw_df, NarwhalsTransformHandler())
+
+        groupby_transform = GroupByTransform(
+            type=TransformType.GROUP_BY,
+            column_ids=["group"],
+            drop_na=False,
+            aggregation="sum",
+            aggregation_column_ids=[],
+        )
+        transformations = Transformations([groupby_transform])
+        _, field_types_at_steps = container.apply(transformations)
+
+        # Should have 2 entries: original and after group by
+        assert len(field_types_at_steps) == 2
+        assert field_types_at_steps == [
+            # Original should have group and value
+            [("group", ("string", "String")), ("value", ("integer", "Int64"))],
+            # After group by should have group and value_sum
+            [
+                ("group", ("string", "String")),
+                ("value_sum", ("integer", "Int64")),
+            ],
+        ]
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"date": [date(2001, 1, 1), date(2001, 1, 2)]},
+                    exclude=["pyarrow"],
+                ),
+                create_test_dataframes(
+                    {"date": [date(2001, 1, 1)]}, exclude=["pyarrow"]
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_date(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        eq_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="date",
+                        operator="==",
+                        value="2001-01-01",
+                    )
+                ],
+            ),
+        )
+        result = apply(df, eq_transform)
+        assert_frame_equal(result, expected)
+
+        in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="date",
+                        operator="in",
+                        value=["2001-01-01"],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, in_transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"nulls": [1, 2, 3, None]}, include=["pandas"]
+                ),
+                create_test_dataframes(
+                    {"nulls": [float("nan")]}, include=["pandas"]
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_nulls_pandas(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="nulls",
+                        operator="in",
+                        value=[NAN_VALUE],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, in_transform)
+        assert_frame_equal_with_nans(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"nulls": [1, 2, 3, None, "hello"]}, include=["pandas"]
+                ),
+                create_test_dataframes({"nulls": [None]}, include=["pandas"]),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_null_pandas_object(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="nulls",
+                        operator="in",
+                        value=[None],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, in_transform)
+        assert_frame_equal_with_nans(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"nulls": [1, 2, 3, float("nan")]},
+                    exclude=["pandas", "ibis"],  # Ibis serializes nans to None
+                    strict=False,
+                ),
+                create_test_dataframes(
+                    {"nulls": [float("nan")]}, exclude=["pandas", "ibis"]
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_nulls_others(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="nulls",
+                        operator="in",
+                        value=[NAN_VALUE],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, in_transform)
+        assert_frame_equal_with_nans(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"nulls": [1, 2, 3, float("nan"), float("inf")]},
+                    strict=False,
+                ),
+                create_test_dataframes({"nulls": [float("inf")]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_infs(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="nulls",
+                        operator="in",
+                        value=[POSITIVE_INF],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, in_transform)
+        assert_frame_equal_with_nans(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"nulls": [1, float("nan"), float("inf"), float("-inf")]},
+                    strict=False,
+                ),
+                create_test_dataframes({"nulls": [float("-inf")]}),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_neg_infs(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="nulls",
+                        operator="in",
+                        value=[NEGATIVE_INF],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, in_transform)
+        assert_frame_equal_with_nans(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {
+                        "nulls": [
+                            1,
+                            float("nan"),
+                            float("inf"),
+                            float("-inf"),
+                            None,
+                        ]
+                    },
+                    include=["pandas"],
+                ),
+                create_test_dataframes(
+                    {"nulls": [float("nan"), float("inf"), None]},
+                    include=["pandas"],
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_infs_and_nulls_pandas(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="nulls",
+                        operator="in",
+                        value=[NAN_VALUE, POSITIVE_INF, None],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, in_transform)
+        assert_frame_equal_with_nans(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {
+                        "nulls": [
+                            1,
+                            float("nan"),
+                            float("inf"),
+                            float("-inf"),
+                            None,
+                        ]
+                    },
+                    exclude=["pandas", "ibis"],  # Ibis serializes nans to None
+                    strict=False,
+                ),
+                create_test_dataframes(
+                    {"nulls": [float("nan"), float("inf"), None]},
+                    exclude=["pandas", "ibis"],
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_rows_infs_and_nulls_others(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        in_transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="nulls",
+                        operator="in",
+                        value=[NAN_VALUE, POSITIVE_INF, None],
+                    )
+                ],
+            ),
+        )
+        result = apply(df, in_transform)
+        assert_frame_equal_with_nans(result, expected)
+
+    # --- between operator ---
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3, 4, 5]}),
+                create_test_dataframes({"A": [2, 3, 4]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_filter_between_int(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A",
+                        operator="between",
+                        value=RangeValue(min=2, max=4),
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1.0, 2.5, 3.0, 4.5, 5.0]}),
+                create_test_dataframes({"A": [2.5, 3.0]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_filter_between_float(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A",
+                        operator="between",
+                        value=RangeValue(min=2.0, max=3.5),
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [1, 2, None, 4, 5]}, strict=False
+                ),
+                create_test_dataframes({"A": [2, 4]}, strict=False),
+                strict=True,
+            )
+        ),
+    )
+    def test_filter_between_with_nulls(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A",
+                        operator="between",
+                        value=RangeValue(min=2, max=4),
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3, 4, 5]}),
+                create_test_dataframes({"A": [1, 5]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_filter_between_negate(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A",
+                        operator="between",
+                        value=RangeValue(min=2, max=4),
+                        negate=True,
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3, 4, 5]}),
+                create_test_dataframes({"A": [3]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_filter_between_min_equals_max(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A",
+                        operator="between",
+                        value=RangeValue(min=3, max=3),
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes({"A": [1, 2, 3, 4, 5]}),
+    )
+    def test_filter_between_min_gt_max_empty(df: DataFrameType) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A",
+                        operator="between",
+                        value=RangeValue(min=5, max=2),
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert df_size(result) == 0
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {
+                        "d": [
+                            date(2024, 1, 1),
+                            date(2024, 6, 15),
+                            date(2024, 12, 31),
+                        ]
+                    },
+                    exclude=["pandas"],
+                ),
+                create_test_dataframes(
+                    {"d": [date(2024, 6, 15)]}, exclude=["pandas"]
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_between_date_iso_string(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="d",
+                        operator="between",
+                        value=RangeValue(min="2024-03-01", max="2024-09-01"),
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {
+                        "dt": [
+                            datetime(2024, 1, 1, 0, 0, 0),
+                            datetime(2024, 6, 15, 12, 30, 0),
+                            datetime(2024, 12, 31, 23, 59, 59),
+                        ]
+                    },
+                    exclude=["pandas"],
+                ),
+                create_test_dataframes(
+                    {"dt": [datetime(2024, 6, 15, 12, 30, 0)]},
+                    exclude=["pandas"],
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_between_datetime_iso_string(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="dt",
+                        operator="between",
+                        value=RangeValue(
+                            min="2024-03-01T00:00:00",
+                            max="2024-09-01T00:00:00",
+                        ),
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {
+                        "t": [
+                            time(8, 0, 0),
+                            time(12, 30, 0),
+                            time(18, 0, 0),
+                        ]
+                    },
+                    exclude=["pandas", "pyarrow", "ibis"],
+                ),
+                create_test_dataframes(
+                    {"t": [time(12, 30, 0)]},
+                    exclude=["pandas", "pyarrow", "ibis"],
+                ),
+                strict=False,
+            )
+        ),
+    )
+    def test_filter_between_time_iso_string(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="t",
+                        operator="between",
+                        value=RangeValue(min="10:00:00", max="15:00:00"),
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    # --- is_empty operator ---
+
+    @staticmethod
+    def test_filter_is_empty() -> None:
+        df = pd.DataFrame({"A": ["foo", "", None, "bar", ""]})
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[FilterCondition(column_id="A", operator="is_empty")]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, pd.DataFrame({"A": ["", ""]}))
+
+    @staticmethod
+    def test_filter_is_empty_no_nulls_matched() -> None:
+        df = pd.DataFrame({"A": [None, None, None]})
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[FilterCondition(column_id="A", operator="is_empty")]
+            ),
+        )
+        result = apply(df, transform)
+        assert df_size(result) == 0
+
+    @staticmethod
+    def test_filter_is_empty_negate() -> None:
+        df = pd.DataFrame({"A": ["foo", "", None, "bar", ""]})
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A", operator="is_empty", negate=True
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, pd.DataFrame({"A": ["foo", None, "bar"]}))
+
+    # --- FilterGroup with OR ---
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3, 4, 5]}),
+                create_test_dataframes({"A": [1, 4, 5]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_filter_group_or(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                operator="or",
+                children=[
+                    FilterCondition(column_id="A", operator="==", value=1),
+                    FilterCondition(column_id="A", operator=">=", value=4),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3], "B": ["x", "y", "z"]}),
+                create_test_dataframes({"A": [1, 3], "B": ["x", "z"]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_filter_group_or_different_columns(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                operator="or",
+                children=[
+                    FilterCondition(column_id="A", operator="==", value=1),
+                    FilterCondition(
+                        column_id="B", operator="equals", value="z"
+                    ),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    # --- Nested FilterGroups ---
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [1, 2, 3, 4, 5], "B": [10, 20, 30, 40, 50]}
+                ),
+                create_test_dataframes({"A": [2, 3, 5], "B": [20, 30, 50]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_filter_nested_and_or(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        # (A >= 2 AND A <= 3) OR (B == 50)
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                operator="or",
+                children=[
+                    FilterGroup(
+                        operator="and",
+                        children=[
+                            FilterCondition(
+                                column_id="A", operator=">=", value=2
+                            ),
+                            FilterCondition(
+                                column_id="A", operator="<=", value=3
+                            ),
+                        ],
+                    ),
+                    FilterCondition(column_id="B", operator="==", value=50),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [1, 2, 3, 4, 5], "B": [10, 20, 30, 40, 50]}
+                ),
+                create_test_dataframes({"A": [2, 4], "B": [20, 40]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_filter_nested_or_and(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        # (A == 2 OR A == 4) AND (B >= 20 OR B <= 40)
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                operator="and",
+                children=[
+                    FilterGroup(
+                        operator="or",
+                        children=[
+                            FilterCondition(
+                                column_id="A", operator="==", value=2
+                            ),
+                            FilterCondition(
+                                column_id="A", operator="==", value=4
+                            ),
+                        ],
+                    ),
+                    FilterGroup(
+                        operator="or",
+                        children=[
+                            FilterCondition(
+                                column_id="B", operator=">=", value=20
+                            ),
+                            FilterCondition(
+                                column_id="B", operator="<=", value=40
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    # --- Negate on condition ---
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3]}),
+                create_test_dataframes({"A": [1, 3]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_negate_equals(df: DataFrameType, expected: DataFrameType) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A", operator="==", value=2, negate=True
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [1, 2, None, 4]},
+                    strict=False,
+                    exclude=["pyarrow", "ibis"],
+                ),
+                create_test_dataframes(
+                    {"A": [1, 4]},
+                    strict=False,
+                    exclude=["pyarrow", "ibis"],
+                ),
+                strict=True,
+            )
+        ),
+    )
+    def test_negate_in_with_nulls(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A",
+                        operator="in",
+                        value=[2, None],
+                        negate=True,
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    def test_negate_contains() -> None:
+        df = pd.DataFrame({"A": ["foo", "bar", None, "foobar"]})
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A",
+                        operator="contains",
+                        value="foo",
+                        negate=True,
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, pd.DataFrame({"A": ["bar"]}))
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes(
+                    {"A": [True, False, None]}, strict=False
+                ),
+                create_test_dataframes({"A": [False]}, strict=False),
+                strict=True,
+            )
+        ),
+    )
+    def test_negate_is_true(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A", operator="is_true", negate=True
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, None, 3]}, strict=False),
+                create_test_dataframes({"A": [1, 3]}, strict=False),
+                strict=True,
+            )
+        ),
+    )
+    def test_negate_is_null(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                children=[
+                    FilterCondition(
+                        column_id="A", operator="is_null", negate=True
+                    )
+                ]
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    # --- Group negate ---
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3, 4, 5]}),
+                create_test_dataframes({"A": [1, 4, 5]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_group_negate(df: DataFrameType, expected: DataFrameType) -> None:
+        # NOT(A >= 2 AND A <= 3) -> A < 2 OR A > 3
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                operator="and",
+                negate=True,
+                children=[
+                    FilterCondition(column_id="A", operator=">=", value=2),
+                    FilterCondition(column_id="A", operator="<=", value=3),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("df", "expected"),
+        list(
+            zip(
+                create_test_dataframes({"A": [1, 2, 3, 4, 5]}),
+                create_test_dataframes({"A": [2, 3, 4]}),
+                strict=True,
+            )
+        ),
+    )
+    def test_group_negate_or(
+        df: DataFrameType, expected: DataFrameType
+    ) -> None:
+        # NOT(A <= 1 OR A >= 5) -> A > 1 AND A < 5
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(
+                operator="or",
+                negate=True,
+                children=[
+                    FilterCondition(column_id="A", operator="<=", value=1),
+                    FilterCondition(column_id="A", operator=">=", value=5),
+                ],
+            ),
+        )
+        result = apply(df, transform)
+        assert_frame_equal(result, expected)
+
+    # --- Empty group ---
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_test_dataframes({"A": [1, 2, 3]}),
+    )
+    def test_empty_group_returns_all(df: DataFrameType) -> None:
+        transform = FilterRowsTransform(
+            type=TransformType.FILTER_ROWS,
+            operation="keep_rows",
+            where=FilterGroup(children=()),
+        )
+        result = apply(df, transform)
+        assert df_size(result) == 3

@@ -1,0 +1,25 @@
+/* Popover — an anchored container for ARBITRARY (non-menu) floating content.
+ *
+ * Position (top/left/z-index) is set inline by useFloating; this owns only the look + the
+ * open/close animation, which rides `transform` (free, since the hook positions via top/left).
+ * The `--alk-popover-pad` custom property lets a caller drop the inner padding (e.g. when it
+ * renders its own full-bleed body). The panel is portaled to body and inherits the `:root` tokens.
+ */
+
+.alk-popover-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Surface + open/close animation come from .alk-floating-surface (shared with Dropdown + Select);
+   only the popover's own bounds, padding, and reading type live here. The `--alk-popover-pad`
+   custom property lets a caller drop the inner padding (e.g. a full-bleed body). */
+.alk-popover {
+  --alk-popover-pad: var(--alkSpace5);
+  min-width: 192px;
+  max-width: 320px;
+  padding: var(--alk-popover-pad);
+  color: var(--alkPrimaryText);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextLg);
+}

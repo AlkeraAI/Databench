@@ -1,0 +1,158 @@
+{
+  "_comment": [
+    "Which permission asks an approval would AUTHORIZE A WRITE for — the one",
+    "reading the box and the browser must make identically.",
+    "",
+    "The box gates a relayed `allow` on it (`mirror._authorizes_a_write`) and the",
+    "browser decides whether to OFFER that allow on it (`CloudDataSource.mayAllow`).",
+    "Two spellings of one rule, in two languages, so the cases live here and both",
+    "sides are driven over them: `apps/cli/tests/cloud/test_cloud_relay_guard.py`",
+    "and `apps/web/src/tests/pages/workspace/chat/writeClassAsks.test.ts`.",
+    "",
+    "The rule: the classifier's verdict decides when it gave one, because the kind",
+    "alone cannot — `shell` is the canonical kind of every command, so a kind-first",
+    "answer makes `ls` as much a write as `rm`. ONLY a positive `read` excuses an",
+    "ask. A verdict that is missing or empty leaves the KIND to answer; a verdict",
+    "that is a word — any word — is not a read, and is a write.",
+    "",
+    "`effect` absent means the ask carried no classified subject at all. `memory`",
+    "and a word neither side knows are here because the browser folds the wire",
+    "before it reads it, and a fold with no slot for a word used to drop it — which",
+    "turned a verdict the box was calling a write into 'no verdict' one step later."
+  ],
+  "write_class_kinds": ["edit", "external", "shell", "task"],
+  "cases": [
+    {
+      "id": "an-unclassified-command",
+      "canonical_kind": "shell",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "a-command-the-classifier-called-a-read",
+      "canonical_kind": "shell",
+      "effect": "read",
+      "authorizes_a_write": false
+    },
+    {
+      "id": "a-command-the-classifier-called-a-write",
+      "canonical_kind": "shell",
+      "effect": "write",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "a-command-the-classifier-called-an-exec",
+      "canonical_kind": "shell",
+      "effect": "exec",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "a-statement-the-classifier-called-an-exec",
+      "canonical_kind": "network",
+      "effect": "exec",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "a-command-with-an-empty-verdict-falls-back-to-its-kind",
+      "canonical_kind": "shell",
+      "effect": "",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "a-command-with-a-verdict-neither-side-knows",
+      "canonical_kind": "shell",
+      "effect": "frobnicate",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "an-unclassified-edit",
+      "canonical_kind": "edit",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "an-edit-the-classifier-called-a-read",
+      "canonical_kind": "edit",
+      "effect": "read",
+      "authorizes_a_write": false
+    },
+    {
+      "id": "an-unclassified-delegation",
+      "canonical_kind": "task",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "an-unclassified-external-action",
+      "canonical_kind": "external",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "an-unclassified-fetch",
+      "canonical_kind": "network",
+      "authorizes_a_write": false
+    },
+    {
+      "id": "a-fetch-the-classifier-called-a-read",
+      "canonical_kind": "network",
+      "effect": "read",
+      "authorizes_a_write": false
+    },
+    {
+      "id": "a-fetch-that-writes",
+      "canonical_kind": "network",
+      "effect": "write",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "a-fetch-with-an-empty-verdict-falls-back-to-its-kind",
+      "canonical_kind": "network",
+      "effect": "",
+      "authorizes_a_write": false
+    },
+    {
+      "id": "an-unclassified-other-action",
+      "canonical_kind": "other",
+      "authorizes_a_write": false
+    },
+    {
+      "id": "an-action-that-destroys",
+      "canonical_kind": "other",
+      "effect": "destroy",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "an-action-that-sends-data-out",
+      "canonical_kind": "other",
+      "effect": "egress",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "an-action-with-a-verdict-neither-side-knows",
+      "canonical_kind": "other",
+      "effect": "frobnicate",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "a-fetch-with-a-verdict-neither-side-knows",
+      "canonical_kind": "network",
+      "effect": "frobnicate",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "an-action-that-records-what-the-agent-learned",
+      "canonical_kind": "other",
+      "effect": "memory",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "a-fetch-that-records-what-the-agent-learned",
+      "canonical_kind": "network",
+      "effect": "memory",
+      "authorizes_a_write": true
+    },
+    {
+      "id": "a-command-that-records-what-the-agent-learned",
+      "canonical_kind": "shell",
+      "effect": "memory",
+      "authorizes_a_write": true
+    }
+  ]
+}

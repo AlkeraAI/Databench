@@ -1,0 +1,379 @@
+from __future__ import annotations
+
+import asyncio
+import time
+from typing import cast
+
+from marimo._ast.app import App, InternalApp
+from marimo._pyodide.streams import PyodideStream
+from marimo._runtime.commands import DeleteCellCommand
+from marimo._runtime.context import get_context
+from marimo._runtime.context.script_context import (
+    ScriptRuntimeContext,
+    initialize_script_context,
+)
+from marimo._runtime.context.types import teardown_context
+from marimo._runtime.runtime import Kernel
+from marimo._runtime.threads import Thread
+from marimo._types.ids import CellId_t
+from tests._messaging.mocks import MockStream
+from tests.conftest import ExecReqProvider
+
+
+# Doesn't work with strict kernel ...
+async def test_thread_set_global(k: Kernel, exec_req: ExecReqProvider) -> None:
+    """Test that a thread starts and runs."""
+
+    await k.run(
+        [
+            exec_req.get("import marimo as mo"),
+            exec_req.get(
+                """
+                value = 0
+                def target():
+                    global value
+                    value = 1
+                """
+            ),
+            exec_req.get("t = mo.Thread(target=target); t.start(); t.join()"),
+        ]
+    )
+
+    # thread run should be basically instantaneous, but sleep just in case ...
+    assert not k.errors
+    time.sleep(0.01)  # noqa: ASYNC251
+    assert k.globals["value"] == 1
+
+
+async def test_thread_has_own_stream(
+    k: Kernel, exec_req: ExecReqProvider
+) -> None:
+    """Test that a thread starts, runs, has its own stream."""
+
+    await k.run(
+        [
+            exec_req.get("import marimo as mo"),
+            exec_req.get("ctx_main = mo._runtime.context.get_context()"),
+            exec_req.get(
+                """
+                cell_id = ctx_main.stream.cell_id
+                thread_ctx = None
+                def target():
+                    global thread_ctx
+                    thread_ctx = mo._runtime.context.get_context()
+                t = mo.Thread(target=target); t.start(); t.join()
+                """
+            ),
+        ]
+    )
+
+    # thread run should be basically instantaneous, but sleep just in case ...
+    assert not k.errors
+    time.sleep(0.01)  # noqa: ASYNC251
+    # thread gets its own context
+    assert k.globals["thread_ctx"] != k.globals["ctx_main"]
+    stream = k.globals["thread_ctx"].stream
+    assert stream.cell_id == k.globals["cell_id"]
+
+
+def test_thread_copies_pyodide_stream_in_script_context() -> None:
+    stream = PyodideStream(
+        pipe=lambda _message: None,
+        input_queue=asyncio.Queue(),
+        cell_id=CellId_t("script-cell"),
+    )
+    observed_contexts: list[ScriptRuntimeContext] = []
+
+    teardown_context()
+    initialize_script_context(InternalApp(App()), stream, filename=None)
+    ctx = cast(ScriptRuntimeContext, get_context())
+    ctx.query_params["source"] = "parent"
+    try:
+
+        def target() -> None:
+            observed_contexts.append(cast(ScriptRuntimeContext, get_context()))
+
+        thread = Thread(target=target)
+        thread.start()
+        thread.join(timeout=1)
+
+        assert not thread.is_alive()
+        assert len(observed_contexts) == 1
+        copied_ctx = observed_contexts[0]
+        copied = cast(PyodideStream, copied_ctx.stream)
+        assert copied is not stream
+        assert copied.pipe is stream.pipe
+        assert copied.input_queue is stream.input_queue
+        assert copied.cell_id == stream.cell_id
+        assert copied_ctx.query_params is ctx.query_params
+        assert copied_ctx.query_params.get("source") == "parent"
+    finally:
+        teardown_context()
+
+
+async def test_thread_output_append(
+    k: Kernel, exec_req: ExecReqProvider
+) -> None:
+    """Test that a thread starts, runs, and appends to output."""
+
+    await k.run(
+        [
+            exec_req.get("import marimo as mo"),
+            exec_req.get(
+                """
+                stream = mo._runtime.context.get_context().stream
+                thread_stream = None
+                def target():
+                    global thread_stream
+                    import marimo as mo
+                    mo.output.append("hello")
+                    mo.output.append("world")
+                    thread_stream = mo._runtime.context.get_context().stream
+                t = mo.Thread(target=target); t.start(); t.join()
+                """
+            ),
+        ]
+    )
+
+    # thread run should be basically instantaneous, but sleep just in case ...
+    assert not k.errors
+    time.sleep(0.01)  # noqa: ASYNC251
+    # The main thread should not have any output, but the new thread should
+    cell_notifications = MockStream(k.globals["stream"]).cell_notifications
+    for m in cell_notifications:
+        if m.output is not None:
+            assert "hello" not in m.output.data
+            assert "world" not in m.output.data
+    thread_stream_cell_notifications = MockStream(
+        k.globals["thread_stream"]
+    ).cell_notifications
+    assert "hello" in thread_stream_cell_notifications[0].output.data
+    assert "world" in thread_stream_cell_notifications[1].output.data
+
+
+async def test_print_is_builtin_without_threads(
+    k: Kernel, exec_req: ExecReqProvider
+) -> None:
+    """Thread-free notebooks keep the real builtin `print` that numba and
+    similar libraries require (#9765)."""
+    await k.run(
+        [
+            exec_req.get(
+                """
+                import builtins
+                is_builtin = print is builtins.print
+                print_in_globals = "print" in globals()
+                """
+            ),
+        ]
+    )
+
+    assert not k.errors
+    assert k.globals["is_builtin"] is True
+    # Not shadowed in cell globals; resolves to the real builtin via __builtins__.
+    assert k.globals["print_in_globals"] is False
+
+
+async def test_print_overridden_after_thread(
+    k: Kernel, exec_req: ExecReqProvider
+) -> None:
+    """Creating a mo.Thread lazily patches `print` so thread output is routed."""
+    await k.run(
+        [
+            exec_req.get("import builtins; import marimo as mo"),
+            exec_req.get("before = print is builtins.print"),
+            exec_req.get(
+                """
+                t = mo.Thread(target=lambda: None)
+                after = print is builtins.print
+                """
+            ),
+        ]
+    )
+
+    assert not k.errors
+    assert k.globals["before"] is True
+    assert k.globals["after"] is False
+
+
+async def test_thread_print(k: Kernel, exec_req: ExecReqProvider) -> None:
+    """Test that a thread starts, runs, and prints."""
+
+    await k.run(
+        [
+            exec_req.get("import marimo as mo"),
+            exec_req.get(
+                """
+                stream = mo._runtime.context.get_context().stream
+                thread_stream = None
+                def target():
+                    global thread_stream
+                    import marimo as mo
+                    print("hello")
+                    print("world")
+                    thread_stream = mo._runtime.context.get_context().stream
+                t = mo.Thread(target=target); t.start(); t.join()
+                """
+            ),
+        ]
+    )
+
+    # thread run should be basically instantaneous, but sleep just in case ...
+    assert not k.errors
+    time.sleep(0.01)  # noqa: ASYNC251
+    # The main thread should not have any output, but the new thread should
+    stream = MockStream(k.globals["stream"])
+    for m in stream.operations:
+        assert ("console" not in m) or not m["console"]
+
+    thread_stream = MockStream(k.globals["thread_stream"])
+    assert len(thread_stream.operations) == 2
+    assert "hello" in thread_stream.operations[0]["console"]["data"]
+    assert thread_stream.operations[0]["console"]["channel"] == "stdout"
+    assert "world" in thread_stream.operations[1]["console"]["data"]
+    assert thread_stream.operations[1]["console"]["channel"] == "stdout"
+
+
+async def test_thread_should_exit_on_rerun(
+    k: Kernel, exec_req: ExecReqProvider
+) -> None:
+    """Test that a thread's exit event is set when cell lifecycle is disposed."""
+
+    await k.run(
+        [
+            exec_req.get("import marimo as mo"),
+            exec_req.get(
+                """
+                def target():
+                    ...
+                """
+            ),
+            er := exec_req.get(
+                """
+                thread = mo.Thread(target=target)
+                thread.start()
+                """
+            ),
+        ]
+    )
+
+    thread = k.globals["thread"]
+    assert not thread.should_exit
+
+    # rerunning the cell should trigger the cell lifecycle disposal and set its exit event
+    await k.run([er])
+    assert thread.should_exit
+
+
+async def test_thread_should_not_exit_on_other_cell_run(
+    k: Kernel, exec_req: ExecReqProvider
+) -> None:
+    """Test that a thread's exit event is set when cell lifecycle is disposed."""
+
+    await k.run(
+        [
+            exec_req.get("import marimo as mo"),
+            exec_req.get(
+                """
+                def target():
+                    ...
+                """
+            ),
+            exec_req.get(
+                """
+                thread = mo.Thread(target=target)
+                thread.start()
+                """
+            ),
+            er := exec_req.get(
+                """
+                ...
+                """
+            ),
+        ]
+    )
+
+    thread = k.globals["thread"]
+    assert not thread.should_exit
+
+    # rerunning a cell that is not related to the spawning cell should _not_
+    # signal the thread to exit
+    await k.run([er])
+    assert not thread.should_exit
+
+
+async def test_thread_should_exit_on_deletion(
+    k: Kernel, exec_req: ExecReqProvider
+) -> None:
+    """Test that a thread's exit event is set when cell lifecycle is disposed."""
+
+    await k.run(
+        [
+            exec_req.get("import marimo as mo"),
+            exec_req.get(
+                """
+                def target():
+                    ...
+                """
+            ),
+            er := exec_req.get(
+                """
+                thread = mo.Thread(target=target)
+                thread.start()
+                """
+            ),
+        ]
+    )
+
+    thread = k.globals["thread"]
+    assert not thread.should_exit
+
+    await k.delete_cell(DeleteCellCommand(er.cell_id))
+    assert thread.should_exit
+
+
+async def test_threads_share_output_list_with_parent(
+    k: Kernel, exec_req: ExecReqProvider
+) -> None:
+    """Test that mo.Threads share the parent's output list.
+
+    Sharing ensures that accumulated_output is non-None after cell
+    execution, so the post-execution hook doesn't wipe thread output.
+    """
+
+    await k.run(
+        [
+            exec_req.get("import marimo as mo"),
+            exec_req.get(
+                """
+                output_ids = []
+                def target():
+                    import marimo as mo
+                    ctx = mo._runtime.context.get_context()
+                    output_ids.append(id(ctx.execution_context.output))
+                    mo.output.append("from thread")
+                """
+            ),
+            exec_req.get(
+                """
+                mo.output.append("some output")
+                threads = [mo.Thread(target=target) for _ in range(3)]
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join()
+                """
+            ),
+        ]
+    )
+
+    assert not k.errors
+    time.sleep(0.01)  # noqa: ASYNC251
+
+    output_ids = k.globals["output_ids"]
+    # All threads should share the same output list as the parent
+    assert len(output_ids) == 3
+    assert len(set(output_ids)) == 1, (
+        "All threads should share the same output list, "
+        f"but got ids: {output_ids}"
+    )

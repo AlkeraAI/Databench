@@ -1,0 +1,27 @@
+Presents your finished plan to the user for approval before any work
+begins. Call this ONCE YOU CAN WRITE A CONCRETE PLAN — not on every turn.
+It's fine to spend earlier turns reading/exploring, and if you're missing
+information only the user can provide, ask via the `question` tool FIRST
+(don't guess); then present the plan here once you have the answers.
+
+Plan mode is FILE-BASED: write the COMPLETE plan as Markdown to a `plan.md`
+file in your sandbox directory using the write tool (you can edit it as you
+refine the plan), then pass that file's PATH as the `path` argument. The tool
+reads the file and the user reads + approves its contents. This is the only
+way to hand a plan to the user; do not ask for approval in prose.
+
+Call this for EVERY plan you present, including trivial or one-line plans,
+and for EVERY revised plan after the user gives feedback.
+
+Behavior:
+- The user is shown three "Accept" choices (which set how much autonomy
+  you get while executing) plus the option to type free-form feedback to
+  reject.
+- If the user accepts, you are switched to the build agent and told to
+  execute the plan. Proceed with the implementation.
+- If the user rejects, you receive their feedback as the tool result.
+  Revise the plan FILE to address it, then call this tool again with the
+  same path. Stay in plan mode until accepted.
+
+The `path` argument is required and points at your plan file — write the
+plan to that file first, then present it by path.

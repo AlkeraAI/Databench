@@ -1,0 +1,22 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.0.0",
+    "script_metadata_hash": null
+  },
+  "cells": [
+    {
+      "id": "cell1",
+      "code_hash": "ade540478250e37019625fe117df5422",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": "Hello, world!"
+          }
+        }
+      ],
+      "console": []
+    }
+  ]
+}

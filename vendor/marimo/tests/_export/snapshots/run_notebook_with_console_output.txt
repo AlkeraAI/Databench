@@ -1,0 +1,16 @@
+[
+  {
+    "output": "<pre class='text-xs'>12</pre>",
+    "console": [
+      "hello stdout"
+    ],
+    "status": "idle"
+  },
+  {
+    "output": "<pre class='text-xs'>12</pre>",
+    "console": [
+      "hello stderr"
+    ],
+    "status": "idle"
+  }
+]

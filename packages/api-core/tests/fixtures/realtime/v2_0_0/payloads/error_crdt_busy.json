@@ -1,0 +1,10 @@
+{
+  "code": "crdt_busy",
+  "message": "the document is busy; send again shortly",
+  "metadata": {},
+  "op_id": null,
+  "reason": "queue_full",
+  "retry_after_ms": 250,
+  "schema_version": "1.2.0",
+  "update_id": "u-7"
+}

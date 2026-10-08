@@ -1,0 +1,17 @@
+{
+  "adopted_chat_id": "5f1f0a3c-2f0e-4a2b-9d5c-71a3c9f0b111",
+  "binding_authority": "chat",
+  "kind": "project",
+  "layout": "adopted",
+  "machine_id": null,
+  "machine_status": "none",
+  "metadata": {},
+  "mirror_state": null,
+  "sandbox_memory_mb": null,
+  "sandbox_vcpu": null,
+  "schema_version": "1.0.0",
+  "spare": false,
+  "spare_active_at": null,
+  "wake_requested_at": null,
+  "writable": false
+}

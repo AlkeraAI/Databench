@@ -1,0 +1,190 @@
+@import "./tokens.css";
+
+/* One patch, several files: the shape of the change, then each file with the
+   change that landed in it. */
+
+/* The file row: mark, change word, path, flag, figure, disclosure, and the
+   trailing open-in-editor arrow outside the toggle. The change word carries
+   the ink its outcome has everywhere else: a creation is good, a removal is
+   bad, an edit in place stays neutral. */
+:global(.chat-root) [data-tool="apply_patch"] .patchRow {
+  display: flex;
+  align-items: center;
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchRowHead {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  text-align: left;
+  color: var(--chat-ink);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchRowHead:not(:disabled) {
+  cursor: pointer;
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchOpWord {
+  flex: none;
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchFile[data-change="added"] .patchOpWord {
+  color: var(--chat-tool-good);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchFile[data-change="deleted"] .patchOpWord {
+  color: var(--chat-tool-bad);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchFile[data-change="renamed"] .patchOpWord {
+  color: var(--chat-tool-info);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchRowPath {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Approach reads like the file bands: the leaf underlines and brightens. */
+:global(.chat-root) [data-tool="apply_patch"] .patchRowHead :global(.chat-tool-leaf) {
+  text-decoration: underline transparent;
+  text-underline-offset: 2px;
+  transition: color 140ms ease, text-decoration-color 140ms ease;
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchRowHead:not(:disabled):hover :global(.chat-tool-leaf),
+:global(.chat-root) [data-tool="apply_patch"] .patchRowHead:focus-visible :global(.chat-tool-leaf) {
+  color: var(--chat-tool-id);
+  text-decoration-color: currentcolor;
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchRowFlag {
+  display: inline-flex;
+  flex: none;
+  color: var(--chat-tool-warn);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchRowDisclose {
+  flex: none;
+  font-size: var(--chat-fs-record);
+  color: var(--chat-tool-ink-3);
+  white-space: nowrap;
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchRowHead:not(:disabled):hover .patchRowDisclose {
+  color: var(--chat-ink-2);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchRowOpen {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-sp-2);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchRowOpen:hover,
+:global(.chat-root) [data-tool="apply_patch"] .patchRowOpen:focus-visible {
+  color: var(--chat-tool-id);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchFileBody {
+  border-top: 1px solid var(--chat-hairline);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchFrom {
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchOpFig {
+  flex: none;
+  margin-left: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchOpAdd {
+  color: var(--chat-tool-good);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchOpDel {
+  margin-left: var(--chat-sp-2);
+  color: var(--chat-tool-bad);
+}
+
+/* The envelope names the block a change sits in instead of numbering it, so the
+   caption is the only locator the payload has. */
+:global(.chat-root) [data-tool="apply_patch"] .patchHunkAt {
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchDiff {
+  padding-bottom: var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+/* A complaint about the file the patch just wrote sits with that file, tinted
+   so it reads before the diff above it. */
+:global(.chat-root) [data-tool="apply_patch"] .patchDiag {
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  border-top: 1px solid var(--chat-tool-warn-line);
+  background: var(--chat-tool-warn-wash);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchDiagHead {
+  display: flex;
+  /* The head can wrap; the mark centers against the FIRST line, not the block. */
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  margin: 0 0 var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-tool-warn);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchDiagHead > svg {
+  flex: none;
+  /* (16px record line - 14px mark) / 2 keeps the mark on the first line's axis. */
+  margin-top: calc((var(--chat-lh-record) - 14px) / 2);
+}
+
+:global(.chat-root) [data-tool="apply_patch"] .patchDiagLine {
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-2);
+  overflow-wrap: anywhere;
+}

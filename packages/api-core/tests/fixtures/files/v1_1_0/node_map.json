@@ -1,0 +1,21 @@
+{
+  "$model": "alkera_cli.files.nodemap.NodeMap",
+  "files": {
+    "notes.md": {
+      "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+      "etag": "3",
+      "etag_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+      "node_id": "3b0c8e4c-8b6c-4c3a-9c5c-b02c3d4e5f60",
+      "size": 41
+    },
+    "scratch/out.csv": {
+      "content_hash": "",
+      "etag": "",
+      "etag_hash": "",
+      "node_id": "4c1d9f5d-9c7d-4d4b-ad6d-c13d4e5f6071",
+      "size": 0
+    }
+  },
+  "metadata": {},
+  "schema_version": "1.1.0"
+}

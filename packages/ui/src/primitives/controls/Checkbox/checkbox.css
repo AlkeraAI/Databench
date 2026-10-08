@@ -1,0 +1,92 @@
+/* Checkbox — a native input painted with the brand fill + a CSS check mark. */
+.alk-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  /* Size ladder — md (16) is the default. The box edge rides the icon-size tokens (a checkbox is a
+     glyph-sized square: sm 14 / md 16 / lg 20 == --alkIcon{Sm,Md,Lg}). The check mark below is
+     expressed as fractions of the box edge, so it scales with every size from one set of ratios. */
+  --alk-check-size: var(--alkIconMd);
+  width: var(--alk-check-size);
+  height: var(--alk-check-size);
+  border: 1.5px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkCardBg);
+  cursor: pointer;
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  /* The shared hover/state cross-fade — see theme/motion.css. */
+  transition: var(--alk-control-transition);
+}
+/* `:where()` holds each size selector at single-class specificity. */
+.alk-checkbox:where([data-size="sm"]) {
+  --alk-check-size: var(--alkIconSm);
+}
+.alk-checkbox:where([data-size="lg"]) {
+  --alk-check-size: var(--alkIconLg);
+}
+.alk-checkbox:hover {
+  border-color: var(--alkBrand);
+}
+.alk-checkbox:checked {
+  background: var(--alkBrand);
+  border-color: var(--alkBrand);
+}
+.alk-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* The tick is a centred SVG check painted through a mask, so `background-color` still gives it the
+     themed on-brand ink AND `mask: center` centres it exactly at every size. The path is
+     bbox-centred in the 24x24 viewBox; `mask-size` sizes it to the box. */
+  background-color: var(--alkOnBrand);
+  --alk-check-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12 10 17 19 7'/%3E%3C/svg%3E");
+  -webkit-mask: var(--alk-check-mask) center / 68% no-repeat;
+  mask: var(--alk-check-mask) center / 68% no-repeat;
+}
+/* Neither on nor off: a box standing for a set that is partly checked. Same fill
+   as checked, a dash instead of the tick, so the three states read apart at a
+   glance. Painted through the same mask so it centres at every size. */
+.alk-checkbox:indeterminate {
+  background: var(--alkBrand);
+  border-color: var(--alkBrand);
+}
+.alk-checkbox:indeterminate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--alkOnBrand);
+  --alk-dash-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M6 12 18 12'/%3E%3C/svg%3E");
+  -webkit-mask: var(--alk-dash-mask) center / 68% no-repeat;
+  mask: var(--alk-dash-mask) center / 68% no-repeat;
+}
+.alk-checkbox:focus-visible {
+  outline-offset: 1px;
+}
+.alk-checkbox:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Box + label as one clickable control — the box pinned to the FIRST line of a multi-line label
+   (align-items:flex-start + a 2px nudge for the box's optical top). The label voice is the form's
+   body size. */
+.alk-checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  cursor: pointer;
+}
+.alk-checkbox-field__label {
+  font-size: var(--alkTextMd);
+  line-height: var(--alkLeadingSnug);
+  color: var(--alkPrimaryText);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-checkbox {
+    transition: none;
+  }
+}

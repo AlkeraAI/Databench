@@ -1,0 +1,55 @@
+/* viz — small in-card SVG visualizations (ring / sparkline / mini bars).
+ *
+ * The series colour is a single caller-set token, --alk-viz-color, so a host paints the whole set
+ * to match its surface (e.g. a chart-credits pine) without per-component props. It falls back to the
+ * brand when unset. This sheet owns the shared wrapper only — each component's paint lives in its own
+ * folder (Ring/ring.css, Sparkline/sparkline.css, MiniBars/minibars.css). */
+
+.alk-viz {
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* An interactive viz wraps its svg so a portaled tooltip can find the themed root and the svg keeps
+ * filling its cell. The wrapper is display:contents-like — it lays out exactly as the svg would. */
+.alk-viz-anchor {
+  display: block;
+  min-width: 0;
+}
+
+/* The viz tooltip's box reuses the control tooltip's paint (.alk-tooltip in the overlays sheet) — the
+ * inked-annotation look is one concept. Only the point marker below is viz-specific.
+ *
+ * The point marker for a line viz — a crisp round dot on the hovered value, in the series colour with
+ * a card-bg halo so it reads over both the line and the area fill. Drawn in screen space (not an SVG
+ * circle) so the sparkline's non-uniform viewBox scale can't stretch it into an ellipse. */
+.alk-viz-dot {
+  /* Marker geometry as component-local vars off the 8px scale — the dot is one scale step, its halo
+     the half-step, so the crisp round point reads over both the line and the area fill. */
+  --alk-viz-dot-size: var(--alkSpace3);
+  --alk-viz-dot-halo: var(--alkSpace0);
+  width: var(--alk-viz-dot-size);
+  height: var(--alk-viz-dot-size);
+  border-radius: 50%;
+  background: var(--alk-viz-color, var(--alkBrand));
+  box-shadow: 0 0 0 var(--alk-viz-dot-halo) var(--alkCardBg);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  transition: opacity var(--alkDurationFast) var(--alkEaseStandard),
+    transform var(--alkDurationFast) var(--alkEaseStandard);
+}
+.alk-viz-dot:where([data-state="closed"]) {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-viz-dot {
+    transition: opacity var(--alkDurationFast) var(--alkEaseStandard);
+    transform: translate(-50%, -50%);
+  }
+  .alk-viz-dot:where([data-state="closed"]) {
+    transform: translate(-50%, -50%);
+  }
+}

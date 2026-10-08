@@ -1,0 +1,118 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "2qg8fheh7z": {
+        "defs": [
+          "x"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "2qg8fheh7z",
+              "qkv4chhxyt"
+            ],
+            "code": "multiple_definitions",
+            "name": "x"
+          }
+        ],
+        "refs": [],
+        "sql_tables": []
+      },
+      "qkv4chhxyt": {
+        "defs": [
+          "x"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "2qg8fheh7z",
+              "qkv4chhxyt"
+            ],
+            "code": "multiple_definitions",
+            "name": "x"
+          }
+        ],
+        "refs": [],
+        "sql_tables": []
+      },
+      "t2zs6e2t95": {
+        "defs": [
+          "pl"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "import polars as pl",
+        "config": {},
+        "extra": {},
+        "id": "t2zs6e2t95",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "minted",
+        "source": "import polars as pl"
+      },
+      {
+        "code": "x = 1",
+        "config": {},
+        "extra": {},
+        "id": "2qg8fheh7z",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "x = 1"
+      },
+      {
+        "code": "x = 1",
+        "config": {},
+        "extra": {},
+        "id": "qkv4chhxyt",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "x = 1"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": [
+      [
+        "settings_missing",
+        0
+      ],
+      [
+        "id_missing",
+        6
+      ],
+      [
+        "id_missing",
+        10
+      ],
+      [
+        "id_missing",
+        16
+      ]
+    ]
+  }
+}

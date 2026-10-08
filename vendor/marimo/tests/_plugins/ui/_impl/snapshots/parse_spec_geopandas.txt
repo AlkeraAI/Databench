@@ -1,0 +1,65 @@
+{
+  "config": {
+    "view": {
+      "continuousWidth": 300,
+      "continuousHeight": 300
+    }
+  },
+  "data": {
+    "name": "data-cc0a8311b413c4168b2c1fac768ce667"
+  },
+  "mark": {
+    "type": "geoshape"
+  },
+  "encoding": {
+    "color": {
+      "field": "pop_est",
+      "type": "quantitative"
+    },
+    "shape": {
+      "field": "geometry",
+      "type": "nominal"
+    }
+  },
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.4.1.json",
+  "datasets": {
+    "data-cc0a8311b413c4168b2c1fac768ce667": [
+      {
+        "name": "USA",
+        "pop_est": 331002651,
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -95.0,
+            37.0
+          ]
+        }
+      },
+      {
+        "name": "China",
+        "pop_est": 1439323776,
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            105.0,
+            35.0
+          ]
+        }
+      },
+      {
+        "name": "India",
+        "pop_est": 1380004385,
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            77.0,
+            20.0
+          ]
+        }
+      }
+    ]
+  }
+}

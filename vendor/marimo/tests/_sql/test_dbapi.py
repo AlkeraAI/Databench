@@ -1,0 +1,222 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import sqlite3
+from unittest.mock import patch
+
+import pytest
+
+from marimo._sql.engines.dbapi import DBAPIEngine
+from marimo._sql.engines.types import EngineCatalog, QueryEngine
+
+
+@pytest.fixture
+def sqlite_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(":memory:")
+    conn.execute("""
+        CREATE TABLE test (
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            value REAL
+        )
+    """)
+    conn.execute("""
+        INSERT INTO test (name, value) VALUES
+        ('a', 1.0),
+        ('b', 2.0),
+        ('c', 3.0)
+    """)
+    return conn
+
+
+@pytest.fixture
+def dbapi_engine(sqlite_connection: sqlite3.Connection) -> DBAPIEngine:
+    return DBAPIEngine(connection=sqlite_connection)
+
+
+def test_source(dbapi_engine: DBAPIEngine) -> None:
+    assert dbapi_engine.source == "dbapi"
+
+
+def test_dialect(dbapi_engine: DBAPIEngine) -> None:
+    assert dbapi_engine.dialect == "sql"
+
+
+def test_is_compatible() -> None:
+    # Test with sqlite3 connection
+    conn = sqlite3.connect(":memory:")
+    assert DBAPIEngine.is_compatible(conn)
+    conn.close()
+
+    # Test with non-DBAPI object
+    assert not DBAPIEngine.is_compatible("not a connection")
+    assert not DBAPIEngine.is_compatible(None)
+
+    engine = DBAPIEngine(conn)
+    assert isinstance(engine, DBAPIEngine)
+    assert isinstance(engine, QueryEngine)
+    assert not isinstance(engine, EngineCatalog)
+
+
+def test_is_compatible_rejects_fabricated_attributes() -> None:
+    # Catch-all __getattr__ (e.g. ignite metrics) must not match.
+    class FabricatingAttributes:
+        def __getattr__(self, name: str) -> object:
+            def _lazy(*_args: object, **_kwargs: object) -> object:
+                return FabricatingAttributes()
+
+            return _lazy
+
+    assert not DBAPIEngine.is_compatible(FabricatingAttributes())
+
+
+def test_is_compatible_rejects_getattr_returning_none() -> None:
+    # Fabricators that return None for unknown names still invent the attr.
+    class FabricatesNone:
+        def __getattr__(self, name: str) -> None:
+            return None
+
+        def cursor(self) -> object:
+            return self
+
+        def commit(self) -> None:
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+        def execute(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+        def fetchall(self) -> list[object]:
+            return []
+
+    assert not DBAPIEngine.is_compatible(FabricatesNone())
+
+
+def test_is_compatible_accepts_getattr_forwarding_proxy() -> None:
+    """Proxies that forward __getattr__ to a real connection still match."""
+
+    class ForwardingProxy:
+        def __init__(self, inner: sqlite3.Connection) -> None:
+            object.__setattr__(self, "_inner", inner)
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(self._inner, name)
+
+    conn = sqlite3.connect(":memory:")
+    try:
+        assert DBAPIEngine.is_compatible(ForwardingProxy(conn))
+    finally:
+        conn.close()
+
+
+def test_execute_native(dbapi_engine: DBAPIEngine) -> None:
+    with patch.object(
+        dbapi_engine, "sql_output_format", return_value="native"
+    ):
+        result = dbapi_engine.execute("SELECT * FROM test")
+        assert isinstance(result, sqlite3.Cursor)
+        assert result.fetchall() == [
+            (1, "a", 1.0),
+            (2, "b", 2.0),
+            (3, "c", 3.0),
+        ]
+
+
+def test_execute_pandas(dbapi_engine: DBAPIEngine) -> None:
+    pd = pytest.importorskip("pandas")
+    with patch.object(
+        dbapi_engine, "sql_output_format", return_value="pandas"
+    ):
+        result = dbapi_engine.execute("SELECT * FROM test")
+        assert isinstance(result, pd.DataFrame)
+        assert list(result.columns) == ["id", "name", "value"]
+        assert len(result) == 3
+    assert result.iloc[0].to_dict() == {"id": 1, "name": "a", "value": 1.0}
+
+
+def test_execute_polars(dbapi_engine: DBAPIEngine) -> None:
+    pl = pytest.importorskip("polars")
+    with patch.object(
+        dbapi_engine, "sql_output_format", return_value="polars"
+    ):
+        result = dbapi_engine.execute("SELECT * FROM test")
+        assert isinstance(result, pl.DataFrame)
+        assert result.columns == ["id", "name", "value"]
+        assert len(result) == 3
+        assert result.row(0) == (1, "a", 1.0)
+
+
+def test_execute_lazy_polars(dbapi_engine: DBAPIEngine) -> None:
+    pl = pytest.importorskip("polars")
+    with patch.object(
+        dbapi_engine, "sql_output_format", return_value="lazy-polars"
+    ):
+        result = dbapi_engine.execute("SELECT * FROM test")
+        assert isinstance(result, pl.LazyFrame)
+        result = result.collect()
+        assert result.columns == ["id", "name", "value"]
+        assert result.row(0) == (1, "a", 1.0)
+
+
+def test_execute_no_results(dbapi_engine: DBAPIEngine) -> None:
+    result = dbapi_engine.execute("CREATE TABLE empty (id INTEGER)")
+    assert result is None
+
+
+def test_execute_error(dbapi_engine: DBAPIEngine) -> None:
+    with pytest.raises(sqlite3.OperationalError):
+        dbapi_engine.execute("SELECT * FROM nonexistent")
+
+
+def test_execute_transaction(dbapi_engine: DBAPIEngine) -> None:
+    pytest.importorskip("pandas")
+
+    # Test that transaction is committed
+    with patch.object(
+        dbapi_engine, "sql_output_format", return_value="pandas"
+    ):
+        dbapi_engine.execute(
+            "INSERT INTO test (name, value) VALUES ('d', 4.0)"
+        )
+        result = dbapi_engine.execute("SELECT * FROM test")
+        assert len(result) == 4
+        assert result.iloc[3].to_dict() == {"id": 4, "name": "d", "value": 4.0}
+
+
+def test_execute_with_parameters(dbapi_engine: DBAPIEngine) -> None:
+    pytest.importorskip("pandas")
+
+    with patch.object(
+        dbapi_engine, "sql_output_format", return_value="pandas"
+    ):
+        result = dbapi_engine.execute(
+            "SELECT * FROM test WHERE name = ?", ["a"]
+        )
+        assert len(result) == 1
+        assert result.iloc[0].to_dict() == {"id": 1, "name": "a", "value": 1.0}
+
+
+def test_is_dbapi_cursor() -> None:
+    cursor = sqlite3.connect(":memory:").cursor()
+    assert DBAPIEngine.is_dbapi_cursor(cursor)
+
+    # Test with non-DBAPI object
+    assert not DBAPIEngine.is_dbapi_cursor("not a cursor")
+    assert not DBAPIEngine.is_dbapi_cursor(None)
+
+
+def test_get_cursor_metadata(dbapi_engine: DBAPIEngine) -> None:
+    with patch.object(
+        dbapi_engine, "sql_output_format", return_value="native"
+    ):
+        result = dbapi_engine.execute("SELECT * FROM test")
+        result = DBAPIEngine.get_cursor_metadata(result)
+
+        assert result is not None
+        assert len(result["columns"]) == 3
+        assert result["sql_statement_type"] == "Query/DDL"

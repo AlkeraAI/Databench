@@ -1,0 +1,612 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import asyncio
+import base64
+import signal
+from dataclasses import replace
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+from marimo import _loggers
+from marimo._config.config import (
+    MarimoConfig,
+    PartialMarimoConfig,
+    merge_config,
+)
+from marimo._export.exporter import Exporter, export_markdown, export_script
+from marimo._export.requests import (
+    HTMLExportRequest,
+    MarkdownExportRequest,
+    ScriptExportRequest,
+)
+from marimo._export.serialization import serialize_notebook_snapshot
+from marimo._messaging.msgspec_encoder import encode_json_str
+from marimo._messaging.types import KernelStreams
+from marimo._pyodide.restartable_task import RestartableTask
+from marimo._pyodide.streams import (
+    PyodideStderr,
+    PyodideStdin,
+    PyodideStdout,
+    PyodideStream,
+)
+from marimo._runtime import commands, handlers, patches
+from marimo._runtime.commands import (
+    AppMetadata,
+    BatchableCommand,
+    CommandMessage,
+    OutOfBandCommand,
+    UpdateUserConfigCommand,
+)
+from marimo._runtime.marimo_pdb import MarimoPdb
+from marimo._schemas.export import (
+    ExportAsHTMLRequest,
+    ExportAsMarkdownRequest,
+    ExportAsScriptRequest,
+    ExportedFile,
+    to_html_export_layout,
+    to_html_export_options,
+    to_markdown_export_options,
+)
+from marimo._server.files.os_file_system import OSFileSystem
+from marimo._server.files.roots import resolve_file_roots
+from marimo._server.models.files import (
+    FileCopyRequest,
+    FileCopyResponse,
+    FileCreateRequest,
+    FileCreateResponse,
+    FileDeleteRequest,
+    FileDeleteResponse,
+    FileDetailsRequest,
+    FileListRequest,
+    FileListResponse,
+    FileMoveRequest,
+    FileMoveResponse,
+    FileRootsResponse,
+    FileSearchRequest,
+    FileSearchResponse,
+    FileUpdateRequest,
+    FileUpdateResponse,
+)
+from marimo._server.models.models import (
+    FormatCellsRequest,
+    FormatResponse,
+    ReadCodeResponse,
+    SaveAppConfigurationRequest,
+    SaveNotebookRequest,
+    SaveUserConfigurationRequest,
+)
+from marimo._session.model import SessionMode
+from marimo._session.state.session_view import SessionView
+from marimo._snippets.snippets import read_snippets
+from marimo._utils.formatter import DefaultFormatter
+from marimo._utils.inline_script_metadata import PyProjectReader
+from marimo._utils.parse_dataclass import parse_raw
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from marimo._ast.cell import CellConfig
+    from marimo._messaging.types import KernelMessage
+    from marimo._runtime.context.types import RuntimeContext
+    from marimo._session.notebook.file_manager import AppFileManager
+    from marimo._types.ids import CellId_t
+
+LOGGER = _loggers.marimo_logger()
+
+
+class AsyncQueueManager:
+    """Manages queues for a session."""
+
+    def __init__(self) -> None:
+        # Control messages for the kernel (run, set UI element, set config, etc
+        # ) are sent through the control queue
+        self.control_queue = asyncio.Queue[commands.CommandMessage]()
+
+        # set UI elements duplicated in another queue so they can be batched
+        self.set_ui_element_queue = asyncio.Queue[BatchableCommand]()
+
+        # Off-main-loop commands (completions + breakpoints) go through a
+        # separate queue.
+        self.completion_queue = asyncio.Queue[commands.OutOfBandCommand]()
+
+        # Input messages for the user's Python code are sent through the
+        # input queue
+        self.input_queue = asyncio.Queue[str](maxsize=1)
+
+    def close_queues(self) -> None:
+        # kernel thread cleans up read/write conn and IOloop handler on
+        # exit; we don't join the thread because we don't want to block
+        self.control_queue.put_nowait(commands.StopKernelCommand())
+
+
+class PyodideSession:
+    """A client session that is compatible with Pyodide."""
+
+    def __init__(
+        self,
+        app: AppFileManager,
+        mode: SessionMode,
+        on_write: Callable[[KernelMessage], None],
+        app_metadata: AppMetadata,
+        user_config: MarimoConfig,
+    ) -> None:
+        """Initialize kernel and client connection to it."""
+        from marimo._runtime.kernel_lifecycle import make_control_enqueuer
+
+        self.app_manager = app
+        self.mode = mode
+        self.app_metadata = app_metadata
+        self._queue_manager = AsyncQueueManager()
+        self.session_consumer = on_write
+        self.session_view = SessionView()
+        self._initial_user_config = user_config
+        self._enqueue_control_request = make_control_enqueuer(
+            self._queue_manager.control_queue,
+            self._queue_manager.set_ui_element_queue,
+        )
+
+        self.consumers: list[Callable[[KernelMessage], None]] = [
+            lambda msg: self.session_consumer(msg),
+            lambda msg: self.session_view.add_raw_notification(msg),
+        ]
+
+    def _on_message(self, msg: KernelMessage) -> None:
+        for consumer in self.consumers:
+            consumer(msg)
+
+    async def start(self) -> None:
+        self.kernel_task = _launch_pyodide_kernel(
+            control_queue=self._queue_manager.control_queue,
+            set_ui_element_queue=self._queue_manager.set_ui_element_queue,
+            completion_queue=self._queue_manager.completion_queue,
+            input_queue=self._queue_manager.input_queue,
+            on_message=self._on_message,
+            session_mode=self.mode,
+            configs=self.app_manager.app.cell_manager.config_map(),
+            app_metadata=self.app_metadata,
+            user_config=self._initial_user_config,
+        )
+        await self.kernel_task.start()
+
+    def put_control_request(self, request: commands.CommandMessage) -> None:
+        self._enqueue_control_request(request)
+
+    def put_completion_request(
+        self, request: commands.CodeCompletionCommand
+    ) -> None:
+        self._queue_manager.completion_queue.put_nowait(request)
+
+    def put_input(self, text: str) -> None:
+        self._queue_manager.input_queue.put_nowait(text)
+
+    def find_packages(self, code: str) -> list[str]:
+        """
+        Find the packages in the code based on the imports,
+        and mapping from module names to package names.
+        """
+
+        # Prefer dependencies from script metadata
+        try:
+            from marimo._runtime.packages.utils import (
+                filter_requirements_for_emscripten,
+                strip_requirement_name,
+            )
+
+            reader = PyProjectReader.from_script(code)
+            script_deps = filter_requirements_for_emscripten(
+                reader.dependencies
+            )
+
+            if len(script_deps) > 0:
+                return [strip_requirement_name(dep) for dep in script_deps]
+        except Exception as e:
+            LOGGER.warning("Error parsing script metadata: %s", e)
+
+        # We don't return "unknown" packages from the imports, since
+        # this is used downstream to pre-install packages while loading the notebook
+        # without user consent.
+        return []
+
+
+T = TypeVar("T")
+
+
+def parse_command(request: str) -> commands.CommandMessage:
+    """Parse a command string for WASM/Pyodide.
+
+    Args:
+        request: JSON string containing the request
+
+    Returns:
+        Parsed CommandMessage
+
+    Raises:
+        msgspec.DecodeError: If no type successfully parses
+    """
+    parsed = parse_raw(
+        request,
+        cls=commands.CommandMessage,  # type: ignore
+        allow_unknown_keys=True,
+    )
+    return cast(commands.CommandMessage, parsed)
+
+
+class PyodideBridge:
+    def __init__(
+        self,
+        session: PyodideSession,
+    ):
+        self.session = session
+        self.file_system = OSFileSystem()
+
+    def put_control_request(self, request: str) -> None:
+        parsed = parse_command(request)
+        self.session.put_control_request(parsed)
+
+    def put_input(self, text: str) -> None:
+        self.session.put_input(text)
+
+    def code_complete(self, request: str) -> None:
+        parsed = self._parse(request, commands.CodeCompletionCommand)
+        self.session.put_completion_request(parsed)
+
+    def read_code(self) -> str:
+        contents: str = self.session.app_manager.read_file()
+        response = ReadCodeResponse(contents=contents)
+        return self._dump(response)
+
+    async def read_snippets(self) -> str:
+        snippets = await read_snippets(self.session._initial_user_config)
+        return self._dump(snippets)
+
+    def get_environment_info(self) -> str:
+        from marimo._utils.diagnostics import get_system_info
+
+        return self._dump(get_system_info(redact_home=True))
+
+    async def format(self, request: str) -> str:
+        parsed = self._parse(request, FormatCellsRequest)
+        formatter = DefaultFormatter(line_length=parsed.line_length)
+
+        response = FormatResponse(codes=await formatter.format(parsed.codes))
+        return self._dump(response)
+
+    def save(self, request: str) -> None:
+        parsed = self._parse(request, SaveNotebookRequest)
+        self.session.app_manager.save(parsed)
+
+    def save_app_config(self, request: str) -> None:
+        parsed = self._parse(request, SaveAppConfigurationRequest)
+        self.session.app_manager.save_app_config(parsed.config)
+
+    def save_user_config(self, request: str) -> None:
+        parsed = self._parse(request, SaveUserConfigurationRequest)
+        config = merge_config(
+            self.session._initial_user_config,
+            cast(PartialMarimoConfig, parsed.config),
+        )
+        self.session._initial_user_config = config
+        self.session.put_control_request(
+            UpdateUserConfigCommand(config=config)
+        )
+
+    def rename_file(self, filename: str) -> None:
+        self.session.app_manager.rename(filename)
+
+    def list_files(
+        self,
+        request: str,
+    ) -> str:
+        body = self._parse(request, FileListRequest)
+        root = body.path or self.file_system.get_root()
+        files = self.file_system.list_files(root)
+        response = FileListResponse(files=files, root=root)
+        return self._dump(response)
+
+    def file_roots(self) -> str:
+        roots = resolve_file_roots(
+            self.file_system.get_root(),
+            self.session._initial_user_config.get("file_browser"),
+        )
+        return self._dump(FileRootsResponse(roots=roots))
+
+    def search_files(
+        self,
+        request: str,
+    ) -> str:
+        body = self._parse(request, FileSearchRequest)
+        files = self.file_system.search(
+            query=body.query,
+            path=body.path,
+            depth=body.depth,
+            include_directories=body.include_directories,
+            include_files=body.include_files,
+            include_hidden=body.include_hidden,
+            limit=body.limit,
+        )
+        response = FileSearchResponse(
+            files=files, query=body.query, total_found=len(files)
+        )
+        return self._dump(response)
+
+    def file_details(
+        self,
+        request: str,
+    ) -> str:
+        body = self._parse(request, FileDetailsRequest)
+        response = self.file_system.get_details(
+            body.path,
+            max_bytes=body.max_bytes,
+        )
+        return self._dump(response)
+
+    def create_file_or_directory(
+        self,
+        request: str,
+    ) -> str:
+        body = self._parse(request, FileCreateRequest)
+        try:
+            # If we need to eliminate the overhead associated with
+            # base64-encoding/decoding the file contents, we could try pushing
+            # filesystem operations into JavaScript
+            decoded_contents = (
+                base64.b64decode(body.contents)
+                if body.contents is not None
+                else None
+            )
+            info = self.file_system.create_file_or_directory(
+                body.path, body.type, body.name, decoded_contents
+            )
+            response = FileCreateResponse(success=True, info=info)
+        except Exception as e:
+            response = FileCreateResponse(success=False, message=str(e))
+        return self._dump(response)
+
+    def delete_file_or_directory(
+        self,
+        request: str,
+    ) -> str:
+        body = self._parse(request, FileDeleteRequest)
+        success = self.file_system.delete_file_or_directory(body.path)
+        response = FileDeleteResponse(success=success)
+        return self._dump(response)
+
+    def copy_file_or_directory(
+        self,
+        request: str,
+    ) -> str:
+        body = self._parse(request, FileCopyRequest)
+        try:
+            info = self.file_system.copy_file_or_directory(
+                body.path, body.new_path
+            )
+            response = FileCopyResponse(success=True, info=info)
+        except Exception as e:
+            response = FileCopyResponse(success=False, message=str(e))
+        return self._dump(response)
+
+    def move_file_or_directory(
+        self,
+        request: str,
+    ) -> str:
+        body = self._parse(request, FileMoveRequest)
+        try:
+            info = self.file_system.move_file_or_directory(
+                body.path, body.new_path
+            )
+            response = FileMoveResponse(success=True, info=info)
+        except Exception as e:
+            response = FileMoveResponse(success=False, message=str(e))
+        return self._dump(response)
+
+    def update_file(
+        self,
+        request: str,
+    ) -> str:
+        body = self._parse(request, FileUpdateRequest)
+        try:
+            Path(body.path).write_text(body.contents, encoding="utf-8")
+            response = FileUpdateResponse(success=True)
+        except Exception as e:
+            response = FileUpdateResponse(success=False, message=str(e))
+        return self._dump(response)
+
+    def export_html(self, request: str) -> str:
+        parsed = self._parse(request, ExportAsHTMLRequest)
+        app = self.session.app_manager.app
+        html, filename = Exporter().export_as_html(
+            HTMLExportRequest(
+                filename=self.session.app_manager.filename,
+                app_code=app.to_py(),
+                app_config=app.config,
+                snapshot=serialize_notebook_snapshot(
+                    app,
+                    self.session.session_view,
+                    drop_virtual_file_outputs=False,
+                    include_model_notifications=True,
+                ),
+                display_config=self.session._initial_user_config["display"],
+                options=to_html_export_options(parsed),
+                layout=(
+                    to_html_export_layout(
+                        parsed,
+                        fallback=self.session.app_manager.read_layout_config,
+                    )
+                ),
+            )
+        )
+        return self._dump(
+            ExportedFile(
+                contents=html,
+                filename=filename,
+                media_type="text/html; charset=utf-8",
+            )
+        )
+
+    def export_markdown(self, request: str) -> str:
+        parsed = self._parse(request, ExportAsMarkdownRequest)
+        filename = self.session.app_manager.filename
+        result = export_markdown(
+            MarkdownExportRequest(
+                notebook=self.session.app_manager.app.to_ir(),
+                options=to_markdown_export_options(
+                    parsed,
+                    filename=filename,
+                    source_filename=filename,
+                ),
+            )
+        )
+        return self._dump(
+            ExportedFile(
+                contents=result.text,
+                filename=result.download_filename,
+                media_type="text/plain; charset=utf-8",
+            )
+        )
+
+    def export_script(self, request: str) -> str:
+        self._parse(request, ExportAsScriptRequest)
+        result = export_script(
+            ScriptExportRequest(
+                notebook=replace(
+                    self.session.app_manager.app.to_ir(),
+                    filename=self.session.app_manager.filename,
+                ),
+            )
+        )
+        return self._dump(
+            ExportedFile(
+                contents=result.text,
+                filename=result.download_filename,
+                media_type="text/plain; charset=utf-8",
+            )
+        )
+
+    def _parse(self, request: str, cls: type[T]) -> T:
+        return parse_raw(request, cls)
+
+    def _dump(self, response: Any) -> str:
+        return encode_json_str(response)
+
+
+def _dispose_pyodide_lifecycle_items(ctx: RuntimeContext) -> None:
+    registry = ctx.cell_lifecycle_registry
+    for cell_id, lifecycle_items in list(registry.registry.items()):
+        persisted_lifecycle_items = set()
+        for lifecycle_item in list(lifecycle_items):
+            try:
+                should_remove = lifecycle_item.dispose(
+                    context=ctx, deletion=True
+                )
+            except Exception:
+                LOGGER.exception("Failed to dispose Pyodide lifecycle item")
+                persisted_lifecycle_items.add(lifecycle_item)
+                continue
+
+            if not should_remove:
+                persisted_lifecycle_items.add(lifecycle_item)
+
+        if persisted_lifecycle_items:
+            registry.registry[cell_id] = persisted_lifecycle_items
+        else:
+            del registry.registry[cell_id]
+
+
+def _launch_pyodide_kernel(
+    control_queue: asyncio.Queue[CommandMessage],
+    set_ui_element_queue: asyncio.Queue[BatchableCommand],
+    completion_queue: asyncio.Queue[OutOfBandCommand],
+    input_queue: asyncio.Queue[str],
+    on_message: Callable[[KernelMessage], None],
+    session_mode: SessionMode,
+    configs: dict[CellId_t, CellConfig],
+    app_metadata: AppMetadata,
+    user_config: MarimoConfig,
+) -> RestartableTask:
+    from marimo._output.formatters.formatters import register_formatters
+    from marimo._runtime._wasm import (
+        shutdown_wasm_runtime_work_async,
+        wait_for_wasm_runtime_work_async,
+    )
+    from marimo._runtime.kernel_lifecycle import (
+        KernelArgs,
+        asyncio_queue_reader,
+        collapse_out_of_band,
+        create_kernel,
+        listen_messages,
+        teardown_kernel,
+    )
+
+    register_formatters(theme=user_config["display"]["theme"])
+    LOGGER.debug("Launching pyodide kernel")
+
+    # Patches for pyodide compatibility
+    patches.patch_pyodide_networking()
+    # Some libraries mess with Python's default recursion limit, which becomes
+    # a problem when running with Pyodide.
+    patches.patch_recursion_limit(limit=1000)
+
+    is_edit_mode = session_mode == SessionMode.EDIT
+
+    stream = PyodideStream(on_message, input_queue)
+    stdout = PyodideStdout(stream)
+    stderr = PyodideStderr(stream)
+    stdin = PyodideStdin(stream) if is_edit_mode else None
+    debugger = MarimoPdb(stdout=stdout, stdin=stdin) if is_edit_mode else None
+
+    kernel, ctx = create_kernel(
+        KernelArgs(
+            streams=KernelStreams(
+                stream=stream, stdout=stdout, stderr=stderr, stdin=stdin
+            ),
+            debugger=debugger,
+            configs=configs,
+            app_metadata=app_metadata,
+            user_config=user_config,
+            mode=session_mode,
+            control_queue=control_queue,
+            set_ui_element_queue=set_ui_element_queue,
+            virtual_file_storage=None,
+        )
+    )
+
+    if is_edit_mode:
+        signal.signal(signal.SIGINT, handlers.construct_interrupt_handler())
+
+    async def listen_out_of_band() -> None:
+        while True:
+            first = await completion_queue.get()
+            for command in collapse_out_of_band(completion_queue, first=first):
+                kernel.dispatch_out_of_band(command, docstrings_limit=5)
+
+    async def listen() -> None:
+        try:
+            await asyncio.gather(
+                listen_messages(
+                    kernel,
+                    control_queue,
+                    set_ui_element_queue,
+                    asyncio_queue_reader,
+                ),
+                listen_out_of_band(),
+            )
+        finally:
+            try:
+                try:
+                    _dispose_pyodide_lifecycle_items(ctx)
+                except Exception:
+                    LOGGER.exception(
+                        "Failed to dispose Pyodide lifecycle items"
+                    )
+                try:
+                    await wait_for_wasm_runtime_work_async()
+                    await shutdown_wasm_runtime_work_async()
+                except Exception:
+                    LOGGER.exception(
+                        "Failed to shut down Pyodide WASM runtime work"
+                    )
+            finally:
+                teardown_kernel(kernel, ctx)
+
+    return RestartableTask(listen)

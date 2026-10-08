@@ -1,0 +1,14 @@
+{
+  "event_id": "01H_compaction_applied",
+  "event_type": "compaction.applied",
+  "metadata": {},
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "summarised_message_ids": [
+    "m1",
+    "m2"
+  ],
+  "summary_text": "user asked about query",
+  "time": "2026-05-26T00:00:00Z"
+}

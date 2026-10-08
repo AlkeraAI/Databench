@@ -1,0 +1,178 @@
+/* Button — the full component stylesheet. Layout, the size ladder and the variant×fill matrix
+ * all live here. `variant` (primary / secondary /
+ * destructive) sets the COLOUR family via per-tone custom properties; `fill` (filled / outline /
+ * ghost) is a treatment that consumes them, so every colour gets every weight from one small matrix.
+ * The size ladder scales height + horizontal padding on the shared control tokens, so a button lines
+ * up with an input / select / segmented control of the SAME size in a row (default lg = 38px). */
+
+.alk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--alkSpace2);
+  /* Height rides the shared control ladder (default lg); the --alk-button-height alias keeps call
+     sites that reference it working and moves with the token if the scale changes. */
+  --alk-button-height: var(--alkControlLg);
+  min-height: var(--alk-button-height);
+  padding: 0 var(--alkControlPadLg);
+  border: 1px solid transparent;
+  border-radius: var(--alkRadiusMd);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightSemibold);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  /* The hover/active highlight timing lives once in theme/motion.css. */
+  transition: var(--alk-control-transition);
+}
+
+.alk-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* A loading button is BUSY, not disabled — the disabled attribute is set during loading only to block
+   a second click, so the cursor reads as work-in-progress, not the OS "not-allowed". */
+.alk-btn:where([data-loading]) {
+  cursor: progress;
+}
+
+.alk-btn:where([data-full]) {
+  width: 100%;
+}
+
+.alk-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.alk-btn__label {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ── Size ladder — height + horizontal padding scale together on the shared control tokens ───────── */
+.alk-btn:where([data-size="md"]) {
+  --alk-button-height: var(--alkControlMd);
+  padding-left: var(--alkControlPadMd);
+  padding-right: var(--alkControlPadMd);
+}
+.alk-btn:where([data-size="sm"]) {
+  --alk-button-height: var(--alkControlSm);
+  padding-left: var(--alkControlPadSm);
+  padding-right: var(--alkControlPadSm);
+}
+
+/* icon-only — square at the chosen height, glyph centred with no label padding (gap 0). The one
+   primitive behind every glyph button (close ✕, kebab, copy, toolbar action); pair it with a variant
+   and the required aria-label. A tighter focus offset so the ring sits cleanly when nested in a field. */
+.alk-btn:where([data-icon]) {
+  flex: 0 0 auto;
+  width: var(--alk-button-height);
+  min-width: var(--alk-button-height);
+  padding: 0;
+  gap: 0;
+}
+.alk-btn:where([data-icon]):focus-visible {
+  outline-offset: 1px;
+}
+
+/* ── variant × fill (two orthogonal axes) ─────────────────────────────────────
+ * The variant blocks set only tokens (no paint), so they never fight the fill blocks below on
+ * specificity. */
+
+/* primary — brand */
+.alk-btn:where([data-variant="primary"]) {
+  --btn-fill-bg: var(--alkActionPrimaryBg);
+  --btn-fill-bg-hover: var(--alkActionPrimaryBgHover);
+  --btn-fill-bg-active: var(--alkActionPrimaryBgActive);
+  --btn-on-fill: var(--alkActionPrimaryText);
+  --btn-fill-border: var(--alkActionPrimaryBorder);
+  --btn-line: var(--alkBrand);
+  --btn-line-hover: var(--alkBrand);
+  --btn-ink: var(--alkBrandText);
+  --btn-soft: var(--alkBrandSubtle);
+}
+/* secondary — neutral: the FILLED weight is the secondary action surface; GHOST is the quiet
+   chrome button (primary ink, neutral hover wash). */
+.alk-btn:where([data-variant="secondary"]) {
+  --btn-fill-bg: var(--alkActionSecondaryBg);
+  --btn-fill-bg-hover: var(--alkActionSecondaryBgHover);
+  --btn-fill-bg-active: var(--alkActionSecondaryBgActive);
+  --btn-on-fill: var(--alkActionSecondaryText);
+  --btn-fill-border: var(--alkActionSecondaryBorder);
+  --btn-line: var(--alkBorder);
+  --btn-line-hover: var(--alkBorderStrong);
+  --btn-ink: var(--alkPrimaryText);
+  --btn-soft: var(--alkHoverBg);
+}
+/* destructive — danger */
+.alk-btn:where([data-variant="destructive"]) {
+  --btn-fill-bg: var(--alkDanger);
+  --btn-fill-bg-hover: color-mix(in srgb, var(--alkDanger) 88%, black);
+  --btn-fill-bg-active: color-mix(in srgb, var(--alkDanger) 78%, black);
+  --btn-on-fill: var(--alkOnAccentText);
+  --btn-fill-border: transparent;
+  /* outline reads as a softened danger hairline at rest, firming to full danger on hover */
+  --btn-line: color-mix(in srgb, var(--alkDanger) 40%, var(--alkBorder));
+  --btn-line-hover: var(--alkDanger);
+  --btn-ink: var(--alkDangerText);
+  --btn-soft: var(--alkDangerSoft);
+}
+
+/* filled — solid tone fill + on-tone ink; the 1px border shows only where the tone defines one. */
+.alk-btn:where([data-fill="filled"]) {
+  background: var(--btn-fill-bg);
+  border-color: var(--btn-fill-border);
+  color: var(--btn-on-fill);
+}
+.alk-btn:where([data-fill="filled"]):not(:disabled):hover {
+  background: var(--btn-fill-bg-hover);
+}
+.alk-btn:where([data-fill="filled"]):not(:disabled):active {
+  background: var(--btn-fill-bg-active);
+}
+
+/* outline — bordered on the card surface, tone-coloured border + ink, soft tone wash on hover */
+.alk-btn:where([data-fill="outline"]) {
+  background: var(--alkCardBg);
+  border-color: var(--btn-line);
+  color: var(--btn-ink);
+}
+.alk-btn:where([data-fill="outline"]):not(:disabled):hover {
+  background: var(--btn-soft);
+  border-color: var(--btn-line-hover);
+}
+.alk-btn:where([data-fill="outline"]):not(:disabled):active {
+  background: var(--btn-soft);
+  border-color: var(--btn-line-hover);
+}
+
+/* ghost — transparent until touched, tone ink, soft tone wash on hover */
+.alk-btn:where([data-fill="ghost"]) {
+  background: transparent;
+  color: var(--btn-ink);
+}
+.alk-btn:where([data-fill="ghost"]):not(:disabled):hover {
+  background: var(--btn-soft);
+}
+.alk-btn:where([data-fill="ghost"]):not(:disabled):active {
+  background: var(--btn-soft);
+}
+/* A toggle (a glyph button driven by aria-pressed) keeps a neutral active accent — it must NOT fall
+   back to the soft wash, which would erase the "on" cue. Out-specifies the plain :hover above. */
+.alk-btn:where([data-fill="ghost"])[aria-pressed="true"] {
+  background: var(--alkActiveBg);
+  color: var(--alkPrimaryText);
+}
+.alk-btn:where([data-fill="ghost"])[aria-pressed="true"]:not(:disabled):hover {
+  background: var(--alkActiveBg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-btn {
+    transition: none;
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "rule": "Per folder over its direct children: count = number of children; xor = XOR of int.from_bytes(blake3(kind || name || size || mtime_ns).digest()[:8], 'big'), kind = b'f' for a file and b'd' for a dir, name = raw bytes, size = 8 bytes big-endian unsigned, mtime_ns = 8 bytes big-endian signed; a dir hashes size 0 and mtime 0 whatever it is given. xor on the wire is 16 lowercase hex digits.",
+  "entries": [
+    {
+      "kind": "file",
+      "name_hex": "524541444d452e6d64",
+      "size": 1234,
+      "mtime_ns": 1758625000123456789,
+      "hash": "5aac2603fc3d65c5"
+    },
+    {
+      "kind": "file",
+      "name_hex": "636166c3a92e747874",
+      "size": 0,
+      "mtime_ns": 1700000000000000000,
+      "hash": "96bf1ae084fc7ca0"
+    },
+    {
+      "kind": "file",
+      "name_hex": "fffe2d6e6f742d757466382e62696e",
+      "size": 9007199254740993,
+      "mtime_ns": 1,
+      "hash": "dfc0134ab5a17b21"
+    },
+    {
+      "kind": "file",
+      "name_hex": "6f6c642e747874",
+      "size": 5,
+      "mtime_ns": -1000000000,
+      "hash": "529d761a3f564338"
+    },
+    {
+      "kind": "dir",
+      "name_hex": "737263",
+      "size": 0,
+      "mtime_ns": 0,
+      "hash": "03099655bac73185"
+    },
+    {
+      "kind": "dir",
+      "name_hex": "2e676974",
+      "size": 999,
+      "mtime_ns": 123456789,
+      "hash": "803140f86582b69b"
+    },
+    {
+      "kind": "file",
+      "name_hex": "e697a5e69cace8aa9e2e6d64",
+      "size": 42,
+      "mtime_ns": 1758625000000000000,
+      "hash": "5804eaee7555c3de"
+    }
+  ],
+  "directories": [
+    {
+      "name": "empty",
+      "children": [],
+      "count": 0,
+      "xor": "0000000000000000"
+    },
+    {
+      "name": "one-file",
+      "children": [
+        0
+      ],
+      "count": 1,
+      "xor": "5aac2603fc3d65c5"
+    },
+    {
+      "name": "one-dir",
+      "children": [
+        4
+      ],
+      "count": 1,
+      "xor": "03099655bac73185"
+    },
+    {
+      "name": "mixed",
+      "children": [
+        0,
+        1,
+        4
+      ],
+      "count": 3,
+      "xor": "cf1aaab6c20628e0"
+    },
+    {
+      "name": "all",
+      "children": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "count": 7,
+      "xor": "9a7265f0582665bc"
+    }
+  ]
+}

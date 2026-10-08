@@ -1,0 +1,88 @@
+/* A saved object's page: the receipt is a peer of the table, never a disclosure
+   behind it, because the table means nothing without it. Colour and scale come
+   from the portal's token layer, the same one the chat this object was saved out
+   of reads. */
+
+.object-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace7);
+  min-width: 0;
+}
+
+.object-page__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--alkSpace5);
+  flex-wrap: wrap;
+}
+
+.object-page__type,
+.object-page__status {
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+
+.object-page__chart {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+}
+
+.object-page__chart-caption {
+  margin: 0;
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+
+.object-page__receipt dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--alkSpace5);
+  margin: 0;
+}
+
+.object-page__receipt-row dt {
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightMedium);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--alkSecondaryText);
+}
+
+.object-page__receipt-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  color: var(--alkPrimaryText);
+}
+
+/* Bound parameters read as a list of pairs, not as the JSON they arrived in. */
+.object-page__params {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.object-page__params li {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.object-page__param-name {
+  color: var(--alkSecondaryText);
+}
+
+.object-page__param-name::after {
+  content: ":";
+}
+
+/* A wide table scrolls inside its own box; the page never scrolls sideways. */
+.object-page__table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}

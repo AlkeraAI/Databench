@@ -1,0 +1,100 @@
+/* The chat's popover menu: the positioning frame, the panel it hangs, the
+   caption above the rows, and the rows themselves. One file, so every menu in
+   the chat opens the same box and reads the same way. */
+
+.chat-root .chat-menu {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.chat-root .chat-menu__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  /* Sized to its longest row, floored so a menu of short rows still reads as a
+     panel and capped at the panel's own width. Without max-content the rows
+     ellipsize against the floor while there is room to spare beside it. */
+  width: max-content;
+  min-width: min(190px, calc(100cqw - 24px));
+  max-width: calc(100cqw - 24px);
+  padding: var(--chat-sp-1);
+  background: var(--chat-paper-raised);
+  border: 1px solid var(--chat-hairline-strong);
+  border-radius: var(--chat-radius-control);
+  box-shadow: var(--alkShadowLg, 0 16px 42px rgb(31 30 27 / 18%));
+  animation: chat-rise var(--chat-dur-medium) var(--chat-ease-out);
+}
+
+/* What the rows act for, above them. There is nothing here to press, so it is
+   a caption and takes no row treatment. */
+.chat-root .chat-menu__head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--chat-sp-2) var(--chat-sp-2) var(--chat-sp-2);
+  margin-bottom: var(--chat-sp-1);
+  border-bottom: 1px solid var(--chat-hairline);
+}
+
+/* Flex rather than fixed columns: the icon and the trailing mark are both
+   optional, and the label is the one cell that gives way. */
+.chat-root .chat-menu__row {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  width: 100%;
+  padding: var(--chat-sp-2) var(--chat-sp-2);
+  border-radius: var(--chat-radius-micro);
+  text-align: left;
+  color: var(--chat-ink-2);
+  cursor: pointer;
+  transition: var(--chat-control-transition);
+}
+
+.chat-root .chat-menu__row:hover {
+  background: var(--chat-wash);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-menu__icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  margin-left: -1px;
+  color: var(--chat-ink-4);
+}
+
+.chat-root .chat-menu__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  font-weight: var(--chat-w-medium);
+}
+
+/* A row that destroys something says so before it is pressed: its text AND
+   icon carry the danger ink at rest; approaching it brings the ground along.
+   Both themes publish --chat-danger and its wash, so one rule serves them. */
+.chat-root .chat-menu__row[data-danger] .chat-menu__label,
+.chat-root .chat-menu__row[data-danger] .chat-menu__icon {
+  color: var(--chat-danger);
+}
+
+.chat-root .chat-menu__row[data-danger]:hover,
+.chat-root .chat-menu__row[data-danger]:focus-visible {
+  color: var(--chat-danger);
+  background: var(--chat-danger-wash);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The panel's movement swaps for a plain fade rather than a teleport. */
+  .chat-root .chat-menu__panel {
+    animation: chat-fade-in var(--chat-dur-fast) ease;
+  }
+}

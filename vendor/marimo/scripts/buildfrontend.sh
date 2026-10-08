@@ -1,0 +1,27 @@
+#!/bin/sh
+
+# If NODE_ENV is development, then we build the frontend in development mode.
+# Otherwise, we build the frontend in production mode.
+if [ "$NODE_ENV" = "development" ]; then
+  cmd="pnpm turbo build --filter @marimo-team/frontend -- --mode development"
+else
+  export NODE_ENV=production
+  cmd="pnpm turbo build --filter @marimo-team/frontend"
+fi
+
+if $cmd; then
+  echo "Formatting generated OpenAPI client..."
+  pnpm format packages/openapi/
+  echo "Removing old static files..."
+  rm -rf marimo/_static/
+  echo "Copying new static files..."
+  mkdir -p marimo/_static/
+  cp -R frontend/dist/* marimo/_static/
+  rm -rf marimo/_static/export_demos
+  echo "Copying CLAUDE.md documentation..."
+  cp docs/_static/CLAUDE.md marimo/_static/CLAUDE.md
+  echo "Compilation succeeded.\n"
+else
+  echo "Frontend compilation failed.\n"
+  exit 1
+fi

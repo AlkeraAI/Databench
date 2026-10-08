@@ -1,0 +1,10 @@
+{
+  "$model": "alkera_core.schemas.files.operation.AttrsInverse",
+  "before": {
+    "mode": 33188
+  },
+  "kind": "attrs",
+  "metadata": {},
+  "node_id": "n-1",
+  "schema_version": "1.0.0"
+}

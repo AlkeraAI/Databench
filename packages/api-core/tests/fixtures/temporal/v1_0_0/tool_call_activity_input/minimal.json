@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "metadata": {},
+  "tool_name": "read",
+  "session_id": "ses_01",
+  "call_id": "call_01",
+  "org_id": "1f4e2c9a-2d5b-4a7c-9e3f-0b6a8b6e3f2c",
+  "input_ref": "blob:sha256:0123abcd",
+  "idempotency_key": "ses_01:call_01"
+}

@@ -1,0 +1,180 @@
+/* ── DateInput (alk-dateinput-root) ─────────────────────────────────────────
+ * A custom single-day picker: a button trigger on the .alk-input field scale + a portaled
+ * role="dialog" calendar on the shared floating surface. The native date control is never
+ * shown, so the field reads identically on every platform and theme. */
+
+.alk-dateinput-root {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+/* ── the trigger — the .alk-input recipe, behaves like a button ─────────────── */
+.alk-dateinput__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  width: 100%;
+  --alk-input-h: var(--alkControlLg);
+  --alk-input-px: var(--alkFieldPadLg);
+  min-height: var(--alk-input-h);
+  padding: 0 var(--alk-input-px);
+  background: var(--alkControlBg);
+  color: var(--alkPrimaryText);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextMd);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--alkDurationNormal) var(--alkEaseStandard),
+    box-shadow var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+.alk-dateinput__trigger:where([data-size="md"]) {
+  --alk-input-h: var(--alkControlMd);
+  --alk-input-px: var(--alkFieldPadMd);
+}
+.alk-dateinput__trigger:where([data-size="sm"]) {
+  --alk-input-h: var(--alkControlSm);
+  --alk-input-px: var(--alkFieldPadSm);
+}
+
+.alk-dateinput__trigger:focus-visible {
+  outline: none;
+  border-color: var(--alkBrand);
+  box-shadow: 0 0 0 2px var(--alkFocusRing);
+}
+
+.alk-dateinput__trigger[aria-invalid="true"] {
+  border-color: var(--alkDanger);
+}
+
+.alk-dateinput__trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Reserve the shared 34px affix lane (inputs.css) — the clear ✕ is the standard
+ * .alk-input__affix-btn, floated over this padding as a sibling, never nested. */
+.alk-dateinput__trigger[data-clearable] {
+  padding-right: 34px;
+}
+
+.alk-dateinput__lead {
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+}
+
+.alk-dateinput__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.alk-dateinput__trigger:where([data-placeholder]) .alk-dateinput__value {
+  color: var(--alkPlaceholderText);
+}
+
+/* ── the calendar panel ─────────────────────────────────────────────────────── */
+.alk-dateinput__panel {
+  padding: var(--alkSpace3);
+  width: 252px;
+}
+
+.alk-dateinput__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace2);
+  margin-bottom: var(--alkSpace2);
+}
+
+.alk-dateinput__month {
+  font-size: var(--alkTextSm);
+  font-weight: 600;
+  color: var(--alkPrimaryText);
+}
+
+.alk-dateinput__nav {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--alkRadiusSm);
+  background: transparent;
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+}
+.alk-dateinput__nav:hover {
+  color: var(--alkPrimaryText);
+  background: var(--alkHoverBg);
+}
+.alk-dateinput__nav:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--alkFocusRing);
+}
+
+.alk-dateinput__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.alk-dateinput__weekday {
+  display: grid;
+  place-items: center;
+  height: 24px;
+  font-size: var(--alkTextXs);
+  color: var(--alkSecondaryText);
+}
+
+.alk-dateinput__day {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--alkRadiusSm);
+  background: transparent;
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+  font-variant-numeric: tabular-nums;
+  color: var(--alkPrimaryText);
+  cursor: pointer;
+}
+.alk-dateinput__day:hover {
+  background: var(--alkHoverBg);
+}
+.alk-dateinput__day:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--alkFocusRing);
+}
+
+/* Today carries a quiet dot; the picked day carries the brand fill — the same on/quiet split
+ * the Select's rows use. */
+.alk-dateinput__day[data-today] {
+  position: relative;
+}
+.alk-dateinput__day[data-today]::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--alkBrand);
+}
+.alk-dateinput__day[data-on] {
+  background: var(--alkBrand);
+  color: var(--alkOnBrand);
+}
+.alk-dateinput__day[data-on][data-today]::after {
+  background: var(--alkOnBrand);
+}

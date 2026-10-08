@@ -1,0 +1,11 @@
+{
+  "path": "data.name",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "name": "elsewhere"
+    },
+    "mark": "point"
+  },
+  "unsafe": false
+}

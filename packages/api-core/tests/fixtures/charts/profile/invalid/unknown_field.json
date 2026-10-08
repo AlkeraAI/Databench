@@ -1,0 +1,21 @@
+{
+  "path": "encoding.x.field",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "encoding": {
+      "x": {
+        "field": "aa",
+        "type": "quantitative"
+      }
+    },
+    "mark": "point"
+  },
+  "unsafe": false
+}

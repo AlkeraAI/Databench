@@ -1,0 +1,28 @@
+{
+  "path": "transform[0].filter.and[1]",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "mark": "point",
+    "transform": [
+      {
+        "filter": {
+          "and": [
+            {
+              "field": "a",
+              "gt": 0
+            },
+            "this.constructor"
+          ]
+        }
+      }
+    ]
+  },
+  "unsafe": true
+}

@@ -1,0 +1,35 @@
+/* AlkeraChart — the frame around a Vega view: its loading and error states, and
+ * a horizontal scroll for compositions wider than their card. The marks
+ * themselves are painted by Vega from the chart theme (see theme.ts). */
+.alk-chart {
+  position: relative;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.alk-chart__view {
+  min-width: 0;
+}
+
+.alk-chart__view svg,
+.alk-chart__view canvas {
+  display: block;
+}
+
+.alk-chart__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--alk-chart-height, 160px);
+  color: var(--alkSecondaryText);
+  font: var(--alkTextSm, 13px) / 1.4 var(--alkFontUi);
+}
+
+.alk-chart__status[data-kind="error"] {
+  color: var(--alkPrimaryText);
+  border: 1px dashed var(--alkBorderStrong);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}

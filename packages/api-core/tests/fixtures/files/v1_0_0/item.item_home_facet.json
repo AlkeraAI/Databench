@@ -1,0 +1,8 @@
+{
+  "$model": "alkera_core.schemas.files.item.HomeFacet",
+  "metadata": {},
+  "node_id": "6b1f0b1e-0000-4000-8000-000000000004",
+  "owner_id": "6b1f0b1e-0000-4000-8000-000000000002",
+  "owner_name": "Ana Ruiz",
+  "schema_version": "1.0.0"
+}

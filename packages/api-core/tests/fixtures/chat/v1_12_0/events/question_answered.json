@@ -1,0 +1,19 @@
+{
+  "answers": [
+    [
+      "Red"
+    ]
+  ],
+  "decided_by": "user",
+  "decided_by_name": "Dana Okafor",
+  "decided_by_user_id": "11111111-1111-4111-8111-111111111111",
+  "event_id": "01H_question_answered",
+  "event_type": "question.answered",
+  "metadata": {},
+  "note": "Skip the migration for now.",
+  "provider_metadata": {},
+  "request_id": "qr1",
+  "schema_version": "1.2.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

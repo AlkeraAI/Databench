@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.2.0",
+  "code": "credit.balance_owed",
+  "message": "Usage is paused until the balance owed is paid.",
+  "team_id": null,
+  "team_name": null,
+  "resets_at": null,
+  "manage_url": null,
+  "estimated_cost_nanos": null,
+  "available_nanos": null
+}

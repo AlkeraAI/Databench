@@ -1,0 +1,18 @@
+{% extends "base.mjml" %}
+{% from "_macros.mjml" import cta %}
+{% block title %}Welcome to {{ product_name }}{% endblock %}
+{% block preview %}We're glad you're here — and we'd love your feedback.{% endblock %}
+{% block content %}
+<mj-text font-family="{{ tokens.FONT_DISPLAY }}" font-size="18px" font-weight="600" padding-bottom="8px">
+  {% if name %}Welcome, {{ name }}{% else %}Welcome to {{ product_name }}{% endif %}
+</mj-text>
+<mj-text>
+  We're happy to be a part of your data journey.
+</mj-text>
+<mj-text>
+  We'd love to hear your feedback or questions. Just reply to this message
+  and it'll reach us directly.
+</mj-text>
+{{ cta(app_url, "Open " ~ product_name) }}
+{% endblock %}
+{% block footer %}You're receiving this because you just verified your email on {{ product_name }}.{% endblock %}

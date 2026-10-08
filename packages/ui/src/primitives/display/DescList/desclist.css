@@ -1,0 +1,35 @@
+/* ── DescList (alk-desclist) ─────────────────────────────────────────────────
+ * A definition list as a `label | value` grid — a block of metadata read as an aligned two-column
+ * ledger. ONE grid spans every row (each row is display: contents), so the term column hugs the
+ * longest label and all values share a left edge — no fixed track to wrap a long term or waste
+ * space after a short one. Every value is a role token. */
+
+.alk-desclist {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--alkSpace5);
+}
+
+.alk-desclist__row {
+  display: contents;
+}
+
+/* The term is a small-caps eyebrow — the base owns its voice (no dependency on a consuming app's
+   .pt-eyebrow), so the label reads the same in every consumer (portal, webview, standalone). */
+.alk-desclist__dt {
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--alkSecondaryText);
+}
+
+.alk-desclist__dd {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--alkTextMd);
+  color: var(--alkPrimaryText);
+}

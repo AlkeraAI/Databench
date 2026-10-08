@@ -1,0 +1,30 @@
+{
+  "decided_via": "web",
+  "kind": "model",
+  "ledger": [
+    "anthropic:claude-sonnet-4-5"
+  ],
+  "metadata": {},
+  "pin": {
+    "context_window": 200000,
+    "display_name": "Claude Opus 4.5",
+    "effort": "high",
+    "efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "id": "claude-opus-4.5",
+    "max_output_tokens": 64000,
+    "metadata": {},
+    "reads_reasoning_formats": [
+      "anthropic:claude-sonnet-4-5"
+    ],
+    "reasoning_format": "anthropic:claude-opus-4-5",
+    "schema_version": "1.1.0",
+    "wire": "anthropic"
+  },
+  "previous_model_id": "gpt-5.2",
+  "schema_version": "1.1.0",
+  "user_id": "00000000-0000-4000-8000-000000000001"
+}

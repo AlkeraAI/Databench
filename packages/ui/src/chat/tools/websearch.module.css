@@ -1,0 +1,95 @@
+@import "./tokens.css";
+
+/* Ranked sources: a numeral spine, the linked title, the site, the snippet. */
+
+/* A short result list shows whole; a long one scrolls inside the well rather
+   than swallowing the transcript. */
+:global(.chat-root) [data-tool="websearch"] [data-cap="440"] {
+  max-height: 440px;
+}
+
+:global(.chat-root) [data-tool="websearch"] .hit {
+  display: grid;
+  grid-template-columns: 2ch minmax(0, 1fr);
+  column-gap: var(--chat-sp-3);
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="websearch"] .hitRank {
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+
+:global(.chat-root) [data-tool="websearch"] .hitBody {
+  min-width: 0;
+}
+
+:global(.chat-root) [data-tool="websearch"] .hitTitle {
+  margin: 0;
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+  overflow-wrap: anywhere;
+}
+
+/* A link is the one place chroma means "you can go here". Underline on hover
+   and focus, never at rest: four underlined titles read as noise. */
+:global(.chat-root) [data-tool="websearch"] .link {
+  color: var(--chat-tool-info);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+:global(.chat-root) [data-tool="websearch"] .link:hover,
+:global(.chat-root) [data-tool="websearch"] .link:focus-visible {
+  text-decoration: underline;
+}
+
+:global(.chat-root) [data-tool="websearch"] .link:focus-visible {
+  outline: 2px solid var(--chat-focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* The site line's own door: quiet at rest, the link ink on approach. */
+:global(.chat-root) [data-tool="websearch"] .siteLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+
+:global(.chat-root) [data-tool="websearch"] .siteLink:hover,
+:global(.chat-root) [data-tool="websearch"] .siteLink:focus-visible {
+  color: var(--chat-tool-info);
+}
+
+:global(.chat-root) [data-tool="websearch"] .siteLink:focus-visible {
+  outline: 2px solid var(--chat-focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+:global(.chat-root) [data-tool="websearch"] .hitSite {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  margin: 0;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  color: var(--chat-tool-ink-3);
+  overflow-wrap: anywhere;
+}
+
+:global(.chat-root) [data-tool="websearch"] .hitSnip {
+  margin: var(--chat-sp-1) 0 0;
+  color: var(--chat-tool-ink-3);
+  overflow-wrap: anywhere;
+}

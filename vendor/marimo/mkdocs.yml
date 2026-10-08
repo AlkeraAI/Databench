@@ -1,0 +1,429 @@
+edit_uri: edit/main/docs/
+copyright: '© marimo 2026'
+watch:
+  - docs/
+  - marimo/
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/marimo-team/marimo
+    - icon: fontawesome/brands/discord
+      link: https://marimo.io/discord?ref=docs
+    - icon: material/email-newsletter
+      link: https://marimo.io/newsletter
+    - icon: fontawesome/brands/mastodon
+      link: https://mastodon.social/@marimo_io
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/marimo_io
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/company/marimo-io
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/marimo/
+    - icon: fontawesome/brands/youtube
+      link: https://www.youtube.com/@marimo-team
+    - icon: fontawesome/brands/reddit
+      link: https://www.reddit.com/r/marimo_notebook/
+extra_css:
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.9.0/katex.min.css
+  - stylesheets/extra.css
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.9.0/katex.min.js
+  - _static/js/analytics.js
+  - _static/js/math.js
+  - _static/js/init_kapa_widget.js
+  - _static/js/page_actions.js
+markdown_extensions:
+  - blocks:MarimoBlocksExtension
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - meta
+  - sane_lists # lists separated by paragraphs
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.blocks.admonition
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.blocks.details
+  - pymdownx.emoji: null
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - class: mermaid
+          name: mermaid
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.blocks.tab:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - mkdocs-click
+nav:
+  - marimo: index.md
+  - Getting Started:
+      - Getting Started: getting_started/index.md
+      - Installation: getting_started/installation.md
+      - Quickstart: getting_started/quickstart.md
+      - Key Concepts: getting_started/key_concepts.md
+
+  - User Guide:
+      - User Guide: guides/index.md
+      - Running cells: guides/reactivity.md
+      - Interactive elements: guides/interactivity.md
+      - Visualize outputs: guides/outputs.md
+      - Working with data:
+          - Working with data: guides/working_with_data/index.md
+          - DataFrames: guides/working_with_data/dataframes.md
+          - SQL: guides/working_with_data/sql.md
+          - Plotting: guides/working_with_data/plotting.md
+          - Remote Storage: guides/working_with_data/remote_storage.md
+      - Migrate from Jupyter: guides/coming_from/jupyter.md
+      - Expensive notebooks: guides/expensive_notebooks.md
+      - Understanding errors:
+          - Understanding errors: guides/understanding_errors/index.md
+          - Multiple definitions: guides/understanding_errors/multiple_definitions.md
+          - Import star: guides/understanding_errors/import_star.md
+          - Cycles: guides/understanding_errors/cycles.md
+          - Setup References: guides/understanding_errors/setup.md
+      - Package management:
+          - Package management: guides/package_management/index.md
+          - Working in projects: guides/package_management/projects.md
+          - Working in sandboxes: guides/package_management/sandboxes.md
+          - Installing packages: guides/package_management/installing_packages.md
+          - Importing local code: guides/package_management/importing_local_code.md
+      - Generate with AI:
+          - Generate with AI: guides/generate_with_ai/index.md
+          - Pair with agents via marimo pair: guides/generate_with_ai/marimo_pair.md
+          - Customize your agent: guides/generate_with_ai/customize_your_agent.md
+          - The editor's AI assistant: guides/editor_features/ai_completion.md
+          - Generate notebooks with marimo new: guides/generate_with_ai/text_to_notebook.md
+      - Editor features:
+          - Editor features: guides/editor_features/index.md
+          - Editor overview: guides/editor_features/overview.md
+          - Home page: guides/editor_features/home.md
+          - Sidebar and Developer Panel: guides/editor_features/panels.md
+          - Understanding dataflow: guides/editor_features/dataflow.md
+          - Module autoreloading: guides/editor_features/module_autoreloading.md
+          - Hotkeys: guides/editor_features/hotkeys.md
+          - Model Context Protocol: guides/editor_features/mcp.md
+          - AI tools: guides/editor_features/tools.md
+          - Agents: guides/editor_features/agents.md
+          - Language Server: guides/editor_features/language_server.md
+      - Using your own editor: guides/editor_features/watching.md
+      - Run notebooks as apps: guides/apps.md
+      - Run notebooks as scripts: guides/scripts.md
+      - Reuse functions and classes: guides/reusing_functions.md
+      - Run in the cloud with molab: guides/molab.md
+      - Export to other formats:
+          - Export to other formats: guides/exporting/index.md
+          - Static HTML: guides/exporting/static_html.md
+          - PDF: guides/exporting/pdf.md
+          - Jupyter notebook: guides/exporting/jupyter_notebook.md
+          - Quarto: guides/exporting/quarto.md
+          - Jupyter Book: guides/exporting/jupyter_book.md
+          - MDX: guides/exporting/mdx.md
+          - Python script: guides/exporting/python_script.md
+          - Markdown: guides/exporting/markdown.md
+          - WebAssembly HTML: guides/exporting/webassembly_html.md
+          - Session snapshots: guides/exporting/sessions.md
+      - Publish to the web:
+          - Publish to the web: guides/publishing/index.md
+          - molab (recommended): guides/molab.md
+          - Public gallery: guides/publishing/public_gallery.md
+          - GitHub: guides/publishing/github.md
+          - Embed in other webpages: guides/publishing/embedding.md
+          - Cloudflare: guides/publishing/cloudflare.md
+          - Self-host WebAssembly notebooks: guides/publishing/self_host_wasm.md
+          - OpenGraph previews: guides/publishing/opengraph.md
+          - Thumbnails: guides/publishing/thumbnails.md
+      - Deploy notebook servers or apps:
+          - Deploy notebooks: guides/deploying/index.md
+          - Prebuilt containers: guides/deploying/prebuilt_containers.md
+          - Notebook servers:
+            - JupyterHub: guides/deploying/jupyterhub.md
+            - Kubernetes: guides/deploying/deploying_kubernetes.md
+            - SkyPilot: guides/deploying/deploying_skypilot.md
+            - Slurm: guides/deploying/deploying_slurm.md
+          - Apps:
+            - FastAPI: guides/deploying/programmatically.md
+            - Authentication: guides/deploying/authentication.md
+            - Docker: guides/deploying/deploying_docker.md
+            - HuggingFace: guides/deploying/deploying_hugging_face.md
+            - Railway: guides/deploying/deploying_railway.md
+            - nginx: guides/deploying/deploying_nginx.md
+      - WebAssembly notebooks: guides/wasm.md
+      - Configuration:
+          - Configuration: guides/configuration/index.md
+          - Runtime configuration: guides/configuration/runtime_configuration.md
+          - LLM Providers: guides/configuration/llm_providers.md
+          - HTML head: guides/configuration/html_head.md
+          - Theming: guides/configuration/theming.md
+          - Snippets: guides/configuration/snippets.md
+          - i18n: guides/configuration/internationalization.md
+      - Extending marimo:
+          - Extending marimo: guides/integrating_with_marimo/index.md
+          - Custom UI plugins: guides/integrating_with_marimo/custom_ui_plugins.md
+          - Displaying objects: guides/integrating_with_marimo/displaying_objects.md
+      - Coming from other tools:
+          - Coming from other tools: guides/coming_from/index.md
+          - Jupytext: guides/coming_from/jupytext.md
+          - Papermill: guides/coming_from/papermill.md
+          - Streamlit: guides/coming_from/streamlit.md
+      - Best practices: guides/best_practices.md
+      - Debugging: guides/debugging.md
+      - Linting:
+          - Lint Rules: guides/lint_rules/index.md
+          - Rules:
+              - Unparsable cells: guides/lint_rules/rules/unparsable_cells.md
+              - Multiple definitions: guides/lint_rules/rules/multiple_definitions.md
+              - Cycle dependencies: guides/lint_rules/rules/cycle_dependencies.md
+              - Setup cell dependencies: guides/lint_rules/rules/setup_cell_dependencies.md
+              - Syntax error: guides/lint_rules/rules/invalid_syntax.md
+              - Self Import: guides/lint_rules/rules/self_import.md
+              - Branch expression: guides/lint_rules/rules/branch_expression.md
+              - General formatting: guides/lint_rules/rules/general_formatting.md
+              - Parse stdout: guides/lint_rules/rules/parse_stdout.md
+              - Parse stderr: guides/lint_rules/rules/parse_stderr.md
+              - Empty cells: guides/lint_rules/rules/empty_cells.md
+              - Markdown indentation: guides/lint_rules/rules/markdown_indentation.md
+              - SQL parse error: guides/lint_rules/rules/sql_parse_error.md
+              - Misc parse log: guides/lint_rules/rules/misc_log_capture.md
+              - Reusable ordering: guides/lint_rules/rules/reusable_definition_order.md
+              - Private import alias: guides/lint_rules/rules/private_import_alias.md
+              - Incompatible import: guides/lint_rules/rules/incompatible_import.md
+              - Unsafe system call: guides/lint_rules/rules/unsafe_system_call.md
+              - Incompatible package: guides/lint_rules/rules/incompatible_package.md
+      - Testing:
+          - Testing notebooks: guides/testing/index.md
+          - pytest: guides/testing/pytest.md
+          - doctest: guides/testing/doctest.md
+      - Troubleshooting: guides/troubleshooting.md
+      - Dangerously set state: guides/state.md
+  - Examples:
+      - Examples: examples/index.md
+      - Recipes: recipes.md
+  - API Reference:
+      - API Reference: api/index.md
+      - Markdown: api/markdown.md
+      - Inputs:
+          - Inputs: api/inputs/index.md
+          - AnyWidget: api/inputs/anywidget.md
+          - Array: api/inputs/array.md
+          - Batch: api/inputs/batch.md
+          - Button: api/inputs/button.md
+          - Chat: api/inputs/chat.md
+          - Checkbox: api/inputs/checkbox.md
+          - Code Editor: api/inputs/code_editor.md
+          - Data Editor: api/inputs/data_editor.md
+          - Data Explorer: api/inputs/data_explorer.md
+          - DataFrame: api/inputs/dataframe.md
+          - Dates: api/inputs/dates.md
+          - Dictionary: api/inputs/dictionary.md
+          - Dropdown: api/inputs/dropdown.md
+          - File: api/inputs/file.md
+          - File Browser: api/inputs/file_browser.md
+          - Form: api/inputs/form.md
+          - Matrix: api/inputs/matrix.md
+          - Microphone: api/inputs/microphone.md
+          - Multiselect: api/inputs/multiselect.md
+          - Navigation Menu: api/inputs/nav_menu.md
+          - Number: api/inputs/number.md
+          - Radio: api/inputs/radio.md
+          - Range Slider: api/inputs/range_slider.md
+          - Refresh: api/inputs/refresh.md
+          - Run Button: api/inputs/run_button.md
+          - Slider: api/inputs/slider.md
+          - Switch: api/inputs/switch.md
+          - Table: api/inputs/table.md
+          - Tabs: api/inputs/tabs.md
+          - Text: api/inputs/text.md
+          - Text Area: api/inputs/text_area.md
+      - Control Flow: api/control_flow.md
+      - Layouts:
+          - Layouts: api/layouts/index.md
+          - Accordion: api/layouts/accordion.md
+          - Callout: api/layouts/callout.md
+          - Carousel: api/layouts/carousel.md
+          - Json: api/layouts/json.md
+          - Justify: api/layouts/justify.md
+          - Lazy: api/layouts/lazy.md
+          - Outline: api/layouts/outline.md
+          - Plain: api/layouts/plain.md
+          - Routes: api/layouts/routes.md
+          - Sidebar: api/layouts/sidebar.md
+          - Stacks: api/layouts/stacks.md
+          - Stat: api/layouts/stat.md
+          - Tree: api/layouts/tree.md
+      - Plotting: api/plotting.md
+      - Media:
+          - Media: api/media/index.md
+          - Audio: api/media/audio.md
+          - Download: api/media/download.md
+          - Image: api/media/image.md
+          - Image Compare: api/media/image_compare.md
+          - PDF: api/media/pdf.md
+          - Plain Text: api/media/plain_text.md
+          - Video: api/media/video.md
+      - Progress Bars and Status: api/status.md
+      - Outputs: api/outputs.md
+      - Diagrams: api/diagrams.md
+      - HTML: api/html.md
+      - Query Parameters: api/query_params.md
+      - Command Line Arguments: api/cli_args.md
+      - Caching: api/caching.md
+      - State: api/state.md
+      - App: api/app.md
+      - Cell: api/cell.md
+      - Watch: api/watch.md
+      - Miscellaneous: api/miscellaneous.md
+  - Commands: cli.md
+  - FAQ: faq.md
+  - Readings & Videos: reading.md
+  - Community:
+      - Community: community.md
+      - Contributing: https://github.com/marimo-team/marimo/blob/main/CONTRIBUTING.md
+      - Code of Conduct: https://github.com/marimo-team/marimo/blob/main/CODE_OF_CONDUCT.md
+  - Changelog: https://github.com/marimo-team/marimo/releases
+  - Integrations:
+      - Integrations: integrations/index.md
+      - BigQuery: integrations/google_cloud_bigquery.md
+      - Google Cloud Storage: integrations/google_cloud_storage.md
+      - Google Sheets: integrations/google_sheets.md
+      - MotherDuck: integrations/motherduck.md
+  - Security: security.md
+plugins:
+  - search
+  - git-revision-date-localized:
+      fallback_to_build_date: true
+  - social:
+      cards_layout_options:
+        background_color: '#FFFFFF'
+        color: '#000000'
+        font_family: Roboto
+  - tags
+  - redirects:
+      redirect_maps:
+        guides/package_management/using_uv.md: guides/package_management/index.md
+        guides/package_management/notebooks_in_projects.md: guides/package_management/projects.md
+        guides/package_management/inlining_dependencies.md: guides/package_management/sandboxes.md
+        guides/package_management/importing_packages.md: guides/package_management/importing_local_code.md
+        guides/editor_features/package_management.md: guides/package_management/installing_packages.md
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          load_external_modules: true
+          import:
+            - url: https://docs.python.org/3/objects.inv
+              domains: [py, std]
+          options:
+            preload_modules:
+              - starlette
+            filters:
+              - '!^_'
+            # General
+            allow_inspection: false
+            show_bases: true
+            show_source: false
+            find_stubs_package: true
+            # Headings
+            heading_level: 2
+            show_root_heading: true
+            # Members
+            inherited_members: true
+            # Docstrings
+            merge_init_into_class: true
+            show_if_no_docstring: true
+            docstring_section_style: spacy
+            docstring_style: google
+            # Signatures
+            separate_signature: true
+            unwrap_annotated: true
+            annotations_path: brief
+            line_length: 60
+            modernize_annotations: true
+            signature_crossrefs: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_signature_annotations: true
+  - autorefs
+hooks:
+  - docs/hooks.py
+repo_name: marimo-team/marimo
+repo_url: https://github.com/marimo-team/marimo
+site_description: The next generation of Python notebooks
+site_name: marimo
+site_url: https://docs.marimo.io
+validation:
+  links:
+    anchors: warn
+theme:
+  favicon: _static/favicon-32x32.png
+  features:
+    - announce.dismiss # dismissible announcements
+    - content.code.copy # add copy button to code blocks
+    - header.autohide # auto-hide header on scroll
+    - navigation.indexes # section index pages
+    - navigation.instant # faster page loads
+    - navigation.path # show navigation breadcrumb path
+    - navigation.tabs # show navigation as tabs
+    - navigation.tabs.sticky # keep navigation tabs visible when scrolling
+    - navigation.top # back to top button
+    - navigation.tracking # updates URL as you scroll
+    - navigation.footer # links to previous/next page, helpful for small screens
+    - search.highlight # highlight search results
+    - search.share # shareable search links
+    - search.suggest # search suggestions
+    - toc.follow # auto-scroll TOC
+  font:
+    code: Fira Mono
+    text: PT Sans
+  icon:
+    admonition:
+      tip: material/lightbulb-outline
+  logo: _static/marimo-logotype-horizontal.png
+  name: material
+  palette:
+    # Palette toggle for system preference and use brightness-auto icon
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      primary: white
+      accent: teal
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      primary: black
+      accent: teal
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+exclude_docs: |
+  apps/README.md

@@ -1,0 +1,38 @@
+{
+  "name": "@alkera/widgets",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "description": "The Jupyter widget manager that runs inside the notebook's sandboxed output frame: ipywidgets controls, Output, anywidget, alkera.ui elements and environment widget libraries, with every module arriving as text over postMessage.",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./protocol": "./src/protocol.ts",
+    "./bundle": "./dist/alkera-widgets.js",
+    "./manifest": "./dist/manifest.json"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0",
+    "walkthrough": "node ./tests/walkthrough/run.mjs"
+  },
+  "devDependencies": {
+    "@alkera/eslint-config": "workspace:*",
+    "@jupyter-widgets/base": "6.0.12",
+    "@jupyter-widgets/base-manager": "1.0.13",
+    "@jupyter-widgets/controls": "5.0.13",
+    "@lumino/widgets": "2.9.0",
+    "es-module-lexer": "3.0.2",
+    "esbuild": "^0.28.2",
+    "eslint": "^9.10.0",
+    "jsdom": "25.0.0",
+    "playwright-core": "1.60.0",
+    "typescript": "^5.5.4",
+    "vega-expression": "6.2.2",
+    "vitest": "4.1.11"
+  }
+}

@@ -1,0 +1,175 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from tests._server.mocks import token_header, with_read_session, with_session
+
+if TYPE_CHECKING:
+    from starlette.testclient import TestClient
+
+SESSION_ID = "session-123"
+HEADERS = {
+    "Marimo-Session-Id": SESSION_ID,
+    **token_header("fake-token"),
+}
+
+
+@with_session(SESSION_ID)
+def test_discover_data_sources(client: TestClient) -> None:
+    response = client.post(
+        "/api/datasources/discover",
+        headers=HEADERS,
+        json={"requestId": "discovery-request"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["success"] is True
+
+
+@with_session(SESSION_ID)
+def test_preview_column(client: TestClient) -> None:
+    response = client.post(
+        "/api/datasources/preview_column",
+        headers=HEADERS,
+        json={
+            "sourceType": "connection",
+            "source": "test_source",
+            "tableName": "test_table",
+            "columnName": "test_column",
+        },
+    )
+    assert response.status_code == 200, response.text
+    content = response.json()
+    assert content["success"] is True
+
+
+@with_session(SESSION_ID)
+def test_preview_sql_table(client: TestClient) -> None:
+    response = client.post(
+        "/api/datasources/preview_sql_table",
+        headers=HEADERS,
+        json={
+            "requestId": "test_request_id",
+            "engine": "test_engine",
+            "database": "test_db",
+            "schema": "test_schema",
+            "tableName": "test_table",
+        },
+    )
+    assert response.status_code == 200, response.text
+    content = response.json()
+    assert content["success"] is True
+
+
+@with_session(SESSION_ID)
+def test_preview_sql_schema_list(client: TestClient) -> None:
+    response = client.post(
+        "/api/datasources/preview_sql_schema_list",
+        headers=HEADERS,
+        json={
+            "requestId": "test_request_id",
+            "engine": "test_engine",
+            "database": "test_db",
+        },
+    )
+    assert response.status_code == 200, response.text
+    content = response.json()
+    assert content["success"] is True
+
+
+@with_session(SESSION_ID)
+def test_preview_sql_table_list(client: TestClient) -> None:
+    response = client.post(
+        "/api/datasources/preview_sql_table_list",
+        headers=HEADERS,
+        json={
+            "requestId": "test_request_id",
+            "engine": "test_engine",
+            "database": "test_db",
+            "schema": "test_schema",
+        },
+    )
+    assert response.status_code == 200, response.text
+    content = response.json()
+    assert content["success"] is True
+
+
+@with_session(SESSION_ID)
+def test_preview_datasource_connection(client: TestClient) -> None:
+    response = client.post(
+        "/api/datasources/preview_datasource_connection",
+        headers=HEADERS,
+        json={
+            "engine": "test_engine",
+        },
+    )
+    assert response.status_code == 200, response.text
+    content = response.json()
+    assert content["success"] is True
+
+
+@with_read_session(SESSION_ID)
+def test_fails_in_read_mode(client: TestClient) -> None:
+    response = client.post(
+        "/api/datasources/discover",
+        headers=HEADERS,
+        json={"requestId": "discovery-request"},
+    )
+    assert response.status_code == 401
+
+    response = client.post(
+        "/api/datasources/preview_column",
+        headers=HEADERS,
+        json={
+            "sourceType": "connection",
+            "source": "test_source",
+            "tableName": "test_table",
+            "columnName": "test_column",
+        },
+    )
+    assert response.status_code == 401
+
+    response = client.post(
+        "/api/datasources/preview_sql_table",
+        headers=HEADERS,
+        json={
+            "requestId": "test_request_id",
+            "engine": "test_engine",
+            "database": "test_db",
+            "schema": "test_schema",
+            "tableName": "test_table",
+        },
+    )
+    assert response.status_code == 401
+
+    response = client.post(
+        "/api/datasources/preview_sql_schema_list",
+        headers=HEADERS,
+        json={
+            "requestId": "test_request_id",
+            "engine": "test_engine",
+            "database": "test_db",
+        },
+    )
+    assert response.status_code == 401
+
+    response = client.post(
+        "/api/datasources/preview_sql_table_list",
+        headers=HEADERS,
+        json={
+            "requestId": "test_request_id",
+            "engine": "test_engine",
+            "database": "test_db",
+            "schema": "test_schema",
+        },
+    )
+    assert response.status_code == 401
+
+    response = client.post(
+        "/api/datasources/preview_datasource_connection",
+        headers=HEADERS,
+        json={
+            "engine": "test_engine",
+        },
+    )
+    assert response.status_code == 401

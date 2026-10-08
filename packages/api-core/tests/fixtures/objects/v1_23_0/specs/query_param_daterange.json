@@ -1,0 +1,10 @@
+{
+  "enum_values": [],
+  "label": "Period",
+  "metadata": {},
+  "name": "period",
+  "prompt": "",
+  "required": false,
+  "schema_version": "1.3.0",
+  "type": "daterange"
+}

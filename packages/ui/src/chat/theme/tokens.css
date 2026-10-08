@@ -1,0 +1,374 @@
+/* The canonical chat's token vocabulary: paper, ink borders, mono meta columns,
+   perforated tear-lines. Everything in this package scopes under a `.chat-root`
+   element the host renders.
+
+   The chat owns its TYPE, its GEOMETRY and its MOTION. It does not own its
+   COLOUR: every ground, ink and hairline below reads @alkera/ui's token layer,
+   so the surface is the same paper as the shell around it — the portal's page in
+   a browser tab, the editor's in a webview — and a scheme change moves the two
+   together. `.chat-root[data-theme="dark"]` is what the host stamps for the dark
+   scheme; it now carries only the two presences a dark ground measures
+   differently, because the palette itself forks one layer up. */
+
+.chat-root {
+  /* Faces */
+  --chat-sans: "Instrument Sans", system-ui, sans-serif;
+  --chat-mono:
+    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* TYPE-LADDER SEAM (published).
+     Three sizes, three line boxes, all multiples of 4. Every slotted surface --
+     composer, interrupt, tool card, prose -- reads THESE names and publishes no
+     alias of its own. A fourth size would have to name a fourth kind of matter,
+     and there is not one: rank inside a size comes from weight, case, ink, and
+     measure. A slotted surface consumes each with a literal fallback so it also
+     holds standalone, outside this scope.
+
+     DISPLAY 18/24/600, tracking 0. At most one per screen -- a prose h1 or h2,
+     and the question card's apex. Those have to outrank a paragraph across a
+     gap, where weight alone stops carrying. 18 over 14 is 1.286, and 24 is 4px
+     clear of Text's box.
+
+     TEXT 14/20/400-500 (600 for a dialog title and the one filled action),
+     tracking 0. Everything a person reads as language. It holds 46 characters
+     at a 320px panel and 63 at 420px, inside the 45-75 band. The leading is
+     derived, not copied: attested screen prose runs 2.75-2.95 times the inked
+     x-height, and Instrument Sans inks 7.14px at 14px, so the band is
+     19.6-21.1px and 20 is the grid value in it. Tracking is 0 because Apple's
+     positive tracking below 16pt compensates for an optical-size switch a
+     static web face does not have.
+
+     RECORD 12/16/400-500, tracking +0.014em. Everything the machine emitted or
+     the panel stamps: the whole tool card head to foot, code inline and fenced,
+     paths, commands, figures, counts, timestamps, chrome and quick links,
+     keycaps, control labels, captions. Carbon holds its entire utility tier at
+     12/16 and never goes lower. The tracking is Apple's 12pt floor of +0.016em
+     scaled by 0.911, the advance ratio of SF Pro's 0.6064em zero against
+     Instrument Sans's 0.666em.
+
+     RECORD CAPITALS is not a step, it is a case: Record at 500 with
+     --chat-track-caps. Exactly four roles take it, each a label naming a block
+     rather than a heading over one -- a code fence's language stamp, a result
+     grid's column head, a menu section caption, and a question card's header.
+     0.08em sits inside Bringhurst's 5-10% band for a string of capitals.
+
+     Mono takes 0 tracking at every size: IBM Plex Mono already sets 0.600em per
+     character against the sans's 0.4389em. */
+  --chat-fs-display: 18px;
+  --chat-fs-text: 14px;
+  --chat-fs-record: 12px;
+  /* The mono step: one notch under the text size so the two read as the same
+     size. MEASURED at 14px -- the x-heights already match (Plex Mono 7.22
+     against Instrument Sans 7.14), but a mono character advances 8.40 against
+     the sans's 7.71, 9% wider, which is what makes a mono run look larger than
+     the prose beside it. At 13px the advance is 7.80, within 1% of the sans. */
+  --chat-fs-mono: 13px;
+
+  --chat-lh-display: 24px;
+  --chat-lh-text: 20px;
+  --chat-lh-record: 16px;
+
+  /* The spacing ladder: the 8px grid with its 4px half-step (the scale M3 and
+     Carbon share), declared once so a regrid is one edit. Component sheets
+     spend these; a raw px spacing value in one is drift. A 1px value survives
+     only as an optical nudge, never as rhythm. */
+  --chat-sp-1: 4px;
+  --chat-sp-2: 8px;
+  --chat-sp-3: 12px;
+  --chat-sp-4: 16px;
+  --chat-sp-5: 24px;
+  --chat-sp-6: 32px;
+
+  --chat-track-record: 0.014em;
+  --chat-track-caps: 0.08em;
+
+  /* One job each: 400 is running text and every payload, 500 is the small-caps
+     substitute and is what carries rank at Record where no size step is left,
+     600 is Display, a dialog title, and the one filled action. */
+  --chat-w-regular: 400;
+  --chat-w-medium: 500;
+  --chat-w-semi: 600;
+
+  /* Unified radius family, shared across all slotted surfaces: micro 4 for
+     inline marks (inline code, keycaps, counts), control 8 for controls and
+     recessive containers (buttons, links, fences, notices, cards), surface 12 for
+     the hero interactive surfaces (composer unit, permission card). */
+  --chat-radius-micro: 4px;
+  --chat-radius-control: 8px;
+  --chat-radius-surface: 12px;
+
+  /* MOTION SEAM. Two curves and three durations carry every entrance and every
+     state change in the package.
+
+     Both curves come to rest with zero velocity, so nothing overshoots. `out`
+     leaves at full speed and is what an arriving surface takes: a card, a menu,
+     a streamed word. `soft` spends its first fifth getting up to speed, which
+     is what a hover wants -- the wash follows the pointer rather than leading
+     it.
+
+     Durations outside these three steps stay literal where they were measured:
+     the home row's 80ms lift, the chrome and nav's 100ms, the composer's 110ms,
+     and the loops (spinner, sheen, sweep, beat) whose periods answer to how
+     they read rather than to this scale. */
+  --chat-ease-out: cubic-bezier(0, 0, 0, 1);
+  --chat-ease-soft: cubic-bezier(0.2, 0, 0, 1);
+
+  --chat-dur-fast: 120ms;
+  --chat-dur-medium: 140ms;
+  --chat-dur-slow: 160ms;
+
+  --chat-control-transition:
+    background-color var(--chat-dur-slow) var(--chat-ease-soft),
+    border-color var(--chat-dur-slow) var(--chat-ease-soft),
+    color var(--chat-dur-slow) var(--chat-ease-soft);
+
+  /* TRANSFER SHARES. What one side hands the other is a block with an edge, so
+     it takes a share of the reading column rather than all of it -- a message
+     that runs wall to wall has no sender. Both shares are percentages of the
+     panel the reader actually has, never a pixel measure: a fixed cap makes the
+     chrome, the composer, and the tool wells flex while the messages between
+     them sit at some width the panel stopped explaining a drag ago.
+
+     The agent takes the wider share: it is answering, and its blocks host
+     documents, reports and asks the reader's own ticket never carries. Both
+     ladders yield together as the panel narrows (see ticket.css), and under
+     ~320px neither side has width to give away. */
+  --chat-user-share: 85%;
+  --chat-agent-share: 90%;
+
+  /* Gutter marks (the readability dot AND any content status badge) share ONE column:
+     --chat-gutter-mark-x is the mark centre's x relative to the block's content-left edge,
+     exactly 16px into the left gutter. --chat-dot-size is the dot. */
+  --chat-dot-size: 6px;
+  --chat-gutter-mark-x: -16px;
+
+  /* GROUND AND INK — the shell's, not this package's.
+     Every neutral here reads @alkera/ui's token layer (theme/tokens.css), which
+     the portal and the editor both install: the chat is the SAME paper, ink and
+     hairline as the page around it, and a scheme change moves them together. So
+     there is no light/dark fork below for a ground or an ink — that fork already
+     happened one layer up, on `:root` and `[data-alkera-color-scheme="light"]`;
+     only the presences a dark ground measures differently (the hover lift, the
+     composer's outline) are restated in the dark block, and the chroma the token
+     layer has no name for (syntax, the finished mark) stays package-owned.
+
+     Each carries the light value as a fallback, so the package still renders
+     standalone in a host that mounts it without that layer. */
+  --chat-paper: var(--alkPageBg, #f4f3f0);
+  --chat-paper-raised: var(--alkCardBg, #ffffff);
+  /* The recessed ground the activity well sits on. Built as a wash of the ink
+     over the paper rather than a third token, so it steps AWAY from the paper in
+     whichever direction the scheme allows — down on light, up on dark — and
+     stays a shallow tier either way. */
+  --chat-paper-inset: color-mix(in srgb, var(--chat-ink) 4%, var(--chat-paper));
+  --chat-composer-fill: var(--alkControlBg, #ffffff);
+  --chat-ink: var(--alkPrimaryText, #1b1a17);
+  --chat-ink-hover: var(--alkPrimaryText, #1b1a17);
+  --chat-ink-2: var(--alkSecondaryText, #5f5b53);
+  /* A third tier the token layer does not name: secondary carried part of the
+     way back to the ground. Solid, not an alpha, so it holds its measured
+     contrast over a hovered row's wash as well as over bare paper. */
+  --chat-ink-3: color-mix(in srgb, var(--alkSecondaryText, #5f5b53) 84%, var(--chat-paper));
+  --chat-ink-4: var(--alkPlaceholderText, rgb(95 91 83 / 62%));
+  --chat-hairline: var(--alkBorder, rgb(60 52 40 / 14%));
+  --chat-hairline-strong: var(--alkBorderStrong, rgb(60 52 40 / 26%));
+  /* Dividers the reader must find: the chrome's dashed rule, the open cluster's
+     frame, the quick-link chip borders. Scoped off the ink rather than the
+     border token, which is tuned to stay quiet and measured under 1.5:1 here. */
+  --chat-divider: color-mix(in srgb, var(--chat-ink) 32%, transparent);
+  /* Functional outline the user must find: the composer frame (clears 3:1). */
+  --chat-edge: color-mix(in srgb, var(--chat-ink) 58%, transparent);
+  --chat-wash: var(--alkHoverBg, color-mix(in srgb, #1b1a17 5%, transparent));
+  /* Hover is a lift, not an identity: one pair, four consumers -- the
+     quick-link chips, the chat row lines, the count badge, and the row menu
+     key -- so the badge and the menu key hover identically. A chat row is
+     content, and content stays neutral, so the ground is the page's own
+     foreground ink rather than a hue. Written as an alpha of --chat-ink so it
+     composites over whatever ground the host paints and follows the host's own
+     ink when the webview remaps it. */
+  --chat-hover: color-mix(in srgb, var(--chat-ink) 12%, transparent);
+  --chat-hover-rule: color-mix(in srgb, var(--chat-ink) 20%, transparent);
+  /* The subagent thread's ink, scoped off the strong hairline so the host
+     remap can re-point the rail alone (the IDE maps it to the tree indent
+     guide). */
+  --chat-rail: var(--chat-hairline-strong);
+
+  /* ACCENT. The chat spends the shell's one accent, and spends it sparingly:
+     the send key, the active chip, the default mode's mark. `forest` is the
+     reading ink (it lands on paper), `forest-bright` the fill a label sits on. */
+  --chat-forest: var(--alkBrandText, #3c4a0b);
+  --chat-forest-bright: var(--alkBrand, #697a49);
+  /* Data blue: the shell's information tone, for a figure the reader compares
+     rather than acts on. */
+  --chat-blue: var(--alkInfoText, oklch(from #6f9aff 0.42 c h));
+  /* The finished mark's own blue: the solid fill, because the dot is news and
+     the reading tone reads too quiet as a 6px mark. */
+  --chat-done: var(--alkInfo, #6f9aff);
+  --chat-danger: var(--alkDangerText, #963620);
+  --chat-danger-wash: var(--alkDangerSoft, color-mix(in srgb, #b8462f 16%, transparent));
+  --chat-danger-line: color-mix(in srgb, var(--alkDanger, #b8462f) 34%, transparent);
+  --chat-warn: var(--alkWarningText, #835a12);
+  --chat-warn-wash: var(--alkWarningSoft, color-mix(in srgb, #9a7b2e 16%, transparent));
+  --chat-warn-line: color-mix(in srgb, var(--alkWarning, #9a7b2e) 34%, transparent);
+
+  /* Count badge, a data tint that brightens briefly on increment. The edge ring
+     is what bounds it over a hovered row, where ground-vs-wash alone is 1.3:1. */
+  --chat-count-bg: color-mix(in srgb, var(--alkInfo, #6f9aff) 20%, transparent);
+  --chat-count-ink: var(--chat-blue);
+  --chat-count-flash: color-mix(in srgb, var(--alkInfo, #6f9aff) 38%, transparent);
+  --chat-count-edge: color-mix(in srgb, var(--alkInfo, #6f9aff) 46%, transparent);
+
+  /* HOST-THEME SEAM. Every syntax-highlight and code-surface color lives here as
+     a token, so no code color is hard-coded in any rule outside this seam. The
+     webview's remap (chat-ui-host-theme.css) re-points the neutrals and grounds
+     at the editor's theme; the syntax hues ride the shell's categorical ramp,
+     which is pinned to one lightness per scheme, so a keyword and a string land
+     at the same contrast on either paper. */
+  --chat-sql-keyword: var(--alkCat3Text, oklch(0.42 0.08 120));
+  --chat-sql-function: var(--alkCat5Text, oklch(0.42 0.07 250));
+  --chat-sql-string: var(--alkCat4Text, oklch(0.44 0.08 85));
+  --chat-sql-number: var(--alkCat2Text, oklch(0.43 0.1 45));
+  --chat-sql-comment: var(--chat-ink-3);
+  /* Bash kinds (command previews in tool cards + the permission interrupt).
+     Defaults derive from the SQL palette above, so they flip with the theme and
+     remap with the host seam; a surface with its own measured palette overrides
+     these vars in its scope rather than restating the token rules. */
+  --chat-bash-cmd: var(--chat-sql-keyword);
+  --chat-bash-cmd-weight: var(--chat-w-medium);
+  --chat-bash-flag: var(--chat-sql-number);
+  --chat-bash-string: var(--chat-sql-string);
+  --chat-bash-muted: var(--chat-sql-comment);
+  /* Code fence chrome: NEUTRAL header + body; the language icon alone carries
+     identity. A fence sits on a CARD, so its well is a wash of the ink over the
+     card — one tone in from it on either scheme, never a colour of its own. */
+  --chat-fence-ground: color-mix(in srgb, var(--chat-ink) 4%, var(--chat-paper-raised));
+  --chat-fence-cap: color-mix(in srgb, var(--chat-ink) 8%, var(--chat-paper-raised));
+  --chat-fence-edge: var(--chat-hairline);
+  --chat-fence-accent: var(--chat-ink-2);
+  /* Inline code: the same code system as an alpha, so one value reads on the
+     paper, on a card, and on a hovered row alike. */
+  --chat-code-bg: color-mix(in srgb, var(--chat-ink) 6%, transparent);
+  --chat-code-edge: var(--chat-hairline);
+  --chat-code-ink: var(--chat-ink);
+
+  /* Mode identities on a risk gradient: default takes the shell's accent, plan
+     the information tone, auto the warning, read-only the quiet ink, bypass the
+     danger — so the ramp is the shell's own status vocabulary, read as risk. */
+  --chat-mode-default: var(--chat-forest);
+  --chat-mode-plan: var(--chat-blue);
+  --chat-mode-auto: var(--chat-warn);
+  --chat-mode-read_only: var(--chat-ink-2);
+  --chat-mode-bypass: var(--chat-danger);
+
+  /* The focus ink is the page's own ink, NOT --alkFocusRing: the line below
+     points the library's ring at this name, and reading the library's ring here
+     would close a cycle that invalidates both and erases every ring on the
+     surface. The webview's remap breaks the loop on `body` instead. */
+  --chat-focus: var(--chat-ink);
+
+  /* The shared ring in @alkera/ui's reset reads --alkFocusRing, so point it at this
+     package's own focus ink. Without this a control with no ring rule of its own would
+     draw the library's brand colour on a chat surface. The extension host maps these
+     the other way round, which is the same unification from the other side. */
+  --alkFocusRing: var(--chat-focus);
+
+  font-family: var(--chat-sans);
+  color: var(--chat-ink);
+  background: var(--chat-paper);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root {
+    --chat-control-transition: none;
+  }
+}
+
+/* Dark carries the same tokens: the grounds, inks and hairlines above already
+   read the shell's layer, which forks itself, so nothing about the paper is
+   restated here. What is left is the two presences a dark ground measures
+   differently — a lift on a dark paper reads at a lower alpha than the same lift
+   on white, and a light outline at 58% of the ink is glare rather than an edge. */
+.chat-root[data-theme="dark"] {
+  --chat-edge: color-mix(in srgb, var(--chat-ink) 46%, transparent);
+  --chat-hover: color-mix(in srgb, var(--chat-ink) 9%, transparent);
+}
+
+/* DOCK FAMILY RAMP. The permission card, the question card, the transcript's
+   question mirror, and the plan surfaces are one surface family, so its palette
+   declares once on the five organ roots and dark swaps it there. Every rule in
+   dialog.css and the organ sheets reads these names and forks nothing per
+   theme. The ramp is scoped to the organs rather than to .chat-root, so a name
+   like --chat-dialog-wash means "on a raised card" and cannot be read by
+   accident anywhere else. Type is NOT here: these organs read the ladder above
+   directly, so no alias sits between a dock card and the seam. */
+.chat-root
+  :is(
+    .chat-permission-card,
+    .chat-question-frame,
+    .chat-asked-card,
+    .chat-plan-doc,
+    .chat-plan-card
+  ) {
+  /* One cap for every dock card: yield to the viewport, never crush below a
+     usable box; past either bound the card's body scrolls, not the actions. */
+  --chat-dialog-max-h: max(min(60vh, 480px), 240px);
+
+  /* A step in from the card the evidence sits on: the mono block recesses under
+     the elevated card rather than beside it. Built off the ink, so it steps down
+     on a light card and up on a dark one without a fork. */
+  --chat-dialog-inset: color-mix(in srgb, var(--chat-ink) 5%, var(--chat-paper-raised));
+  /* A fainter hairline for the inset's own edge. */
+  --chat-dialog-hairline-2: color-mix(in srgb, var(--chat-ink) 8%, transparent);
+  /* One step past --chat-wash so a hover still registers on the raised card. */
+  --chat-dialog-wash: color-mix(in srgb, var(--chat-ink) 6%, transparent);
+  --chat-dialog-wash-2: color-mix(in srgb, var(--chat-ink) 11%, transparent);
+
+  --chat-dialog-forest-wash: var(--alkBrandSubtle, color-mix(in srgb, #697a49 12%, transparent));
+
+  /* Danger: the Deny treatment. A tint plus a red label and edge -- a real
+     danger register that stays secondary to the filled primary. */
+  --chat-dialog-danger: var(--chat-danger);
+  --chat-dialog-danger-ring: var(--alkDanger, #b8462f);
+  --chat-dialog-danger-wash: color-mix(in srgb, var(--alkDanger, #b8462f) 9%, transparent);
+  --chat-dialog-danger-wash-2: color-mix(in srgb, var(--alkDanger, #b8462f) 15%, transparent);
+  --chat-dialog-danger-edge: color-mix(in srgb, var(--alkDanger, #b8462f) 30%, transparent);
+
+  /* A link subject: the shell's own link ink, which clears 4.5:1 on the inset. */
+  --chat-dialog-link: var(--alkLinkText, var(--chat-blue));
+
+  /* Bash syntax, fed into the highlighter's --chat-bash-* seam by permission.css.
+     The string tone is the theme's, so the card reads the same code the
+     transcript does. */
+  --chat-dialog-tok-str: var(--chat-sql-string);
+  --chat-dialog-tok-muted: var(--chat-ink-2);
+
+  /* The one filled action: the shell's own primary button, so an Approve in the
+     chat is the same block as an Add member on a portal page. */
+  --chat-dialog-primary: var(--alkActionPrimaryBg, #697a49);
+  --chat-dialog-primary-hover: var(--alkActionPrimaryBgHover, #5b6c3b);
+  --chat-dialog-primary-ink: var(--alkActionPrimaryText, #ffffff);
+  --chat-dialog-key-ink: color-mix(in srgb, var(--chat-dialog-primary-ink) 82%, transparent);
+  --chat-dialog-key-edge: color-mix(in srgb, var(--chat-dialog-primary-ink) 26%, transparent);
+  --chat-dialog-key-fill: color-mix(in srgb, var(--chat-dialog-primary-ink) 12%, transparent);
+
+  /* Elevation: the shell's own two-layer shadows, which already darken for the
+     dark scheme. */
+  --chat-dialog-elev: var(--alkShadowMd, 0 5px 18px rgb(31 30 27 / 14%));
+  --chat-dialog-elev-menu: var(--alkShadowLg, 0 16px 42px rgb(31 30 27 / 18%));
+}
+
+/* Dark takes the same ramp: every value above is a mix of this theme's own ink,
+   card and accent, all of which the shell's layer has already flipped. Only the
+   inset changes hands — on a dark card the evidence recesses toward the page
+   ground rather than away from it. */
+.chat-root[data-theme="dark"]
+  :is(
+    .chat-permission-card,
+    .chat-question-frame,
+    .chat-asked-card,
+    .chat-plan-doc,
+    .chat-plan-card
+  ) {
+  --chat-dialog-inset: var(--chat-paper-inset);
+}

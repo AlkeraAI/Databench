@@ -1,0 +1,150 @@
+/* CodeBlock (alk-codeblock) — a syntax-highlighted code plate. Prism owns the grammar; the theme is
+ * ours: warm brand pigments on graphite ink (olive keywords, clay strings), zero cold data-neon. The
+ * token palette is DERIVED from the semantic tokens, so it resolves per light/dark AND per host with
+ * no second palette — inside VS Code the surface adopts the editor's own background / foreground /
+ * font, and the token hues track the brand semantic tokens (which the IDE layer already maps). */
+.alk-codeblock {
+  /* Two hues carry the structure — olive/brand for keywords, green for strings — the rest is weight
+     on the reading ink. Each value already switches with the scheme + host, so the plate adapts. */
+  --alk-tok-keyword: var(--alkBrandText);
+  --alk-tok-string: var(--alkSuccessText);
+  --alk-tok-number: var(--alkWarningText);
+  --alk-tok-comment: var(--alkTertiaryText);
+  --alk-tok-punct: var(--alkSecondaryText);
+  --alk-tok-name: var(--alkPrimaryText);
+
+  margin: 0;
+  max-width: 100%;
+  overflow: auto;
+  padding: var(--alkSpace4) 0;
+  /* Surface: the editor background inside VS Code, else the warm code ground / raised card. */
+  background: var(--vscode-editor-background, var(--alkRaisedBg));
+  color: var(--vscode-editor-foreground, var(--alkPrimaryText));
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  font-family: var(--vscode-editor-font-family, var(--alkFontMono));
+  font-size: var(--alk-codeblock-fs, var(--alkTextSm));
+  line-height: var(--alkLeadingSnug);
+  tab-size: 2;
+}
+/* The roomier reading size -- a plate a user studies + copies (a workflow file), not a dense snippet. */
+.alk-codeblock[data-size="md"] {
+  --alk-codeblock-fs: var(--alkTextMd);
+}
+.alk-codeblock__code {
+  display: block;
+  /* Let the longest line set the scroll width so a short line doesn't clip a long one. */
+  min-width: max-content;
+  font: inherit;
+}
+.alk-codeblock--wrap .alk-codeblock__code {
+  min-width: 0;
+}
+
+/* A line = gutter number · highlighted text. The flush variant (no gutter) drops the number column. */
+.alk-codeblock__line {
+  display: flex;
+  gap: var(--alkSpace5);
+  padding: 0 var(--alkSpace5);
+}
+.alk-codeblock__n {
+  flex: 0 0 auto;
+  min-width: 2ch;
+  text-align: right;
+  color: var(--alk-tok-comment);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.alk-codeblock__t {
+  flex: 1 1 auto;
+  white-space: pre;
+}
+.alk-codeblock--wrap .alk-codeblock__t {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.alk-codeblock--flush {
+  padding: var(--alkSpace4) var(--alkSpace5);
+}
+.alk-codeblock--flush .alk-codeblock__code {
+  white-space: pre;
+}
+.alk-codeblock--flush.alk-codeblock--wrap .alk-codeblock__code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── The copy affordance: a button floated at the plate's top-right corner, at the code's own
+      padding. Absolute, so it stays put while the plate scrolls under it; a code-ground backdrop
+      masks the text beneath. `hover` fades it in on hover / keyboard focus of the plate. ───────── */
+.alk-codeblock-frame {
+  position: relative;
+}
+.alk-codeblock-frame__copy {
+  position: absolute;
+  top: var(--alkSpace4);
+  right: var(--alkSpace5);
+  background: var(--vscode-editor-background, var(--alkRaisedBg));
+}
+.alk-codeblock-frame--hover .alk-codeblock-frame__copy {
+  opacity: 0;
+  transition: opacity var(--alkDurationFast) var(--alkEaseStandard);
+}
+.alk-codeblock-frame--hover:hover .alk-codeblock-frame__copy,
+.alk-codeblock-frame--hover:focus-within .alk-codeblock-frame__copy {
+  opacity: 1;
+}
+
+/* ── The theme: OUR warm tokens on Prism's grammar classes (alk-tok--*) ─────────────────────────── */
+.alk-tok--comment,
+.alk-tok--prolog,
+.alk-tok--doctype,
+.alk-tok--cdata {
+  color: var(--alk-tok-comment);
+  font-style: italic;
+}
+.alk-tok--punctuation,
+.alk-tok--operator {
+  color: var(--alk-tok-punct);
+}
+.alk-tok--keyword,
+.alk-tok--atrule,
+.alk-tok--rule,
+.alk-tok--important,
+.alk-tok--selector {
+  color: var(--alk-tok-keyword);
+  font-weight: 600;
+}
+.alk-tok--string,
+.alk-tok--char,
+.alk-tok--attr-value,
+.alk-tok--inserted,
+.alk-tok--url,
+.alk-tok--regex {
+  color: var(--alk-tok-string);
+}
+.alk-tok--function,
+.alk-tok--class-name,
+.alk-tok--builtin,
+.alk-tok--function-name {
+  color: var(--alk-tok-name);
+  font-weight: 600;
+}
+.alk-tok--number,
+.alk-tok--boolean,
+.alk-tok--constant,
+.alk-tok--symbol {
+  color: var(--alk-tok-number);
+}
+/* JSON keys / object properties / tag + attribute names / variables — the named structure. */
+.alk-tok--property,
+.alk-tok--tag,
+.alk-tok--attr-name,
+.alk-tok--key,
+.alk-tok--variable {
+  color: var(--alk-tok-name);
+  font-weight: 500;
+}
+.alk-tok--deleted {
+  color: var(--alkDangerText);
+}

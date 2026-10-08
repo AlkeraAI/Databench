@@ -1,0 +1,52 @@
+/* ── IconChip (alk-iconchip) ────────────────────────────────────────────────
+ * A small, non-interactive tinted square holding a glyph — the decorative badge in card / section
+ * headers and media cells (the still sibling of an icon-only Button: no cursor, hover, or focus). The chip
+ * sizes the glyph itself, so a caller drops in any icon. Every value is a role token. */
+
+.alk-iconchip {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: var(--alk-iconchip-box);
+  height: var(--alk-iconchip-box);
+  border: 1px solid transparent;
+  border-radius: var(--alkRadiusMd);
+  /* brand tone is the default — its wash + ink live on the base rule so an omitted data-tone
+     still paints. */
+  background: var(--alkBrandSubtle);
+  color: var(--alkBrandText);
+}
+
+/* The chip drives the glyph size — a CSS width/height wins over the SVG's own width/height
+   attributes — so the icon lines up at every size regardless of the size the caller gave the icon. */
+.alk-iconchip svg {
+  width: var(--alk-iconchip-glyph);
+  height: var(--alk-iconchip-glyph);
+}
+
+/* sizes — a decorative badge scale (smaller than control buttons); md (28) is the section-header
+   chip (the default, on the base rule). Off-scale box literals, named here; glyphs ride the icon
+   tokens. `:where()` keeps each selector at single-class specificity. */
+.alk-iconchip {
+  --alk-iconchip-box: 28px;
+  --alk-iconchip-glyph: var(--alkIconMd);
+}
+.alk-iconchip:where([data-size="sm"]) {
+  --alk-iconchip-box: 24px;
+  --alk-iconchip-glyph: var(--alkIconSm);
+}
+.alk-iconchip:where([data-size="lg"]) {
+  --alk-iconchip-box: 34px;
+  --alk-iconchip-glyph: var(--alkIconLg);
+}
+
+/* tones — brand (the default) is on the base rule above; the other two override it here. */
+.alk-iconchip:where([data-tone="neutral"]) {
+  background: var(--alkHoverBg);
+  color: var(--alkSecondaryText);
+}
+.alk-iconchip:where([data-tone="surface"]) {
+  background: var(--alkCardBg);
+  border-color: var(--alkBorder);
+  color: var(--alkSecondaryText);
+}

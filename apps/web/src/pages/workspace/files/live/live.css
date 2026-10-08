@@ -1,0 +1,111 @@
+/* The live badge over a leased folder and the per-row chips under it. Product
+ * tokens only, so light and dark come for free. Quiet by default: a folder
+ * being written by a machine is the normal case, and a listing that pulses on
+ * every save is unreadable. */
+
+.alk-files-live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.alk-files-live__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What is being worked on, inside the sentence: the chat holding the folder, or
+ * the machine when no chat does. The title is the link when there is one, so
+ * the line carries no second affordance. */
+.alk-files-live__subject {
+  font-weight: 600;
+}
+
+a.alk-files-live__subject {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.alk-files-live__dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--alkSuccess);
+}
+
+.alk-files-live[data-state="handing-back"] .alk-files-live__dot {
+  background: var(--alkSecondaryText);
+}
+
+.alk-files-live[data-state="live"] .alk-files-live__dot {
+  animation: alk-files-live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes alk-files-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-files-live[data-state="live"] .alk-files-live__dot {
+    animation: none;
+  }
+}
+
+.alk-files-live__note {
+  flex: 0 0 auto;
+  padding: 0 var(--alkSpace2);
+  border-radius: var(--alkRadiusSm, 4px);
+  background: var(--alkSuccessSoft);
+  white-space: nowrap;
+}
+
+.alk-files-live-chip {
+  display: inline-block;
+  padding: 0 var(--alkSpace2);
+  border-radius: var(--alkRadiusSm, 4px);
+  background: var(--alkControlBg);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* A row the machine is actively pushing reads as in-flight; one it is holding
+ * back reads as settled, because nothing is going to happen to it until the
+ * window opens. */
+/* In a listing's name cell the chip yields before the name does: it may shrink
+ * to an ellipsis and never takes more than a share of the cell, so a row that is
+ * "newer on the machine" still says which file it is. The rule lives with the
+ * chip, not with any one page's stylesheet, because every listing that draws the
+ * chip — the Files page and the chat's Files pane alike — needs it, and a rule a
+ * page loads is absent wherever that page has not been opened in the tab. */
+.alk-files-grid__cell[data-column="name"] .alk-files-live-chip,
+.alk-files-grid__tile .alk-files-live-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: var(--alkSpace2);
+}
+
+.alk-files-live-chip[data-state="writing"],
+.alk-files-live-chip[data-state="uploading"],
+.alk-files-live-chip[data-state="inbound"],
+.alk-files-live-chip[data-state="inbound_delete"],
+.alk-files-live-chip[data-state="inbound_rename"] {
+  background: var(--alkSuccessSoft);
+}

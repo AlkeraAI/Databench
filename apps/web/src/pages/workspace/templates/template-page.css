@@ -1,0 +1,119 @@
+/* A chat template's page: the brief is the page, the facts are a footnote to it,
+   and the ways out sit beside the title where a reader looks for them. Colour and
+   scale come from the portal's token layer, the same one the drive this template
+   lives in reads. */
+
+.template-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace7);
+  min-width: 0;
+  max-width: 68rem;
+}
+
+.template-page__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--alkSpace5);
+  flex-wrap: wrap;
+}
+
+/* Renaming takes the heading's place rather than opening a dialog over it: the
+   name is one field, and the page behind a dialog would be the thing being
+   named. */
+.template-page__rename {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+.template-page__rename input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkControlBg);
+  color: var(--alkPrimaryText);
+  font: inherit;
+}
+
+.template-page__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  flex-wrap: wrap;
+}
+
+.template-page__brief {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace4);
+  min-width: 0;
+}
+
+/* The author writes prose for another person to read, so the field is sized for
+   paragraphs and grows rather than scrolling a six-line window. */
+.template-page__editor {
+  width: 100%;
+  min-height: 12rem;
+  resize: vertical;
+  padding: var(--alkSpace4);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkControlBg);
+  color: var(--alkPrimaryText);
+  font: inherit;
+  line-height: 1.6;
+}
+
+.template-page__editor:focus-visible,
+.template-page__rename input:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+}
+
+.template-page__save {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* A brief this reader may not rewrite keeps the author's line breaks — it was
+   written as paragraphs and reads as nothing otherwise. */
+.template-page__read-only {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--alkPrimaryText);
+  line-height: 1.6;
+}
+
+/* Colour comes from the shared `.alk-danger` ink, paired with the sentence
+   itself so the refusal never reads as colour alone. */
+.template-page__error {
+  margin: 0;
+  font-size: var(--alkTextSm);
+}
+
+.template-page__facts dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--alkSpace5);
+  margin: 0;
+}
+
+.template-page__fact dt {
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightMedium);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--alkSecondaryText);
+}
+
+.template-page__fact dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--alkPrimaryText);
+}

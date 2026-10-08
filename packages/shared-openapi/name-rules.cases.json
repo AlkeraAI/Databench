@@ -1,0 +1,370 @@
+{
+  "$comment": "The naming contract, as cases. Hand-authored and committed, NOT generated. Two implementations of the same rules — alkera_core.files.names (the server, and the authority) and @alkera/chat-model's names.ts (the field) — are each driven through every case by their own suite, so a field that refuses locally and a server that refuses on the wire cannot disagree about which rule was broken. A rule change edits this file and both implementations in the same commit; nothing regenerates it. Names are text here, so only cases expressible as valid UTF-8 live in it; the server's byte-level corpus stays in packages/api-core/tests/fixtures/files/.",
+  "version": 1,
+  "nameMaxBytes": 243,
+  "rules": [
+    "empty",
+    "nul",
+    "separator",
+    "dot",
+    "too_long",
+    "control",
+    "surrounding_space"
+  ],
+  "cases": [
+    {
+      "id": "empty",
+      "name": "",
+      "rule": "empty",
+      "windowsSafe": true
+    },
+    {
+      "id": "plain",
+      "name": "readme.md",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "single-letter",
+      "name": "a",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "interior-space",
+      "name": "a b",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "accented",
+      "name": "résumé.txt",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "cjk",
+      "name": "漢字.txt",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "emoji",
+      "name": "😀.txt",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "dot-hidden",
+      "name": ".hidden",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "dotdot-hidden",
+      "name": "..hidden",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "three-dots",
+      "name": "...",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "trailing-dot",
+      "name": "file.",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "dot",
+      "name": ".",
+      "rule": "dot",
+      "windowsSafe": false
+    },
+    {
+      "id": "dotdot",
+      "name": "..",
+      "rule": "dot",
+      "windowsSafe": false
+    },
+    {
+      "id": "slash-alone",
+      "name": "/",
+      "rule": "separator",
+      "windowsSafe": false
+    },
+    {
+      "id": "slash-leading",
+      "name": "/a",
+      "rule": "separator",
+      "windowsSafe": false
+    },
+    {
+      "id": "slash-interior",
+      "name": "a/b",
+      "rule": "separator",
+      "windowsSafe": false
+    },
+    {
+      "id": "slash-trailing",
+      "name": "a/",
+      "rule": "separator",
+      "windowsSafe": false
+    },
+    {
+      "id": "nul-alone",
+      "name": "\u0000",
+      "rule": "nul",
+      "windowsSafe": false
+    },
+    {
+      "id": "nul-interior",
+      "name": "a\u0000b",
+      "rule": "nul",
+      "windowsSafe": false
+    },
+    {
+      "id": "nul-before-slash",
+      "name": "a\u0000/b",
+      "rule": "nul",
+      "windowsSafe": false
+    },
+    {
+      "id": "space-alone",
+      "name": " ",
+      "rule": "surrounding_space",
+      "windowsSafe": false
+    },
+    {
+      "id": "spaces-only",
+      "name": "   ",
+      "rule": "surrounding_space",
+      "windowsSafe": false
+    },
+    {
+      "id": "space-leading",
+      "name": " a",
+      "rule": "surrounding_space",
+      "windowsSafe": true
+    },
+    {
+      "id": "space-trailing",
+      "name": "a ",
+      "rule": "surrounding_space",
+      "windowsSafe": false
+    },
+    {
+      "id": "nbsp-alone",
+      "name": " ",
+      "rule": "surrounding_space",
+      "windowsSafe": true
+    },
+    {
+      "id": "nbsp-interior",
+      "name": "a b",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "bom-alone",
+      "name": "﻿",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "bom-leading",
+      "name": "﻿a",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "zwsp-leading",
+      "name": "​a",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "tab-alone",
+      "name": "\t",
+      "rule": "control",
+      "windowsSafe": false
+    },
+    {
+      "id": "tab-interior",
+      "name": "a\tb",
+      "rule": "control",
+      "windowsSafe": false
+    },
+    {
+      "id": "c0-interior",
+      "name": "a\u0001b",
+      "rule": "control",
+      "windowsSafe": false
+    },
+    {
+      "id": "del-interior",
+      "name": "ab",
+      "rule": "control",
+      "windowsSafe": true
+    },
+    {
+      "id": "c1-next-line",
+      "name": "ab",
+      "rule": "control",
+      "windowsSafe": true
+    },
+    {
+      "id": "c1-top",
+      "name": "ab",
+      "rule": "control",
+      "windowsSafe": true
+    },
+    {
+      "id": "newline-trailing",
+      "name": "a\n",
+      "rule": "control",
+      "windowsSafe": false
+    },
+    {
+      "id": "ascii-at-ceiling",
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "ascii-one-over",
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "rule": "too_long",
+      "windowsSafe": true
+    },
+    {
+      "id": "two-byte-at-ceiling",
+      "name": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééa",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "two-byte-one-over",
+      "name": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+      "rule": "too_long",
+      "windowsSafe": true
+    },
+    {
+      "id": "three-byte-at-ceiling",
+      "name": "漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "three-byte-one-over",
+      "name": "漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢a",
+      "rule": "too_long",
+      "windowsSafe": true
+    },
+    {
+      "id": "four-byte-at-ceiling",
+      "name": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀aaa",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "four-byte-one-over",
+      "name": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀aaaa",
+      "rule": "too_long",
+      "windowsSafe": true
+    },
+    {
+      "id": "too-long-beats-surrounding-space",
+      "name": " aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "rule": "too_long",
+      "windowsSafe": true
+    },
+    {
+      "id": "too-long-beats-control",
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\t",
+      "rule": "too_long",
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-device",
+      "name": "CON",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-device-lowercase",
+      "name": "con",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-device-with-extension",
+      "name": "NUL.txt",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-device-com1",
+      "name": "COM1",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-not-a-device-com10",
+      "name": "COM10",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "windows-not-a-device-stem",
+      "name": "CONtract.md",
+      "rule": null,
+      "windowsSafe": true
+    },
+    {
+      "id": "windows-angle",
+      "name": "a<b",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-quote",
+      "name": "a\"b",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-colon",
+      "name": "a:b",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-pipe",
+      "name": "a|b",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-question",
+      "name": "a?b",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-star",
+      "name": "a*b",
+      "rule": null,
+      "windowsSafe": false
+    },
+    {
+      "id": "windows-backslash",
+      "name": "a\\b",
+      "rule": null,
+      "windowsSafe": false
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "about": "Which pictures a message shows. Read by BOTH rules: alkera_core.chat_paths.chat_images (the Slack thread) and the web renderer's parseMarkdownBlocks (packages/ui/src/primitives/render/Markdown/markdownBlocks.ts). A case added here is pinned on both sides at once, so a reader of a Slack thread gets exactly the pictures a reader of the chat does. `images` is each picture's alt text (the file's name when the writer gave none) and the path it names below the chat's working folder, in order.",
+  "chat_id": "d6d800e9-5bce-4d9f-b0e0-dd5367ea4298",
+  "cases": [
+    {
+      "id": "reply-five-charts",
+      "markdown": "Here they are again:\n\n*1. Region × product heatmap*\n\n![en-US region x product heatmap](en-us-region-product-heatmap.png)\n\n*2. Order volume growth over time*\n\n![en-US order volume growth](en-us-order-growth.png)\n\n*3. Return rate by product and channel*\n\n![Return rate by product and channel](en-us-return-rate-product-channel.png)\n\n*4. Return rate vs rating by product*\n\n![Return rate vs rating by product](en-us-return-vs-rating.png)\n\n*5. Weekly orders and return rate trend*\n\n![Weekly orders and return rate](en-us-weekly-trend.png)\n\nAnything you'd like changed or explored further — e.g. the return-rate rise by channel or region?",
+      "images": [
+        { "alt": "en-US region x product heatmap", "path": "en-us-region-product-heatmap.png" },
+        { "alt": "en-US order volume growth", "path": "en-us-order-growth.png" },
+        { "alt": "Return rate by product and channel", "path": "en-us-return-rate-product-channel.png" },
+        { "alt": "Return rate vs rating by product", "path": "en-us-return-vs-rating.png" },
+        { "alt": "Weekly orders and return rate", "path": "en-us-weekly-trend.png" }
+      ]
+    },
+    {
+      "id": "twelve-charts",
+      "markdown": "![c0](c0.png)\n\n![c1](c1.png)\n\n![c2](c2.png)\n\n![c3](c3.png)\n\n![c4](c4.png)\n\n![c5](c5.png)\n\n![c6](c6.png)\n\n![c7](c7.png)\n\n![c8](c8.png)\n\n![c9](c9.png)\n\n![c10](c10.png)\n\n![c11](c11.png)",
+      "images": [
+        { "alt": "c0", "path": "c0.png" },
+        { "alt": "c1", "path": "c1.png" },
+        { "alt": "c2", "path": "c2.png" },
+        { "alt": "c3", "path": "c3.png" },
+        { "alt": "c4", "path": "c4.png" },
+        { "alt": "c5", "path": "c5.png" },
+        { "alt": "c6", "path": "c6.png" },
+        { "alt": "c7", "path": "c7.png" },
+        { "alt": "c8", "path": "c8.png" },
+        { "alt": "c9", "path": "c9.png" },
+        { "alt": "c10", "path": "c10.png" },
+        { "alt": "c11", "path": "c11.png" }
+      ]
+    },
+    {
+      "id": "lines-back-to-back",
+      "markdown": "Two views:\n![A](charts/a.png)\n![B](./charts/b.png)\nThat is all.",
+      "images": [
+        { "alt": "A", "path": "charts/a.png" },
+        { "alt": "B", "path": "charts/b.png" }
+      ]
+    },
+    { "id": "indented-line", "markdown": "   ![A](a.png)", "images": [{ "alt": "A", "path": "a.png" }] },
+    { "id": "empty-alt-is-the-name", "markdown": "![](charts/trend.webp)", "images": [{ "alt": "trend.webp", "path": "charts/trend.webp" }] },
+    { "id": "upper-case-extension", "markdown": "![Q3](Q3.PNG)", "images": [{ "alt": "Q3", "path": "Q3.PNG" }] },
+    { "id": "every-image-type", "markdown": "![a](a.jpg)\n![b](b.jpeg)\n![c](c.gif)\n![d](d.svg)", "images": [
+      { "alt": "a", "path": "a.jpg" },
+      { "alt": "b", "path": "b.jpeg" },
+      { "alt": "c", "path": "c.gif" },
+      { "alt": "d", "path": "d.svg" }
+    ] },
+    { "id": "same-chart-twice", "markdown": "![First](c.png)\n\n![Again](c.png)", "images": [
+      { "alt": "First", "path": "c.png" },
+      { "alt": "Again", "path": "c.png" }
+    ] },
+    { "id": "mid-sentence-is-words", "markdown": "See ![the chart](c.png) above.", "images": [] },
+    { "id": "not-an-image-type", "markdown": "![the data](report.csv)", "images": [] },
+    { "id": "no-extension", "markdown": "![raw](charts/latest)", "images": [] },
+    { "id": "web-url", "markdown": "![logo](https://example.com/logo.png)", "images": [] },
+    { "id": "climbs-out", "markdown": "![x](../x.png)", "images": [] },
+    { "id": "inside-fenced-code", "markdown": "```\n![A](a.png)\n```\n![B](b.png)", "images": [{ "alt": "B", "path": "b.png" }] },
+    { "id": "inside-math", "markdown": "$$\n![A](a.png)\n$$", "images": [] },
+    { "id": "a-link-not-an-image", "markdown": "[chart](c.png)", "images": [] }
+  ]
+}

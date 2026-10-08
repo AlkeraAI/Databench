@@ -1,0 +1,14 @@
+/* Stack — a vertical flex layout primitive (see Stack.tsx). Children stack in a column with a shared
+   gap driven by the `gap` prop (--alk-stack-gap; defaults to the tight 2px cell gap). `min-width: 0`
+   lets a truncating child shrink instead of overflowing. align/justify are set inline by the component. */
+.alk-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--alk-stack-gap, var(--alkSpace0));
+  min-width: 0;
+}
+/* grow — fill the remaining space in the parent flex container (a card body pushing its footer). */
+.alk-stack:where([data-grow]) {
+  flex: 1;
+}

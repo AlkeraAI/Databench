@@ -1,0 +1,15 @@
+{
+  "filename": "report.json",
+  "message_id": "m1",
+  "metadata": {},
+  "mime": "application/json",
+  "node_id": "6b16bf6f-3c1a-4b64-9a1f-0f5f9a52c0d1",
+  "part_id": "p1",
+  "provider_metadata": {},
+  "schema_version": "1.1.0",
+  "sha256": "",
+  "size": 20000000,
+  "source": "file",
+  "time": "2026-05-26T00:00:00Z",
+  "type": "file"
+}

@@ -1,0 +1,47 @@
+@import "./tokens.css";
+
+/* Hits under the file that holds them, needle lit. */
+
+:global(.chat-root) [data-tool="grep"] .hits {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="grep"] .group + .group {
+  margin-top: var(--chat-sp-2);
+  border-top: 1px solid var(--chat-hairline);
+}
+
+:global(.chat-root) [data-tool="grep"] .file {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1);
+  min-width: 0;
+}
+
+:global(.chat-root) [data-tool="grep"] .hit {
+  display: flex;
+  gap: var(--chat-sp-3);
+  padding: 1px var(--chat-tool-pad-x);
+}
+
+:global(.chat-root) [data-tool="grep"] .hitN {
+  flex: none;
+  min-width: 3ch;
+  text-align: right;
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+/* The needle lit in every line that carries it -- the one thing a match list
+   exists to show. */
+:global(.chat-root) [data-tool="grep"] .needle {
+  border-radius: 2px;
+  padding: 0 1px;
+  background: var(--chat-tool-needle-bg);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+}

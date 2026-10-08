@@ -1,0 +1,77 @@
+/* StatusPill: the dot and the line. The chip itself is a Pill. Tone is the
+   only thing a colour is chosen on; `data-state` is there for a surface that
+   needs to place a mark, never to recolour one. */
+
+.alk-status-dot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.alk-status-dot__mark {
+  width: var(--alkSpace2);
+  height: var(--alkSpace2);
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkTertiaryText);
+}
+
+.alk-status-dot[data-tone="success"] .alk-status-dot__mark {
+  background: color-mix(in srgb, var(--alkSuccess) 60%, transparent);
+}
+
+.alk-status-dot[data-tone="info"] .alk-status-dot__mark {
+  background: color-mix(in srgb, var(--alkInfo) 72%, transparent);
+  animation: alk-status-breathe 3s ease-in-out infinite;
+}
+
+.alk-status-dot[data-tone="warning"] .alk-status-dot__mark {
+  background: var(--alkWarning);
+}
+
+.alk-status-dot[data-tone="danger"] .alk-status-dot__mark {
+  background: var(--alkDanger);
+}
+
+.alk-status-dot[data-tone="neutral"] .alk-status-dot__mark {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--alkTertiaryText);
+}
+
+@keyframes alk-status-breathe {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-status-dot__mark {
+    animation: none !important;
+  }
+}
+
+.alk-status-line {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  min-width: 0;
+  font-size: var(--alkTextSm);
+  line-height: var(--alkLeadingSnug);
+}
+
+.alk-status-line__label {
+  flex: none;
+  font-weight: var(--alkWeightSemibold);
+}
+
+.alk-status-line__sentence {
+  min-width: 0;
+  color: var(--alkSecondaryText);
+}
+
+.alk-status-line[data-tone="warning"] .alk-status-line__label {
+  color: var(--alkWarningText);
+}
+
+.alk-status-line[data-tone="danger"] .alk-status-line__label {
+  color: var(--alkDangerText);
+}

@@ -1,0 +1,20 @@
+{% extends "base.mjml" %}
+{% from "_macros.mjml" import cta %}
+{% block title %}{{ heading }}{% endblock %}
+{% block preview %}{{ lines[0] }}{% endblock %}
+{% block content %}
+<mj-text font-family="{{ tokens.FONT_DISPLAY }}" font-size="18px" font-weight="600" padding-bottom="8px">
+  {{ heading }}
+</mj-text>
+{% for line in lines %}
+<mj-text>
+  {{ line }}
+</mj-text>
+{% endfor %}
+{% if cta_url %}{{ cta(cta_url, cta_label) }}{% endif %}
+{% if footnote %}
+<mj-text font-size="13px" color="{{ tokens.MUTED }}" padding-top="8px">
+  {{ footnote }}
+</mj-text>
+{% endif %}
+{% endblock %}

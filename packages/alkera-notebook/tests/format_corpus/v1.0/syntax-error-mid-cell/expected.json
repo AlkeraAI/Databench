@@ -1,0 +1,101 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "00000000c1": {
+        "defs": [
+          "a"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000c2": {
+        "defs": [],
+        "errors": [
+          {
+            "code": "syntax_error"
+          }
+        ],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000c3": {
+        "defs": [
+          "c"
+        ],
+        "errors": [],
+        "refs": [
+          "a"
+        ],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "00000000c1",
+        "00000000c3"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "a = 1",
+        "config": {},
+        "extra": {},
+        "id": "00000000c1",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "a = 1"
+      },
+      {
+        "code": "b = (a +",
+        "config": {
+          "hide_code": true
+        },
+        "extra": {},
+        "id": "00000000c2",
+        "kind": "unparsable",
+        "meta": {
+          "verbatim": "@app.cell(alkera_id=\"00000000c2\", hide_code=True)\ndef broken(a):\n    b = (a +\n    return"
+        },
+        "name": "broken",
+        "resolution": "keyword",
+        "source": "b = (a +"
+      },
+      {
+        "code": "c = a * 2",
+        "config": {},
+        "extra": {},
+        "id": "00000000c3",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "c = a * 2"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": [
+      [
+        "syntax_error",
+        16
+      ]
+    ]
+  }
+}

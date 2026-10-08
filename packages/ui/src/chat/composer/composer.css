@@ -1,0 +1,1281 @@
+/* The composer unit. The field is on top, borderless and dominant; beneath it a
+   flat instrument rail -- the slash key and the model gauge lead, effort, the
+   permission mode, and send close. The rail's triggers are equal-height
+   [icon][label] cells, and an open trigger holds the wash ground -- with no
+   caret, that ground is the only thing saying a menu is down. The base reset,
+   icon sizing, focus treatment, and the two shared keyframes come from the
+   package base.
+
+   Three invariants this file has to keep, because a webview cannot paint
+   outside itself and a VS Code sidebar goes down to ~170px: the rail is ONE row
+   at every width, no control may leave the unit, and no menu may cross the
+   panel's edge. */
+
+.chat-root .chat-composer-root {
+  /* The unit and its menus read the PUBLISHED theme grounds rather than their
+     own literals. A host that remaps those tokens (the IDE, which points them
+     at the editor's background) repaints the composer along with the rest of
+     the chat; a literal here would strand the composer on package paper while
+     everything around it followed the editor. */
+  /* Edges and washes are alpha cuts of the theme's own ink, so one declaration
+     serves both schemes: the ink flips, and the cut flips with it. */
+  --chat-composer-edge: color-mix(in srgb, var(--chat-ink) 16%, transparent);
+  --chat-composer-hair: color-mix(in srgb, var(--chat-ink) 10%, transparent);
+  --chat-composer-wash: color-mix(in srgb, var(--chat-ink) 6%, transparent);
+  /* The CTA block, the mode fill's no-mode fallback: the shell's accent at the
+     tier that carries a label, and a light card as the label's ink -- the pair
+     inverts with the scheme the way the accent does. */
+  --chat-composer-send: var(--chat-mode-default);
+  --chat-composer-send-ink: var(--chat-paper-raised);
+  /* The ring arc's data tone. */
+  --chat-composer-data: var(--chat-blue);
+  --chat-composer-shadow: var(--alkShadowMd, 0 5px 18px rgb(31 30 27 / 14%));
+
+  /* The shared radius family, aliased: surface for the unit, control for
+     triggers and send, micro for popover option rows. */
+
+  container: chat-composer / inline-size;
+  color: var(--chat-ink);
+  font-family: var(--chat-sans);
+}
+
+.chat-root .chat-composer-root button {
+  cursor: pointer;
+}
+
+/* Per-mode identity, five distinct hues on a risk gradient: read-only neutral
+   gray (blocked), plan blue (explores), default accent (asks first), auto amber
+   (acts, pauses for risk), bypass red (no guardrails). Each is the theme's own
+   mode token, which rides the shell's status ink -- the tier that is dark on a
+   light paper and light on a dark one, so the one hue both fills send under the
+   opposite ink and holds the unit's outline in either scheme. The glyph and
+   label still carry the meaning independent of hue. */
+.chat-root .chat-composer-root [data-mode="default"] {
+  --chat-mode-mark: var(--chat-mode-default);
+}
+
+.chat-root .chat-composer-root [data-mode="plan"] {
+  --chat-mode-mark: var(--chat-mode-plan);
+}
+
+.chat-root .chat-composer-root [data-mode="auto"] {
+  --chat-mode-mark: var(--chat-mode-auto);
+}
+
+.chat-root .chat-composer-root [data-mode="read_only"] {
+  --chat-mode-mark: var(--chat-mode-read_only);
+}
+
+.chat-root .chat-composer-root [data-mode="bypass"] {
+  --chat-mode-mark: var(--chat-mode-bypass);
+}
+
+/* ── Frame + unit ───────────────────────────────────────────────────────────── */
+
+.chat-root .chat-composer-unit {
+  /* The slash menu's positioning frame. Anchored here rather than to the field,
+     the 8px it opens above the unit is measured from the unit's own edge, so it
+     clears the frame instead of landing 3px inside it. */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-3);
+  padding: var(--chat-sp-3) var(--chat-sp-3);
+  /* The outline wears the active mode's hue: the composer's identity edge and
+     its squint mark, a functional outline clearing 3:1. */
+  border: 1px solid var(--chat-mode-mark, var(--chat-composer-edge));
+  border-radius: var(--chat-radius-surface);
+  background: var(--chat-composer-fill);
+  transition:
+    border-color var(--chat-dur-medium) var(--chat-ease-out),
+    box-shadow var(--chat-dur-medium) var(--chat-ease-out);
+}
+
+/* Plan is provisional work: a dashed frame for a mode that changes nothing. */
+.chat-root .chat-composer-unit[data-mode="plan"] {
+  border-style: dashed;
+}
+
+/* Field focus composes with the mode hue: a solid ring in the same hue doubles
+   the edge over a soft halo. */
+.chat-root .chat-composer-unit:has(.chat-composer-field:focus) {
+  box-shadow:
+    0 0 0 1px var(--chat-mode-mark, var(--chat-mode-default)),
+    0 0 0 4px
+      color-mix(
+        in srgb,
+        var(--chat-mode-mark, var(--chat-mode-default)) 16%,
+        transparent
+      );
+}
+
+/* ── Field: on top, borderless, the dominant reading plane ───────────────────── */
+
+.chat-root .chat-composer-field {
+  width: 100%;
+  min-height: 48px;
+  max-height: 132px;
+  padding: var(--chat-sp-1) 0;
+  overflow-y: auto;
+  resize: none;
+  /* 14 not >=16: the >=16 input rule guards iOS-Safari focus-zoom, which a
+     desktop IDE webview never triggers. */
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-composer-field::placeholder {
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-composer-field:focus {
+  outline: none;
+}
+
+/* The mode halo above is the composer's own identity edge and fires for a click as much as a Tab.
+   A reader arriving by keyboard gets the product's shared ring on top of it, so the composer is
+   marked the way every other control they have tabbed through is. */
+.chat-root .chat-composer-unit:has(.chat-composer-field:focus-visible) {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 2px;
+}
+
+/* ── Remote carets: somebody else's caret, drawn over the field ─────────────── */
+
+/* Nothing can be painted inside a textarea, so the carets are painted on top of
+   one: a mirror holding the same text, laid out by the same font, padding and
+   width, so a zero-width marker spliced in at a character lands exactly where
+   the browser put that character — wrapping and all. Every value here that also
+   appears on `.chat-composer-field` MUST keep matching it, or the two layouts
+   drift and the carets land on the wrong line. */
+
+.chat-root .chat-composer-fieldwrap {
+  position: relative;
+}
+
+.chat-root .chat-composer-carets {
+  /* The name flag's own height. The overlay reaches this far ABOVE the field
+     and the mirror is pushed back down by the same amount, so the text still
+     lines up with the field while a caret parked on the FIRST line has room
+     for its flag — which rides above the bar and would otherwise be cut off
+     by the clip that keeps the rest of the mirror inside the field. */
+  --chat-caret-flag-h: 14px;
+
+  position: absolute;
+  inset: calc(-1 * var(--chat-caret-flag-h)) 0 0;
+  /* Above the field and the unit's frame, below the two menus that open over
+     the composer: a slash menu covers a colleague's caret, never the reverse. */
+  z-index: 20;
+  overflow: hidden;
+  /* How far the field has been scrolled. Rewritten on the field's own scroll;
+     declared here so a mirror rendered before the first scroll has a real
+     value rather than a literal fallback. */
+  --chat-caret-scroll: 0px;
+
+  /* Decoration: the field underneath takes every click. */
+  pointer-events: none;
+}
+
+.chat-root .chat-composer-mirror {
+  position: absolute;
+  inset-inline: 0;
+  /* Exactly the band the overlay was extended by, so the mirrored text sits on
+     the field's own first line rather than a flag's height above it. */
+  top: var(--chat-caret-flag-h);
+  padding: var(--chat-sp-1) 0;
+  font: inherit;
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  /* The mirror is the whole text at full height; the field's scroll slides it. */
+  transform: translateY(var(--chat-caret-scroll, 0));
+  color: transparent;
+}
+
+.chat-root .chat-composer-caret {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  height: var(--chat-lh-text, 20px);
+  vertical-align: text-bottom;
+  border-left: 2px solid hsl(var(--chat-caret-hue, 210) 60% 45%);
+  animation: chat-composer-caret-blink 1.1s steps(1, end) infinite;
+}
+
+/* The name rides above the bar, tucked to its left so two carets a word apart
+   do not stack their flags on top of each other. */
+.chat-root .chat-composer-caret__flag {
+  position: absolute;
+  bottom: 100%;
+  left: -2px;
+  padding: 0 4px;
+  border-radius: 3px 3px 3px 0;
+  background: hsl(var(--chat-caret-hue, 210) 60% 45%);
+  color: #fff;
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+/* A selection is the same colour at a wash: readable through it, and obviously
+   the same person as the bar at its head. */
+.chat-root .chat-composer-caret__range {
+  border-radius: 2px;
+  background: hsl(var(--chat-caret-hue, 210) 60% 45% / 20%);
+}
+
+@keyframes chat-composer-caret-blink {
+  50% {
+    border-left-color: transparent;
+  }
+}
+
+/* A blinking bar is motion nobody asked for: a reader who has turned motion off
+   gets the same caret, standing still. */
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-composer-caret {
+    animation: none;
+  }
+}
+
+/* ── Rail: ONE row at every width, never two ────────────────────────────────── */
+
+/* The rail is the menus' positioning frame, not each trigger: a menu anchored
+   here is bounded by the rail, and the rail is bounded by the unit.
+
+   It is FLAT and it never wraps. Flat, because a left/right group box would put
+   the model chip and the effort gauge in different flex contexts and make the
+   question "which of the two gives up width first" unanswerable. Nowrap,
+   because a second row is not a fallback the unit can afford -- with wrapping
+   off, a label that no longer fits can only ellipsize.
+
+   Geometry lives in these four properties so the ladder below is arithmetic on
+   named numbers rather than a table of guesses. The base values are the small
+   notch, which the first rung steps back up. */
+.chat-root .chat-composer-rail {
+  --chat-composer-ctl: 28px;
+  --chat-composer-pad-x: var(--chat-sp-1);
+  --chat-composer-gap: var(--chat-sp-1);
+  --chat-composer-icon-gap: var(--chat-sp-2);
+
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: var(--chat-composer-gap);
+}
+
+/* One control's anchor -- the menu's positioning reference and the outside-press
+   ref -- and so the rail's own flex item. It holds ONE control, never a group,
+   which is what keeps every chip independently rankable below. */
+.chat-root .chat-composer-ctl {
+  display: flex;
+  min-width: 0;
+}
+
+/* Base is the squeezed state: these two live in the mode menu until the rail is
+   wide enough to carry them (see the rung ladder). */
+.chat-root .chat-composer-ctl[data-rail="model"],
+.chat-root .chat-composer-ctl[data-rail="effort"] {
+  display: none;
+}
+
+.chat-root .chat-composer-ctl > .chat-composer-trigger {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Shrink priority in 1000x tiers, so no chip's base size can ever reorder what
+   gives way first. Under a deficit the context read goes, then the effort
+   label, then the model label; mode is last, because it is the control that
+   governs what the turn is allowed to do. */
+.chat-root .chat-composer-readout {
+  flex-shrink: 1000000000;
+}
+
+.chat-root .chat-composer-ctl[data-rail="effort"] {
+  flex-shrink: 1000000;
+}
+
+.chat-root .chat-composer-ctl[data-rail="model"] {
+  flex-shrink: 1000;
+}
+
+.chat-root .chat-composer-ctl[data-rail="mode"] {
+  flex-shrink: 1;
+}
+
+/* The closing group is an auto margin, not a box: exactly ONE item carries it,
+   or the free space would be split between them and the group would spread.
+   Under a deficit an auto margin collapses to 0, so this cannot overflow.
+   The anchor must be a VISIBLE item: below the chips rung the effort chip is
+   display:none, and a hidden item's auto margin moves nothing, so anchoring
+   there would strand the mode chip and send at the rail's left. Base skips
+   the effort chip; the chips rung hands the margin back when it returns. The
+   context read is shown at every width, so it leads the group whenever a turn
+   has reported usage. */
+.chat-root .chat-composer-rail > [data-rail-end]:not([data-rail="effort"]) {
+  margin-inline-start: auto;
+}
+
+.chat-root .chat-composer-rail > [data-rail-end]:not([data-rail="effort"]) ~ [data-rail-end] {
+  margin-inline-start: 0;
+}
+
+/* Every trigger is an [icon][label] cell at one height, so the rail reads as a
+   single row of instruments. Collapsed, its padding and icon measure the
+   control square exactly, which is what makes the ladder closed-form. */
+.chat-root .chat-composer-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--chat-composer-icon-gap);
+  min-width: var(--chat-composer-ctl);
+  height: var(--chat-composer-ctl);
+  padding: 0 var(--chat-composer-pad-x);
+  border-radius: var(--chat-radius-control);
+  color: var(--chat-ink-2);
+  font-size: var(--chat-fs-record, 12px);
+  line-height: var(--chat-lh-record, 16px);
+  font-weight: var(--chat-w-medium, 500);
+  letter-spacing: var(--chat-track-record, 0.014em);
+  white-space: nowrap;
+  transition:
+    background-color var(--chat-dur-fast) var(--chat-ease-out),
+    color var(--chat-dur-fast) var(--chat-ease-out);
+}
+
+/* An open trigger holds the hover ground: nothing else on the trigger says its
+   menu is down. */
+.chat-root .chat-composer-trigger:hover,
+.chat-root .chat-composer-trigger[aria-expanded="true"] {
+  background: var(--chat-composer-wash);
+  color: var(--chat-ink);
+}
+
+/* A chip the shell fixed is a readout, not a control: it keeps its hue (the
+   mode it names is the point) and drops the pressable affordances — no hover
+   step, no pointer, and full opacity, because a greyed-out control reads as
+   "temporarily unavailable" when the truth is "this is what it is". */
+.chat-root .chat-composer-trigger[data-locked] {
+  cursor: default;
+  opacity: 1;
+}
+
+.chat-root .chat-composer-trigger[data-locked]:hover {
+  background: none;
+  color: var(--chat-ink-2);
+}
+
+.chat-root .chat-composer-trigger[data-mode][data-locked]:hover {
+  background: color-mix(in srgb, var(--chat-mode-mark) 14%, transparent);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-composer-trigger__icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--chat-ink-3);
+}
+
+/* The rail's ONLY elastic cell, and the only one a rung ever reveals. The
+   ellipsis lives here and never on the trigger: the trigger is a flex
+   container, where `text-overflow` has nothing to act on and the icon would be
+   what clipped instead of the text. */
+.chat-root .chat-composer-trigger__label {
+  display: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+}
+
+/* The slash key: a square glyph-only trigger leading the rail. It never folds,
+   so the commands stay one press away at every width. It carries a resting
+   ground because it has no label to give it a body -- bare, the "/" reads as a
+   tall stray mark rather than a key the same size as the gauges beside it. */
+.chat-root .chat-composer-slashkey {
+  width: var(--chat-composer-ctl);
+  padding: 0;
+  flex: none;
+  background: var(--chat-composer-wash);
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-text, 14px);
+  font-weight: var(--chat-w-semi, 600);
+  line-height: 1;
+  color: var(--chat-ink-3);
+}
+
+/* Its own step up: the shared trigger hover lands on the same wash this key
+   already rests on, so pressing it would read as no change at all. */
+.chat-root .chat-composer-slashkey:hover,
+.chat-root .chat-composer-slashkey[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--chat-ink) 12%, transparent);
+  color: var(--chat-ink);
+}
+
+/* Mode is the governing control: a tint of its own hue marks it, the glyph
+   carries the hue, and the mode-colored send below makes the choice
+   unmistakable. */
+.chat-root .chat-composer-trigger[data-mode] {
+  background: color-mix(in srgb, var(--chat-mode-mark) 14%, transparent);
+  color: var(--chat-ink);
+}
+
+/* Mode keeps its hue when open: the neutral wash above would drop the one thing
+   this trigger exists to show. */
+.chat-root .chat-composer-trigger[data-mode]:hover,
+.chat-root .chat-composer-trigger[data-mode][aria-expanded="true"] {
+  background: color-mix(in srgb, var(--chat-mode-mark) 22%, transparent);
+}
+
+.chat-root .chat-composer-trigger[data-mode] .chat-composer-trigger__icon {
+  color: var(--chat-mode-mark);
+}
+
+/* A model id is unbounded upstream. The cap is what closes the rung
+   arithmetic: without it the model rung would depend on whatever the gateway
+   last named a model. */
+.chat-root .chat-composer-ctl[data-rail="model"] .chat-composer-trigger__label {
+  max-width: 14ch;
+}
+
+/* Mode's one over-long label carries a compact word in the same cell for the
+   squeezed rungs. Both words stay in the DOM, and the full name rides the
+   popover row, the accessible name, and the tooltip at every width. */
+.chat-root .chat-composer-trigger__wide,
+.chat-root .chat-composer-trigger__narrow {
+  display: none;
+}
+
+/* Context is a readout, not a menu -- no caret, no hover, no pointer. It is on
+   the rail at every width the rail is: it is the only thing that says a
+   compaction is coming, and a rung that took it away left a 1440px laptop with
+   no context meter at all. A narrow rail tightens the cell instead. */
+.chat-root .chat-composer-readout {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  height: var(--chat-composer-ctl);
+  padding: 0 var(--chat-sp-1);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* The tightened form: the ring and its share, with the padding and the gap the
+   rail cannot spare. The whole figure is on the accessible name and the
+   tooltip at both forms, so nothing the reader needs is spent here. */
+.chat-root .chat-composer-readout[data-context-form="compact"] {
+  gap: 2px;
+  padding: 0;
+  /* The ring is the floor. The read gives way first under a deficit, and a
+     flex item at min-width:0 can be crushed to nothing — which is the hiding
+     this form exists to end. min-content keeps the ring on the rail; only the
+     share beside it is allowed to clip. */
+  min-width: auto;
+}
+
+.chat-root .chat-composer-readout__icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--chat-composer-data);
+}
+
+.chat-root .chat-composer-readout__value {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--chat-fs-record, 12px);
+  line-height: var(--chat-lh-record, 16px);
+  font-weight: var(--chat-w-medium, 500);
+  letter-spacing: var(--chat-track-record, 0.014em);
+  font-variant-numeric: tabular-nums;
+  color: var(--chat-ink);
+}
+
+/* The mode menu's captioned Model and Effort sections: the two chips' home at
+   the widths where the rail has folded them out. They stay in the DOM at every
+   width, so the arrangement is pure CSS. */
+.chat-root .chat-composer-ovsec__cap {
+  margin: 0 0 var(--chat-sp-1);
+  padding: 0 var(--chat-sp-2);
+  font-size: var(--chat-fs-record, 12px);
+  line-height: var(--chat-lh-record, 16px);
+  font-weight: var(--chat-w-medium, 500);
+  letter-spacing: var(--chat-track-caps, 0.08em);
+  text-transform: uppercase;
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-composer-ovsec {
+  margin-top: var(--chat-sp-2);
+  padding-top: var(--chat-sp-2);
+  border-top: 1px solid var(--chat-composer-hair);
+}
+
+/* ── The rung ladder ──────────────────────────────────────────────────────────
+
+   BASE is the squeezed state: 28px controls, every chip a glyph, no context
+   read, and the model and effort chips folded into the mode menu as captioned
+   sections. Each rung ADDS exactly one thing back, at the width the rail
+   provably fits it. Nothing here is a max-width, so the ladder only ever grows.
+
+   The line beside each rung records its formula with the terms filled in, so a
+   rung changes by re-deriving it rather than nudging the number here. Shared terms:
+     ceil4(x)   round up to the rail's own 4px gap grid
+     floor      3 controls that never fold (slash, mode, send) + 2 gaps
+     chrome     the unit's 24px padding + 2px border, which never reaches the rail
+     slack      4px held back so a rung fires with room, not at the exact pixel
+     labelCost  2*padX + icon + iconGap + label - control */
+
+/* Controls step back up to 30px. Below this the 30px floor overflows and the
+   rail runs the 28px notch, whose floor holds down to a 118px container.
+   ceil4((3*30 + 2*4) + 26 + 4) = ceil4(128) = 128 */
+@container chat-composer (min-width: 128px) {
+  .chat-root .chat-composer-rail {
+    --chat-composer-ctl: 30px;
+    --chat-composer-pad-x: var(--chat-sp-2);
+  }
+}
+
+/* The model and effort chips leave the mode menu and return to the rail as
+   glyphs. rail = floor + 2 controls + 2 gaps = 98 + 68 = 166
+   ceil4(166 + 30) = 196 */
+@container chat-composer (min-width: 196px) {
+  .chat-root .chat-composer-ctl[data-rail="model"],
+  .chat-root .chat-composer-ctl[data-rail="effort"] {
+    display: flex;
+  }
+
+  .chat-root .chat-composer-ovsec,
+  .chat-root .chat-composer-pop__cap {
+    display: none;
+  }
+
+  /* The effort chip is visible again, so the closing group's auto margin moves
+     back to it -- the first end item on the rail. */
+  .chat-root .chat-composer-ctl[data-rail="effort"] {
+    margin-inline-start: auto;
+  }
+
+  .chat-root .chat-composer-ctl[data-rail="effort"] ~ [data-rail-end] {
+    margin-inline-start: 0;
+  }
+}
+
+/* Mode gains its compact word: the governing control says what it is first.
+   rail = 166 + labelCost(15, 39.58) = 166 + 44.58 = 210.58
+   ceil4(210.58 + 30) = 244 */
+@container chat-composer (min-width: 248px) {
+  .chat-root .chat-composer-ctl[data-rail="mode"] .chat-composer-trigger__label,
+  .chat-root .chat-composer-ctl[data-rail="mode"] .chat-composer-trigger__narrow {
+    display: inline;
+  }
+}
+
+/* A phone's composer: the model chip gains its short name ("Sonnet 5.5"), so
+   the two gauges are told apart by the one a reader names. Effort keeps its
+   bars, which already read its level; a label cut to two letters said less.
+   rail = 210.58 + labelCost(16, 12ch ~ 86) = 210.58 + 92 = 302.58
+   ceil4(302.58 + 4) = 308 */
+@container chat-composer (min-width: 308px) {
+  .chat-root .chat-composer-ctl[data-rail="model"] .chat-composer-trigger__label {
+    display: inline;
+    max-width: 12ch;
+  }
+
+  .chat-root .chat-composer-ctl[data-rail="model"] .chat-composer-trigger__narrow {
+    display: inline;
+  }
+}
+
+/* The model gains its full capped label.
+   rail = 210.58 + labelCost(16, 112.72) = 210.58 + 118.72 = 329.30
+   ceil4(329.30 + 30) = 360 */
+@container chat-composer (min-width: 368px) {
+  .chat-root
+    .chat-composer-ctl[data-rail="model"]
+    .chat-composer-trigger__label {
+    display: inline;
+    max-width: 14ch;
+  }
+
+  .chat-root .chat-composer-ctl[data-rail="model"] .chat-composer-trigger__narrow {
+    display: none;
+  }
+
+  .chat-root .chat-composer-ctl[data-rail="model"] .chat-composer-trigger__wide {
+    display: inline;
+  }
+}
+
+/* Effort gains its label: the least-consulted gauge, so it is the last of the
+   three to get words. rail = 329.30 + labelCost(15, 46.28) = 380.58
+   ceil4(380.58 + 30) = 412 */
+@container chat-composer (min-width: 424px) {
+  .chat-root
+    .chat-composer-ctl[data-rail="effort"]
+    .chat-composer-trigger__label {
+    display: inline;
+    max-width: none;
+  }
+}
+
+/* Mode swaps the compact word for its full name. The chip is already labeled,
+   so only the text grows. rail = 380.58 + (109.73 - 39.58) = 450.73
+   ceil4(450.73 + 30) = 484 */
+@container chat-composer (min-width: 496px) {
+  .chat-root .chat-composer-ctl[data-rail="mode"] .chat-composer-trigger__narrow {
+    display: none;
+  }
+
+  .chat-root .chat-composer-ctl[data-rail="mode"] .chat-composer-trigger__wide {
+    display: inline;
+  }
+}
+
+/* The context readout takes its full cell — its own gap either side of it —
+   once the rail is wide enough to spare it.
+   rail = 450.73 + 58.31 + 4 = 513.04; ceil4(513.04 + 30) = 544 */
+@container chat-composer (min-width: 556px) {
+  .chat-root .chat-composer-readout {
+    padding: 0 var(--chat-sp-1);
+  }
+}
+
+/* ── Send: the one filled action, colored by the active mode ─────────────────── */
+
+/* A square at the rail's own 30px, glyph only: send and stop are the same key
+   and the same footprint, so committing a turn and stopping one never move the
+   target under the pointer. The button's aria-label names the action. */
+.chat-root .chat-composer-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--chat-composer-ctl);
+  height: var(--chat-composer-ctl);
+  flex: none;
+  border-radius: var(--chat-radius-control);
+  background: var(--chat-mode-mark, var(--chat-composer-send));
+  color: var(--chat-composer-send-ink);
+  font-size: var(--chat-fs-text, 14px);
+  font-weight: var(--chat-w-semi, 600);
+  white-space: nowrap;
+  transition: background-color var(--chat-dur-fast) var(--chat-ease-out);
+}
+
+.chat-root .chat-composer-send:not(:disabled):hover {
+  background: color-mix(
+    in srgb,
+    var(--chat-mode-mark, var(--chat-composer-send)) 88%,
+    var(--chat-ink)
+  );
+}
+
+.chat-root .chat-composer-send:not(:disabled):active {
+  background: color-mix(
+    in srgb,
+    var(--chat-mode-mark, var(--chat-composer-send)) 80%,
+    var(--chat-ink)
+  );
+}
+
+/* Busy = the same key, relabeled Stop; a muted step of the mode hue, never
+   danger. */
+.chat-root .chat-composer-send[data-busy] {
+  background: color-mix(
+    in srgb,
+    var(--chat-mode-mark, var(--chat-composer-send)) 76%,
+    var(--chat-paper)
+  );
+}
+
+/* Nothing to send: the key keeps its place and its shape but drops to a faint
+   mix of the mode hue against the unit ground, and stops answering the pointer.
+   The unit ground is per-theme, so this one rule serves light and dark. */
+.chat-root .chat-composer-send:disabled {
+  background: color-mix(
+    in srgb,
+    var(--chat-mode-mark, var(--chat-composer-send)) 22%,
+    var(--chat-composer-fill)
+  );
+  color: var(--chat-ink-3);
+  cursor: default;
+}
+
+.chat-root .chat-composer-send__glyph {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Glyphs ─────────────────────────────────────────────────────────────────── */
+
+.chat-root .chat-composer-glyph,
+.chat-root .chat-composer-check {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chat-root .chat-composer-check {
+  stroke-width: 1.7;
+}
+
+.chat-root .chat-composer-bars rect {
+  fill: currentColor;
+  opacity: 0.28;
+}
+
+.chat-root .chat-composer-bars rect[data-on] {
+  opacity: 1;
+}
+
+.chat-root .chat-composer-ring__track {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.28;
+  stroke-width: 2;
+}
+
+.chat-root .chat-composer-ring__arc {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* ── Popover ────────────────────────────────────────────────────────────────── */
+
+/* The rail is the containing block, so 100% here is the rail's width -- the
+   clamp that keeps a menu inside the unit, and so inside the panel, at every
+   width its trigger renders. A menu aligns to the end of the rail its trigger
+   sits at, which is the only alignment that needs no room to its right. */
+.chat-root .chat-composer-pop {
+  /* The room a menu leaves between its own top edge and the top of the window:
+     the composer it opens above, plus a breath over it. A menu is as tall as
+     what it lists and meets this only where the window itself cannot hold it. */
+  --chat-composer-pop-gutter: 120px;
+
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: min(218px, 100%);
+  max-width: min(288px, 100%);
+  /* A catalog-length list is held to a readable run and scrolls past it; either
+     way it never reaches past the top of the window. */
+  max-height: min(320px, calc(100vh - var(--chat-composer-pop-gutter)));
+  padding: var(--chat-sp-2);
+  border: 1px solid var(--chat-composer-hair);
+  border-radius: var(--chat-radius-control);
+  background: var(--chat-paper-raised);
+  box-shadow: var(--chat-composer-shadow);
+  animation: chat-rise var(--chat-dur-medium) var(--chat-ease-out);
+}
+
+.chat-root .chat-composer-pop[data-side="right"] {
+  left: auto;
+  right: 0;
+}
+
+/* The mode menu's list is fixed -- the five stances, each a label over a
+   two-line clamped gloss, closed by the Shift+Tab hint -- so it is sized by
+   what it lists. A pixel cap picked to sit near that content is one wording
+   change away from a scrollbar beside a list with nothing more to show, which
+   is exactly what a 420px cap over ~450px of content produced. The only cap
+   left is the window. */
+.chat-root .chat-composer-ctl[data-rail="mode"] .chat-composer-pop {
+  max-height: calc(100vh - var(--chat-composer-pop-gutter));
+}
+
+/* The options and their captions are the part that moves; the hint under them
+   is the menu's footer and stays. A footer inside the scroll region rides out
+   of view with the rows it is meant to explain. */
+.chat-root .chat-composer-pop__scroll {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.chat-root .chat-composer-pop__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-root .chat-composer-opt {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  column-gap: var(--chat-sp-2);
+  row-gap: var(--chat-sp-1);
+  width: 100%;
+  min-height: 32px;
+  padding: var(--chat-sp-2) var(--chat-sp-2);
+  border-radius: var(--chat-radius-micro);
+  text-align: left;
+  color: var(--chat-ink-2);
+  transition:
+    background-color 110ms var(--chat-ease-out),
+    color 110ms var(--chat-ease-out);
+}
+
+.chat-root .chat-composer-opt:hover {
+  background: var(--chat-composer-wash);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-composer-opt[aria-selected="true"] {
+  color: var(--chat-ink);
+}
+
+/* A model the open chat cannot move to: shown with its reason, never picked. */
+.chat-root .chat-composer-opt[data-unavailable] {
+  color: var(--chat-ink-3);
+  cursor: default;
+}
+
+.chat-root .chat-composer-opt[data-unavailable]:hover {
+  background: none;
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-composer-opt[data-unavailable]:is(button):hover,
+.chat-root .chat-composer-opt[data-unavailable]:is(button):focus-visible {
+  color: var(--chat-ink-2);
+}
+
+.chat-root .chat-composer-opt-group {
+  padding: var(--chat-sp-2) var(--chat-sp-2) var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-3);
+  list-style: none;
+}
+
+.chat-root .chat-composer-opt__escape {
+  grid-column: 3;
+  justify-self: end;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium, 500);
+  color: var(--chat-mode-default);
+}
+
+.chat-root .chat-composer-opt__icon {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-composer-opt__icon[data-mode] {
+  color: var(--chat-mode-mark);
+}
+
+.chat-root .chat-composer-opt__label {
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  font-weight: var(--chat-w-medium, 500);
+}
+
+.chat-root .chat-composer-opt__check {
+  display: inline-flex;
+  flex: none;
+  color: var(--chat-mode-default);
+}
+
+/* The gloss reads at the label's own size and separates by weight and ink, the
+   way an index entry does -- shrinking it is what put it under the panel's
+   floor. Three lines, then the ellipsis: enough for the longest stance's gloss
+   at the menu's narrowest (two cut Auto's off mid-sentence), and the clamp is
+   still what keeps a described row's height closed-form. */
+.chat-root .chat-composer-opt__desc {
+  grid-column: 2 / -1;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  font-weight: var(--chat-w-regular, 400);
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-composer-pop__hint {
+  margin: var(--chat-sp-1) var(--chat-sp-1) 0;
+  padding-top: var(--chat-sp-2);
+  border-top: 1px solid var(--chat-composer-hair);
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  color: var(--chat-ink-3);
+}
+
+/* ── Slash menu: opens clear above the unit, anchored to it ───────────────────── */
+
+/* The unit is the containing block, so the 8px gap is measured from the unit's
+   own top edge and the menu sits clear of the frame -- and left/right 0 give it
+   the unit's width, which is inside the panel by construction. */
+.chat-root .chat-composer-slash {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  margin: 0;
+  padding: var(--chat-sp-2);
+  list-style: none;
+  max-height: 264px;
+  overflow-y: auto;
+  border: 1px solid var(--chat-composer-hair);
+  border-radius: var(--chat-radius-control);
+  background: var(--chat-paper-raised);
+  box-shadow: var(--chat-composer-shadow);
+  animation: chat-rise var(--chat-dur-medium) var(--chat-ease-out);
+}
+
+.chat-root .chat-composer-slash__opt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--chat-sp-3);
+  width: 100%;
+  padding: var(--chat-sp-2) var(--chat-sp-2);
+  border-radius: var(--chat-radius-micro);
+  text-align: left;
+  transition: background-color 110ms var(--chat-ease-out);
+}
+
+.chat-root .chat-composer-slash__opt[data-active] {
+  background: var(--chat-composer-wash);
+}
+
+/* The command name is a label (sans), not code; its argument syntax ([name],
+   [text]) is the literal token that keeps mono. */
+.chat-root .chat-composer-slash__cmd {
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  font-weight: var(--chat-w-medium, 500);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-composer-slash__summary {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-composer-slash__usage {
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record, 12px);
+  line-height: var(--chat-lh-record, 16px);
+  color: var(--chat-ink-3);
+}
+
+/* ── Focus ──────────────────────────────────────────────────────────────────── */
+
+.chat-root .chat-composer-opt:focus-visible,
+.chat-root .chat-composer-slash__opt:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ── Dark ───────────────────────────────────────────────────────────────────── */
+
+/* There is no dark fork left. The unit's grounds track --chat-composer-fill and
+   --chat-paper-raised, its edges and washes are alpha cuts of --chat-ink, its
+   CTA and mode marks are the theme's own mode tokens, and its shadow is the
+   shell's -- all of which the token layer flips on its own. */
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-composer-pop,
+  .chat-root .chat-composer-slash {
+    animation: chat-fade-in var(--chat-dur-fast) linear;
+  }
+
+  .chat-root .chat-composer-slash__opt {
+    transition: none;
+  }
+
+  .chat-root .chat-composer-unit,
+  .chat-root .chat-composer-trigger,
+  .chat-root .chat-composer-send,
+  .chat-root .chat-composer-opt {
+    transition: none;
+  }
+}
+
+/* -- The attach door and its chips -----------------------------------------
+   The real control is the file input, which cannot be dressed to sit on the
+   rail, so it is taken out of the layout entirely while staying operable by a
+   programmatic click. `display: none` would make that click a no-op in some
+   engines; a clipped, zero-opacity box is clickable everywhere. */
+.chat-composer-attachinput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  opacity: 0;
+}
+.chat-composer-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding: 0 var(--alkSpace3);
+  list-style: none;
+}
+.chat-composer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--alkBorder);
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.chat-composer-chip[data-state="error"] {
+  border-color: var(--alkDanger);
+}
+.chat-composer-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-composer-chip__error {
+  color: var(--alkDangerText);
+}
+.chat-composer-chip__progress {
+  width: 48px;
+  height: 4px;
+}
+.chat-composer-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Inline uploads: an image or file the reader put on the message. The pill
+   in the field is the token text; this strip is where its state lives —
+   uploading (bar), uploaded (check), failed (mark) — and its way off. */
+.chat-composer-uploads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0 10px 6px;
+  list-style: none;
+}
+.chat-composer-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 3px 6px 3px 4px;
+  border: 1px solid var(--chat-hairline);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+}
+.chat-composer-upload[data-state="failed"] {
+  border-color: var(--chat-danger-line);
+}
+.chat-composer-upload__thumb {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.chat-composer-upload__token {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.chat-composer-upload__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+.chat-composer-upload__progress {
+  width: 40px;
+  height: 6px;
+}
+.chat-composer-upload__state {
+  white-space: nowrap;
+}
+.chat-composer-upload__remove {
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  line-height: 1;
+}
+.chat-composer-notice {
+  margin: 0;
+  padding: 2px 10px 6px;
+  font-size: 12px;
+  color: var(--chat-danger);
+}
+/* Nothing went wrong and nothing was lost — the message is simply waiting. */
+.chat-composer-notice[data-tone="working"] {
+  color: inherit;
+  opacity: 0.75;
+}
+/* What the reader can do about a shared edit that did not go through. */
+.chat-composer-notice__action {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* How close a long message is to the server's ceiling. Quiet while it is only
+   information, and in the refusal tone once the message cannot go. */
+.chat-composer-count {
+  margin: 0;
+  padding: 2px 10px 6px;
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+.chat-composer-count[data-over] {
+  color: var(--chat-danger);
+  opacity: 1;
+}
+
+/* Messages waiting for the turn to end, under the field they were typed in.
+   Deliberately quieter than the unit above: they are not the thing being
+   written, they are the thing already said. */
+.chat-composer-queued {
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  border: 1px solid var(--chat-composer-hair);
+  border-radius: var(--alkRadiusMd, 10px);
+  background: var(--chat-composer-wash);
+}
+.chat-composer-queued__label {
+  margin: 0 0 4px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+.chat-composer-queued__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.chat-composer-queued__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.chat-composer-queued__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: none;
+  field-sizing: content;
+}
+/* A long message folds to four lines; open, it still stops at a third of the
+   view and scrolls inside itself, so the field stays on screen. */
+.chat-composer-queued__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.chat-composer-queued__body .chat-composer-queued__text {
+  align-self: stretch;
+  max-height: 33vh;
+  overflow-y: auto;
+}
+.chat-composer-queued__body .chat-composer-queued__text[data-clamped] {
+  max-height: calc(4 * 1.45em);
+  overflow: hidden;
+}
+.chat-composer-queued__more {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--chat-ink-3);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.chat-composer-queued__more:hover {
+  color: inherit;
+}
+.chat-composer-queued__text:focus-visible {
+  outline: none;
+}
+/* A message that will not send itself carries the key that sends it. */
+.chat-composer-queued__send {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border: 1px solid var(--chat-composer-edge);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.chat-composer-queued__remove {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  line-height: 1;
+}

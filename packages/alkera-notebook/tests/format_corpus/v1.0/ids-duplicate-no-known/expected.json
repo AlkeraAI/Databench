@@ -1,0 +1,69 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "00000000e2": {
+        "defs": [
+          "a"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "1swteq20d8": {
+        "defs": [
+          "b"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "a = 1",
+        "config": {},
+        "extra": {},
+        "id": "00000000e2",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "a = 1"
+      },
+      {
+        "code": "b = 2",
+        "config": {},
+        "extra": {},
+        "id": "1swteq20d8",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "b = 2"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": [
+      [
+        "id_duplicate",
+        16
+      ]
+    ]
+  }
+}

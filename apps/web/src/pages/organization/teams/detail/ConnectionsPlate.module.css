@@ -1,0 +1,54 @@
+/* The preconfigure dialog's own two measurements. Everything else is a ui
+   primitive or a shared token. */
+
+/* The checkbox paints at 16px, under the 24px pointer target. Wrapping it in a
+   label makes the whole square the target — a label activates the control it
+   contains — without repainting the box. The square is one small control, the
+   same width the shared form gives the column. */
+.prefill {
+  display: grid;
+  place-items: center;
+  width: var(--alkControlSm);
+  height: var(--alkControlSm);
+  cursor: pointer;
+  border-radius: var(--alkRadiusSm);
+}
+.prefill:hover {
+  background: var(--alkHoverBg);
+}
+
+/* A connector row. Rows separated by a hairline rather than ten bordered
+   boxes, and the mark + name start on the dialog's own left axis: a centred
+   label in a 720px row leaves the row looking unfinished at both ends. */
+.pick {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace4);
+  /* The mark starts on the dialog's own left axis; the padding that carries the
+     hover wash is pulled back out so it does not indent the content. */
+  padding: var(--alkSpace4) var(--alkSpace3);
+  margin-inline: calc(-1 * var(--alkSpace3));
+  border: 0;
+  border-bottom: 1px solid var(--alkDivider);
+  border-radius: var(--alkRadiusMd);
+  background: none;
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightMedium);
+  color: var(--alkPrimaryText);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--alk-control-transition);
+}
+/* The rule goes, the box stays: dropping the border outright made the last row
+   1px shorter than its peers. */
+.pick:last-child {
+  border-bottom-color: transparent;
+}
+.pick:hover {
+  background: var(--alkHoverBg);
+}
+.pick:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}

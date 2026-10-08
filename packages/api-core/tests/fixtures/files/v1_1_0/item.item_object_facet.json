@@ -1,0 +1,10 @@
+{
+  "$model": "alkera_core.schemas.files.item.ObjectFacet",
+  "app_url": "alkera://chats/1",
+  "id": "6b1f0b1e-0000-4000-8000-000000000003",
+  "metadata": {},
+  "schema_version": "1.1.0",
+  "title": "Wednesday's warehouse spike",
+  "type": "chat",
+  "web_url": "https://app.example.test/chats/1"
+}

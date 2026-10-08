@@ -1,0 +1,12 @@
+{
+  "decided_by": "user",
+  "event_id": "01H_permission_resolved",
+  "event_type": "permission.resolved",
+  "metadata": {},
+  "option_id": "allow_once",
+  "provider_metadata": {},
+  "request_id": "r1",
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

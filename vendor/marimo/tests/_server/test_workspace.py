@@ -1,0 +1,931 @@
+from __future__ import annotations
+
+import os
+import shutil
+import tempfile
+import unittest
+from pathlib import Path
+
+import pytest
+
+from marimo._server.files.directory_scanner import is_marimo_app
+from marimo._server.files.path_validator import PathValidator
+from marimo._server.models.files import FileInfo
+from marimo._server.models.home import MarimoFile
+from marimo._server.workspace import (
+    NEW_FILE,
+    DirectoryWorkspace,
+    EmptyWorkspace,
+    FixedFilesWorkspace,
+    SingleFileWorkspace,
+    count_files,
+    flatten_files,
+    infer_workspace,
+)
+from marimo._utils.http import HTTPException, HTTPStatus
+from marimo._utils.marimo_path import MarimoPath
+
+file_contents = """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App()
+"""
+
+
+def _marimo_file(path: str, name: str = "test.py") -> MarimoFile:
+    """Build a `MarimoFile` for a real path on disk."""
+    return MarimoFile(
+        name=name,
+        path=path,
+        last_modified=os.path.getmtime(path),
+    )
+
+
+class TestNotebookWorkspace(unittest.TestCase):
+    def setUp(self):
+        # Create a temporary directory
+        self.test_dir = tempfile.mkdtemp()
+        # Keep file objects on self because tests use their `.name` paths
+        # after setup; each handle is closed immediately after writing.
+        self.test_file1 = tempfile.NamedTemporaryFile(  # noqa: SIM115
+            delete=False, dir=self.test_dir, suffix=".py"
+        )
+        self.test_file2 = tempfile.NamedTemporaryFile(  # noqa: SIM115
+            delete=False, dir=self.test_dir, suffix=".py"
+        )
+        self.test_file_3 = tempfile.NamedTemporaryFile(  # noqa: SIM115
+            delete=False, dir=self.test_dir, suffix=".md"
+        )
+        # Write to the temporary files
+        self.test_file1.write(file_contents.encode())
+        self.test_file1.close()
+        self.test_file2.write(file_contents.encode())
+        self.test_file2.close()
+        self.test_file_3.write(b"marimo-version: 0.0.0")
+        self.test_file_3.close()
+
+        # Create a nested directory and file
+        self.nested_dir = os.path.join(self.test_dir, "nested")
+        os.mkdir(self.nested_dir)
+        self.nested_file = tempfile.NamedTemporaryFile(  # noqa: SIM115
+            delete=False, dir=self.nested_dir, suffix=".py"
+        )
+        self.nested_file.write(file_contents.encode())
+        self.nested_file.close()
+
+    def tearDown(self):
+        # Clean up temporary files and directory
+        os.unlink(self.test_file1.name)
+        os.unlink(self.test_file2.name)
+        os.unlink(self.test_file_3.name)
+        os.unlink(self.nested_file.name)
+        shutil.rmtree(self.nested_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_infer_file(self):
+        workspace = infer_workspace(self.test_file1.name)
+        assert isinstance(workspace, SingleFileWorkspace)
+
+    def test_infer_directory(self):
+        workspace = infer_workspace(self.test_dir)
+        assert isinstance(workspace, DirectoryWorkspace)
+
+    def test_fixed_files_workspace(self):
+        workspace = FixedFilesWorkspace([_marimo_file(self.test_file1.name)])
+        assert workspace.single_file() is None
+
+    def test_empty_workspace(self):
+        workspace = EmptyWorkspace()
+        assert workspace.single_file() is None
+        assert workspace.get_unique_file_key() == NEW_FILE
+
+    def test_directory_workspace_lists_files(self):
+        workspace = DirectoryWorkspace(self.test_dir, include_markdown=False)
+        files = workspace.files
+        assert len(files) == 3
+
+    def test_directory_workspace_with_broken_symlinks(self):
+        broken_symlink = os.path.join(self.test_dir, "broken_symlink.py")
+        os.symlink("non_existent_file", broken_symlink)
+        workspace = DirectoryWorkspace(self.test_dir, include_markdown=False)
+        files = workspace.files
+        assert len(files) == 3
+        os.unlink(broken_symlink)
+
+    def test_directory_workspace_set_include_markdown_mutates_in_place(self):
+        workspace = DirectoryWorkspace(self.test_dir, include_markdown=True)
+        assert len(workspace.files) == 4
+
+        workspace.set_include_markdown(False)
+        assert len(workspace.files) == 3
+
+        workspace.set_include_markdown(True)
+        assert len(workspace.files) == 4
+
+    def test_fixed_files_restricts_access(self):
+        workspace = FixedFilesWorkspace([_marimo_file(self.test_file1.name)])
+        with pytest.raises(HTTPException) as exc:
+            workspace.load(self.test_file2.name)
+        assert exc.value.status_code == HTTPStatus.NOT_FOUND
+
+    def test_fixed_files_register_allowed_path_is_noop(self):
+        workspace = FixedFilesWorkspace([_marimo_file(self.test_file1.name)])
+        workspace.register_allowed_path(self.test_file2.name)
+        with pytest.raises(HTTPException) as exc:
+            workspace.load(self.test_file2.name)
+        assert exc.value.status_code == HTTPStatus.NOT_FOUND
+
+    def test_single_file_register_allowed_path_grows_allowlist(self):
+        workspace = SingleFileWorkspace(_marimo_file(self.test_file1.name))
+        workspace.register_allowed_path(self.test_file2.name)
+        manager = workspace.load(self.test_file2.name)
+        assert manager is not None
+
+    def test_fixed_files_disallows_new_file_key(self):
+        workspace = FixedFilesWorkspace([_marimo_file(self.test_file1.name)])
+        with pytest.raises(HTTPException) as exc:
+            workspace.load(NEW_FILE)
+        assert exc.value.status_code == HTTPStatus.NOT_FOUND
+
+    def test_fixed_files_resolve_supports_relative_key(self):
+        workspace = FixedFilesWorkspace(
+            [_marimo_file(self.test_file1.name)],
+            directory=self.test_dir,
+        )
+        relative_key = str(
+            Path(self.test_file1.name).relative_to(self.test_dir)
+        )
+        resolved = workspace.resolve(relative_key)
+        assert resolved == self.test_file1.name
+
+    def test_directory_workspace_load(self):
+        workspace = DirectoryWorkspace(self.test_dir, include_markdown=False)
+        filename = self.test_file1.name
+        assert os.path.exists(filename), f"File {filename} does not exist"
+        file_manager = workspace.load(key=filename)
+        assert file_manager.filename == filename
+
+    def test_directory_workspace_load_nested(self):
+        workspace = DirectoryWorkspace(self.test_dir, include_markdown=False)
+        nested_filename = self.nested_file.name
+        file_manager = workspace.load(key=nested_filename)
+        assert file_manager.filename == self.nested_file.name
+        assert file_manager.filename is not None
+        assert os.path.exists(file_manager.filename)
+        assert file_manager.filename.startswith(self.test_dir)
+        assert "nested" in file_manager.filename
+
+    def test_single_file_resolves_dotdot_in_path(self):
+        """Paths with '..' components should resolve correctly.
+
+        Regression test for https://github.com/marimo-team/marimo/issues/8414
+        """
+        dotdot_path = os.path.join(
+            self.nested_dir, "..", os.path.basename(self.test_file1.name)
+        )
+        workspace = SingleFileWorkspace.from_path(MarimoPath(dotdot_path))
+        key = workspace.get_unique_file_key()
+        assert key is not None
+        resolved = workspace.resolve(key)
+        assert resolved is not None
+        assert os.path.exists(resolved)
+
+    def test_no_op_capabilities_default_to_inert(self):
+        """All non-directory workspaces share inert defaults for capabilities."""
+        workspaces = [
+            EmptyWorkspace(),
+            SingleFileWorkspace.from_path(MarimoPath(self.test_file1.name)),
+            FixedFilesWorkspace([]),
+        ]
+        for workspace in workspaces:
+            # No-ops shouldn't raise.
+            workspace.register_temp_dir("/tmp/whatever")
+            workspace.invalidate()
+            workspace.set_include_markdown(True)
+            assert workspace.is_in_allowed_temp_dir("/anywhere") is False
+
+    # ----- security: SingleFileWorkspace -----
+
+    def test_single_file_blocks_unrelated_absolute_path(self):
+        """A SingleFileWorkspace must reject any path other than its file."""
+        workspace = SingleFileWorkspace.from_path(
+            MarimoPath(self.test_file1.name)
+        )
+        with pytest.raises(HTTPException) as exc:
+            workspace.resolve(self.test_file2.name)
+        assert exc.value.status_code == HTTPStatus.NOT_FOUND
+
+    def test_single_file_blocks_path_traversal(self):
+        """`..` segments that escape the allowed file are rejected."""
+        workspace = SingleFileWorkspace.from_path(
+            MarimoPath(self.test_file1.name)
+        )
+        # /tmp/dir/file1.py + /../../etc/passwd → /etc/passwd, not in allowlist
+        traversal = os.path.join(
+            self.nested_dir, "..", "..", "..", "etc", "passwd"
+        )
+        with pytest.raises(HTTPException) as exc:
+            workspace.resolve(traversal)
+        assert exc.value.status_code == HTTPStatus.NOT_FOUND
+
+    def test_single_file_accepts_dotdot_that_normalizes_to_allowed(self):
+        """`..` segments that normalize back to the allowed file are accepted."""
+        workspace = SingleFileWorkspace.from_path(
+            MarimoPath(self.test_file1.name)
+        )
+        # nested/../<basename of test_file1> resolves to test_file1
+        equivalent = os.path.join(
+            self.nested_dir, "..", os.path.basename(self.test_file1.name)
+        )
+        resolved = workspace.resolve(equivalent)
+        assert resolved == self.test_file1.name
+
+    # ----- security: FixedFilesWorkspace -----
+
+    def test_fixed_files_blocks_path_traversal(self):
+        """Relative `..` keys that escape the allowlist must 404."""
+        workspace = FixedFilesWorkspace(
+            [_marimo_file(self.test_file1.name)],
+            directory=self.test_dir,
+        )
+        with pytest.raises(HTTPException) as exc:
+            workspace.resolve("../../../etc/passwd")
+        assert exc.value.status_code == HTTPStatus.NOT_FOUND
+
+    def test_fixed_files_blocks_absolute_path_outside_allowlist(self):
+        """Absolute paths outside the allowlist must 404 even if they exist."""
+        workspace = FixedFilesWorkspace(
+            [_marimo_file(self.test_file1.name)],
+            directory=self.test_dir,
+        )
+        # test_file2 exists on disk inside the same directory but is not on the
+        # allowlist — must still be denied.
+        with pytest.raises(HTTPException) as exc:
+            workspace.resolve(self.test_file2.name)
+        assert exc.value.status_code == HTTPStatus.NOT_FOUND
+
+    def test_fixed_files_accepts_dotdot_that_normalizes_to_allowed(self):
+        """Regression test for #8414 — `..` paths must normalize correctly."""
+        dotdot_path = os.path.join(
+            self.nested_dir, "..", os.path.basename(self.test_file1.name)
+        )
+        workspace = FixedFilesWorkspace([_marimo_file(dotdot_path)])
+        resolved = workspace.resolve(dotdot_path)
+        assert resolved is not None
+        assert os.path.exists(resolved)
+
+    def test_fixed_files_new_file_key_is_rejected(self):
+        """`__new__` keys are not valid in run mode."""
+        workspace = FixedFilesWorkspace([])
+        with pytest.raises(HTTPException) as exc:
+            workspace.resolve(NEW_FILE)
+        assert exc.value.status_code == HTTPStatus.NOT_FOUND
+
+    # ----- security: DirectoryWorkspace -----
+
+    def test_directory_workspace_resolve_normalizes_dotdot(self):
+        workspace = DirectoryWorkspace(self.test_dir, include_markdown=False)
+        key = os.path.join(
+            "nested", "..", os.path.basename(self.test_file1.name)
+        )
+
+        assert workspace.resolve(key) == self.test_file1.name
+
+    def test_directory_workspace_new_file_prefix_does_not_leak(self):
+        """`__new__` prefix returns None — does not bypass containment.
+
+        `startswith(NEW_FILE)` could otherwise be coaxed into accepting
+        crafted keys like `__new__../etc/passwd`; verify those still resolve
+        to `None` (a blank notebook), never an arbitrary file.
+        """
+        workspace = DirectoryWorkspace(self.test_dir, include_markdown=False)
+        for key in (
+            NEW_FILE,
+            f"{NEW_FILE}../etc/passwd",
+            f"{NEW_FILE}/etc/passwd",
+        ):
+            assert workspace.resolve(key) is None
+
+    def test_directory_workspace_temp_dir_does_not_enable_traversal(self):
+        """A temp-dir bypass must not let attackers escape via `..`."""
+        with (
+            tempfile.TemporaryDirectory() as base_dir,
+            tempfile.TemporaryDirectory() as temp_dir,
+        ):
+            workspace = DirectoryWorkspace(base_dir, include_markdown=False)
+            workspace.register_temp_dir(temp_dir)
+
+            # Path that traverses through the temp dir to escape entirely.
+            traversal = os.path.join(temp_dir, "..", "..", "etc", "passwd")
+            with pytest.raises(HTTPException) as exc:
+                workspace.resolve(traversal)
+            # The path normalizes to /etc/passwd (or equivalent), neither in
+            # the temp dir nor in the workspace directory — must be denied.
+            assert exc.value.status_code in (
+                HTTPStatus.FORBIDDEN,
+                HTTPStatus.NOT_FOUND,
+            )
+
+    # ----- security: EmptyWorkspace -----
+
+    def test_empty_workspace_load_with_new_file_key_returns_blank(self):
+        """Bare `__new__` key always yields an unbacked manager."""
+        workspace = EmptyWorkspace()
+        manager = workspace.load(NEW_FILE)
+        assert manager.filename is None
+
+    def test_empty_workspace_load_with_nonexistent_path_404s(self):
+        """Concrete keys that don't exist on disk must 404."""
+        workspace = EmptyWorkspace()
+        with pytest.raises(HTTPException) as exc:
+            workspace.load("/this/path/does/not/exist.py")
+        assert exc.value.status_code == HTTPStatus.NOT_FOUND
+
+    def test_empty_workspace_resolve_returns_absolute_normalized(self):
+        """`resolve` must return an absolute, normalized path so downstream
+        lookups (session keys, comparisons) don't mismatch between relative
+        and absolute spellings of the same file.
+        """
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(self.test_dir)
+            relative_key = os.path.basename(self.test_file1.name)
+            workspace = EmptyWorkspace()
+            resolved = workspace.resolve(relative_key)
+            assert resolved is not None
+            assert os.path.isabs(resolved)
+            assert os.path.samefile(resolved, self.test_file1.name)
+        finally:
+            os.chdir(original_cwd)
+
+    def test_empty_workspace_load_with_existing_path_falls_back(self):
+        """`marimo new` boots an EmptyWorkspace; opening a recent file must
+        still work via the unconditional existence fallback.
+
+        This is intentionally permissive — there's no allowlist, since the
+        boot mode has no concept of one. Threat model: anyone able to hit
+        `marimo new`'s endpoint already has the same trust level as the
+        process owner.
+        """
+        workspace = EmptyWorkspace()
+        manager = workspace.load(self.test_file1.name)
+        assert manager.filename == self.test_file1.name
+
+
+def test_flatten_files() -> None:
+    root = FileInfo(
+        id="root",
+        path="root",
+        name="root",
+        is_directory=True,
+        is_marimo_file=False,
+        children=[
+            FileInfo(
+                id="file1",
+                path="root/file1.py",
+                name="file1.py",
+                is_directory=False,
+                is_marimo_file=True,
+                children=[],
+            ),
+            FileInfo(
+                id="dir1",
+                path="root/dir1",
+                name="dir1",
+                is_directory=True,
+                is_marimo_file=False,
+                children=[
+                    FileInfo(
+                        id="file2",
+                        path="root/dir1/file2.py",
+                        name="file2.py",
+                        is_directory=False,
+                        is_marimo_file=True,
+                        children=[],
+                    ),
+                    FileInfo(
+                        id="dir2",
+                        path="root/dir1/dir2",
+                        name="dir2",
+                        is_directory=True,
+                        is_marimo_file=False,
+                        children=[
+                            FileInfo(
+                                id="file3",
+                                path="root/dir1/dir2/file3.py",
+                                name="file3.py",
+                                is_directory=False,
+                                is_marimo_file=True,
+                                children=[],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    flattened = list(flatten_files([root]))
+    paths = {file.path for file in flattened}
+    assert paths == {
+        "root/file1.py",
+        "root/dir1/file2.py",
+        "root/dir1/dir2/file3.py",
+    }
+
+
+class TestValidateInsideDirectory(unittest.TestCase):
+    def setUp(self):
+        # Create a temporary directory structure
+        self.test_dir = tempfile.mkdtemp()
+        self.test_file = Path(self.test_dir) / "test.py"
+        self.test_file.write_text("test")
+
+        # Create nested directory
+        self.nested_dir = Path(self.test_dir) / "nested"
+        self.nested_dir.mkdir()
+        self.nested_file = self.nested_dir / "nested.py"
+        self.nested_file.write_text("test")
+
+        # Create directory outside test_dir
+        self.outside_dir = tempfile.mkdtemp()
+        self.outside_file = Path(self.outside_dir) / "outside.py"
+        self.outside_file.write_text("test")
+
+        # Save current working directory
+        self.original_cwd = os.getcwd()
+
+    def tearDown(self):
+        # Clean up
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+        shutil.rmtree(self.outside_dir, ignore_errors=True)
+        os.chdir(self.original_cwd)
+
+    def test_absolute_directory_absolute_filepath_inside(self):
+        """Test: absolute directory, absolute filepath, file inside directory"""
+        directory = Path(self.test_dir).resolve()
+        filepath = Path(self.test_file).resolve()
+        # Should not raise
+        PathValidator().validate_inside_directory(directory, filepath)
+
+    def test_absolute_directory_absolute_filepath_outside(self):
+        """Test: absolute directory, absolute filepath, file outside directory"""
+        directory = Path(self.test_dir).resolve()
+        filepath = Path(self.outside_file).resolve()
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+    def test_absolute_directory_relative_filepath_inside(self):
+        """Test: absolute directory, relative filepath, file inside directory"""
+        directory = Path(self.test_dir).resolve()
+        filepath = Path("test.py")
+        # Change to test_dir so relative path resolves correctly
+        os.chdir(self.test_dir)
+        # Should not raise
+        PathValidator().validate_inside_directory(directory, filepath)
+
+    def test_absolute_directory_relative_filepath_outside(self):
+        """Test: absolute directory, relative filepath, file outside directory"""
+        directory = Path(self.test_dir).resolve()
+        # When directory is absolute and filepath is relative, filepath is resolved
+        # relative to directory. So "outside.py" would resolve to test_dir/outside.py
+        # which doesn't exist but would be inside test_dir. To test outside, we need
+        # to use a path that goes outside even when resolved relative to directory.
+        filepath = Path("..") / ".." / "etc" / "passwd"
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+    def test_relative_directory_absolute_filepath_inside(self):
+        """Test: relative directory, absolute filepath, file inside directory"""
+        os.chdir(self.test_dir)
+        directory = Path(".")
+        filepath = Path(self.test_file).resolve()
+        # Should not raise
+        PathValidator().validate_inside_directory(directory, filepath)
+
+    def test_relative_directory_absolute_filepath_outside(self):
+        """Test: relative directory, absolute filepath, file outside directory"""
+        os.chdir(self.test_dir)
+        directory = Path(".")
+        filepath = Path(self.outside_file).resolve()
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+    def test_relative_directory_relative_filepath_inside(self):
+        """Test: relative directory, relative filepath, file inside directory"""
+        os.chdir(self.test_dir)
+        directory = Path(".")
+        filepath = Path("test.py")
+        # Should not raise
+        PathValidator().validate_inside_directory(directory, filepath)
+
+    def test_relative_directory_relative_filepath_outside(self):
+        """Test: relative directory, relative filepath, file outside directory"""
+        os.chdir(self.outside_dir)
+        directory = Path(".")
+        # Try to access file in test_dir using relative path
+        relative_path = os.path.relpath(self.test_file, self.outside_dir)
+        filepath = Path(relative_path)
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+    def test_path_traversal_dotdot(self):
+        """Test: path traversal attack using .."""
+        directory = Path(self.test_dir).resolve()
+        # Try to escape using ../
+        filepath = Path(self.test_dir) / ".." / ".." / "etc" / "passwd"
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+    def test_path_traversal_nested_dotdot(self):
+        """Test: path traversal using nested ../"""
+        directory = Path(self.nested_dir).resolve()
+        # Try to escape to parent directory
+        filepath = (
+            Path(self.nested_dir) / ".." / ".." / ".." / "etc" / "passwd"
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+    def test_symlink_inside_directory(self):
+        """Test: symlink pointing to file inside directory"""
+        directory = Path(self.test_dir)
+        # Create symlink inside directory pointing to file inside directory
+        symlink_path = Path(self.test_dir) / "symlink.py"
+        symlink_path.symlink_to(self.test_file)
+        # Should not raise - symlink path is inside directory
+        PathValidator().validate_inside_directory(directory, symlink_path)
+        symlink_path.unlink()
+
+    def test_symlink_outside_directory(self):
+        """Test: symlink pointing to file outside directory"""
+        directory = Path(self.test_dir)
+        # Create symlink inside directory pointing to file outside directory
+        symlink_path = Path(self.test_dir) / "symlink.py"
+        symlink_path.symlink_to(self.outside_file)
+        # Symlink path itself is inside directory, so this should pass
+        # (we preserve symlinks, not resolve them)
+        PathValidator().validate_inside_directory(directory, symlink_path)
+        symlink_path.unlink()
+
+    def test_broken_symlink(self):
+        """Test: broken symlink"""
+        directory = Path(self.test_dir)
+        # Create broken symlink
+        broken_symlink = Path(self.test_dir) / "broken.py"
+        broken_symlink.symlink_to("nonexistent_file")
+        # The symlink path itself is inside the directory, so validation passes
+        # (symlinks are preserved, target is not checked)
+        PathValidator().validate_inside_directory(directory, broken_symlink)
+        broken_symlink.unlink()
+
+    def test_broken_symlink_path_traversal(self):
+        """Test: broken symlink with path traversal"""
+        directory = Path(self.test_dir)
+        broken_symlink = Path(self.test_dir) / "broken.py"
+        # Create symlink that would resolve outside via path traversal
+        broken_symlink.symlink_to("../../etc/passwd")
+        # Symlink path itself is inside directory, so this passes
+        # (we preserve symlinks, path traversal in target is not checked)
+        PathValidator().validate_inside_directory(directory, broken_symlink)
+        broken_symlink.unlink()
+
+    def test_symlink_to_directory(self):
+        """Test: symlink pointing to directory inside"""
+        directory = Path(self.test_dir)
+        # Create symlink to nested directory
+        symlink_path = Path(self.test_dir) / "nested_link"
+        symlink_path.symlink_to(self.nested_dir)
+        # Should not raise - symlink path is inside directory
+        PathValidator().validate_inside_directory(directory, symlink_path)
+        symlink_path.unlink()
+
+    def test_nested_file(self):
+        """Test: nested file inside directory"""
+        directory = Path(self.test_dir).resolve()
+        filepath = Path(self.nested_file).resolve()
+        # Should not raise
+        PathValidator().validate_inside_directory(directory, filepath)
+
+    def test_nonexistent_directory(self):
+        """Test: directory doesn't exist"""
+        directory = Path(self.test_dir) / "nonexistent"
+        filepath = Path(self.test_file).resolve()
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.BAD_REQUEST
+
+    def test_file_as_directory(self):
+        """Test: directory path is actually a file"""
+        directory = Path(self.test_file).resolve()
+        filepath = Path(self.test_file).resolve()
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.BAD_REQUEST
+
+    def test_same_path(self):
+        """Test: filepath is the same as directory"""
+        directory = Path(self.test_dir).resolve()
+        filepath = Path(self.test_dir).resolve()
+        # Directory is not inside itself
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+    def test_empty_paths(self):
+        """Test: empty paths (Path("") resolves to ".")"""
+        # Path("") resolves to ".", which is ambiguous
+        directory = Path("")
+        filepath = Path("")
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.BAD_REQUEST
+
+    def test_absolute_path_with_dotdot_resolved(self):
+        """Test: absolute path with .. that resolves inside"""
+        directory = Path(self.test_dir).resolve()
+        # Create path with .. that still resolves inside
+        filepath = Path(self.nested_file).resolve() / ".." / "test.py"
+        # Should not raise - resolves to test.py inside directory
+        PathValidator().validate_inside_directory(
+            directory, filepath.resolve()
+        )
+
+    def test_relative_path_with_dotdot(self):
+        """Test: relative path with .. that resolves inside"""
+        directory = Path(self.test_dir).resolve()
+        # When directory is absolute and filepath is relative, filepath is resolved
+        # relative to directory. So "../test.py" from nested_dir would be
+        # resolved as (test_dir / "../test.py") which goes outside.
+        # Instead, test with a path that stays inside when resolved relative to directory
+        nested_rel_path = Path("nested") / ".." / "test.py"
+        filepath = nested_rel_path
+        # Should not raise - resolves to test.py inside directory
+        PathValidator().validate_inside_directory(directory, filepath)
+
+    def test_relative_path_with_dotdot_outside(self):
+        """Test: relative path with .. that goes outside"""
+        os.chdir(self.nested_dir)
+        directory = Path(self.nested_dir).resolve()
+        filepath = Path("..") / ".." / ".." / "etc" / "passwd"
+        with pytest.raises(HTTPException) as exc_info:
+            PathValidator().validate_inside_directory(directory, filepath)
+        assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+
+def test_python_app_detected_in_header(tmp_path: Path):
+    f = tmp_path / "app.py"
+    content = b"import marimo\napp = marimo.App()\n"
+    f.write_bytes(content)
+    assert is_marimo_app(str(f)) is True
+
+
+def test_python_app_detected_with_script_header_full_read(tmp_path: Path):
+    f = tmp_path / "script_app.py"
+    header = b"# /// script\n# lots of stuff before markers\n" + (b"x" * 600)
+    # Ensure markers are only in full content beyond header limit
+    body = b"\nimport marimo\napp = marimo.App()\n"
+    f.write_bytes(header + body)
+    assert is_marimo_app(str(f)) is True
+
+
+def test_python_non_app_returns_false(tmp_path: Path):
+    f = tmp_path / "not_app.py"
+    f.write_bytes(b"print('hello')\n")
+    assert is_marimo_app(str(f)) is False
+
+
+def test_markdown_with_marimo_version_detected(tmp_path: Path):
+    f = tmp_path / "notebook.md"
+    # Place marker in the first 512 bytes
+    f.write_bytes(b"---\nmarimo-version: 0.1\n---\n")
+    assert is_marimo_app(str(f)) is True
+
+
+def test_markdown_without_marimo_version_returns_false(tmp_path: Path):
+    f = tmp_path / "plain.md"
+    f.write_bytes(b"# Title\nSome content\n")
+    assert is_marimo_app(str(f)) is False
+
+
+def test_error_path_returns_false_and_logs(tmp_path: Path):
+    # Point to a directory to trigger open error
+    d = tmp_path / "adir"
+    d.mkdir()
+    assert is_marimo_app(str(d)) is False
+
+
+def test_lazy_router_respects_max_files(tmp_path: Path):
+    """Test that DirectoryWorkspace enforces MAX_FILES limit"""
+    # Create a directory with more files than MAX_FILES
+    # To make this test fast, we'll use a monkey-patch approach
+    # by temporarily reducing MAX_FILES
+    from marimo._server.files.directory_scanner import DirectoryScanner
+
+    original_max_files = DirectoryScanner.MAX_FILES
+    try:
+        # Set a small limit for testing
+        DirectoryScanner.MAX_FILES = 5
+
+        # Create 10 marimo files
+        for i in range(10):
+            f = tmp_path / f"app_{i}.py"
+            f.write_text("import marimo\napp = marimo.App()\n")
+
+        router = DirectoryWorkspace(str(tmp_path), include_markdown=False)
+        files = router.files
+
+        # Should only get MAX_FILES worth of files
+        # Count actual marimo files (not directories)
+        file_count = sum(1 for f in files if not f.is_directory)
+        assert file_count <= 5
+
+    finally:
+        # Restore original value
+        DirectoryScanner.MAX_FILES = original_max_files
+
+
+def test_lazy_router_reports_truncated_scan(tmp_path: Path):
+    """Deeply nested notebooks are omitted, and the workspace says so (#10064)."""
+    deep = tmp_path.joinpath("a", "b", "c", "d", "e", "f")
+    deep.mkdir(parents=True)
+    (deep / "app.py").write_text(file_contents)
+
+    router = DirectoryWorkspace(str(tmp_path), include_markdown=False)
+
+    # The notebook sits past DirectoryScanner.MAX_DEPTH, so nothing is listed.
+    assert router.files == []
+    assert router.is_truncated
+
+
+def test_lazy_router_not_truncated_for_shallow_tree(tmp_path: Path):
+    (tmp_path / "app.py").write_text(file_contents)
+
+    router = DirectoryWorkspace(str(tmp_path), include_markdown=False)
+
+    assert len(router.files) == 1
+    assert not router.is_truncated
+
+
+def test_lazy_router_skips_common_dirs(tmp_path: Path):
+    """Test that DirectoryWorkspace skips common directories"""
+    # Create directories that should be skipped
+    skip_dirs = [
+        ".venv",
+        ".git",
+        "__pycache__",
+        "node_modules",
+        ".tox",
+        ".pytest_cache",
+    ]
+
+    for skip_dir in skip_dirs:
+        dir_path = tmp_path / skip_dir
+        dir_path.mkdir()
+        # Create a marimo file inside
+        f = dir_path / "app.py"
+        f.write_text("import marimo\napp = marimo.App()\n")
+
+    # Create a valid marimo file in the root
+    root_file = tmp_path / "root_app.py"
+    root_file.write_text("import marimo\napp = marimo.App()\n")
+
+    router = DirectoryWorkspace(str(tmp_path), include_markdown=False)
+    files = router.files
+
+    # Should only find the root file, not files in skipped directories
+    file_paths = [f.path for f in files if not f.is_directory]
+    assert len(file_paths) == 1
+    # Paths are now relative to the router's directory
+    assert root_file.name in file_paths
+
+
+def test_lazy_router_counts_nested_files(tmp_path: Path):
+    """Test that file counting works correctly with nested directories"""
+    # Create nested structure
+    nested_dir = tmp_path / "subdir"
+    nested_dir.mkdir()
+
+    # Create files at different levels
+    root_file = tmp_path / "root.py"
+    root_file.write_text("import marimo\napp = marimo.App()\n")
+
+    nested_file = nested_dir / "nested.py"
+    nested_file.write_text("import marimo\napp = marimo.App()\n")
+
+    router = DirectoryWorkspace(str(tmp_path), include_markdown=False)
+    files = router.files
+
+    total_files = count_files(files)
+    assert total_files == 2
+
+
+def test_lazy_router_allows_temp_dir_files(tmp_path: Path):
+    """Test that files in registered temp directories bypass validation"""
+    # Create a base directory
+    base_dir = tmp_path / "base"
+    base_dir.mkdir()
+
+    # Create a file in the base directory
+    base_file = base_dir / "base_app.py"
+    base_file.write_text("import marimo\napp = marimo.App()\n")
+
+    # Create a separate temp directory
+    temp_dir = tmp_path / "temp"
+    temp_dir.mkdir()
+
+    # Create a file in the temp directory
+    temp_file = temp_dir / "tutorial.py"
+    temp_file.write_text("import marimo\napp = marimo.App()\n")
+
+    # Create router for base directory
+    router = DirectoryWorkspace(str(base_dir), include_markdown=False)
+
+    # Without registering temp dir, accessing temp file should fail
+    with pytest.raises(HTTPException) as exc_info:
+        router.load(str(temp_file))
+    assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+    assert "outside the allowed directory" in exc_info.value.detail
+
+    # Register the temp directory
+    router.register_temp_dir(str(temp_dir))
+
+    # Now accessing the temp file should succeed
+    manager = router.load(str(temp_file))
+    assert manager is not None
+    assert manager.path == str(temp_file)
+
+
+def test_lazy_router_temp_dir_doesnt_affect_normal_files(
+    tmp_path: Path,
+):
+    """Test that temp dir registration doesn't interfere with normal file access"""
+    # Create a base directory
+    base_dir = tmp_path / "base"
+    base_dir.mkdir()
+
+    # Create a file in the base directory
+    base_file = base_dir / "base_app.py"
+    base_file.write_text("import marimo\napp = marimo.App()\n")
+
+    # Create a file outside the base directory
+    outside_file = tmp_path / "outside.py"
+    outside_file.write_text("import marimo\napp = marimo.App()\n")
+
+    # Create a different temp directory
+    other_temp_dir = tmp_path / "other_temp"
+    other_temp_dir.mkdir()
+
+    # Create router
+    router = DirectoryWorkspace(str(base_dir), include_markdown=False)
+
+    # Register a different temp directory (not containing our outside_file)
+    router.register_temp_dir(str(other_temp_dir))
+
+    # Base file should still be accessible
+    manager = router.load(str(base_file))
+    assert manager is not None
+    assert manager.path == str(base_file)
+
+    # Outside file should still be blocked (not in registered temp dir)
+    with pytest.raises(HTTPException) as exc_info:
+        router.load(str(outside_file))
+    assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+
+def test_lazy_router_symlink_directory_outside_allowed(tmp_path: Path):
+    """Test that files through symlinked directories are allowed.
+
+    Since symlinks are preserved (not resolved), the path through the
+    symlink is inside the base directory.
+    """
+    # Create base directory with a notebook
+    base_dir = tmp_path / "base"
+    base_dir.mkdir()
+    base_file = base_dir / "base.py"
+    base_file.write_text("import marimo\napp = marimo.App()\n")
+
+    # Create outside directory with a notebook
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    outside_file = outside_dir / "outside.py"
+    outside_file.write_text("import marimo\napp = marimo.App()\n")
+
+    # Create symlink inside base_dir pointing to outside_dir
+    symlink_path = base_dir / "shared"
+    symlink_path.symlink_to(outside_dir)
+
+    # File path through the symlink
+    file_through_symlink = symlink_path / "outside.py"
+
+    # Symlinks are preserved (not resolved), so the path
+    # base_dir/shared/outside.py is inside base_dir
+    router = DirectoryWorkspace(str(base_dir), include_markdown=False)
+    manager = router.load(str(file_through_symlink))
+    assert manager is not None

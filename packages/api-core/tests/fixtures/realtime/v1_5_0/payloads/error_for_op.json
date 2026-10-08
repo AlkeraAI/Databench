@@ -1,0 +1,10 @@
+{
+  "code": "op_too_large",
+  "message": "the operation would be 20000 bytes in the event log; the cap is 16384",
+  "metadata": {},
+  "op_id": "op-append-1",
+  "reason": null,
+  "retry_after_ms": null,
+  "schema_version": "1.2.0",
+  "update_id": null
+}

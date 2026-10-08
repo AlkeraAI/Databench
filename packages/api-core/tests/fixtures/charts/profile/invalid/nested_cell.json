@@ -1,0 +1,17 @@
+{
+  "path": "data.values[0]",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": {
+            "b": 1
+          }
+        }
+      ]
+    },
+    "mark": "point"
+  },
+  "unsafe": false
+}

@@ -1,0 +1,44 @@
+/* Thinking: a quiet disclosure. Subordinate reading, reachable after it
+   collapses. Type carries the "supporting" register; no border furniture.
+
+   The host stamps .chat-root, so it stays global while these names are scoped
+   by the build. */
+
+:global(.chat-root) .toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  min-height: 24px;
+  cursor: pointer;
+  color: var(--chat-ink-3);
+}
+
+/* The thought's own line reads at the transcript's body size, like the tool
+   card it sits among, and at the same rank as that card's header: running-text
+   weight, one ink tier under the prose. A disclosure the reader may never open
+   has no business setting heavier than the answer. */
+:global(.chat-root) .label {
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  font-weight: var(--chat-w-regular);
+  color: var(--chat-ink-3);
+}
+
+:global(.chat-root) .body {
+  margin-top: var(--chat-sp-2);
+}
+
+/* Reasoning is supporting material: a tier below prose in ink and a tighter rhythm
+   than the answer's reading leading, so an open thought never reads as the
+   deliverable. */
+:global(.chat-root) .body p {
+  margin: 0 0 var(--chat-sp-2);
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink-3);
+  overflow-wrap: anywhere;
+}
+
+:global(.chat-root) .body p:last-child {
+  margin-bottom: 0;
+}

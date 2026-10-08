@@ -1,0 +1,18 @@
+{
+  "command": "usage",
+  "event_id": "01H_command_result",
+  "event_type": "command.result",
+  "message": null,
+  "metadata": {},
+  "outcome_kind": "ok",
+  "payload": {
+    "credits": {
+      "plan": "pro"
+    },
+    "window": "30d"
+  },
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

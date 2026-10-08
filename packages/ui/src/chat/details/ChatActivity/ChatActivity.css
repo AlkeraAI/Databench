@@ -1,0 +1,67 @@
+/* Per-chat activity (Decisions | Cost | Safety). The tab strip is the ui Tabs
+   primitive; these classes own the panel scaffold, the audit / ledger tables, and
+   the spend-vs-cap gauge rows. Surface-neutral: role tokens only, so the host
+   remap (vscode-theme.css) restyles it without any rule here knowing. */
+
+.alk-chatact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+  height: 100%;
+  min-height: 0;
+}
+
+.alk-chatact__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.alk-chatact__status {
+  padding: var(--alkSpace4);
+  color: var(--alkSecondaryText);
+}
+
+/* ----- tables (decisions / safety / ledger) ----- */
+.alk-chatact__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--alkTextMd);
+}
+
+.alk-chatact__table th,
+.alk-chatact__table td {
+  padding: var(--alkSpace1) var(--alkSpace2);
+  border-bottom: 1px solid var(--alkDivider);
+  text-align: left;
+  vertical-align: top;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-chatact__table th {
+  color: var(--alkSecondaryText);
+  font-weight: var(--alkWeightSemibold);
+  font-size: var(--alkTextXs);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* ----- spend-vs-cap gauge: label | meter | reading ----- */
+.alk-chatact__gauge-row {
+  display: grid;
+  grid-template-columns: 6rem 1fr auto;
+  align-items: center;
+  gap: var(--alkSpace2);
+  font-size: var(--alkTextMd);
+}
+
+.alk-chatact__gauge-row > :first-child {
+  color: var(--alkSecondaryText);
+}
+
+.alk-chatact__gauge-row > :last-child {
+  font-variant-numeric: tabular-nums;
+}

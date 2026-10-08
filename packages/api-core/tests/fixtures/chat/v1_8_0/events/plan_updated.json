@@ -1,0 +1,21 @@
+{
+  "entries": [
+    {
+      "id": "1",
+      "status": "completed",
+      "text": "Read file"
+    },
+    {
+      "id": "2",
+      "status": "in_progress",
+      "text": "Edit file"
+    }
+  ],
+  "event_id": "01H_plan_updated",
+  "event_type": "plan.updated",
+  "metadata": {},
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

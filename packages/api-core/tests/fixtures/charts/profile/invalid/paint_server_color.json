@@ -1,0 +1,18 @@
+{
+  "path": "mark.color",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "mark": {
+      "color": "url(https://evil.example/rows.json#g)",
+      "type": "point"
+    }
+  },
+  "unsafe": true
+}

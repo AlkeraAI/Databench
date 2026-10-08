@@ -1,0 +1,11 @@
+{
+  "path": "data",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "url": "https://evil.example/rows.json"
+    },
+    "mark": "point"
+  },
+  "unsafe": true
+}

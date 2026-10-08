@@ -1,0 +1,2300 @@
+# Copyright 2026 Marimo. All rights reserved.
+
+from __future__ import annotations
+
+import pathlib
+import subprocess
+import sys
+import textwrap
+from typing import TYPE_CHECKING, Any
+
+import pytest
+
+from marimo._ast.app import (
+    App,
+    AppEmbedResult,
+    AppKernelRunnerRegistry,
+    InternalApp,
+)
+from marimo._ast.app_config import _AppConfig
+from marimo._ast.cell import CellConfig
+from marimo._ast.cell_id import is_external_cell_id
+from marimo._ast.errors import (
+    CycleError,
+    IncompleteRefsError,
+    MultipleDefinitionError,
+    SetupRootError,
+    UnparsableError,
+)
+from marimo._ast.names import SETUP_CELL_NAME
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._plugins.stateless.flex import vstack
+from marimo._runtime.commands import UpdateUIElementCommand
+from marimo._runtime.context.types import get_context
+from marimo._types.ids import CellId_t
+from tests.conftest import ExecReqProvider
+
+if TYPE_CHECKING:
+    from marimo._runtime.runtime import Kernel
+
+
+# don't complain for useless expressions (cell outputs)
+# ruff: noqa: B018
+class TestApp:
+    @staticmethod
+    def test_run() -> None:
+        app = App()
+
+        @app.cell
+        def one() -> tuple[int]:
+            x = 0
+            x
+            return (x,)
+
+        @app.cell
+        def two(x: int, z: int) -> tuple[int]:
+            a = x + z
+            a + 1
+            return (a,)
+
+        @app.cell
+        def __(x: int) -> tuple[int, int]:
+            y = x + 1
+            z = y + 1
+            return y, z
+
+        cell_manager = app._cell_manager
+        cell_names = tuple(cell_manager.names())
+        assert cell_names[0] == "one"
+        assert cell_names[1] == "two"
+        assert cell_names[2] == "__"
+
+        codes = tuple(cell_manager.codes())
+        assert codes[0] == "x = 0\nx"
+        assert codes[1] == "a = x + z\na + 1"
+        assert codes[2] == "y = x + 1\nz = y + 1"
+
+        outputs, defs = app.run()
+
+        assert outputs[0] == defs["x"]
+        assert outputs[1] == defs["a"] + 1
+        assert outputs[2] is None
+
+        assert defs["x"] == 0
+        assert (defs["y"], defs["z"]) == (1, 2)
+        assert defs["a"] == 2
+
+    @staticmethod
+    def test_run_with_docstring() -> None:
+        """Test that __doc__ returns the notebook's docstring."""
+        app = App()
+        app._header = '"""This is a test"""'
+
+        @app.cell
+        def _() -> tuple[object]:
+            doc = __doc__
+            return (doc,)
+
+        _, defs = app.run()
+        assert defs["doc"] == "This is a test"
+
+    @staticmethod
+    def test_run_with_no_docstring() -> None:
+        """Test that __doc__ has a default when no header docstring."""
+        app = App()
+
+        @app.cell
+        def _() -> tuple[object]:
+            doc = __doc__
+            return (doc,)
+
+        _, defs = app.run()
+        assert defs["doc"] == "Created for the marimo kernel."
+
+    @staticmethod
+    def test_run_with_refs() -> None:
+        """Test that app.run() can override variables with provided defs."""
+        app = App()
+
+        @app.cell
+        def config() -> tuple[int, float]:
+            batch_size = 32
+            learning_rate = 0.01
+            return batch_size, learning_rate
+
+        @app.cell
+        def process_data(
+            batch_size: int, learning_rate: float
+        ) -> tuple[float]:
+            result = batch_size * learning_rate
+            return (result,)
+
+        @app.cell
+        def other_cell() -> tuple[str]:
+            message = "independent"
+            return (message,)
+
+        # Test 1: Run with default values
+        outputs, defs = app.run()
+        assert defs["batch_size"] == 32
+        assert defs["learning_rate"] == 0.01
+        assert defs["result"] == 32 * 0.01
+        assert defs["message"] == "independent"
+
+        # Test 2: Run with overridden values
+        outputs, defs = app.run(
+            defs={"batch_size": 64, "learning_rate": 0.001}
+        )
+        assert defs["batch_size"] == 64
+        assert defs["learning_rate"] == 0.001
+        assert defs["result"] == 64 * 0.001
+        assert defs["message"] == "independent"  # unaffected cell still runs
+
+        # Test 3: Partial override - this should fail with IncompleteRefsError
+        # because we're only providing batch_size but the config cell defines both
+        # batch_size and learning_rate
+        with pytest.raises(IncompleteRefsError) as exc_info:
+            app.run(defs={"batch_size": 128})
+        assert "learning_rate" in str(exc_info.value)
+        assert "Missing: ['learning_rate']" in str(exc_info.value)
+        assert "Provided refs: ['batch_size']" in str(exc_info.value)
+
+    @staticmethod
+    def test_run_with_refs_multiple_cells() -> None:
+        """Test defs override with multiple cells that define different variables."""
+        app = App()
+
+        @app.cell
+        def cell_a() -> tuple[int]:
+            x = 10
+            return (x,)
+
+        @app.cell
+        def cell_b() -> tuple[int]:
+            y = 20
+            return (y,)
+
+        @app.cell
+        def cell_c(x: int, y: int) -> tuple[int]:
+            z = x + y
+            return (z,)
+
+        # Test: Override both x and y - cells a and b should be pruned
+        outputs, defs = app.run(defs={"x": 100, "y": 200})
+        assert defs["x"] == 100
+        assert defs["y"] == 200
+        assert defs["z"] == 300
+
+        # Test: Override only x - cell a is pruned, cell b still runs
+        outputs, defs = app.run(defs={"x": 50})
+        assert defs["x"] == 50
+        assert defs["y"] == 20  # cell_b still ran
+        assert defs["z"] == 70
+
+    @staticmethod
+    def test_run_with_refs_setup_cell_protection() -> None:
+        """Test that overriding setup cell definitions raises IncompleteRefsError."""
+        app = App()
+
+        with app.setup:
+            setup_var = "from_setup"
+
+        @app.cell
+        def use_setup(setup_var: str) -> tuple[str]:
+            result = f"Used {setup_var}"
+            return (result,)
+
+        # Test: Can still override non-setup variables
+        @app.cell
+        def normal_cell() -> tuple[int]:
+            normal_var = 42
+            return (normal_var,)
+
+        # Test: Trying to override setup cell variables should fail
+        with pytest.raises(TypeError) as exc_info:
+            app.run(defs={"setup_var": "overridden"})
+        assert "override" in str(exc_info.value)
+
+        outputs, defs = app.run(defs={"normal_var": 100})
+        assert defs["normal_var"] == 100
+        assert "setup_var" in defs  # setup still ran
+
+    @staticmethod
+    def test_run_with_undefined_refs_in_setup_cell() -> None:
+        """Test that overriding setup cell definitions raises IncompleteRefsError."""
+        app = App()
+
+        with app.setup:
+            a = 1
+            if a > 2:
+                setup_var = "from_setup"
+
+        @app.cell
+        def use_setup(setup_var: str) -> tuple[str]:
+            result = f"Used {setup_var}"
+            return (result,)
+
+        # Test: Trying to override setup cell variables should fail
+        # Ensure this doesn't incorrectly raise a IncompleteRefsError
+        with pytest.raises(NameError) as exc_info:
+            app.run()
+        assert "setup_var" in str(exc_info.value)
+
+    @staticmethod
+    def test_setup() -> None:
+        app = App()
+
+        with app.setup:
+            x = 0
+
+        # Evaluate whether returning a value on setup run makes sense.
+        # x
+
+        @app.cell
+        def two(z: int) -> tuple[int]:
+            a = x + z
+            a + 1
+            return (a,)
+
+        @app.cell
+        def __() -> tuple[int, int]:
+            y = x + 1
+            z = y + 1
+            return y, z
+
+        cell_manager = app._cell_manager
+        cell_names = tuple(cell_manager.names())
+        assert cell_names[0] == "setup"
+        assert cell_names[1] == "two"
+        assert cell_names[2] == "__"
+
+        codes = tuple(cell_manager.codes())
+        assert codes[0] == "x = 0"
+        assert codes[1] == "a = x + z\na + 1"
+        assert codes[2] == "y = x + 1\nz = y + 1"
+
+        outputs, defs = app.run()
+
+        assert outputs[0] == defs["a"] + 1
+        assert outputs[1] is None
+
+        assert defs["x"] == 0
+        assert (defs["y"], defs["z"]) == (1, 2)
+        assert defs["a"] == 2
+
+    @staticmethod
+    def test_cycle() -> None:
+        app = App()
+
+        @app.cell
+        def one(y: int) -> tuple[int]:
+            x = y
+            return (x,)
+
+        @app.cell
+        def two(x: int) -> tuple[int]:
+            y = x
+            return (y,)
+
+        with pytest.raises(CycleError):
+            app.run()
+
+    @staticmethod
+    def test_cycle_missing_args_rets() -> None:
+        app = App()
+
+        @app.cell
+        def one() -> None:
+            x = y  # noqa: F821
+
+        @app.cell
+        def two() -> None:
+            y = x  # noqa: F821
+
+        with pytest.raises(CycleError):
+            app.run()
+
+    @staticmethod
+    def test_multiple_definitions() -> None:
+        app = App()
+
+        @app.cell
+        def one() -> tuple[int]:
+            x = 0
+            return (x,)
+
+        @app.cell
+        def two() -> tuple[int]:
+            x = 0
+            return (x,)
+
+        with pytest.raises(MultipleDefinitionError):
+            app.run()
+
+    @staticmethod
+    def test_multiple_definitions_missing_args_rets() -> None:
+        app = App()
+
+        @app.cell
+        def one() -> None:
+            x = 0
+
+        @app.cell
+        def two() -> None:
+            x = 0
+
+        with pytest.raises(MultipleDefinitionError):
+            app.run()
+
+    @staticmethod
+    def test_delete_nonlocal_ok() -> None:
+        app = App()
+
+        @app.cell
+        def one() -> None:
+            x = 0
+
+        @app.cell
+        def two() -> None:
+            del x  # noqa: F821
+
+        # smoke test, no error raised
+        app.run()
+
+    @staticmethod
+    def test_unparsable_cell() -> None:
+        app = App()
+
+        @app.cell
+        def one() -> tuple[int]:
+            x = 0
+            return (x,)
+
+        app._unparsable_cell("_ _")
+        app._unparsable_cell("_ _", name="foo")
+
+        with pytest.raises(UnparsableError) as e:
+            app.run()
+        e.match("_ _")
+
+    @staticmethod
+    def test_init_not_rewritten_as_local() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> tuple[int]:
+            class _A:
+                def __init__(self, x: int) -> None:
+                    self.x = x
+
+            y = _A(10).x
+            return (y,)
+
+        _, defs = app.run()  # type: ignore
+        assert defs == {"y": 10}
+
+    @staticmethod
+    def test_ref_local_var_from_nested_scope() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> tuple[int]:
+            _x = 10
+
+            def _f() -> int:
+                return _x
+
+            y = _f()
+            return (y,)
+
+        _, defs = app.run()  # type: ignore
+        assert defs == {"y": 10}
+
+    @staticmethod
+    def test_resolve_var_not_local_from_nested_scope() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> tuple[str]:
+            _x = 10
+
+            def _f() -> str:
+                _x = "nested"
+                return _x
+
+            y = _f()
+            return (y,)
+
+        _, defs = app.run()  # type: ignore
+        assert defs == {"y": "nested"}
+
+    @staticmethod
+    def test_resolve_make_local_with_global_keywd() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> tuple[str]:
+            def _f() -> str:
+                global _x
+                _x = "nested"  # type: ignore
+                return _x  # type: ignore
+
+            y = _f()
+            return (y,)
+
+        @app.cell
+        def _() -> None:
+            _x  # type: ignore
+            return
+
+        with pytest.raises(NameError) as e:
+            app.run()
+
+        assert "'_x' is not defined" in str(e.value)
+
+    @staticmethod
+    def test_locals_dont_leak() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> None:
+            _x = 0
+            return
+
+        @app.cell
+        def _() -> None:
+            _x  # type: ignore
+            return
+
+        with pytest.raises(NameError) as e:
+            app.run()
+
+        assert "'_x' is not defined" in str(e.value)
+
+    @staticmethod
+    def test_dunder_dunder_not_local() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> tuple[int]:
+            __x__ = 0
+            return (__x__,)
+
+        @app.cell
+        def _(__x__: int) -> None:
+            assert __x__ == 0
+            return
+
+        app.run()
+
+    @staticmethod
+    def test_dunder_rewritten_as_local() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> None:
+            __ = 1
+            return
+
+        @app.cell
+        def _() -> None:
+            __  # type: ignore
+            return
+
+        with pytest.raises(NameError) as e:
+            app.run()
+
+        assert "'__' is not defined" in str(e.value)
+
+    @staticmethod
+    def test_app_width_config() -> None:
+        app = App(width="full")
+        assert app._config.width == "full"
+
+    @staticmethod
+    def test_app_width_default() -> None:
+        app = App()
+        assert app._config.width == "compact"
+
+    @staticmethod
+    def test_app_config_extra_args_ignored() -> None:
+        app = App(width="full", fake_config="foo")
+        assert app._config.asdict() == {
+            "app_title": None,
+            "css_file": None,
+            "html_head_file": None,
+            "width": "full",
+            "layout_file": None,
+            "auto_download": [],
+            "sql_output": "auto",
+        }
+
+    @staticmethod
+    def test_cell_config() -> None:
+        app = App()
+
+        @app.cell(column=0, disabled=True)
+        def _() -> tuple[int]:
+            __x__ = 0
+            return (__x__,)
+
+        @app.cell(hide_code=True)
+        def _(__x__: int) -> None:
+            assert __x__ == 0
+            return
+
+        @app.cell(expand_output=True)
+        def _() -> None:
+            return
+
+        cell_manager = app._cell_manager
+        configs = tuple(cell_manager.configs())
+        assert configs[0].disabled
+        assert configs[0].column is not None
+        assert configs[1].hide_code
+        assert not configs[1].expand_output
+        assert configs[2].expand_output
+
+    @staticmethod
+    def test_top_level_cell_config() -> None:
+        # Codegen emits `expand_output` for top-level cells too, so the
+        # decorators must accept it -- otherwise the flag is dropped when the
+        # notebook is imported or run as a script.
+        app = App()
+
+        @app.function(expand_output=True)
+        def add(a: int, b: int) -> int:
+            return a + b
+
+        @app.class_definition(expand_output=True)
+        class Struct: ...
+
+        configs = tuple(app._cell_manager.configs())
+        assert configs[0].expand_output
+        assert configs[1].expand_output
+
+    @staticmethod
+    def test_conditional_definition() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> tuple[int]:
+            if False:
+                x = 0
+            y = 1
+            return (x, y)
+
+        _, defs = app.run()
+
+        # x should not be in the defs dictionary
+        assert defs == {"y": 1}
+
+    @staticmethod
+    def test_empty_iteration_conditional_definition() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> tuple[int]:
+            objects = iter([])
+            for obj in objects:  # noqa: B007
+                pass
+            return (obj, objects)
+
+        _, defs = app.run()
+
+        # obj should not be in the defs dictionary
+        assert "obj" not in defs
+
+    @staticmethod
+    def test_run_pickle() -> None:
+        app = App()
+
+        @app.cell
+        def __() -> tuple[Any]:
+            import pickle
+
+            return (pickle,)
+
+        @app.cell
+        def __() -> tuple[Any]:
+            def foo() -> None: ...
+
+            return (foo,)
+
+        @app.cell
+        def __(pickle, foo) -> tuple[Any]:
+            out = pickle.dumps(foo)
+            return (out,)
+
+        _, defs = app.run()
+
+        assert defs["out"] is not None
+
+    @staticmethod
+    def test_run_async() -> None:
+        app = App()
+
+        @app.cell
+        async def __() -> tuple[Any, int]:
+            import asyncio
+
+            await asyncio.sleep(0.01)
+            x = 0
+            return (
+                asyncio,
+                x,
+            )
+
+        @app.cell
+        def __(x: int) -> tuple[int]:
+            y = x + 1
+            return (y,)
+
+        _, defs = app.run()
+
+        assert defs["x"] == 0
+        assert defs["y"] == 1
+
+    @staticmethod
+    async def test_run_async_from_running_event_loop() -> None:
+        """An async app can be run from inside a running event loop.
+
+        Regression test for #9572 / #9646: the script runner used to call
+        `asyncio.run` unconditionally, which raises when a loop is already
+        running on the calling thread.
+        """
+        app = App()
+
+        @app.cell
+        async def __() -> tuple[Any, int]:
+            import asyncio
+
+            await asyncio.sleep(0.01)
+            x = 0
+            return (
+                asyncio,
+                x,
+            )
+
+        @app.cell
+        def __(x: int) -> tuple[int]:
+            y = x + 1
+            return (y,)
+
+        _, defs = app.run()
+
+        assert defs["x"] == 0
+        assert defs["y"] == 1
+
+    @staticmethod
+    async def test_run_async_from_running_event_loop_preserves_context() -> (
+        None
+    ):
+        """The caller's thread-local runtime context survives the offload."""
+        from marimo._runtime.context.types import runtime_context_installed
+
+        app = App()
+
+        @app.cell
+        async def __() -> tuple[Any, int]:
+            import asyncio
+
+            await asyncio.sleep(0)
+            x = 1
+            return (asyncio, x)
+
+        assert not runtime_context_installed()
+        _, defs = app.run()
+        assert defs["x"] == 1
+        # The script context is ephemeral; the worker thread must not leak
+        # one back onto the calling thread.
+        assert not runtime_context_installed()
+
+    @staticmethod
+    async def test_run_async_from_running_event_loop_propagates_error() -> (
+        None
+    ):
+        """Cell errors still surface unwrapped when the run is offloaded."""
+        app = App()
+
+        @app.cell
+        async def __() -> tuple[Any]:
+            import asyncio
+
+            await asyncio.sleep(0)
+            raise ValueError("boom")
+            return (asyncio,)
+
+        with pytest.raises(ValueError, match="boom"):
+            app.run()
+
+    @staticmethod
+    async def test_embed_async_app_outside_notebook() -> None:
+        """`await app.embed()` works for an async app run as a script.
+
+        Outside a notebook `embed()` delegates to `App.run()`, so it hit the
+        same nested-event-loop failure (#9572).
+        """
+        app = App()
+
+        @app.cell
+        async def __() -> tuple[Any, int]:
+            import asyncio
+
+            await asyncio.sleep(0)
+            x = 2
+            return (asyncio, x)
+
+        result = await app.embed()
+
+        assert result.defs["x"] == 2
+
+    @staticmethod
+    async def test_run_async_app_nested_in_async_app() -> None:
+        """An async app can run another async app from one of its cells.
+
+        This is the shape reported in #9646: a notebook that runs another
+        notebook while its own event loop is live.
+        """
+        inner_app = App()
+
+        @inner_app.cell
+        async def __() -> tuple[Any, int]:
+            import asyncio
+
+            await asyncio.sleep(0)
+            inner = 21
+            return (asyncio, inner)
+
+        parent = App()
+
+        @parent.cell
+        async def __() -> tuple[Any]:
+            import asyncio
+
+            await asyncio.sleep(0)
+            return (asyncio,)
+
+        @parent.cell
+        def __() -> tuple[Any]:
+            # Overridden below; stands in for the `import notebook` cell of
+            # a real notebook.
+            child = None
+            return (child,)
+
+        @parent.cell
+        def __(child: Any) -> tuple[int]:
+            outer = child.run()[1]["inner"] * 2
+            return (outer,)
+
+        _, defs = parent.run(defs={"child": inner_app})
+
+        assert defs["outer"] == 42
+
+    @staticmethod
+    def test_run_mo_stop() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> Any:
+            import marimo as mo
+
+            return (mo,)
+
+        @app.cell
+        def _(mo) -> tuple[int]:
+            mo.stop(True)
+            x = 0
+            return (x,)
+
+        @app.cell
+        def _() -> tuple[int]:
+            y = 1
+            return (y,)
+
+        _, defs = app.run()
+        assert "x" not in defs
+        assert defs["y"] == 1
+
+    @staticmethod
+    def test_run_mo_stop_descendant() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> Any:
+            import marimo as mo
+
+            return (mo,)
+
+        @app.cell
+        def _(mo) -> tuple[int]:
+            mo.stop(True)
+            x = 0
+            return (x,)
+
+        @app.cell
+        def _(x) -> tuple[int]:
+            y = 1
+            x
+            return
+
+        _, defs = app.run()
+        assert "x" not in defs
+        assert "y" not in defs
+
+    @staticmethod
+    def test_run_mo_stop_descendant_multiple() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> Any:
+            import marimo as mo
+
+            return (mo,)
+
+        @app.cell
+        def _(mo) -> tuple[int]:
+            mo.stop(True)
+            x = 0
+            return (x,)
+
+        @app.cell
+        def _(mo) -> tuple[int]:
+            mo.stop(True)
+            y = 0
+            return (y,)
+
+        @app.cell
+        def _(x) -> tuple[int]:
+            x
+            a = 0
+            return
+
+        @app.cell
+        def _(y) -> tuple[int]:
+            y
+            b = 0
+            return
+
+        _, defs = app.run()
+        assert "x" not in defs
+        assert "y" not in defs
+        assert "a" not in defs
+        assert "b" not in defs
+
+    @staticmethod
+    def test_run_mo_stop_records_output() -> None:
+        # mo.stop's `output=` arg is shown to the user in edit/kernel mode.
+        # Script mode used to silently drop it; cell_runner has always
+        # recorded it. The runner-consolidation refactor aligns these.
+        app = App()
+
+        @app.cell
+        def first() -> Any:
+            import marimo as mo
+
+            return (mo,)
+
+        @app.cell
+        def stop_cell(mo) -> tuple[int]:
+            mo.stop(True, output="stopped-output-value")
+            x = 0
+            return (x,)
+
+        @app.cell
+        def descendant(x) -> tuple[int]:
+            y = x + 1
+            return (y,)
+
+        outputs, defs = app.run()
+        # stop_cell at index 1 records the stop's output; its descendant
+        # is cancelled and absent from the flattened output tuple.
+        assert outputs == (None, "stopped-output-value")
+        assert "x" not in defs
+        assert "y" not in defs
+
+    @staticmethod
+    def test_run_mo_stop_async() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> Any:
+            import marimo as mo
+
+            return (mo,)
+
+        @app.cell
+        def _(mo) -> tuple[int]:
+            mo.stop(True)
+            x = 0
+            return (x,)
+
+        @app.cell
+        async def _() -> tuple[int]:
+            y = 1
+            return (y,)
+
+        _, defs = app.run()
+        assert "x" not in defs
+        assert defs["y"] == 1
+
+    @staticmethod
+    def test_run_mo_stop_descendant_async() -> None:
+        app = App()
+
+        @app.cell
+        def _() -> Any:
+            import marimo as mo
+
+            return (mo,)
+
+        @app.cell
+        def _(mo) -> tuple[int]:
+            mo.stop(True)
+            x = 0
+            return (x,)
+
+        @app.cell
+        async def _(x) -> tuple[int]:
+            y = 1
+            x
+            return
+
+        _, defs = app.run()
+        assert "x" not in defs
+        assert "y" not in defs
+
+    @pytest.mark.skipif(
+        condition=not DependencyManager.matplotlib.has(),
+        reason="requires matplotlib",
+    )
+    def test_marimo_mpl_backend_not_used(self):
+        app = App()
+
+        @app.cell
+        def __() -> tuple[str]:
+            import matplotlib
+
+            backend = matplotlib.get_backend()
+            return (backend,)
+
+        _, defs = app.run()
+
+        assert defs["backend"] != "module://marimo._output.mpl"
+
+    @pytest.mark.skipif(
+        condition=not DependencyManager.matplotlib.has(),
+        reason="requires matplotlib",
+    )
+    def test_app_run_matplotlib_figures_closed(self) -> None:
+        from matplotlib.axes import Axes
+
+        app = App()
+
+        @app.cell
+        def __() -> None:
+            import matplotlib.pyplot as plt
+
+            plt.plot([1, 2])
+            plt.gca()
+
+        @app.cell
+        def __(plt: Any) -> None:
+            plt.plot([1, 1])
+            plt.gca()
+
+        outputs, _ = app.run()
+        assert isinstance(outputs[0], Axes)
+        assert isinstance(outputs[1], Axes)
+        assert outputs[0] != outputs[1]
+
+    @staticmethod
+    def test_app_config_auto_download():
+        # Test default value
+        config = _AppConfig()
+        assert config.auto_download == []
+
+        # Test setting auto_download
+        config = _AppConfig(auto_download=["html", "markdown"])
+        assert config.auto_download == ["html", "markdown"]
+
+        # Test updating auto_download
+        config.update({"auto_download": ["html"]})
+        assert config.auto_download == ["html"]
+
+        # Test setting empty list
+        config.update({"auto_download": []})
+        assert config.auto_download == []
+
+        # Test from_untrusted_dict
+        config = _AppConfig.from_untrusted_dict(
+            {"auto_download": ["markdown"]}
+        )
+        assert config.auto_download == ["markdown"]
+
+        # Test asdict
+        config_dict = config.asdict()
+        assert config_dict["auto_download"] == ["markdown"]
+
+        # Test invalid values are allowed for forward compatibility
+        config = _AppConfig(auto_download=["invalid"])
+        assert config.auto_download == ["invalid"]
+
+    def test_has_file_and_dirname(self) -> None:
+        app = App()
+
+        @app.cell
+        def f():
+            file = __file__
+
+        @app.cell
+        def g():
+            import marimo as mo
+
+            dirpath = mo.notebook_dir()
+
+        _, glbls = app.run()
+        assert glbls["file"] == __file__
+        assert glbls["dirpath"] == pathlib.Path(glbls["file"]).parent
+
+    def test_notebook_location(self) -> None:
+        app = App()
+
+        @app.cell
+        def __():
+            import marimo as mo
+
+            dirpath = mo.notebook_dir()
+            location = mo.notebook_location()
+
+        _, glbls = app.run()
+        dirpath = glbls["dirpath"]
+        location = glbls["location"]
+        assert dirpath is not None
+        assert location is not None
+        assert dirpath == location
+
+    def test_app_clone(self) -> None:
+        app = App()
+
+        @app.cell
+        def __():
+            import marimo as mo
+
+            dirpath = mo.notebook_dir()
+            location = mo.notebook_location()
+
+        # same codes and names, different cell_ids
+        clone = app.clone()
+        assert list(InternalApp(clone).cell_manager.codes()) == list(
+            InternalApp(app).cell_manager.codes()
+        )
+        assert list(InternalApp(clone).cell_manager.names()) == list(
+            InternalApp(app).cell_manager.names()
+        )
+        assert list(InternalApp(clone).cell_manager.cell_ids()) != list(
+            InternalApp(app).cell_manager.cell_ids()
+        )
+
+    def test_app_clone_deep_copies_cell_impl_mutable_fields(self) -> None:
+        """Test that clone() deep-copies CellImpl's mutable fields.
+
+        CellImpl has mutable fields (config, import_workspace, and private
+        runtime state) that should not be shared between the original and
+        cloned app.
+        """
+        app = App()
+
+        @app.cell
+        def __():
+            x = 1
+            return (x,)
+
+        clone = app.clone()
+
+        original_internal = InternalApp(app)
+        cloned_internal = InternalApp(clone)
+
+        # Get the cell data from both apps
+        original_cell_ids = list(original_internal.cell_manager.cell_ids())
+        cloned_cell_ids = list(cloned_internal.cell_manager.cell_ids())
+
+        original_cell = original_internal.cell_manager.cell_data_at(
+            original_cell_ids[0]
+        ).cell
+        cloned_cell = cloned_internal.cell_manager.cell_data_at(
+            cloned_cell_ids[0]
+        ).cell
+
+        assert original_cell is not None
+        assert cloned_cell is not None
+
+        original_impl = original_cell._cell
+        cloned_impl = cloned_cell._cell
+
+        # CellImpl objects should be different
+        assert original_impl is not cloned_impl
+
+        # Public mutable fields should be deep-copied, not shared
+        assert original_impl.config is not cloned_impl.config
+        assert (
+            original_impl.import_workspace is not cloned_impl.import_workspace
+        )
+
+        # Private mutable runtime state fields should also be independent
+        assert original_impl._status is not cloned_impl._status
+        assert (
+            original_impl._run_result_status
+            is not cloned_impl._run_result_status
+        )
+        assert original_impl._stale is not cloned_impl._stale
+        assert original_impl._output is not cloned_impl._output
+
+        # Verify mutation of config doesn't affect the original
+        cloned_impl.config.configure({"disabled": True})
+        assert cloned_impl.config.disabled is True
+        assert original_impl.config.disabled is False
+
+    def test_app_clone_document_configs_are_independent(self) -> None:
+        """clone() must not alias cell configs between the two documents.
+
+        The cloned document owns its own CellConfig; mutating the original
+        document's config must not leak into the clone.
+        """
+        app = App()
+
+        @app.cell(disabled=True)
+        def __():
+            x = 1
+            return (x,)
+
+        clone = app.clone()
+
+        original_cm = InternalApp(app).cell_manager
+        cloned_cm = InternalApp(clone).cell_manager
+
+        original_id = list(original_cm.cell_ids())[0]
+        cloned_id = list(cloned_cm.cell_ids())[0]
+
+        original_config = original_cm.document.get_cell(original_id).config
+        cloned_config = cloned_cm.document.get_cell(cloned_id).config
+
+        assert original_config is not cloned_config
+
+        original_config.configure({"disabled": False})
+        assert cloned_cm.document.get_cell(cloned_id).config.disabled is True
+
+    def test_to_py(self) -> None:
+        """Test that InternalApp.to_py() returns the Python code representation."""
+        app = App()
+
+        @app.cell
+        def cell_one():
+            x = 1
+            return (x,)
+
+        @app.cell
+        def cell_two(x):
+            y = x + 1
+            return (y,)
+
+        internal_app = InternalApp(app)
+        python_code = internal_app.to_py()
+
+        # Verify it returns a string containing Python code
+        assert isinstance(python_code, str)
+        assert "import marimo" in python_code
+        assert "app = marimo.App(" in python_code
+        assert "x = 1" in python_code
+        assert "y = x + 1" in python_code
+        assert "cell_one" in python_code
+        assert "cell_two" in python_code
+
+    @staticmethod
+    def test_run_md_object_passed_between_cells() -> None:
+        """Regression test for #7994: passing mo.md() object between cells
+        should work in script/run mode."""
+        app = App()
+
+        @app.cell
+        def _():
+            import marimo as mo
+
+            return (mo,)
+
+        @app.cell
+        def _(mo):
+            title = mo.md("# Hello World")
+            return (title,)
+
+        @app.cell
+        def _(mo, title):
+            mo.vstack(
+                [
+                    title,
+                    mo.md("This should display above this text."),
+                ]
+            )
+            return
+
+        outputs, defs = app.run()
+        assert "title" in defs
+        assert defs["title"] is not None
+
+
+class TestInvalidSetup:
+    @staticmethod
+    def test_initial_setup() -> None:
+        app = App()
+        app._unparsable_cell(";", name="setup")
+
+        assert app._cell_manager.has_cell("setup")
+        assert app._cell_manager.cell_name("setup") == "setup"
+
+    @staticmethod
+    def test_not_initial_setup() -> None:
+        app = App()
+        app._unparsable_cell(";", name="other")
+        app._unparsable_cell(";", name="setup")
+
+        assert not app._cell_manager.has_cell("setup")
+
+    @staticmethod
+    def test_not_initial_setup_cell() -> None:
+        app = App()
+
+        @app.cell
+        def _():
+            def B() -> float:
+                return 1.0
+
+        app._unparsable_cell(";", name="setup")
+        assert not app._cell_manager.has_cell("setup")
+
+
+def test_app_config() -> None:
+    config = _AppConfig.from_untrusted_dict({"width": "full"})
+    assert config.width == "full"
+    assert config.layout_file is None
+    assert config.asdict() == {
+        "app_title": None,
+        "css_file": None,
+        "html_head_file": None,
+        "width": "full",
+        "layout_file": None,
+        "auto_download": [],
+        "sql_output": "auto",
+    }
+
+
+def test_app_config_extra_args_ignored() -> None:
+    config = _AppConfig.from_untrusted_dict(
+        {"width": "full", "fake_config": "foo"}
+    )
+    assert config.width == "full"
+    assert config.layout_file is None
+    assert config.asdict() == {
+        "app_title": None,
+        "css_file": None,
+        "html_head_file": None,
+        "width": "full",
+        "layout_file": None,
+        "auto_download": [],
+        "sql_output": "auto",
+    }
+
+
+def test_cli_args(tmp_path: pathlib.Path) -> None:
+    py_file = tmp_path / "cli_args_script.py"
+    content = """
+    import marimo
+    app = marimo.App()
+
+    @app.cell
+    def __():
+        import marimo as mo
+        print(mo.cli_args())
+        return mo,
+
+    if __name__ == "__main__":
+        app.run()
+    """
+    py_file.write_text(textwrap.dedent(content))
+    p = subprocess.run(
+        [sys.executable, str(py_file), "--foo", "value1", "--bar", "value2"],
+        stdout=subprocess.PIPE,
+    )
+    assert p.returncode == 0
+    output = p.stdout.decode()
+    assert "foo" in output
+    assert "value1" in output
+    assert "bar" in output
+    assert "value2" in output
+
+
+# TODO(akshayka): Many of the app composition and embedding tests are flaky in
+# CI. This suggests either cross-test state pollution or a bug in the
+# underlying implementation. These bugs are not high priority to fix, so
+# the flaky tests have been marked as xfail. If this ever does become
+# a priority (in particular, if we see GitHub issues about these methods
+# failing in real usage), these failing tests may provide a clue.
+class TestAppComposition:
+    async def test_app_embed(self) -> None:
+        app = App()
+
+        @app.cell
+        def __() -> None:
+            x = 1
+            "hello"
+
+        @app.cell
+        def __() -> None:
+            "world"
+
+        result = await app.embed()
+        assert result.output.text == vstack(["hello", "world"]).text
+        assert set(result.defs.keys()) == set(["x"])
+        assert result.defs["x"] == 1
+
+    async def test_app_embed_none_stripped(self) -> None:
+        app = App()
+
+        @app.cell
+        def __() -> None:
+            "hello"
+
+        @app.cell
+        def __() -> None:
+            None
+
+        @app.cell
+        def __() -> None:
+            "world"
+
+        result = await app.embed()
+        # None shouldn't show up in output
+        assert result.output.text == vstack(["hello", "world"]).text
+        assert not result.defs
+
+    async def test_app_embed_with_defs(self) -> None:
+        """Test embed() with defs parameter to override cell definitions."""
+        app = App()
+
+        @app.cell
+        def __() -> tuple[int]:
+            x = 10
+            return (x,)
+
+        @app.cell
+        def __(x: int) -> tuple[int]:
+            y = x * 2
+            return (y,)
+
+        @app.cell
+        def __(y: int) -> None:
+            f"Result: {y}"
+
+        # Test without override
+        result = await app.embed()
+        assert result.defs["x"] == 10
+        assert result.defs["y"] == 20
+        assert "Result: 20" in result.output.text
+
+        # Test with override - cell defining x should be pruned
+        result = await app.embed(defs={"x": 100})
+        assert result.defs["x"] == 100
+        assert result.defs["y"] == 200
+        assert "Result: 200" in result.output.text
+
+    async def test_app_embed_with_defs_ui_element_not_allowed(self) -> None:
+        app = App()
+
+        @app.cell
+        def __() -> tuple[int]:
+            x = 10
+            return (x,)
+
+        import marimo as mo
+
+        with pytest.raises(ValueError) as excinfo:
+            await app.embed(defs={"x": mo.ui.slider(1, 10)})
+
+        assert "Substituting UI Elements for variables is not allowed" in str(
+            excinfo.value
+        )
+
+    async def test_app_embed_with_defs_multiple_vars(self) -> None:
+        """Test embed() with defs overriding a cell that defines multiple variables."""
+        app = App()
+
+        @app.cell
+        def __() -> tuple[int, int]:
+            a = 5
+            b = 10
+            return a, b
+
+        @app.cell
+        def __(a: int, b: int) -> None:
+            f"Sum: {a + b}"
+
+        # Test without override
+        result = await app.embed()
+        assert result.defs["a"] == 5
+        assert result.defs["b"] == 10
+        assert "Sum: 15" in result.output.text
+
+        # Test with override - must provide both a and b
+        result = await app.embed(defs={"a": 100, "b": 200})
+        assert result.defs["a"] == 100
+        assert result.defs["b"] == 200
+        assert "Sum: 300" in result.output.text
+
+    async def test_app_embed_with_defs_incomplete_refs_error(self) -> None:
+        """Test that embed() raises IncompleteRefsError for partial overrides."""
+        from marimo._ast.errors import IncompleteRefsError
+
+        app = App()
+
+        @app.cell
+        def __() -> tuple[int, int]:
+            x = 1
+            y = 2
+            return x, y
+
+        @app.cell
+        def __(x: int, y: int) -> None:
+            f"{x} + {y}"
+
+        # Should raise error when only providing x but not y
+        with pytest.raises(IncompleteRefsError) as exc_info:
+            await app.embed(defs={"x": 100})
+
+        assert "y" in str(exc_info.value)
+        assert "Missing: ['y']" in str(exc_info.value)
+
+    async def test_app_embed_with_defs_multiple_cells(self) -> None:
+        """Test embed() with defs pruning multiple cells."""
+        app = App()
+
+        @app.cell
+        def __() -> tuple[int]:
+            a = 1
+            return (a,)
+
+        @app.cell
+        def __() -> tuple[int]:
+            b = 2
+            return (b,)
+
+        @app.cell
+        def __(a: int, b: int) -> tuple[int]:
+            c = a + b
+            return (c,)
+
+        @app.cell
+        def __(c: int) -> None:
+            f"Result: {c}"
+
+        # Override both a and b - should prune first two cells
+        result = await app.embed(defs={"a": 10, "b": 20})
+        assert result.defs["a"] == 10
+        assert result.defs["b"] == 20
+        assert result.defs["c"] == 30
+        assert "Result: 30" in result.output.text
+
+    async def test_app_embed_with_defs_partial_pruning(self) -> None:
+        """Test embed() with defs pruning only some cells."""
+        app = App()
+
+        @app.cell
+        def __() -> tuple[int]:
+            x = 5
+            return (x,)
+
+        @app.cell
+        def __() -> tuple[int]:
+            y = 10
+            return (y,)
+
+        @app.cell
+        def __(x: int, y: int) -> None:
+            f"x={x}, y={y}"
+
+        # Override only x - should prune only first cell
+        result = await app.embed(defs={"x": 100})
+        assert result.defs["x"] == 100
+        assert result.defs["y"] == 10  # y cell still ran
+        assert "x=100, y=10" in result.output.text
+
+    async def test_app_embed_with_defs_stale_outputs(self) -> None:
+        """Test that embed() doesn't return stale cached outputs with different defs."""
+        app = App()
+
+        @app.cell
+        def __() -> tuple[int]:
+            x = 10
+            return (x,)
+
+        @app.cell
+        def __(x: int) -> None:
+            "x is small" if x == 10 else "x is large"
+
+        # First call - no override
+        result_initial = await app.embed()
+        assert result_initial.defs["x"] == 10
+        assert "x is small" in result_initial.output.text
+
+        # Second call - with first override
+        result_override = await app.embed(defs={"x": 100})
+        assert result_override.defs["x"] == 100
+        assert "x is large" in result_override.output.text
+        assert "x is small" not in result_override.output.text
+
+        # Third call - with second override
+        result_override2 = await app.embed(defs={"x": 200})
+        assert result_override2.defs["x"] == 200
+        assert "x is large" in result_override2.output.text
+        assert "x is small" not in result_override2.output.text
+
+        # Check that initial result wasn't mutated by subsequent calls
+        assert result_initial.defs["x"] == 10
+        assert "x is small" in result_initial.output.text
+        assert "x is large" not in result_initial.output.text
+
+    async def test_app_embed_with_defs_stale_outputs_kernel(
+        self, k: Kernel, exec_req: ExecReqProvider
+    ) -> None:
+        """Test embed() with different defs through kernel (tests caching code path)."""
+        await k.run(
+            [
+                exec_req.get(
+                    """
+                    from marimo import App
+
+                    app = App()
+
+                    @app.cell
+                    def __() -> tuple[int]:
+                        x = 10
+                        return (x,)
+
+                    @app.cell
+                    def __(x: int) -> None:
+                        "x is small" if x == 10 else "x is large"
+                    """
+                ),
+                exec_req.get(
+                    """
+                    # First call - no override
+                    result_initial = await app.embed()
+                    """
+                ),
+                exec_req.get(
+                    """
+                    # Second call - with first override
+                    result_override = await app.embed(defs={"x": 100})
+                    """
+                ),
+                exec_req.get(
+                    """
+                    # Third call - with second override
+                    result_override2 = await app.embed(defs={"x": 200})
+                    """
+                ),
+            ]
+        )
+        assert not k.errors
+
+        result_initial = k.globals["result_initial"]
+        result_override = k.globals["result_override"]
+        result_override2 = k.globals["result_override2"]
+
+        # Check first result - output then defs
+        assert "x is small" in result_initial.output.text
+        assert result_initial.defs["x"] == 10
+
+        # Check second result with first override - output then defs
+        assert "x is large" in result_override.output.text
+        assert "x is small" not in result_override.output.text
+        assert result_override.defs["x"] == 100
+
+        # Check third result with second override - output then defs
+        assert "x is large" in result_override2.output.text
+        assert "x is small" not in result_override2.output.text
+        assert result_override2.defs["x"] == 200
+
+        # Check that initial result wasn't mutated by subsequent calls
+        assert "x is small" in result_initial.output.text
+        assert "x is large" not in result_initial.output.text
+        assert result_initial.defs["x"] == 10
+
+    @pytest.mark.xfail(
+        True, reason="Flaky in CI, can't repro locally", strict=False
+    )
+    async def test_app_comp_basic(
+        self, k: Kernel, exec_req: ExecReqProvider
+    ) -> None:
+        await k.run(
+            [
+                exec_req.get(
+                    """
+                    from app_data.ui_element_dropdown import app
+                    token = [0]
+                    """
+                ),
+                exec_req.get(
+                    """
+                    import random
+
+                    token[0] += 1
+                    result = await app.embed()
+                    """
+                ),
+            ]
+        )
+        assert not k.errors
+
+        # store the token value now, so we can make sure it changes later,
+        # ie can make sure cell re-ran
+        token = k.globals["token"]
+        result = k.globals["result"]
+        # dropdown has name d in app
+        dropdown_element = result.defs["d"]
+        assert dropdown_element.value == "first"
+
+        html = result.output.text
+        assert "value is first" in html
+        assert "value is second" not in html
+        assert token[0] == 1
+
+        assert await k.set_ui_element_value(
+            UpdateUIElementCommand.from_ids_and_values(
+                [(dropdown_element._id, ["second"])]
+            ),
+            notify_frontend=False,
+        )
+        assert token[0] == 2
+
+        # make sure ui element value updated
+        assert dropdown_element.value == "second"
+        # make sure cell referencing app re-ran
+        result = k.globals["result"]
+        html = result.output.text
+        assert "value is first" not in html
+        assert "value is second" in html
+
+    @pytest.mark.xfail(
+        True, reason="Flaky in CI, can't repro locally", strict=False
+    )
+    async def test_app_comp_multiple_ui_elements(
+        self, k: Kernel, exec_req: ExecReqProvider
+    ) -> None:
+        ctx = get_context()
+
+        assert ctx.app_kernel_runner_registry.size == 0
+        await k.run(
+            [
+                exec_req.get(
+                    """
+                    from app_data.calculator import app
+                    """
+                ),
+                exec_req.get(
+                    """
+                    result = await app.embed()
+                    """
+                ),
+            ]
+        )
+        assert not k.errors
+        assert ctx.app_kernel_runner_registry.size == 1
+
+        result = k.globals["result"]
+        app = k.globals["app"]
+        app_kernel_runner = app._get_kernel_runner()
+        # two number inputs: x and y
+        x = result.defs["x"]
+        y = result.defs["y"]
+        assert x.value == 1
+        assert y.value == 1
+
+        assert app_kernel_runner == app._get_kernel_runner()
+        assert ctx.app_kernel_runner_registry.size == 1
+        # testing that only descendants of the updated UI elements run,
+        # and that the other UI element is not reset
+        assert await k.set_ui_element_value(
+            UpdateUIElementCommand.from_ids_and_values([(x._id, 2)]),
+            notify_frontend=False,
+        )
+
+        assert app_kernel_runner == app._get_kernel_runner()
+        assert ctx.app_kernel_runner_registry.size == 1
+        assert x.value == 2
+        assert y.value == 1
+
+        assert await k.set_ui_element_value(
+            UpdateUIElementCommand.from_ids_and_values([(y._id, 3)]),
+            notify_frontend=False,
+        )
+
+        assert x.value == 2
+        assert y.value == 3
+
+    @staticmethod
+    def test_app_not_changed() -> None:
+        app = App()
+
+        with pytest.raises(SetupRootError):
+            with app.setup:
+                app = 1
+
+    @staticmethod
+    def test_setup_not_exposed() -> None:
+        app = App()
+
+        with pytest.raises(SetupRootError):
+            with app.setup:
+                try:
+                    x = app is not None
+                except NameError:
+                    x = False
+
+    @staticmethod
+    def test_setup_in_memory() -> None:
+        app = App()
+
+        with app.setup:
+            x = 0
+
+        assert x == 0
+        _, defs = app.run()
+        assert defs["x"] == 0
+        assert "app" not in defs
+
+    @staticmethod
+    def test_setup_hide_code() -> None:
+        setup_cell_id = CellId_t("setup")
+
+        # Test property access (default behavior, hide_code=False)
+        app1 = App()
+        with app1.setup:
+            x = 1
+
+        setup_cell = app1._cell_manager.cell_data_at(setup_cell_id)
+        assert setup_cell is not None
+        assert setup_cell.config.hide_code is False
+
+        # Test method call with default (hide_code=False)
+        app2 = App()
+        with app2.setup():
+            x2 = 1
+
+        setup_cell = app2._cell_manager.cell_data_at(setup_cell_id)
+        assert setup_cell is not None
+        assert setup_cell.config.hide_code is False
+
+        # Test hide_code=True
+        app3 = App()
+        with app3.setup(hide_code=True):
+            y = 2
+
+        setup_cell = app3._cell_manager.cell_data_at(setup_cell_id)
+        assert setup_cell is not None
+        assert setup_cell.config.hide_code is True
+
+        # Test explicit hide_code=False
+        app4 = App()
+        with app4.setup(hide_code=False):
+            z = 3
+
+        setup_cell = app4._cell_manager.cell_data_at(setup_cell_id)
+        assert setup_cell is not None
+        assert setup_cell.config.hide_code is False
+
+    @staticmethod
+    async def test_app_embed_preserves_file_path(app: App) -> None:
+        with app.setup:
+            from tests._ast.app_data import notebook_filename
+
+        @app.cell
+        async def _():
+            app = await notebook_filename.app.embed()
+            cloned = await notebook_filename.app.clone().embed()
+            filename = "notebook_filename.py"
+            directory = "app_data"
+            return (app, cloned, filename, directory)
+
+        @app.cell
+        def _(app: AppEmbedResult, filename: str, directory: str) -> None:
+            assert app.defs.get("this_is_foo_file").endswith(filename)
+            assert app.defs.get("this_is_foo_path").stem == directory
+
+        @app.cell
+        def _(cloned: AppEmbedResult, filename: str, directory: str) -> None:
+            assert cloned.defs.get("this_is_foo_file").endswith(filename)
+            assert cloned.defs.get("this_is_foo_path").stem == directory
+
+    @staticmethod
+    async def test_app_embed_in_kernel(
+        k: Kernel, exec_req: ExecReqProvider
+    ) -> None:
+        await k.run(
+            [
+                exec_req.get(
+                    """
+                    from tests._ast.app_data import notebook_filename
+                    """
+                ),
+                exec_req.get(
+                    """
+                    app = await notebook_filename.app.embed()
+                    cloned = await notebook_filename.app.clone().embed()
+                    """
+                ),
+            ]
+        )
+        assert not k.errors
+        filename = "notebook_filename.py"
+        directory = "app_data"
+        assert k.globals["app"].defs.get("this_is_foo_file").endswith(filename)
+        assert (
+            k.globals["cloned"].defs.get("this_is_foo_file").endswith(filename)
+        )
+        assert k.globals["app"].defs.get("this_is_foo_path").stem == directory
+        assert (
+            k.globals["cloned"].defs.get("this_is_foo_path").stem == directory
+        )
+
+    @staticmethod
+    async def test_app_embed_same_cell_in_kernel(
+        k: Kernel, exec_req: ExecReqProvider
+    ) -> None:
+        await k.run(
+            [
+                exec_req.get(
+                    """
+                    from tests._ast.app_data import notebook_filename
+                    app = await notebook_filename.app.embed()
+                    app
+                    """
+                ),
+            ]
+        )
+        assert "App.embed() cannot be called" in k.stderr.messages[0]
+
+    @staticmethod
+    async def test_app_embed_same_cell_in_kernel_direct(
+        k: Kernel, exec_req: ExecReqProvider
+    ) -> None:
+        await k.run(
+            [
+                exec_req.get(
+                    """
+                    from tests._ast.app_data.notebook_filename import app
+                    await app.embed()
+                    """
+                ),
+            ]
+        )
+        assert "App.embed() cannot be called" in k.stderr.messages[0]
+
+    async def test_imported_app_has_prefixed_setup_cell(
+        self, k: Kernel, exec_req: ExecReqProvider
+    ) -> None:
+        """Verify app imported in kernel context has UUID-prefixed setup cell.
+
+        This tests the fix where setup cells get the prefix like other cells.
+        """
+        await k.run(
+            [
+                exec_req.get("""
+            # Import in kernel context; the prefix the app gets
+            # depends on whether it was first imported in a kernel context,
+            # so we reload it in case notebook_filename was loaded elsewhere
+            # in tests
+            import tests._ast.app_data.notebook_filename as mod
+            import importlib
+            # This forces the app object to be constructed in the runtime context
+            importlib.reload(mod)
+            app = mod.app
+            """)
+            ]
+        )
+        assert not k.errors
+        nb_app = k.globals["app"]
+        cell_ids = list(InternalApp(nb_app).cell_manager.cell_ids())
+        setup_cell_ids = [
+            cid for cid in cell_ids if cid.endswith(SETUP_CELL_NAME)
+        ]
+        assert len(setup_cell_ids) == 1
+        assert is_external_cell_id(setup_cell_ids[0])
+
+
+class TestInternalAppWithData:
+    """`InternalApp.with_data` rewrites the cell list from the
+    frontend's snapshot during the save round-trip. It must mutate the
+    existing cell manager in place — Session holds
+    `app.cell_manager.document` as a property, so swapping in a fresh
+    manager would orphan `session.document`.
+    """
+
+    def test_preserves_cell_manager_identity(self) -> None:
+        app = App()
+
+        @app.cell
+        def _():
+            x = 1
+            return (x,)
+
+        internal_app = InternalApp(app)
+        cell_manager = internal_app.cell_manager
+        cell_ids = list(cell_manager.cell_ids())
+        codes = list(cell_manager.codes())
+        names = list(cell_manager.names())
+        configs = list(cell_manager.configs())
+
+        internal_app.with_data(
+            cell_ids=cell_ids,
+            codes=[c + "  # edited" for c in codes],
+            names=names,
+            configs=configs,
+        )
+
+        assert internal_app.cell_manager is cell_manager
+
+    def test_preserves_document_identity(self) -> None:
+        app = App()
+
+        @app.cell
+        def _():
+            x = 1
+            return (x,)
+
+        internal_app = InternalApp(app)
+        document = internal_app.cell_manager.document
+        cell_ids = list(internal_app.cell_manager.cell_ids())
+        codes = list(internal_app.cell_manager.codes())
+        names = list(internal_app.cell_manager.names())
+        configs = list(internal_app.cell_manager.configs())
+
+        internal_app.with_data(
+            cell_ids=cell_ids,
+            codes=[c + "  # edited" for c in codes],
+            names=names,
+            configs=configs,
+        )
+
+        assert internal_app.cell_manager.document is document
+
+    def test_carries_compiled_cells_for_surviving_ids(self) -> None:
+        app = App()
+
+        @app.cell
+        def _():
+            x = 1
+            return (x,)
+
+        internal_app = InternalApp(app)
+        cell_id = next(iter(internal_app.cell_manager.cell_ids()))
+        original_compiled = internal_app.cell_manager._compiled_cells[cell_id]
+        assert original_compiled is not None
+
+        internal_app.with_data(
+            cell_ids=[cell_id],
+            codes=["x = 2  # renamed-only-here"],
+            names=["__"],
+            configs=[CellConfig()],
+        )
+
+        # Same cell id survived, so the compiled sidecar is preserved.
+        # (The save round-trip doesn't recompile; that happens in the
+        # kernel after the save lands.)
+        assert (
+            internal_app.cell_manager._compiled_cells[cell_id]
+            is original_compiled
+        )
+
+    def test_preserves_compiled_cells_dict_identity(self) -> None:
+        internal_app, cell_id = self._seed_single()
+        compiled = internal_app.cell_manager._compiled_cells
+
+        internal_app.with_data(
+            cell_ids=["new"],
+            codes=["y = 2"],
+            names=["__"],
+            configs=[CellConfig()],
+        )
+
+        # The dict is mutated in place, not reassigned, so holders of the
+        # original reference still see live state.
+        assert internal_app.cell_manager._compiled_cells is compiled
+
+    def test_writes_new_codes_and_names(self) -> None:
+        app = App()
+
+        @app.cell
+        def _():
+            x = 1
+            return (x,)
+
+        internal_app = InternalApp(app)
+        cell_id = next(iter(internal_app.cell_manager.cell_ids()))
+
+        internal_app.with_data(
+            cell_ids=[cell_id],
+            codes=["x = 99"],
+            names=["renamed"],
+            configs=[CellConfig()],
+        )
+
+        cd = internal_app.cell_manager.get_cell_data(cell_id)
+        assert cd is not None
+        assert cd.code == "x = 99"
+        assert cd.name == "renamed"
+
+    def _seed_single(self) -> tuple[InternalApp, str]:
+        app = App()
+
+        @app.cell
+        def _():
+            x = 1
+            return (x,)
+
+        internal_app = InternalApp(app)
+        cell_id = next(iter(internal_app.cell_manager.cell_ids()))
+        return internal_app, cell_id
+
+    def test_unchanged_code_preserves_cell_version(self) -> None:
+        internal_app, cell_id = self._seed_single()
+        doc = internal_app.cell_manager.document
+        before = doc.get_cell_version(cell_id)
+
+        internal_app.with_data(
+            cell_ids=[cell_id],
+            codes=[doc.get_cell(cell_id).code],
+            names=["__"],
+            configs=[CellConfig()],
+        )
+
+        assert doc.get_cell_version(cell_id) == before
+
+    def test_changed_code_bumps_cell_version_by_one(self) -> None:
+        internal_app, cell_id = self._seed_single()
+        doc = internal_app.cell_manager.document
+        before = doc.get_cell_version(cell_id)
+
+        internal_app.with_data(
+            cell_ids=[cell_id],
+            codes=["x = 2"],
+            names=["__"],
+            configs=[CellConfig()],
+        )
+
+        assert doc.get_cell_version(cell_id) == before + 1
+
+    def test_new_cell_keeps_constructed_version(self) -> None:
+        internal_app, cell_id = self._seed_single()
+        doc = internal_app.cell_manager.document
+
+        internal_app.with_data(
+            cell_ids=[cell_id, "new"],
+            codes=["x = 1", "y = 2"],
+            names=["__", "__"],
+            configs=[CellConfig(), CellConfig()],
+        )
+
+        # New ids are created via CreateCell, which constructs a fresh cell
+        # at version 0.
+        assert doc.get_cell_version(CellId_t("new")) == 0
+
+    def test_deleted_id_stays_reserved_for_generation(self) -> None:
+        internal_app, cell_id = self._seed_single()
+
+        # Drop the original cell.
+        internal_app.with_data(
+            cell_ids=["other"],
+            codes=["y = 2"],
+            names=["__"],
+            configs=[CellConfig()],
+        )
+
+        # seen_ids remembers the dropped id so the generator won't mint it
+        # again, even though it's gone from the document.
+        seen = internal_app.cell_manager._cell_id_generator.seen_ids
+        assert cell_id in seen
+
+    def test_unparsable_not_carried_over(self) -> None:
+        internal_app, cell_id = self._seed_single()
+        internal_app.cell_manager.unparsable = True
+
+        internal_app.with_data(
+            cell_ids=[cell_id],
+            codes=["x = 2"],
+            names=["__"],
+            configs=[CellConfig()],
+        )
+
+        # with_data rebuilds from parsable textual fields, so unparsable
+        # resets to the rebuilt manager's value (False).
+        assert internal_app.cell_manager.unparsable is False
+
+    def test_noop_save_does_not_bump_document_version(self) -> None:
+        # with_data routes through apply(); a save with identical content
+        # produces an empty transaction, which leaves the document version
+        # unchanged (consistent with SetCode no-op staying stable).
+        internal_app, cell_id = self._seed_single()
+        doc = internal_app.cell_manager.document
+        cell = doc.get_cell(cell_id)
+        before = doc.version
+
+        internal_app.with_data(
+            cell_ids=[cell_id],
+            codes=[cell.code],
+            names=[cell.name],
+            configs=[cell.config],
+        )
+
+        assert doc.version == before
+
+
+class TestInternalAppOverrides:
+    """Tests for InternalApp.overrides() method."""
+
+    async def test_overrides_none_when_no_defs_passed(
+        self, k: Kernel, exec_req: ExecReqProvider
+    ) -> None:
+        """Test that overrides() returns None when no defs are passed."""
+        await k.run(
+            [
+                exec_req.get(
+                    """
+                    from marimo import App
+                    from marimo._ast.app import InternalApp
+
+                    app = App()
+
+                    @app.cell
+                    def __() -> tuple[int]:
+                        x = 10
+                        return (x,)
+
+                    @app.cell
+                    def __(x: int) -> tuple[int]:
+                        y = x + 1
+                        return (y,)
+                    """
+                ),
+                exec_req.get(
+                    """
+                    # embed without any overrides
+                    result = await app.embed()
+                    internal_app = InternalApp(app)
+                    overrides = internal_app.overrides()
+                    """
+                ),
+            ]
+        )
+        assert not k.errors
+        assert k.globals["overrides"] is None
+
+    @pytest.mark.xfail(
+        True, reason="Flaky in CI, can't repro locally", strict=False
+    )
+    async def test_overrides_returns_overridden_defs_dict(
+        self, k: Kernel, exec_req: ExecReqProvider
+    ) -> None:
+        """Test that overrides() returns a dict of overridden definitions."""
+        await k.run(
+            [
+                exec_req.get(
+                    """
+                    from marimo import App
+                    from marimo._ast.app import InternalApp
+
+                    app = App()
+
+                    @app.cell
+                    def __() -> tuple[int]:
+                        x = 10
+                        return (x,)
+
+                    @app.cell
+                    def __(x: int) -> tuple[int]:
+                        y = x + 1
+                        return (y,)
+                    """
+                ),
+                exec_req.get(
+                    """
+                    # embed with x overridden
+                    result = await app.embed(defs={"x": 100})
+                    internal_app = InternalApp(app)
+                    overrides = internal_app.overrides()
+                    """
+                ),
+            ]
+        )
+        assert not k.errors
+        assert k.globals["overrides"] == {"x": 100}
+
+    @pytest.mark.xfail(
+        True, reason="Flaky in CI, can't repro locally", strict=False
+    )
+    async def test_overrides_returns_multiple_defs(
+        self, k: Kernel, exec_req: ExecReqProvider
+    ) -> None:
+        """Test that overrides() returns all overridden definitions."""
+        await k.run(
+            [
+                exec_req.get(
+                    """
+                    from marimo import App
+                    from marimo._ast.app import InternalApp
+
+                    app = App()
+
+                    @app.cell
+                    def __() -> tuple[int]:
+                        a = 1
+                        return (a,)
+
+                    @app.cell
+                    def __() -> tuple[int]:
+                        b = 2
+                        return (b,)
+
+                    @app.cell
+                    def __(a: int, b: int) -> tuple[int]:
+                        c = a + b
+                        return (c,)
+                    """
+                ),
+                exec_req.get(
+                    """
+                    # embed with both a and b overridden
+                    result = await app.embed(defs={"a": 10, "b": 20})
+                    internal_app = InternalApp(app)
+                    overrides = internal_app.overrides()
+                    """
+                ),
+            ]
+        )
+        assert not k.errors
+        assert k.globals["overrides"] == {"a": 10, "b": 20}
+
+
+class TestAppKernelRunnerRegistry:
+    def test_get_runner(self, k: Kernel) -> None:
+        # `k` fixture installs a context, needed for AppKernelRunner
+        del k
+        app = App()
+        registry = AppKernelRunnerRegistry()
+        # Calling with the same app yields the same runner
+        assert registry.get_runner(app) == registry.get_runner(app)
+
+        # Calling with different app objects yields different runners
+        assert registry.get_runner(app) != registry.get_runner(other := App())
+
+        registry.remove_runner(app)
+        registry.remove_runner(other)
+        assert not registry._runners

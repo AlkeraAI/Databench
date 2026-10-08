@@ -1,0 +1,5 @@
+/* The package's theme entry: tokens first, then the base rules that read them.
+   Consumers import this once (`@alkera/ui/chat/styles`); component css arrives
+   with each component import. */
+@import "./tokens.css";
+@import "./base.css";

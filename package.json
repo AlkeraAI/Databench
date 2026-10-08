@@ -1,0 +1,47 @@
+{
+  "name": "databench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace root (not published).",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24.0.0",
+    "pnpm": ">=9"
+  },
+  "devDependencies": {
+    "node-gyp": "11.5.0"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @alkera/web dev",
+    "build:web": "pnpm --filter @alkera/web build",
+    "test:web": "pnpm --filter @alkera/web test",
+    "build:vscode": "pnpm --filter alkera build",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "format": "pnpm -r --if-present format"
+  },
+  "pnpm": {
+    "overrides": {
+      "@babel/core": "^7.29.6",
+      "brace-expansion@^1.0.0": "^1.1.21",
+      "brace-expansion@^2.0.0": "^2.1.7",
+      "brace-expansion@^5.0.0": "^5.0.12",
+      "browserslist": "^4.28.7",
+      "fast-uri": "^3.1.8",
+      "form-data": "^4.0.6",
+      "js-yaml@^4.0.0": "^4.3.2",
+      "linkify-it": "^5.0.2",
+      "markdown-it@^14.0.0": "^14.3.1",
+      "nanoid@^3.0.0": "^3.3.17",
+      "postcss": "^8.5.23",
+      "qs": "^6.16.0",
+      "serialize-javascript": "^7.0.5",
+      "source-map-js": "^1.2.2",
+      "svgo": "^3.3.5",
+      "tmp": "^0.2.6",
+      "undici": "^7.29.1",
+      "ws": "^8.21.0"
+    }
+  }
+}

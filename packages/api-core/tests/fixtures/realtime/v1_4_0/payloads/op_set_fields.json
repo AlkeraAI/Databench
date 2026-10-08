@@ -1,0 +1,16 @@
+{
+  "events": [],
+  "fields": {
+    "title": {
+      "metadata": {},
+      "schema_version": "1.0.0",
+      "ts": 1757073660.5,
+      "value": "Orders fact, revised"
+    }
+  },
+  "intent": "set_fields",
+  "meta": {},
+  "metadata": {},
+  "op_id": "op-fields-1",
+  "schema_version": "1.0.0"
+}

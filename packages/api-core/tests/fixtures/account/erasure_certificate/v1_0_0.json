@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "erased_at": "2026-10-19T12:00:00Z",
+  "rows": {
+    "auth_tokens.user_id:erase": 4,
+    "workspace_objects.owner_user_id:transfer": 3,
+    "workspace_objects.owner_user_id:erase": 2
+  },
+  "orgs_left": ["00000000-0000-4000-8000-00000000000a"],
+  "orgs_closed": ["00000000-0000-4000-8000-00000000000b"],
+  "resealed": [
+    {
+      "schema_version": "1.0.0",
+      "org_id": "00000000-0000-4000-8000-00000000000a",
+      "rows_rewritten": 7,
+      "old_head": "aa",
+      "new_head": "bb"
+    }
+  ],
+  "archives_deleted": 1
+}

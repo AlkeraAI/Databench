@@ -1,0 +1,64 @@
+# Layering contracts for alkera_cli. Run with:
+#   PYTHONPATH=apps/cli uvx --from import-linter lint-imports --config apps/cli/.importlinter
+# The ignore_imports entries are today's direct violations; they may only shrink.
+[importlinter]
+root_packages =
+    alkera_cli
+include_external_packages = True
+
+[importlinter:contract:cli-libraries]
+name = CLI libraries import no UI framework and no facade
+type = forbidden
+source_modules =
+    alkera_cli.account
+    alkera_cli.chat
+    alkera_cli.cloud
+    alkera_cli.cloud_sync
+    alkera_cli.contracts
+    alkera_cli.files
+    alkera_cli.gateway
+    alkera_cli.harness
+    alkera_cli.observability
+    alkera_cli.host
+    alkera_cli.plugins
+    alkera_cli.preferences
+forbidden_modules =
+    typer
+    rich
+    textual
+    alkera_cli.commands
+    alkera_cli.daemon
+    alkera_cli.ui
+ignore_imports =
+    alkera_cli.account.auth_watcher -> alkera_cli.daemon.logging_setup
+    alkera_cli.chat.slash -> rich
+    alkera_cli.chat.usage -> rich
+allow_indirect_imports = True
+
+[importlinter:contract:cli-connector-framework]
+name = The connector framework imports no vendor connector
+type = forbidden
+source_modules =
+    alkera_cli.plugins.plugin_base
+forbidden_modules =
+    alkera_cli.plugins.generic_sql
+allow_indirect_imports = True
+
+[importlinter:contract:cli-supervisor]
+name = The box supervisor imports nothing that touches tenant content and no UI framework
+type = forbidden
+source_modules =
+    alkera_cli.supervisor
+forbidden_modules =
+    alkera_cli.harness
+    alkera_cli.plugins
+    alkera_cli.files
+    alkera_cli.cloud_sync
+    alkera_cli.cloud
+    alkera_cli.app
+    alkera_cli.daemon
+    alkera_cli.commands
+    alkera_cli.ui
+    typer
+    rich
+    textual

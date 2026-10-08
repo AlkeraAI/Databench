@@ -1,0 +1,449 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import uuid
+
+from marimo._runtime.commands import DeleteCellCommand
+from marimo._runtime.context import get_context
+from marimo._runtime.runtime import Kernel
+from marimo._runtime.virtual_file.storage import (
+    InMemoryStorage,
+    SharedMemoryStorage,
+    VirtualFileStorageManager,
+)
+from marimo._runtime.virtual_file.virtual_file import (
+    VirtualFile,
+    VirtualFileLifecycleItem,
+    VirtualFileRegistry,
+    read_virtual_file,
+)
+from tests.conftest import ExecReqProvider, MockedKernel
+
+
+async def test_virtual_file_creation(
+    execution_kernel: Kernel, exec_req: ExecReqProvider
+) -> None:
+    k = execution_kernel
+    await k.run(
+        [
+            exec_req.get(
+                """
+                import io
+                import marimo as mo
+                bytestream = io.BytesIO(b"hello world")
+                pdf_plugin = mo.pdf(bytestream)
+                """
+            ),
+        ]
+    )
+    assert len(get_context().virtual_file_registry.registry) == 1
+    for fname in get_context().virtual_file_registry.registry:
+        assert fname.endswith(".pdf")
+
+
+async def test_virtual_file_deletion(
+    execution_kernel: Kernel, exec_req: ExecReqProvider
+) -> None:
+    k = execution_kernel
+    await k.run(
+        [
+            er := exec_req.get(
+                """
+                import io
+                import marimo as mo
+                bytestream = io.BytesIO(b"hello world")
+                pdf_plugin = mo.pdf(bytestream)
+                """
+            ),
+        ]
+    )
+    assert len(get_context().virtual_file_registry.registry) == 1
+    for fname in get_context().virtual_file_registry.registry:
+        assert fname.endswith(".pdf")
+
+    await k.delete_cell(DeleteCellCommand(cell_id=er.cell_id))
+    assert not get_context().virtual_file_registry.registry
+
+
+async def test_cached_virtual_file_not_deleted(
+    execution_kernel: Kernel, exec_req: ExecReqProvider
+) -> None:
+    k = execution_kernel
+    await k.run(
+        [
+            exec_req.get(
+                """
+                import io
+                import marimo as mo
+                import functools
+                """
+            ),
+            vfile_cache := exec_req.get(
+                """
+                @functools.lru_cache()
+                def create_vfile(arg):
+                    del arg
+                    bytestream = io.BytesIO(b"hello world")
+                    return mo.pdf(bytestream)
+                """
+            ),
+            create_vfile_1 := exec_req.get("create_vfile(1)"),
+        ]
+    )
+    assert len(get_context().virtual_file_registry.registry) == 1
+
+    # Rerun the cell that created the vfile: make sure that the vfile
+    # still exists
+    await k.run([create_vfile_1])
+    assert len(get_context().virtual_file_registry.registry) == 1
+
+    # Create a new vfile, make sure we have two now
+    await k.run([create_vfile_2 := exec_req.get("create_vfile(2)")])
+    assert len(get_context().virtual_file_registry.registry) == 2
+
+    # Remove the cells that create the vfiles
+    await k.delete_cell(DeleteCellCommand(cell_id=create_vfile_1.cell_id))
+    await k.delete_cell(DeleteCellCommand(cell_id=create_vfile_2.cell_id))
+
+    # Reset the vfile cache
+    await k.run([vfile_cache])
+
+
+async def test_cell_deletion_clears_vfiles(
+    execution_kernel: Kernel, exec_req: ExecReqProvider
+) -> None:
+    k = execution_kernel
+    await k.run(
+        [
+            exec_req.get(
+                """
+                import io
+                import marimo as mo
+                import functools
+                """
+            ),
+            vfile_cache := exec_req.get(
+                """
+                @functools.lru_cache()
+                def create_vfile(arg):
+                    del arg
+                    bytestream = io.BytesIO(b"hello world")
+                    return mo.pdf(bytestream)
+                """
+            ),
+            exec_req.get("create_vfile(1)"),
+        ]
+    )
+    assert len(get_context().virtual_file_registry.registry) == 1
+
+    # Delete the vfile cache: virtual file registry should be empty
+    await k.delete_cell(DeleteCellCommand(cell_id=vfile_cache.cell_id))
+    assert len(get_context().virtual_file_registry.registry) == 0
+
+
+async def test_vfile_refcount_incremented(
+    execution_kernel: Kernel, exec_req: ExecReqProvider
+) -> None:
+    k = execution_kernel
+    await k.run(
+        [
+            exec_req.get(
+                """
+                import io
+                import marimo as mo
+                import functools
+                """
+            ),
+            exec_req.get(
+                """
+                @functools.lru_cache()
+                def create_vfile(arg):
+                    del arg
+                    bytestream = io.BytesIO(b"hello world")
+                    return mo.pdf(bytestream)
+                """
+            ),
+            exec_req.get("md = mo.md(f'{create_vfile(1)}')"),
+        ]
+    )
+    assert len(get_context().virtual_file_registry.registry) == 1
+    vfile = next(iter(get_context().virtual_file_registry.filenames()))
+
+    #   1 reference for the cached `mo.pdf`
+    # + 1 reference for the markdown
+    # ---
+    #   2 references
+    assert get_context().virtual_file_registry.refcount(vfile) == 2
+
+
+async def test_vfile_refcount_decremented(
+    execution_kernel: Kernel, exec_req: ExecReqProvider
+) -> None:
+    k = execution_kernel
+    await k.run(
+        [
+            exec_req.get(
+                """
+                import io
+                import marimo as mo
+                import gc
+                """
+            ),
+            # no caching in this test
+            exec_req.get(
+                """
+                def create_vfile(arg):
+                    del arg
+                    bytestream = io.BytesIO(b"hello world")
+                    return mo.pdf(bytestream)
+                """
+            ),
+            make_vfile := exec_req.get("mo.md(f'{create_vfile(1)}')"),
+        ]
+    )
+    ctx = get_context()
+    assert len(ctx.virtual_file_registry.registry) == 1
+    vfile = next(iter(ctx.virtual_file_registry.filenames()))
+
+    # 0 references because HTML not bound to a variable
+    # NB: this test may be flaky! refcount decremented when `__del__` is called
+    # but we can't rely on when it will be called.
+    await k.run([exec_req.get("gc.collect()")])
+    assert ctx.virtual_file_registry.refcount(vfile) == 0
+
+    # this should dispose the old vfile (because its refcount is 0) and create
+    # a new one
+    await k.run([make_vfile])
+    # the previous vfile should not be in the registry
+    assert vfile not in ctx.virtual_file_registry.registry
+    assert len(ctx.virtual_file_registry.registry) == 1
+
+
+async def test_cached_vfile_disposal(
+    execution_kernel: Kernel, exec_req: ExecReqProvider
+) -> None:
+    k = execution_kernel
+    await k.run(
+        [
+            exec_req.get(
+                """
+                import io
+                import marimo as mo
+                import functools
+                import weakref
+                """
+            ),
+            exec_req.get(
+                """
+                class namespace:
+                  ...
+                vfiles = namespace()
+                vfiles.files = []
+                ref = weakref.ref(vfiles)
+
+                def create_vfile(arg):
+                    del arg
+                    bytestream = io.BytesIO(b"hello world")
+                    return mo.pdf(bytestream)
+                """
+            ),
+            append_vfile := exec_req.get(
+                "ref().files.append(create_vfile(1))"
+            ),
+        ]
+    )
+    ctx = get_context()
+    assert len(ctx.virtual_file_registry.registry) == 1
+    vfile = next(iter(ctx.virtual_file_registry.filenames()))
+
+    # 1 reference, in the list
+    assert ctx.virtual_file_registry.refcount(vfile) == 1
+
+    # clear the list, refcount should be decremented
+    await k.run([exec_req.get("ref().files[:] = []")])
+    # NB: this test may be flaky! refcount decremented when `__del__` is called
+    # but we can't rely on when it will be called.
+    await k.run([exec_req.get("import gc; gc.collect()")])
+    assert ctx.virtual_file_registry.refcount(vfile) == 0
+
+    # create another vfile. the old one should be deleted
+    await k.run([append_vfile])
+    assert len(ctx.virtual_file_registry.registry) == 1
+    assert vfile not in ctx.virtual_file_registry.filenames()
+
+
+async def test_virtual_files_not_supported(
+    execution_kernel: Kernel, exec_req: ExecReqProvider
+) -> None:
+    k = execution_kernel
+    get_context().virtual_files_supported = False
+
+    await k.run(
+        [
+            exec_req.get(
+                """
+                import io
+                import marimo as mo
+                bytestream = io.BytesIO(b"hello world")
+                pdf_plugin = mo.pdf(bytestream)
+                """
+            ),
+        ],
+    )
+
+    ctx = get_context()
+    assert len(ctx.virtual_file_registry.registry) == 0
+    ctx.virtual_files_supported = True
+
+
+async def test_virtual_file_empty_buffer(
+    execution_kernel: Kernel, exec_req: ExecReqProvider
+) -> None:
+    k = execution_kernel
+    await k.run(
+        [
+            exec_req.get(
+                """
+                import io
+                import marimo as mo
+                bytestream = io.BytesIO(b"")
+                pdf_plugin = mo.pdf(bytestream)
+                """
+            ),
+        ]
+    )
+    # Empty buffers should not be added to the registry
+    assert len(get_context().virtual_file_registry.registry) == 0
+
+
+def test_virtual_file_registry_shared_inmemory_storage(
+    run_mode_kernel: MockedKernel,  # noqa: ARG001
+) -> None:
+    ctx = get_context()
+
+    # Create vfile in existing vfile registry
+    item = VirtualFileLifecycleItem(ext="pdf", buffer=b"abc")
+    item.create(context=ctx)
+    vf = item.virtual_file
+
+    assert read_virtual_file(vf.filename, 3) == b"abc"
+
+    # Simulate a second session initializing its own vfile registry
+    VirtualFileRegistry(storage=InMemoryStorage())
+
+    # Ensure old file should still readable
+    assert read_virtual_file(vf.filename, 3) == b"abc"
+
+
+def test_virtual_file_registry_shared_shared_memory_storage() -> None:
+    """A shared-memory registry teardown must not clobber another live
+    registry in the same process.
+
+    AppHost-backed run sessions for one notebook share a process but each
+    session gets its own runtime context + VirtualFileRegistry. That is the
+    same multi-registry shape the in-memory regression test above covers;
+    here we assert the shared-memory backend honors the same contract.
+    """
+    manager = VirtualFileStorageManager()
+    original_storage = manager.storage
+    key1 = f"{uuid.uuid4().hex[:8]}.txt"
+    key2 = f"{uuid.uuid4().hex[:8]}.txt"
+    context = type("Context", (), {"virtual_files_supported": True})()
+
+    registry1 = None
+    registry2 = None
+    try:
+        manager.storage = None
+        registry1 = VirtualFileRegistry(storage=SharedMemoryStorage())
+        registry1.add(VirtualFile(filename=key1, buffer=b"one"), context)
+        assert read_virtual_file(key1, 3) == b"one"
+
+        registry2 = VirtualFileRegistry(storage=SharedMemoryStorage())
+        registry2.add(VirtualFile(filename=key2, buffer=b"two"), context)
+        assert read_virtual_file(key2, 3) == b"two"
+
+        registry1.shutdown()
+
+        # A still-live registry must keep serving its files after another
+        # session tears down.
+        assert read_virtual_file(key2, 3) == b"two"
+    finally:
+        manager.storage = original_storage
+        if registry1 is not None:
+            registry1.shutdown()
+        if registry2 is not None:
+            registry2.shutdown()
+
+
+def test_create_and_register_with_context(
+    run_mode_kernel: MockedKernel,  # noqa: ARG001
+) -> None:
+    ctx = get_context()
+    assert len(ctx.virtual_file_registry.registry) == 0
+
+    vfile = VirtualFile.create_and_register(b"hello world", "txt")
+
+    assert vfile.filename.endswith(".txt")
+    # Should be a relative file URL, not a data URL
+    assert vfile.url.startswith("./@file/")
+    assert "11-" in vfile.url  # 11 bytes = len(b"hello world")
+    # Should be registered
+    assert len(ctx.virtual_file_registry.registry) == 1
+    assert read_virtual_file(vfile.filename, 11) == b"hello world"
+
+
+def test_create_and_register_without_context() -> None:
+    # No kernel context initialized — should fall back to data URL
+    vfile = VirtualFile.create_and_register(b"test data", "bin")
+
+    assert vfile.filename.endswith(".bin")
+    assert vfile.url.startswith("data:")
+
+
+def test_create_and_register_empty_buffer_uses_data_url(
+    run_mode_kernel: MockedKernel,  # noqa: ARG001
+) -> None:
+    ctx = get_context()
+    registry_size_before = len(ctx.virtual_file_registry.registry)
+
+    vfile = VirtualFile.create_and_register(b"", "csv")
+
+    assert vfile.filename.endswith(".csv")
+    # Empty buffer should use a data URL, not a ./@file/ URL,
+    # because empty buffers can't be served via the file registry.
+    assert vfile.url.startswith("data:")
+    assert not vfile.url.startswith("./@file/")
+    # Registry should not have grown
+    assert len(ctx.virtual_file_registry.registry) == registry_size_before
+
+
+def test_create_and_register_empty_buffer_without_context() -> None:
+    # No kernel context — empty buffer should still produce a data URL
+    vfile = VirtualFile.create_and_register(b"", "bin")
+
+    assert vfile.filename.endswith(".bin")
+    assert vfile.url.startswith("data:")
+
+
+def test_create_and_register_virtual_files_not_supported(
+    run_mode_kernel: MockedKernel,  # noqa: ARG001
+) -> None:
+    ctx = get_context()
+    ctx.virtual_files_supported = False
+    try:
+        vfile = VirtualFile.create_and_register(b"some data", "txt")
+
+        assert vfile.filename.endswith(".txt")
+        # Should fall back to data URL when virtual files aren't supported
+        assert vfile.url.startswith("data:")
+        assert len(ctx.virtual_file_registry.registry) == 0
+    finally:
+        ctx.virtual_files_supported = True
+
+
+def test_create_and_register_preserves_extension(
+    run_mode_kernel: MockedKernel,  # noqa: ARG001
+) -> None:
+    for ext in ("pdf", "png", "csv"):
+        vfile = VirtualFile.create_and_register(b"content", ext)
+        assert vfile.filename.endswith(f".{ext}")

@@ -1,0 +1,69 @@
+/* The empty transcript's opener. */
+
+:global(.chat-root) .root {
+  align-self: center;
+  width: 100%;
+  max-width: 640px;
+}
+
+:global(.chat-root) .title {
+  margin: 0 0 var(--chat-sp-3);
+  font-size: var(--chat-fs-display);
+  line-height: var(--chat-lh-display);
+  font-weight: var(--chat-w-semi);
+  color: var(--chat-ink);
+}
+
+:global(.chat-root) .list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-2);
+}
+
+:global(.chat-root) .sugg {
+  display: flex;
+  align-items: baseline;
+  gap: var(--chat-sp-2);
+  width: 100%;
+  padding: var(--chat-sp-3) var(--chat-sp-3);
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-control);
+  text-align: left;
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink);
+  cursor: pointer;
+  transition: var(--chat-control-transition);
+}
+
+:global(.chat-root) .sugg:hover {
+  border-color: var(--chat-hairline-strong);
+  background: var(--chat-wash);
+}
+
+:global(.chat-root) .num {
+  flex: none;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-4);
+}
+
+:global(.chat-root) .text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A suggestion is a send, so it goes quiet with the composer's own key. */
+:global(.chat-root) .sugg:disabled {
+  cursor: default;
+  color: var(--chat-ink-4);
+}
+
+:global(.chat-root) .sugg:disabled:hover {
+  border-color: var(--chat-hairline);
+  background: none;
+}

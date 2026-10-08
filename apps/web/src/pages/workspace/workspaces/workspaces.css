@@ -1,0 +1,434 @@
+/* Workspaces: the rail's workspace rows, the workspace page, the crumb over a
+   chat. */
+
+/* --- the rail --------------------------------------------------------------- */
+
+.ws-rail {
+  /* The chevron's square, and the indent a workspace's chats sit at under it. */
+  --ws-rail-toggle: 20px;
+  --ws-rail-new-chat: 52px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace5);
+}
+
+.ws-rail__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+}
+
+.ws-rail__heading {
+  margin: 0;
+  padding: 0 var(--alkSpace3);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+  font-weight: var(--alkWeightMedium);
+}
+
+.ws-rail__new {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border: 1px dashed var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: none;
+  color: var(--alkSecondaryText);
+  font: inherit;
+  font-size: var(--alkTextSm);
+  cursor: pointer;
+}
+
+.ws-rail__new:hover,
+.ws-rail__new:focus-visible {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+
+.ws-rail .ws-rail__line {
+  gap: 0;
+}
+
+.ws-rail__toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--ws-rail-toggle);
+  height: var(--ws-rail-toggle);
+  padding: 0;
+  border: 0;
+  border-radius: var(--alkRadiusSm);
+  background: none;
+  color: var(--alkTertiaryText);
+  cursor: pointer;
+}
+
+.ws-rail__toggle:hover,
+.ws-rail__toggle:focus-visible {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+
+.ws-rail__chevron {
+  transition: transform 120ms ease;
+}
+
+.ws-rail__chevron[data-open] {
+  transform: rotate(90deg);
+}
+
+.ws-rail__name {
+  padding-inline-start: var(--alkSpace2);
+}
+
+/* "+ Chat" sits just before the row's menu key and, like it, shows only while
+   the row is reached, taking no clicks while hidden. */
+.ws-rail__new-chat {
+  position: absolute;
+  inset-inline-end: calc(var(--alkSpace1) * 2 + var(--chat-row-key));
+  inset-block: 0;
+  margin-block: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--alkSpace0);
+  width: var(--ws-rail-new-chat);
+  height: var(--chat-row-key);
+  padding: 0;
+  border: 0;
+  border-radius: var(--alkRadiusSm);
+  background: none;
+  color: var(--alkSecondaryText);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-page__row-wrap:hover .ws-rail__new-chat,
+.chat-page__row-wrap:focus-within .ws-rail__new-chat {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ws-rail__new-chat:hover,
+.ws-rail__new-chat:focus-visible {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+
+/* With both keys up, the name breaks off before the pair. */
+.chat-page__row-wrap:hover .ws-rail__line:has(.ws-rail__new-chat) .chat-page__row,
+.chat-page__row-wrap:focus-within .ws-rail__line:has(.ws-rail__new-chat) .chat-page__row {
+  padding-inline-end: calc(var(--alkSpace3) + var(--chat-row-key) + var(--alkSpace1) + var(--ws-rail-new-chat));
+}
+
+.ws-rail .ws-rail__chats {
+  margin-inline-start: var(--ws-rail-toggle);
+  padding-block-start: var(--alkSpace0);
+}
+
+.ws-rail__none {
+  padding: var(--alkSpace2) var(--alkSpace3);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.ws-rail__more {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border: 0;
+  border-radius: var(--alkRadiusMd);
+  background: none;
+  color: var(--alkSecondaryText);
+  font: inherit;
+  font-size: var(--alkTextSm);
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-rail__more:hover,
+.ws-rail__more:focus-visible {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+
+/* --- the crumb over a chat -------------------------------------------------- */
+
+.ws-crumb {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--alkSpace3);
+  min-width: 0;
+  margin-inline-end: auto;
+  overflow: hidden;
+  font-size: var(--alkTextSm);
+}
+
+.ws-crumb__workspace {
+  flex: none;
+  color: var(--alkSecondaryText);
+  font-weight: var(--alkWeightMedium);
+  text-decoration: none;
+}
+
+.ws-crumb__workspace:hover {
+  color: var(--alkPrimaryText);
+  text-decoration: underline;
+}
+
+/* --- the workspace page ----------------------------------------------------- */
+
+.ws-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace7);
+  /* A reading measure, not a layout width: the page sits in a resizable pane. */
+  max-width: 880px;
+  overflow-y: auto;
+}
+
+.ws-page__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace4);
+}
+
+.ws-page__title-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--alkSpace4);
+}
+
+.ws-page__title {
+  margin: 0;
+  color: var(--alkPrimaryText);
+  font-size: var(--alkText2xl);
+  font-weight: var(--alkWeightSemibold);
+}
+
+.ws-page__tag {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.ws-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace3);
+}
+
+.ws-page__refusal {
+  margin: 0;
+  color: var(--alkDangerText);
+  font-size: var(--alkTextSm);
+}
+
+.ws-page__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+}
+
+.ws-page__heading {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+}
+
+.ws-page__muted {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.ws-page__people,
+.ws-page__agents,
+.ws-page__chats,
+.ws-page__files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ws-page__person,
+.ws-page__agent {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  font-size: var(--alkTextMd);
+  color: var(--alkPrimaryText);
+}
+
+.ws-page__person .ws-page__face {
+  --alk-avatar-size: 26px;
+  --alk-avatar-font: 10px;
+  border: 2px solid var(--alkCardBg);
+  line-height: 1;
+  text-transform: uppercase;
+  cursor: default;
+}
+
+.ws-page__person-where {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-page__chat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace4);
+  width: 100%;
+  padding: var(--alkSpace3) var(--alkSpace4);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkCardBg);
+  color: var(--alkPrimaryText);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-page__chat:hover,
+.ws-page__chat:focus-visible {
+  background: var(--alkHoverBg);
+}
+
+.ws-page__chat-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-page__file a {
+  color: var(--alkLinkText);
+  font-size: var(--alkTextMd);
+  text-decoration: none;
+}
+
+.ws-page__file a:hover {
+  text-decoration: underline;
+}
+
+.ws-dialog__refusal {
+  margin: 0;
+  color: var(--alkDangerText);
+  font-size: var(--alkTextSm);
+}
+
+/* --- the new chat's place ---------------------------------------------------- */
+
+.ws-new-chat-place {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.ws-new-chat-place {
+  margin-inline-end: auto;
+}
+
+/* --- the workspace page's files, grouped ------------------------------------ */
+
+.ws-page__file-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+}
+
+.ws-page__file-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace3);
+}
+
+.ws-page__subheading {
+  margin: 0;
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightMedium);
+}
+
+/* The workspace's machine: a chip in the header, and the change-machine list. */
+.ws-machine-chip {
+  flex: 0 1 auto;
+}
+
+.ws-machine-targets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.ws-machine-target {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace3) var(--alkSpace4);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkCardBg);
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ws-machine-target:hover {
+  background: var(--alkHoverBg);
+}
+
+.ws-machine-target[data-selected] {
+  border-color: var(--alkBrand);
+  background: var(--alkSelectedBg);
+}
+
+.ws-machine-target[aria-disabled="true"] {
+  cursor: default;
+}
+
+.ws-machine-target:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 2px;
+}
+
+.ws-machine-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace2);
+}
+
+/* How many of a workspace's chats are unread for this reader. */
+.ws-rail__unread {
+  flex: none;
+  min-width: 18px;
+  padding: 0 var(--alkSpace2);
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkBrandSubtle);
+  color: var(--alkBrandText);
+  font-size: var(--alkTextXs);
+  font-weight: var(--alkWeightSemibold);
+  line-height: 18px;
+  text-align: center;
+}

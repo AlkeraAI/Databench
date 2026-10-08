@@ -1,0 +1,1523 @@
+from __future__ import annotations
+
+import ast
+import datetime
+import string
+from typing import TYPE_CHECKING, Literal, cast
+
+import narwhals.stable.v2 as nw
+import pytest
+from hypothesis import assume, given, settings, strategies as st
+
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._plugins.ui._impl.dataframes.transforms.apply import (
+    _apply_transforms,
+)
+from marimo._plugins.ui._impl.dataframes.transforms.handlers import (
+    NarwhalsTransformHandler,
+)
+from marimo._plugins.ui._impl.dataframes.transforms.print_code import (
+    python_print_ibis,
+    python_print_pandas,
+    python_print_polars,
+    python_print_transforms,
+)
+from marimo._plugins.ui._impl.dataframes.transforms.types import (
+    AggregateTransform,
+    ColumnConversionTransform,
+    ExpandDictTransform,
+    ExplodeColumnsTransform,
+    FilterCondition,
+    FilterGroup,
+    FilterRowsTransform,
+    GroupByTransform,
+    Operator,
+    PivotTransform,
+    RenameColumnTransform,
+    SampleRowsTransform,
+    SelectColumnsTransform,
+    ShuffleRowsTransform,
+    SortColumnTransform,
+    Transform,
+    Transformations,
+    TransformType,
+)
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
+
+any_column_id = st.one_of(
+    st.text(
+        min_size=1,
+        alphabet=string.ascii_letters + string.digits + "_",
+    ),
+)
+
+defined_column_id = st.sampled_from(
+    [
+        "strings",
+        "integers",
+        "floats",
+        "booleans",
+        "dates",
+        "times",
+        "datetimes",
+        "mixed",
+        "dicts",
+        "lists",
+    ]
+)
+
+
+def create_transform_strategy(
+    column_id: st.SearchStrategy[str],
+    string_column_id: st.SearchStrategy[str | int] | None = None,
+    bool_column_id: st.SearchStrategy[str | int] | None = None,
+    comparison_column_id: st.SearchStrategy[str | int] | None = None,
+    list_column_id: st.SearchStrategy[str | int] | None = None,
+    df_size: int = 3,
+) -> st.SearchStrategy[Transform]:
+    column_ids = st.lists(column_id, min_size=1, unique=True)
+    aggregation_column_ids = st.one_of(
+        st.just([]),
+        st.lists(column_id, min_size=1, unique=True),
+    )
+    index_column_ids = st.one_of(
+        st.just([]),
+        st.lists(column_id, min_size=1, unique=True),
+    )
+
+    if string_column_id is None:
+        string_column_id = column_id
+    if bool_column_id is None:
+        bool_column_id = column_id
+    if comparison_column_id is None:
+        comparison_column_id = column_id
+    if list_column_id is None:
+        list_column_id = column_id
+
+    numpy_data_type = st.sampled_from(["str", "bool"])
+    aggregation = st.sampled_from(
+        ["count", "sum", "mean", "median", "min", "max"]
+    )
+
+    # Strategies for each condition type
+    comparison_condition_strategy = st.builds(
+        FilterCondition,
+        type=st.just("condition"),
+        column_id=comparison_column_id,
+        operator=st.sampled_from(["==", "!=", "<", ">", "<=", ">="]),
+        value=st.one_of(
+            st.integers(), st.floats(allow_infinity=False, allow_nan=False)
+        ),
+    )
+
+    boolean_condition_strategy = st.builds(
+        FilterCondition,
+        type=st.just("condition"),
+        column_id=bool_column_id,
+        operator=st.sampled_from(["is_true", "is_false"]),
+        value=st.just(None),
+    )
+
+    string_condition_strategy = st.builds(
+        FilterCondition,
+        type=st.just("condition"),
+        column_id=string_column_id,
+        operator=st.sampled_from(
+            [
+                "equals",
+                "does_not_equal",
+                "contains",
+                "regex",
+                "starts_with",
+                "ends_with",
+            ]
+        ),
+        value=st.text(alphabet=string.ascii_letters + string.digits),
+    )
+
+    list_condition_strategy = st.builds(
+        FilterCondition,
+        type=st.just("condition"),
+        column_id=list_column_id,
+        operator=st.sampled_from(["in", "not_in"]),
+        value=st.lists(st.one_of(st.text()), min_size=1),
+    )
+
+    condition_strategy = st.one_of(
+        comparison_condition_strategy,
+        boolean_condition_strategy,
+        string_condition_strategy,
+        list_condition_strategy,
+    )
+
+    column_conversion_transform_strategy = st.builds(
+        ColumnConversionTransform,
+        type=st.just(TransformType.COLUMN_CONVERSION),
+        column_id=column_id,
+        data_type=numpy_data_type,
+        errors=st.sampled_from(["ignore", "raise"]),
+    )
+
+    rename_column_transform_strategy = st.builds(
+        RenameColumnTransform,
+        type=st.just(TransformType.RENAME_COLUMN),
+        column_id=column_id,
+        new_column_id=column_id,
+    ).filter(lambda x: x.column_id != x.new_column_id)
+
+    sort_column_transform_strategy = st.builds(
+        SortColumnTransform,
+        type=st.just(TransformType.SORT_COLUMN),
+        column_id=column_id,
+        ascending=st.booleans(),
+        na_position=st.sampled_from(["first", "last"]),
+    )
+
+    filter_group_strategy = st.builds(
+        FilterGroup,
+        type=st.just("group"),
+        operator=st.just("and"),
+        children=st.lists(condition_strategy, min_size=1),
+    )
+
+    filter_rows_transform_strategy = st.builds(
+        FilterRowsTransform,
+        type=st.just(TransformType.FILTER_ROWS),
+        operation=st.sampled_from(["keep_rows", "remove_rows"]),
+        where=filter_group_strategy,
+    )
+
+    group_by_transform_strategy = st.builds(
+        GroupByTransform,
+        type=st.just(TransformType.GROUP_BY),
+        column_ids=column_ids,
+        drop_na=st.booleans(),
+        aggregation=aggregation,
+        aggregation_column_ids=aggregation_column_ids,
+    )
+
+    aggregate_transform_strategy = st.builds(
+        AggregateTransform,
+        type=st.just(TransformType.AGGREGATE),
+        column_ids=column_ids,
+        aggregations=st.lists(aggregation, min_size=1),
+    )
+
+    select_columns_transform_strategy = st.builds(
+        SelectColumnsTransform,
+        type=st.just(TransformType.SELECT_COLUMNS),
+        column_ids=column_ids,
+    )
+
+    shuffle_rows_transform_strategy = st.builds(
+        ShuffleRowsTransform,
+        type=st.just(TransformType.SHUFFLE_ROWS),
+        seed=st.integers(),
+    )
+
+    sample_rows_transform_strategy = st.builds(
+        SampleRowsTransform,
+        type=st.just(TransformType.SAMPLE_ROWS),
+        n=st.integers(min_value=1, max_value=df_size),
+        replace=st.booleans(),
+        seed=st.integers(),
+    )
+
+    explode_columns_transform_strategy = st.builds(
+        ExplodeColumnsTransform,
+        type=st.just(TransformType.EXPLODE_COLUMNS),
+        column_ids=column_ids,
+    )
+
+    expand_dict_transform_strategy = st.builds(
+        ExpandDictTransform,
+        type=st.just(TransformType.EXPAND_DICT),
+        column_id=column_id,
+    )
+
+    pivot_transform_strategy = st.builds(
+        PivotTransform,
+        type=st.just(TransformType.PIVOT),
+        column_ids=column_ids,
+        index_column_ids=index_column_ids,
+        aggregation=aggregation,
+        value_column_ids=aggregation_column_ids,
+    )
+
+    # Combine all transform strategies
+    transform_strategy = st.one_of(
+        column_conversion_transform_strategy,
+        rename_column_transform_strategy,
+        sort_column_transform_strategy,
+        filter_rows_transform_strategy,
+        group_by_transform_strategy,
+        aggregate_transform_strategy,
+        select_columns_transform_strategy,
+        shuffle_rows_transform_strategy,
+        sample_rows_transform_strategy,
+        explode_columns_transform_strategy,
+        expand_dict_transform_strategy,
+        pivot_transform_strategy,
+    )
+
+    return transform_strategy
+
+
+transformations_strategy = st.builds(
+    Transformations,
+    transforms=st.lists(create_transform_strategy(any_column_id), min_size=1),
+)
+
+
+def _assert_string_filter_matches_runtime(
+    backend: str,
+    strings: list[str | None],
+    operator: Operator,
+    value: str,
+    negate: bool,
+    operation: Literal["keep_rows", "remove_rows"],
+) -> None:
+    data = {"strings": strings, "row_id": list(range(len(strings)))}
+    if backend.startswith("pandas"):
+        pd = pytest.importorskip("pandas")
+        df = pd.DataFrame(data).astype(
+            {"strings": "object" if backend == "pandas-object" else "string"}
+        )
+        printer = python_print_pandas
+        namespace = {"pd": pd, "df": df}
+    elif backend == "polars":
+        pl = pytest.importorskip("polars")
+        df = pl.DataFrame(data, schema_overrides={"strings": pl.String})
+        printer = python_print_polars
+        namespace = {"pl": pl, "df": df}
+    else:
+        ibis = pytest.importorskip("ibis")
+        pytest.importorskip("duckdb")
+        df = ibis.memtable(
+            data, schema={"strings": "string", "row_id": "int64"}
+        )
+        printer = python_print_ibis
+        namespace = {"ibis": ibis, "df": df}
+
+    transform = FilterRowsTransform(
+        type=TransformType.FILTER_ROWS,
+        operation=operation,
+        where=FilterGroup(
+            operator="and",
+            children=[
+                FilterCondition(
+                    column_id="strings",
+                    operator=operator,
+                    value=value,
+                    negate=negate,
+                )
+            ],
+        ),
+    )
+    expected = _apply_transforms(
+        nw.from_native(df).lazy(),
+        NarwhalsTransformHandler(),
+        Transformations([transform]),
+    ).collect()
+    code = python_print_transforms("df", list(data), [transform], printer)
+    exec(code, namespace)
+    actual = nw.from_native(namespace["df_next"]).lazy().collect()
+    assert actual.to_dict(as_series=False) == expected.to_dict(as_series=False)
+
+
+@pytest.mark.parametrize(
+    "backend", ["pandas-object", "pandas-string", "polars", "ibis"]
+)
+@pytest.mark.parametrize(
+    "operator", ["contains", "regex", "starts_with", "ends_with"]
+)
+@pytest.mark.parametrize("value", ["", "a", "a.c"])
+@pytest.mark.parametrize("negate", [False, True])
+@pytest.mark.parametrize("operation", ["keep_rows", "remove_rows"])
+def test_print_code_string_filters_with_nulls(
+    backend: str,
+    operator: Operator,
+    value: str,
+    negate: bool,
+    operation: Literal["keep_rows", "remove_rows"],
+) -> None:
+    _assert_string_filter_matches_runtime(
+        backend,
+        [None, "", "abc", "a.c", "cba", "zzz"],
+        operator,
+        value,
+        negate,
+        operation,
+    )
+
+
+@pytest.mark.parametrize(
+    "backend", ["pandas-object", "pandas-string", "polars", "ibis"]
+)
+@given(
+    strings=st.lists(
+        st.one_of(st.none(), st.text(alphabet="abc .", max_size=10)),
+        min_size=1,
+        max_size=10,
+    ),
+    operator=st.sampled_from(
+        ["contains", "regex", "starts_with", "ends_with"]
+    ),
+    value=st.text(alphabet="abc.", max_size=3),
+    negate=st.booleans(),
+    operation=st.sampled_from(["keep_rows", "remove_rows"]),
+)
+@settings(deadline=None)
+def test_print_code_string_filters_with_generated_nulls(
+    backend: str,
+    strings: list[str | None],
+    operator: Operator,
+    value: str,
+    negate: bool,
+    operation: Literal["keep_rows", "remove_rows"],
+) -> None:
+    _assert_string_filter_matches_runtime(
+        backend, strings, operator, value, negate, operation
+    )
+
+
+def _validate_code(code: str):
+    try:
+        ast.parse(code)
+    except SyntaxError as e:
+        raise SyntaxError(f"Invalid Python code for {code}") from e
+
+
+@given(transform=create_transform_strategy(any_column_id))
+@settings(deadline=None)
+def test_python_print_pandas(transform: Transform):
+    df_name = "df"
+    result = python_print_pandas(df_name, ["a"], transform)
+    assert isinstance(result, str)
+    _validate_code(result)
+    assert df_name in result
+
+
+@given(transform=create_transform_strategy(any_column_id))
+@settings(deadline=None)
+def test_python_print_polars(transform: Transform):
+    df_name = "df"
+    result = python_print_polars(df_name, ["a"], transform)
+    assert isinstance(result, str)
+    _validate_code(result)
+    assert df_name in result
+
+
+@given(transformations=transformations_strategy)
+@settings(deadline=None)
+@pytest.mark.skip
+def test_python_print_ibis(transformations: Transformations):
+    df_name = "df"
+    result = python_print_transforms(
+        df_name, ["a"], transformations.transforms, python_print_ibis
+    )
+    assert isinstance(result, str)
+    _validate_code(result)
+    assert df_name in result
+
+
+@given(transformations=transformations_strategy)
+@settings(deadline=None)
+def test_python_print_transforms(transformations: Transformations):
+    df_name = "df"
+    # Pandas
+    result = python_print_transforms(
+        df_name, ["a"], transformations.transforms, python_print_pandas
+    )
+    assert isinstance(result, str)
+    _validate_code(result)
+    assert df_name in result
+    # Polars
+    result = python_print_transforms(
+        df_name, ["a"], transformations.transforms, python_print_polars
+    )
+    assert isinstance(result, str)
+    _validate_code(result)
+    assert df_name in result
+    # Ibis
+    # TODO: test ibis python print
+    # result = python_print_transforms(
+    #     df_name, ["a"], transformations.transforms, python_print_ibis
+    # )
+    # assert isinstance(result, str)
+    # _validate_code(result)
+    # assert df_name in result
+
+
+@given(
+    transform=create_transform_strategy(
+        defined_column_id,
+        string_column_id=st.just("strings"),
+        bool_column_id=st.just("booleans"),
+        comparison_column_id=st.sampled_from(
+            ["integers", "floats", "dates", "times", "datetimes"]
+        ),
+        list_column_id=st.just("strings"),
+        df_size=3,
+    )
+)
+@settings(deadline=None)
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="pandas not installed"
+)
+def test_print_code_result_matches_actual_transform_pandas(
+    transform: Transform,
+):
+    import pandas as pd
+
+    transformations = Transformations([transform])
+
+    my_df = pd.DataFrame(
+        {
+            "strings": ["a", "b", "c"],
+            "integers": [1, 2, 3],
+            "floats": [1.0, 2.0, 3.0],
+            "booleans": [True, False, True],
+            "dates": [pd.Timestamp("2021-01-01")] * 3,
+            "times": [pd.Timestamp("2021-01-01 00:00:00")] * 3,
+            "datetimes": [pd.Timestamp("2021-01-01 00:00:00")] * 3,
+            "mixed": [1, 2.0, "3"],
+            "dicts": [{"a": 1}, {"b": 2}, {"c": 3}],
+            "lists": [[1, 2], [3, 4], [5, 6]],
+        }
+    )
+
+    # Exclude shuffle and sample rows
+    assume(
+        transform.type
+        not in {TransformType.SHUFFLE_ROWS, TransformType.SAMPLE_ROWS}
+    )
+    # Ignore date, time, datetime columns in filter rows
+    if transform.type == TransformType.FILTER_ROWS:
+        assume(
+            not any(
+                condition.column_id in {"dates", "times", "datetimes"}
+                for condition in transform.where.children
+            )
+        )
+    # Ignore groupby mean
+    if transform.type == TransformType.GROUP_BY:
+        assume(transform.aggregation != "mean")
+        assume("dict" not in transform.aggregation_column_ids)
+
+    if transform.type == TransformType.PIVOT:
+        assume(
+            (
+                set(transform.column_ids) & set(transform.index_column_ids)
+                == set()
+            )
+            and (
+                set(transform.column_ids) & set(transform.value_column_ids)
+                == set()
+            )
+            and (
+                set(transform.index_column_ids)
+                & set(transform.value_column_ids)
+                == set()
+            )
+        )
+        assume(
+            not any(
+                column_id in {"lists", "dicts", "datetimes"}
+                for column_id in transform.column_ids
+            )
+        )
+        assume(
+            not any(
+                column_id in {"lists", "dicts", "datetimes"}
+                for column_id in transform.index_column_ids
+            )
+        )
+        assume(
+            not any(
+                column_id in {"lists", "dicts", "datetimes"}
+                for column_id in transform.value_column_ids
+            )
+        )
+
+    # Pandas
+    pandas_code = python_print_transforms(
+        "my_df",
+        list(my_df.columns),
+        transformations.transforms,
+        python_print_pandas,
+    )
+    assert pandas_code
+
+    try:
+        loc = {"pd": pd, "my_df": my_df.copy()}
+        exec(pandas_code, {}, loc)
+        code_result = loc.get("my_df_next")
+    except Exception as code_error:
+        code_result = code_error
+
+    try:
+        nw_df = nw.from_native(my_df.copy(), eager_only=True).lazy()
+        result_nw = _apply_transforms(
+            nw_df,
+            NarwhalsTransformHandler(),
+            transformations,
+        )
+        real_result = result_nw.collect().to_native()
+    except Exception as real_error:
+        real_result = real_error
+
+    if isinstance(code_result, Exception) or isinstance(
+        real_result, Exception
+    ):
+        # Allow different error types between pandas and narwhals
+        import narwhals.exceptions as nw_exc
+
+        if isinstance(real_result, nw_exc.DuplicateError):
+            # Pandas doesn't raise DuplicateError, it just creates duplicate columns
+            # So if narwhals raised DuplicateError, it's expected that pandas succeeded
+            assert not isinstance(code_result, Exception)
+            return
+        if isinstance(real_result, nw_exc.InvalidOperationError):
+            # Pandas may allow some operations that narwhals doesn't
+            # If narwhals raised InvalidOperationError, pandas might have succeeded
+            # or raised a different error - just skip comparison
+            return
+        if isinstance(real_result, (AttributeError, TypeError)):
+            # Narwhals may raise AttributeError for some operations (e.g., duplicate column names in aggregate)
+            # Pandas might have succeeded - just skip comparison
+            return
+        assert type(code_result) is type(real_result)
+        assert str(code_result) == str(real_result)
+    else:
+        # If series, convert to dataframe
+        if isinstance(code_result, pd.Series):
+            code_result = code_result.to_frame()
+        if isinstance(real_result, pd.Series):
+            real_result = real_result.to_frame()
+
+        # For pivot transform the column order can be different, enforce column order by sorting.
+        if transform.type == TransformType.PIVOT:
+            code_result = code_result.loc[:, sorted(code_result.columns)]
+            real_result = real_result.loc[:, sorted(real_result.columns)]
+
+        code_result = cast(pd.DataFrame, code_result).reset_index(drop=True)
+        real_result = real_result.reset_index(drop=True)
+
+        # For group_by transforms, the row order might differ
+        # Sort both dataframes by all columns before comparing
+        if transform.type == TransformType.GROUP_BY:
+            # Filter out columns with unhashable types (dicts, lists)
+            sortable_cols = [
+                col
+                for col in code_result.columns
+                if not any(
+                    isinstance(val, (dict, list))
+                    for val in code_result[col]
+                    if val is not None
+                )
+            ]
+            if sortable_cols:
+                code_result = code_result.sort_values(
+                    by=sortable_cols,
+                    key=lambda col: col.astype(str),
+                ).reset_index(drop=True)
+                real_result = real_result.sort_values(
+                    by=sortable_cols,
+                    key=lambda col: col.astype(str),
+                ).reset_index(drop=True)
+
+        # Pivot can produce dtype differences between native pandas
+        # (object) and narwhals (StringDtype) for string-valued columns.
+        check_dtype = transform.type != TransformType.PIVOT
+        pd.testing.assert_frame_equal(
+            code_result, real_result, check_dtype=check_dtype
+        )
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="pandas not installed"
+)
+def test_print_code_expand_dict_nested_dict_pandas() -> None:
+    import pandas as pd
+
+    transform = ExpandDictTransform(
+        type=TransformType.EXPAND_DICT,
+        column_id="dicts",
+    )
+    transformations = Transformations([transform])
+    my_df = pd.DataFrame(
+        {
+            "dicts": [{"a": 1, "nested": {"x": 2}}, None],
+            "other": [10, 20],
+        }
+    )
+
+    pandas_code = python_print_transforms(
+        "my_df",
+        list(my_df.columns),
+        transformations.transforms,
+        python_print_pandas,
+    )
+    assert pandas_code
+
+    loc = {"pd": pd, "my_df": my_df.copy()}
+    exec(pandas_code, {}, loc)
+    code_result = loc["my_df_next"]
+
+    nw_df = nw.from_native(my_df.copy(), eager_only=True).lazy()
+    result_nw = _apply_transforms(
+        nw_df,
+        NarwhalsTransformHandler(),
+        transformations,
+    )
+    real_result = result_nw.collect().to_native().reset_index(drop=True)
+
+    pd.testing.assert_frame_equal(
+        code_result.reset_index(drop=True),
+        real_result,
+    )
+
+    assert list(code_result.columns) == ["a", "nested", "other"]
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="pandas not installed"
+)
+def test_print_code_expand_dict_nan_pandas() -> None:
+    import pandas as pd
+
+    transform = ExpandDictTransform(
+        type=TransformType.EXPAND_DICT,
+        column_id="dicts",
+    )
+    transformations = Transformations([transform])
+    my_df = pd.DataFrame(
+        {
+            "dicts": [{"a": 1}, float("nan"), {"a": 3}],
+            "other": [10, 20, 30],
+        }
+    )
+
+    pandas_code = python_print_transforms(
+        "my_df",
+        list(my_df.columns),
+        transformations.transforms,
+        python_print_pandas,
+    )
+    assert pandas_code
+
+    loc = {"pd": pd, "my_df": my_df.copy()}
+    exec(pandas_code, {}, loc)
+    code_result = loc["my_df_next"]
+
+    nw_df = nw.from_native(my_df.copy(), eager_only=True).lazy()
+    result_nw = _apply_transforms(
+        nw_df,
+        NarwhalsTransformHandler(),
+        transformations,
+    )
+    real_result = result_nw.collect().to_native().reset_index(drop=True)
+
+    pd.testing.assert_frame_equal(
+        code_result.reset_index(drop=True),
+        real_result,
+    )
+
+
+# The values here are valid strings that are also regexes: "a.c" matches
+# "abc" when interpreted as a regex, and "(" is not a valid regex at all. If
+# `contains` is emitted without a literal flag, the generated pandas code
+# diverges from the widget (or raises), so this test fails.
+@pytest.mark.parametrize("value", ["a.c", "("])
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="pandas not installed"
+)
+def test_print_code_contains_is_literal_pandas(value: str) -> None:
+    import pandas as pd
+
+    my_df = pd.DataFrame({"strings": ["abc", "a.c", "f(x)", "zzz"]})
+
+    transformations = Transformations(
+        [
+            FilterRowsTransform(
+                type=TransformType.FILTER_ROWS,
+                operation="keep_rows",
+                where=FilterGroup(
+                    type="group",
+                    operator="and",
+                    children=[
+                        FilterCondition(
+                            type="condition",
+                            column_id="strings",
+                            operator="contains",
+                            value=value,
+                        )
+                    ],
+                ),
+            )
+        ]
+    )
+
+    pandas_code = python_print_transforms(
+        "my_df",
+        list(my_df.columns),
+        transformations.transforms,
+        python_print_pandas,
+    )
+
+    loc = {"pd": pd, "my_df": my_df.copy()}
+    exec(pandas_code, {}, loc)
+    code_result = loc["my_df_next"]
+
+    nw_df = nw.from_native(my_df.copy(), eager_only=True).lazy()
+    real_result = (
+        _apply_transforms(
+            nw_df,
+            NarwhalsTransformHandler(),
+            transformations,
+        )
+        .collect()
+        .to_native()
+        .reset_index(drop=True)
+    )
+
+    pd.testing.assert_frame_equal(
+        code_result.reset_index(drop=True),
+        real_result,
+    )
+
+
+@given(
+    transform=create_transform_strategy(
+        defined_column_id,
+        string_column_id=st.just("strings"),
+        bool_column_id=st.just("booleans"),
+        comparison_column_id=st.sampled_from(
+            ["integers", "floats", "dates", "times", "datetimes"]
+        ),
+        list_column_id=st.just("strings"),
+        df_size=3,
+    )
+)
+@settings(deadline=None)
+@pytest.mark.skipif(
+    not DependencyManager.polars.has(), reason="polars not installed"
+)
+def test_print_code_result_matches_actual_transform_polars(
+    transform: Transform,
+):
+    import polars as pl
+    import polars.testing as pl_testing
+
+    transformations = Transformations([transform])
+
+    my_df = pl.DataFrame(
+        {
+            "strings": ["a", "b", "c"],
+            "integers": [1, 2, 3],
+            "floats": [1.0, 2.0, 3.0],
+            "booleans": [True, False, True],
+            "dates": [datetime.date(2021, 1, 1)] * 3,
+            "times": [datetime.time(0, 0, 0)] * 3,
+            "datetimes": [datetime.datetime(2021, 1, 1)] * 3,
+            "mixed": [1, 2, 3],
+            "dicts": [{"a": 1}, {"b": 2}, {"c": 3}],
+            "lists": [[1, 2], [3, 4], [5, 6]],
+        },
+    )
+
+    # Exclude shuffle and sample rows
+    assume(
+        transform.type
+        not in {TransformType.SHUFFLE_ROWS, TransformType.SAMPLE_ROWS}
+    )
+
+    # Ignore date, time, datetime columns in filter rows
+    if transform.type == TransformType.FILTER_ROWS:
+        assume(
+            not any(
+                condition.column_id in {"dates", "times", "datetimes"}
+                for condition in transform.where.children
+            )
+        )
+    # Only explode columns for lists
+    if transform.type == TransformType.EXPLODE_COLUMNS:
+        assume(all(column_id == "lists" for column_id in transform.column_ids))
+    # Only expand dict for dicts
+    if transform.type == TransformType.EXPAND_DICT:
+        assume("dicts" == transform.column_id)
+    # Don't sort on dicts or lists
+    if transform.type == TransformType.SORT_COLUMN:
+        assume(transform.column_id not in {"dicts", "lists"})
+    # Skip aggregation
+    # TODO: unimplemented
+    if transform.type == TransformType.AGGREGATE:
+        assume(False)
+    # Don't group by unhashable types (lists, dicts) as ordering is non-deterministic
+    if transform.type == TransformType.GROUP_BY:
+        assume(
+            not any(
+                column_id in {"lists", "dicts"}
+                for column_id in transform.column_ids
+            )
+        )
+        # When aggregation_column_ids is empty, all remaining columns become
+        # aggregation columns. sum/mean fail on non-numeric columns (strings, etc.)
+        if not transform.aggregation_column_ids and transform.aggregation in {
+            "sum",
+            "mean",
+        }:
+            assume(False)
+        # Polars does not support sum/mean/median on string or other non-numeric columns
+        if transform.aggregation in {"sum", "mean", "median"}:
+            if not transform.aggregation_column_ids:
+                assume(False)  # all columns used; would include strings
+            else:
+                numeric_only = {"integers", "floats", "mixed"}
+                assume(
+                    all(
+                        col in numeric_only
+                        for col in transform.aggregation_column_ids
+                    )
+                )
+    if transform.type == TransformType.PIVOT:
+        assume(
+            (
+                set(transform.column_ids) & set(transform.index_column_ids)
+                == set()
+            )
+            and (
+                set(transform.column_ids) & set(transform.value_column_ids)
+                == set()
+            )
+            and (
+                set(transform.index_column_ids)
+                & set(transform.value_column_ids)
+                == set()
+            )
+        )
+        # Exclude lists, dicts, datetimes from pivot columns
+        assume(
+            not any(
+                column_id in {"lists", "dicts", "datetimes"}
+                for column_id in transform.column_ids
+            )
+        )
+        assume(
+            not any(
+                column_id in {"lists", "dicts", "datetimes"}
+                for column_id in transform.index_column_ids
+            )
+        )
+        assume(
+            not any(
+                column_id in {"lists", "dicts", "datetimes"}
+                for column_id in transform.value_column_ids
+            )
+        )
+        # Exclude booleans from pivot column_ids - polars uses lowercase (true/false)
+        # while narwhals uses Python's str() which gives True/False
+        assume(
+            not any(
+                column_id == "booleans" for column_id in transform.column_ids
+            )
+        )
+        # When value_column_ids is empty, all remaining columns become values.
+        # sum/mean aggregations fail on non-numeric columns (strings, booleans)
+        if not transform.value_column_ids and transform.aggregation in {
+            "sum",
+            "mean",
+        }:
+            assume(False)
+        # Polars does not support sum/mean on string or other non-numeric columns
+        if (
+            transform.aggregation in {"sum", "mean"}
+            and transform.value_column_ids
+        ):
+            numeric_only = {"integers", "floats", "mixed"}
+            assume(
+                not any(
+                    col not in numeric_only
+                    for col in transform.value_column_ids
+                )
+            )
+
+    # Polars
+    polars_code = python_print_transforms(
+        "my_df", my_df.columns, transformations.transforms, python_print_polars
+    )
+    assert polars_code
+
+    try:
+        loc = {"pl": pl, "my_df": my_df.clone()}
+        exec(polars_code, globals(), loc)
+        code_result = loc.get("my_df_next")
+    except Exception as code_error:
+        code_result = code_error
+
+    try:
+        nw_df = nw.from_native(my_df.clone(), eager_only=True).lazy()
+        result_nw = _apply_transforms(
+            nw_df,
+            NarwhalsTransformHandler(),
+            transformations,
+        )
+        real_result = result_nw.collect().to_native()
+    except Exception as real_error:
+        real_result = real_error
+
+    if isinstance(code_result, Exception) or isinstance(
+        real_result, Exception
+    ):
+        # Allow different error types between polars and narwhals
+        import narwhals.exceptions as nw_exc
+        import polars.exceptions as pl_exc
+
+        if isinstance(real_result, nw_exc.DuplicateError) and isinstance(
+            code_result, pl_exc.DuplicateError
+        ):
+            # Both raised duplicate errors, just different types - this is OK
+            return
+        if isinstance(real_result, nw_exc.DuplicateError):
+            # Polars raised DuplicateError from the generated code
+            # but narwhals also raised DuplicateError - this is OK
+            assert isinstance(code_result, pl_exc.DuplicateError)
+            return
+        if isinstance(
+            real_result, nw_exc.InvalidOperationError
+        ) and isinstance(code_result, pl_exc.InvalidOperationError):
+            # Both raised invalid operation errors, just different types - this is OK
+            return
+        if isinstance(real_result, nw_exc.InvalidOperationError):
+            # Polars may allow some operations that narwhals doesn't
+            # If narwhals raised InvalidOperationError, just skip comparison
+            return
+        assert type(code_result) is type(real_result)
+        assert str(code_result) == str(real_result)
+    else:
+        # If series, convert to dataframe
+        if isinstance(code_result, pl.Series):
+            code_result = code_result.to_frame()
+        if isinstance(real_result, pl.Series):
+            real_result = real_result.to_frame()
+
+        # For pivot transform the column order can be different, enforce column order by sorting.
+        if transform.type == TransformType.PIVOT:
+            code_result = code_result.select(
+                *sorted(code_result.collect_schema().names())
+            )
+            real_result = real_result.select(
+                *sorted(real_result.collect_schema().names())
+            )
+
+        code_result = cast(pl.DataFrame, code_result)
+        # Compare column names
+        assert code_result.columns == real_result.columns
+
+        # For group_by transforms, the row order might differ even with maintain_order=True
+        # Sort both dataframes by all columns before comparing
+        # Note: We exclude grouping by unhashable types (lists, dicts) via assume() above,
+        # so all columns should be sortable
+        if transform.type == TransformType.GROUP_BY:
+            import polars.datatypes as pl_dtypes
+
+            sortable_cols = [
+                col
+                for col in code_result.columns
+                if code_result[col].dtype
+                not in (pl_dtypes.List, pl_dtypes.Struct, pl_dtypes.Object)
+            ]
+            if sortable_cols:
+                code_result = code_result.sort(sortable_cols)
+                real_result = real_result.sort(sortable_cols)
+
+        pl_testing.assert_frame_equal(code_result, real_result)
+
+
+@pytest.mark.skipif(
+    not DependencyManager.polars.has(), reason="polars not installed"
+)
+def test_print_code_expand_dict_nested_dict_polars() -> None:
+    import polars as pl
+    import polars.testing as pl_testing
+
+    transform = ExpandDictTransform(
+        type=TransformType.EXPAND_DICT,
+        column_id="dicts",
+    )
+    transformations = Transformations([transform])
+    my_df = pl.DataFrame(
+        {
+            "dicts": [{"a": 1, "nested": {"x": 2}}, None],
+            "other": [10, 20],
+        }
+    )
+
+    polars_code = python_print_transforms(
+        "my_df",
+        my_df.columns,
+        transformations.transforms,
+        python_print_polars,
+    )
+    assert polars_code
+
+    loc = {"pl": pl, "my_df": my_df.clone()}
+    exec(polars_code, globals(), loc)
+    code_result = loc["my_df_next"]
+
+    nw_df = nw.from_native(my_df.clone(), eager_only=True).lazy()
+    result_nw = _apply_transforms(
+        nw_df,
+        NarwhalsTransformHandler(),
+        transformations,
+    )
+    real_result = result_nw.collect().to_native()
+
+    pl_testing.assert_frame_equal(code_result, real_result)
+
+    assert code_result.columns == ["a", "nested", "other"]
+
+
+# The values here are valid strings that are also regexes: "a.c" matches
+# "abc" when interpreted as a regex, and "(" is not a valid regex at all. If
+# `contains` is emitted without a literal flag, the generated polars code
+# diverges from the widget (or raises), so this test fails.
+@pytest.mark.parametrize("value", ["a.c", "("])
+@pytest.mark.skipif(
+    not DependencyManager.polars.has(), reason="polars not installed"
+)
+def test_print_code_contains_is_literal_polars(value: str) -> None:
+    import polars as pl
+    import polars.testing as pl_testing
+
+    my_df = pl.DataFrame({"strings": ["abc", "a.c", "f(x)", "zzz"]})
+
+    transformations = Transformations(
+        [
+            FilterRowsTransform(
+                type=TransformType.FILTER_ROWS,
+                operation="keep_rows",
+                where=FilterGroup(
+                    type="group",
+                    operator="and",
+                    children=[
+                        FilterCondition(
+                            type="condition",
+                            column_id="strings",
+                            operator="contains",
+                            value=value,
+                        )
+                    ],
+                ),
+            )
+        ]
+    )
+
+    polars_code = python_print_transforms(
+        "my_df",
+        my_df.columns,
+        transformations.transforms,
+        python_print_polars,
+    )
+
+    loc = {"pl": pl, "my_df": my_df.clone()}
+    exec(polars_code, globals(), loc)
+    code_result = loc["my_df_next"]
+
+    nw_df = nw.from_native(my_df.clone(), eager_only=True).lazy()
+    real_result = (
+        _apply_transforms(
+            nw_df,
+            NarwhalsTransformHandler(),
+            transformations,
+        )
+        .collect()
+        .to_native()
+    )
+
+    pl_testing.assert_frame_equal(code_result, real_result)
+
+
+@given(
+    transform=create_transform_strategy(
+        defined_column_id,
+        string_column_id=st.just("strings"),
+        bool_column_id=st.just("booleans"),
+        comparison_column_id=st.sampled_from(
+            ["integers", "floats", "dates", "times", "datetimes"]
+        ),
+        list_column_id=st.just("strings"),
+        df_size=3,
+    )
+)
+@settings(deadline=None)
+@pytest.mark.skipif(
+    not DependencyManager.ibis.has(), reason="ibis not installed"
+)
+@pytest.mark.xfail(reason="Ibis printing code is not well supported")
+def test_print_code_result_matches_actual_transform_ibis(
+    transform: Transform,
+):
+    import ibis
+
+    my_df = ibis.memtable(
+        {
+            "strings": ["a", "b", "c"],
+            "integers": [1, 2, 3],
+            "floats": [1.0, 2.0, 3.0],
+            "booleans": [True, False, True],
+            "dates": [datetime.date(2021, 1, 1)] * 3,
+            "times": [datetime.time(0, 0, 0)] * 3,
+            "datetimes": [datetime.datetime(2021, 1, 1)] * 3,
+            "mixed": [1, 2, 3],
+            "dicts": [{"a": 1}, {"b": 2}, {"c": 3}],
+            "lists": [[1, 2], [3, 4], [5, 6]],
+        }
+    )
+
+    # Exclude shuffle and sample rows
+    assume(
+        transform.type
+        not in {TransformType.SHUFFLE_ROWS, TransformType.SAMPLE_ROWS}
+    )
+    # Exclude boolean columns in filter rows
+    if transform.type == TransformType.FILTER_ROWS:
+        assume(
+            not any(
+                condition.column_id == "booleans"
+                for condition in transform.where.children
+            )
+        )
+    # Skip column conversion with errors='ignore' - ibis coalesce has type precedence issues
+    if transform.type == TransformType.COLUMN_CONVERSION:
+        assume(transform.errors != "ignore")
+
+    if transform.type == TransformType.PIVOT:
+        assume(
+            (
+                set(transform.column_ids) & set(transform.index_column_ids)
+                == set()
+            )
+            and (
+                set(transform.column_ids) & set(transform.value_column_ids)
+                == set()
+            )
+            and (
+                set(transform.index_column_ids)
+                & set(transform.value_column_ids)
+                == set()
+            )
+        )
+        assume(
+            not any(
+                column_id in {"lists", "dicts", "datetimes"}
+                for column_id in transform.column_ids
+            )
+        )
+        assume(
+            not any(
+                column_id in {"lists", "dicts", "datetimes"}
+                for column_id in transform.index_column_ids
+            )
+        )
+        assume(
+            not any(
+                column_id in {"lists", "dicts", "datetimes"}
+                for column_id in transform.value_column_ids
+            )
+        )
+
+    try:
+        nw_df = nw.from_native(my_df).lazy()
+        result_nw = _apply_transforms(
+            nw_df,
+            NarwhalsTransformHandler(),
+            Transformations([transform]),
+        )
+        # Keep as narwhals lazy frame to check if it's an Ibis backend
+        real_result = result_nw.collect().to_native()
+    except Exception:
+        real_result = None
+
+    # Only compare if this passes
+    assume(real_result is not None)
+
+    assert real_result is not None
+
+    ibis_code = python_print_transforms(
+        "my_df",
+        list(my_df.columns),
+        [transform],
+        python_print_ibis,
+    )
+    assert ibis_code
+
+    loc = {"ibis": ibis, "my_df": my_df}
+    exec(ibis_code, {}, loc)
+    code_result = loc.get("my_df_next")
+
+    # For pivot transform the column order can be different, enforce column order by sorting.
+    if transform.type == TransformType.PIVOT:
+        code_result = code_result.select(*sorted(code_result.columns))
+        real_result = real_result.select(*sorted(real_result.columns))
+
+    print("code_result", code_result)
+    print("real_result", real_result)
+
+    assert real_result is not None
+    assert code_result is not None
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has() or not DependencyManager.polars.has(),
+    reason="pandas or polars not installed",
+)
+class TestCombinedTransforms:
+    @pytest.fixture
+    def sample_data(self):
+        return {"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9]}
+
+    @pytest.fixture
+    def pd_dataframe(self, sample_data):
+        import pandas as pd
+
+        return pd.DataFrame(sample_data)
+
+    @pytest.fixture
+    def pl_dataframe(self, sample_data):
+        import polars as pl
+
+        return pl.DataFrame(sample_data)
+
+    def _test_transforms(
+        self, df: pl.DataFrame | pd.DataFrame, transforms: Transformations
+    ):
+        import pandas as pd
+        import pandas.testing as pd_testing
+        import polars as pl
+        import polars.testing as pl_testing
+
+        if isinstance(df, pl.DataFrame):
+            print_func = python_print_polars
+            testing_func = pl_testing.assert_frame_equal
+            df_copy = df.clone()
+        elif isinstance(df, pd.DataFrame):
+            print_func = python_print_pandas
+            testing_func = pd_testing.assert_frame_equal
+            df_copy = df.copy()
+
+        # Convert to narwhals and apply transforms
+        nw_df = nw.from_native(df_copy, eager_only=True).lazy()
+        result_nw = _apply_transforms(
+            nw_df, NarwhalsTransformHandler(), transforms
+        )
+        result = result_nw.collect().to_native()
+
+        code = python_print_transforms(
+            "df", df.columns, transforms.transforms, print_func
+        )
+
+        # Apply code
+        if isinstance(df, pl.DataFrame):
+            loc = {"pl": pl, "df": df.clone()}
+            exec(code, globals(), loc)
+        elif isinstance(df, pd.DataFrame):
+            loc = {"pd": pd, "df": df.copy()}
+            exec(code, {}, loc)
+
+        assert loc.get("df_next") is not None
+
+        # Get the results
+        code_result = loc.get("df_next")
+
+        # For group_by transforms, the row order might differ even with maintain_order=True
+        # Sort both dataframes by all columns before comparing
+        has_groupby = any(
+            t.type == TransformType.GROUP_BY for t in transforms.transforms
+        )
+        if has_groupby:
+            if isinstance(code_result, pl.DataFrame):
+                import polars.datatypes as pl_dtypes
+
+                # Filter out columns with unhashable types (dicts, lists)
+                sortable_cols = [
+                    col
+                    for col in code_result.columns
+                    if code_result[col].dtype
+                    not in (pl_dtypes.List, pl_dtypes.Struct, pl_dtypes.Object)
+                ]
+                if sortable_cols:
+                    code_result = code_result.sort(sortable_cols)
+                    result = result.sort(sortable_cols)
+            elif isinstance(code_result, pd.DataFrame):
+                # Filter out columns with unhashable types (dicts, lists)
+                sortable_cols = [
+                    col
+                    for col in code_result.columns
+                    if not any(
+                        isinstance(val, (dict, list))
+                        for val in code_result[col]
+                        if val is not None
+                    )
+                ]
+                if sortable_cols:
+                    code_result = code_result.sort_values(
+                        by=sortable_cols
+                    ).reset_index(drop=True)
+                    result = result.sort_values(by=sortable_cols).reset_index(
+                        drop=True
+                    )
+
+        # Test that the result matches the actual result
+        testing_func(code_result, result)
+
+    def test_select_then_group_by(
+        self, pl_dataframe: pl.DataFrame, pd_dataframe: pd.DataFrame
+    ):
+        # Apply a select, then a group by
+        transforms = Transformations(
+            [
+                SelectColumnsTransform(
+                    type=TransformType.SELECT_COLUMNS,
+                    column_ids=["a", "b"],
+                ),
+                GroupByTransform(
+                    type=TransformType.GROUP_BY,
+                    column_ids=["a"],
+                    drop_na=False,
+                    aggregation="sum",
+                    aggregation_column_ids=["b"],
+                ),
+            ]
+        )
+
+        self._test_transforms(pl_dataframe, transforms)
+        self._test_transforms(pd_dataframe, transforms)
+
+    def test_select_rename_groupby(
+        self, pl_dataframe: pl.DataFrame, pd_dataframe: pd.DataFrame
+    ):
+        transforms = Transformations(
+            [
+                SelectColumnsTransform(
+                    type=TransformType.SELECT_COLUMNS,
+                    column_ids=["a", "b"],
+                ),
+                RenameColumnTransform(
+                    type=TransformType.RENAME_COLUMN,
+                    column_id="a",
+                    new_column_id="x",
+                ),
+                GroupByTransform(
+                    type=TransformType.GROUP_BY,
+                    column_ids=["x"],
+                    drop_na=False,
+                    aggregation="mean",
+                    aggregation_column_ids=["b"],
+                ),
+            ]
+        )
+        self._test_transforms(pl_dataframe, transforms)
+        self._test_transforms(pd_dataframe, transforms)
+
+    def test_select_then_aggregate(
+        self, pl_dataframe: pl.DataFrame, pd_dataframe: pd.DataFrame
+    ):
+        """Test select columns followed by aggregate transform."""
+        transforms = Transformations(
+            [
+                SelectColumnsTransform(
+                    type=TransformType.SELECT_COLUMNS,
+                    column_ids=["a", "b", "c"],
+                ),
+                AggregateTransform(
+                    type=TransformType.AGGREGATE,
+                    column_ids=["a", "b"],
+                    aggregations=["sum"],
+                ),
+            ]
+        )
+
+        self._test_transforms(pl_dataframe, transforms)
+        self._test_transforms(pd_dataframe, transforms)
+
+    def test_pivot_count_fills_null_with_zero(self):
+        """Test that pivot with count aggregation fills null values with 0.
+
+        When pivoting, some combinations may not exist in the data, resulting
+        in null values. For count and sum aggregations, these should be filled
+        with 0 to match narwhals behavior.
+        """
+        import pandas as pd
+        import polars as pl
+
+        # Create data where pivot will produce nulls
+        # Only 'x' has values for group 'a', only 'y' has values for group 'b'
+        pd_df = pd.DataFrame(
+            {
+                "group": ["a", "a", "b", "b"],
+                "category": ["x", "x", "y", "y"],
+                "value": [1, 2, 3, 4],
+            }
+        )
+        pl_df = pl.DataFrame(
+            {
+                "group": ["a", "a", "b", "b"],
+                "category": ["x", "x", "y", "y"],
+                "value": [1, 2, 3, 4],
+            }
+        )
+
+        transforms = Transformations(
+            [
+                PivotTransform(
+                    type=TransformType.PIVOT,
+                    column_ids=["category"],
+                    index_column_ids=["group"],
+                    aggregation="count",
+                    value_column_ids=["value"],
+                ),
+            ]
+        )
+
+        self._test_transforms(pd_df, transforms)
+        self._test_transforms(pl_df, transforms)
+
+    def test_pivot_sum_fills_null_with_zero(self):
+        """Test that pivot with sum aggregation fills null values with 0."""
+        import pandas as pd
+        import polars as pl
+
+        pd_df = pd.DataFrame(
+            {
+                "group": ["a", "a", "b", "b"],
+                "category": ["x", "x", "y", "y"],
+                "value": [1, 2, 3, 4],
+            }
+        )
+        pl_df = pl.DataFrame(
+            {
+                "group": ["a", "a", "b", "b"],
+                "category": ["x", "x", "y", "y"],
+                "value": [1, 2, 3, 4],
+            }
+        )
+
+        transforms = Transformations(
+            [
+                PivotTransform(
+                    type=TransformType.PIVOT,
+                    column_ids=["category"],
+                    index_column_ids=["group"],
+                    aggregation="sum",
+                    value_column_ids=["value"],
+                ),
+            ]
+        )
+
+        self._test_transforms(pd_df, transforms)
+        self._test_transforms(pl_df, transforms)

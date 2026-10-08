@@ -1,0 +1,10 @@
+{
+  "$model": "alkera_core.schemas.files.session.PartRecord",
+  "checksum": "9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f",
+  "metadata": {},
+  "part_no": 7,
+  "received_at": "2026-01-01T12:00:00Z",
+  "schema_version": "1.0.0",
+  "size": 33554432,
+  "store_etag": "etag-7"
+}

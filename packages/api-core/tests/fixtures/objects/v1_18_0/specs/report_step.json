@@ -1,0 +1,7 @@
+{
+  "connection": "tideline-warehouse",
+  "kind": "query",
+  "metadata": {},
+  "schema_version": "1.0.0",
+  "text": "SELECT week_start, mentions FROM weekly WHERE region = {region}"
+}

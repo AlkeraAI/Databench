@@ -1,0 +1,219 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import unittest
+
+import pytest
+from inline_snapshot import snapshot
+
+from marimo._schemas.session import (
+    VERSION,
+    Cell,
+    DataOutput,
+    NotebookSessionMetadata,
+    NotebookSessionV1,
+)
+from marimo._server.templates.api import (
+    render_notebook,
+    render_static_notebook,
+)
+from tests._server.templates.utils import parse_mount_config
+
+
+@pytest.mark.parametrize("flag", ["1", "true", " TRUE "])
+@pytest.mark.parametrize(
+    ("editable", "command"),
+    [(True, "uv run marimo"), (False, "uvx marimo@latest")],
+)
+def test_render_notebook_pair_preview(
+    monkeypatch: pytest.MonkeyPatch, flag: str, editable: bool, command: str
+) -> None:
+    monkeypatch.setenv("MARIMO_PAIR_NEXT", flag)
+    monkeypatch.setattr(
+        "marimo._cli.pair.prompts.is_editable", lambda _: editable
+    )
+    html = render_notebook(
+        code="import marimo\napp = marimo.App()", mode="edit"
+    )
+    assert parse_mount_config(html)["pairPreview"] == {
+        "command": command,
+        "templates": snapshot(
+            {
+                "prompt": "Pair with me on this running marimo notebook.\n\nURL: {url}\n{file}{session}\nRun `{command} pair --help` first.\nUse `{command}` for all marimo commands.\n\nOnce connected, send a fun toast using `mo.status.toast(...)` (`import marimo as mo`).{authentication}",
+                "file": "File: {file}\n",
+                "session": "Session: {session}\n",
+                "token_file": "\n\nFor authenticated Pair commands, pass `--token-file {token_file}`.",
+                "token": "\n\nFor authenticated Pair commands, set `export MARIMO_TOKEN={token}` in the shell that runs marimo.",
+            }
+        ),
+    }
+
+
+@pytest.mark.parametrize("flag", [None, "", "0", "false"])
+def test_render_notebook_omits_pair_preview(
+    monkeypatch: pytest.MonkeyPatch, flag: str | None
+) -> None:
+    if flag is None:
+        monkeypatch.delenv("MARIMO_PAIR_NEXT", raising=False)
+    else:
+        monkeypatch.setenv("MARIMO_PAIR_NEXT", flag)
+    html = render_notebook(
+        code="import marimo\napp = marimo.App()", mode="edit"
+    )
+    assert "pairPreview" not in parse_mount_config(html)
+
+
+class TestRenderNotebook(unittest.TestCase):
+    def setUp(self) -> None:
+        self.code = """
+import marimo as mo
+
+app = mo.App()
+
+@app.cell
+def __():
+    import marimo as mo
+    return mo,
+
+@app.cell
+def __(mo):
+    mo.md("Hello, World!")
+    return
+
+if __name__ == "__main__":
+    app.run()
+"""
+
+    def test_render_notebook_edit_mode(self) -> None:
+        html = render_notebook(code=self.code, mode="edit")
+        assert "<html" in html
+        assert "</html>" in html
+
+    def test_render_notebook_read_mode(self) -> None:
+        html = render_notebook(code=self.code, mode="read")
+        assert "<html" in html
+
+    def test_render_notebook_with_filename(self) -> None:
+        html = render_notebook(
+            code=self.code, mode="edit", filename="test_notebook.py"
+        )
+        assert "test_notebook.py" in html
+
+    def test_render_notebook_with_config(self) -> None:
+        html = render_notebook(
+            code=self.code,
+            mode="edit",
+            config={"completion": {"activate_on_typing": False}},
+        )
+        assert "activate_on_typing" in html
+
+    def test_render_notebook_with_runtime_config(self) -> None:
+        html = render_notebook(
+            code=self.code,
+            mode="edit",
+            runtime_config=[{"url": "wss://example.com"}],
+        )
+        assert "wss://example.com" in html
+
+    def test_render_notebook_with_custom_css(self) -> None:
+        custom_css = "body { background-color: red; }"
+        html = render_notebook(
+            code=self.code, mode="edit", custom_css=custom_css
+        )
+        assert custom_css in html
+
+
+class TestRenderStaticNotebook(unittest.TestCase):
+    def setUp(self) -> None:
+        self.code = """
+import marimo as mo
+
+app = mo.App()
+
+@app.cell
+def __():
+    import marimo as mo
+    return mo,
+
+@app.cell
+def __(mo):
+    mo.md("Hello, World!")
+    return
+
+if __name__ == "__main__":
+    app.run()
+"""
+        self.session_snapshot = NotebookSessionV1(
+            version=VERSION,
+            metadata=NotebookSessionMetadata(marimo_version="0.1.0"),
+            cells=[
+                Cell(
+                    id="cell1",
+                    code_hash="abc123",
+                    outputs=[
+                        DataOutput(
+                            type="data",
+                            data={"text/plain": "Hello, World!"},
+                        )
+                    ],
+                    console=[],
+                ),
+            ],
+        )
+
+    def test_render_static_notebook(self) -> None:
+        html = render_static_notebook(
+            code=self.code,
+            session_snapshot=self.session_snapshot,
+            layout={"type": "slides", "data": {"deck": {}}},
+        )
+        assert "<html" in html
+        assert parse_mount_config(html)["layout"] == {
+            "type": "slides",
+            "data": {"deck": {}},
+        }
+
+    def test_render_static_notebook_validates_layout(self) -> None:
+        html = render_static_notebook(
+            code=self.code,
+            session_snapshot=self.session_snapshot,
+            layout={"type": "slides", "data": {}, "future": True},
+        )
+        assert parse_mount_config(html)["layout"] == {
+            "type": "slides",
+            "data": {},
+        }
+
+        for layout in (
+            {"data": {}},
+            {"type": 1, "data": {}},
+            {"type": "slides", "data": []},
+        ):
+            html = render_static_notebook(
+                code=self.code,
+                session_snapshot=self.session_snapshot,
+                layout=layout,
+            )
+            assert parse_mount_config(html)["layout"] is None
+
+    def test_render_static_notebook_with_filename(self) -> None:
+        html = render_static_notebook(
+            code=self.code,
+            filename="test_notebook.py",
+            session_snapshot=self.session_snapshot,
+        )
+        assert "test_notebook.py" in html
+
+    def test_render_static_notebook_include_code(self) -> None:
+        html_with_code = render_static_notebook(
+            code=self.code,
+            include_code=True,
+            session_snapshot=self.session_snapshot,
+        )
+        html_without_code = render_static_notebook(
+            code=self.code,
+            include_code=False,
+            session_snapshot=self.session_snapshot,
+        )
+        assert "import marimo as mo" in html_with_code
+        assert '<marimo-code hidden=""></marimo-code>' in html_without_code

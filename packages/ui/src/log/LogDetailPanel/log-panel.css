@@ -1,0 +1,24 @@
+/* The shared log-detail drawer body — used by the org audit log, the platform audit log, and the
+   crash-report register, so the three read as one design. The panel chrome, summary, and code plates
+   come from @alkera/ui; this only stacks the sections and sets the prose block. */
+
+.alk-logdetail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace7);
+}
+
+.alk-logdetail__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+  min-width: 0;
+}
+
+/* A plain-prose field (a crash message, a user comment) — reads at the body size, wraps freely. */
+.alk-logdetail__prose {
+  margin: 0;
+  color: var(--alkPrimaryText);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

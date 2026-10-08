@@ -1,0 +1,21 @@
+{
+  "kind": "model",
+  "metadata": {},
+  "pin": {
+    "context_window": 200000,
+    "display_name": "Claude Opus 4.5",
+    "effort": "high",
+    "efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "id": "claude-opus-4.5",
+    "max_output_tokens": 64000,
+    "metadata": {},
+    "schema_version": "1.0.0",
+    "wire": "anthropic"
+  },
+  "schema_version": "1.0.0",
+  "user_id": "00000000-0000-4000-8000-000000000001"
+}

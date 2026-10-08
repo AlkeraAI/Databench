@@ -1,0 +1,148 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "0000000091": {
+        "defs": [
+          "a"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000091",
+              "0000000092",
+              "0000000093"
+            ],
+            "code": "cycle"
+          }
+        ],
+        "refs": [
+          "c"
+        ],
+        "sql_tables": []
+      },
+      "0000000092": {
+        "defs": [
+          "b"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000091",
+              "0000000092",
+              "0000000093"
+            ],
+            "code": "cycle"
+          }
+        ],
+        "refs": [
+          "a"
+        ],
+        "sql_tables": []
+      },
+      "0000000093": {
+        "defs": [
+          "c"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000091",
+              "0000000092",
+              "0000000093"
+            ],
+            "code": "cycle"
+          }
+        ],
+        "refs": [
+          "b"
+        ],
+        "sql_tables": []
+      },
+      "0000000094": {
+        "defs": [
+          "d"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "0000000091",
+        "0000000092"
+      ],
+      [
+        "0000000092",
+        "0000000093"
+      ],
+      [
+        "0000000093",
+        "0000000091"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "a = c + 1",
+        "config": {},
+        "extra": {},
+        "id": "0000000091",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "a = c + 1"
+      },
+      {
+        "code": "b = a + 1",
+        "config": {},
+        "extra": {},
+        "id": "0000000092",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "b = a + 1"
+      },
+      {
+        "code": "c = b + 1",
+        "config": {},
+        "extra": {},
+        "id": "0000000093",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "c = b + 1"
+      },
+      {
+        "code": "d = 1",
+        "config": {},
+        "extra": {},
+        "id": "0000000094",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "d = 1"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

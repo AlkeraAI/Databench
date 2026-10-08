@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":maintainLockFilesWeekly"
+  ],
+  "schedule": ["before 9am on monday"],
+  "timezone": "America/New_York",
+  "labels": ["dependencies"],
+  "semanticCommits": "disabled",
+  "commitMessagePrefix": "build(deps):",
+  "prConcurrentLimit": 8,
+  "prHourlyLimit": 0,
+  "ignorePaths": [
+    "vendor/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "packages/py-sdk/alkera_sdk/_generated/**"
+  ],
+  "packageRules": [
+    {
+      "description": "Batch non-major bumps into one weekly PR; majors stay individual so breaking changes are reviewed in isolation.",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch"
+    }
+  ]
+}

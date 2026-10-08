@@ -1,0 +1,84 @@
+name: Test marimo-lsp compatibility
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  UV_EXCLUDE_NEWER: "7 days"
+
+jobs:
+  test_marimo_lsp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Checkout marimo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: ⬇️ Checkout marimo-lsp
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: marimo-team/marimo-lsp
+          path: marimo-lsp
+
+      - name: 🐍 Setup uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: 🔧 Install marimo-lsp with local marimo
+        working-directory: marimo-lsp
+        run: |
+          uv add --editable ../
+
+      - name: 🔍 Typecheck
+        id: typecheck
+        working-directory: marimo-lsp
+        run: uv run ty check
+
+      - name: 🧪 Run tests
+        if: github.event_name == 'workflow_dispatch'
+        id: tests
+        working-directory: marimo-lsp
+        run: uv run pytest
+
+      - name: 🐛 Open issue on failure
+        if: failure() && github.event_name == 'push'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const title = '🚨 marimo-lsp compatibility check failed';
+            // Check if an open issue already exists
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'marimo-lsp',
+            });
+            if (existing.data.some(issue => issue.title === title)) {
+              console.log('Issue already exists, skipping creation');
+              return;
+            }
+            const commit = context.sha.substring(0, 7);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              labels: ['marimo-lsp'],
+              body: [
+                `The marimo-lsp compatibility check failed after merging commit ${commit} into \`main\`.`,
+                '',
+                `**Workflow run:** ${runUrl}`,
+                '',
+                'The typecheck (`uv run ty check`) in [marimo-team/marimo-lsp](https://github.com/marimo-team/marimo-lsp) failed against the latest marimo.',
+                '',
+                'This likely means a recent change broke the marimo-lsp integration.',
+              ].join('\n'),
+            });

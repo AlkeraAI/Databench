@@ -1,0 +1,68 @@
+# Copyright 2026 Marimo. All rights reserved.
+"""Standalone kernel server entry point for IPC (using ZeroMQ)."""
+
+from __future__ import annotations
+
+import os
+import sys
+
+from marimo._ipc.queue_manager import QueueManager
+from marimo._ipc.types import KernelArgs
+from marimo._runtime import runtime
+
+
+def main() -> None:
+    """Launch a marimo kernel using ZeroMQ for IPC.
+
+    This function is the entry point for the kernel subprocess. It reads
+    connection information from stdin and sets up ZeroMQ queues that proxy
+    to marimo's internal kernel.
+
+    Typically, this entry point is invoked via the command line with:
+
+        python -m marimo._ipc.launch_kernel
+
+    IMPORTANT: The module path "marimo._ipc.launch_kernel" is a public API
+    used by external consumers (e.g., marimo-lsp). Changing this path is a
+    BREAKING CHANGE and should be done with care and proper deprecation.
+    """
+    args = KernelArgs.decode_json(sys.stdin.buffer.read())
+    queue_manager = QueueManager.connect(args.connection_info)
+
+    sys.stdout.write("KERNEL_READY\n")
+    # A second line reports the kernel's identity: a launcher such as uv
+    # may sit between the manager and this process, so the manager cannot
+    # rely on its direct child's pid. Emitted after KERNEL_READY so
+    # managers that only read the ready line keep working.
+    sys.stdout.write(f"KERNEL_INFO {os.getpid()} {sys.executable}\n")
+    sys.stdout.flush()
+
+    runtime.launch_kernel(
+        set_ui_element_queue=queue_manager.set_ui_element_queue,
+        interrupt_queue=queue_manager.win32_interrupt_queue,
+        completion_queue=queue_manager.completion_queue,
+        control_queue=queue_manager.control_queue,
+        input_queue=queue_manager.input_queue,
+        app_metadata=args.app_metadata,
+        log_level=args.log_level,
+        user_config=args.user_config,
+        configs=args.configs,
+        profile_path=args.profile_path,
+        # None (the default) means no web server serves /@file/ URLs, so
+        # content is embedded as data URLs -- correct for standalone
+        # consumers like marimo-lsp. A marimo server passes
+        # "shared_memory" so its /@file endpoint can read the buffers.
+        virtual_file_storage=args.virtual_file_storage,
+        # NB: IPC kernels are always subprocesses (is_ipc=True) but may be
+        # edit or run mode based on is_edit_mode.
+        stream_queue=queue_manager.stream_queue,
+        socket_addr=None,
+        is_edit_mode=not args.is_run_mode,
+        is_ipc=True,
+        redirect_console_to_browser=args.redirect_console_to_browser,
+        parent_pid=args.parent_pid,
+    )
+
+
+if __name__ == "__main__":
+    main()

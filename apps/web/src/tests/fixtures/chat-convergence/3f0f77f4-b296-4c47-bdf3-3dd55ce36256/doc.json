@@ -1,0 +1,36 @@
+{
+ "doc_id": "3f0f77f4-b296-4c47-bdf3-3dd55ce36256",
+ "epoch": 1,
+ "seq": 1274,
+ "turn_state": "idle",
+ "turn_state_at": "2026-09-21T11:42:26.345153+00:00",
+ "meta": {
+  "draft": {
+   "at": 1789990853903.0,
+   "text": "",
+   "peer_id": "p:726d8cd9113f",
+   "by_user_id": "cba5d3cd-b795-5d0e-85c7-8493220fda21"
+  },
+  "session_id": "3f0f77f4-b296-4c47-bdf3-3dd55ce36256",
+  "turn_state": {
+   "at": "2026-09-21T11:42:26.345153+00:00",
+   "state": "idle"
+  },
+  "turn_state_at": "2026-09-21T11:42:26.345153+00:00"
+ },
+ "window": {
+  "count": 1168,
+  "first_seq": 77,
+  "last_seq": 1264
+ },
+ "event_keys": [
+  "event_id",
+  "kind",
+  "metadata",
+  "payload",
+  "role",
+  "schema_version",
+  "seq"
+ ],
+ "schema_version": "1.0.0"
+}

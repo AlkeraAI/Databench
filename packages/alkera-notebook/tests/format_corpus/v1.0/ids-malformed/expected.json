@@ -1,0 +1,119 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "2j8rrqkgwc": {
+        "defs": [
+          "d"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "52cpxbjs6z": {
+        "defs": [
+          "b"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "a29hcmavay": {
+        "defs": [
+          "a"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "p1rjdq4dtr": {
+        "defs": [
+          "c"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "a = 1",
+        "config": {},
+        "extra": {},
+        "id": "a29hcmavay",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "a = 1"
+      },
+      {
+        "code": "b = 1",
+        "config": {},
+        "extra": {},
+        "id": "52cpxbjs6z",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "b = 1"
+      },
+      {
+        "code": "c = 1",
+        "config": {},
+        "extra": {},
+        "id": "p1rjdq4dtr",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "c = 1"
+      },
+      {
+        "code": "d = 1",
+        "config": {},
+        "extra": {},
+        "id": "2j8rrqkgwc",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "d = 1"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": [
+      [
+        "id_malformed",
+        10
+      ],
+      [
+        "id_malformed",
+        16
+      ],
+      [
+        "id_malformed",
+        22
+      ],
+      [
+        "id_malformed",
+        28
+      ]
+    ]
+  }
+}

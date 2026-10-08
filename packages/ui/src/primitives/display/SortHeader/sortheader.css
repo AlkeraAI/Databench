@@ -1,0 +1,61 @@
+/* SortHeader — the sortable column-header button, rendered as the content of a Table <th>. Every
+   value is a role token (tokens.css). The variant axes (data-active, data-align, data-dir) are
+   styled via :where() so callers can override at class specificity. */
+
+.alk-sortheader {
+  /* Containing block for the visually-hidden state text (position:absolute, below) — relative with
+     no offsets is a visual no-op and keeps the 1px node from escaping into an ancestor. */
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+  transition: color var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+/* end-aligned — the header over a right-aligned numeric column fills the cell and justifies its
+   label to the right edge, so it sits over its mono readings. */
+.alk-sortheader:where([data-align="end"]) {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.alk-sortheader:hover,
+.alk-sortheader:where([data-active]) {
+  color: var(--alkPrimaryText);
+}
+
+.alk-sortheader:focus-visible {
+  border-radius: var(--alkRadiusSm);
+}
+
+/* The direction caret: hidden at rest, a faint preview on hover, full ink on the active column.
+   Flips (rotates) with the direction rather than swapping glyphs, so the turn animates. */
+.alk-sortheader__caret {
+  display: inline-flex;
+  opacity: 0;
+  transition:
+    transform var(--alkDurationSlow) var(--alkEaseStandard),
+    opacity var(--alkDurationNormal) var(--alkEaseStandard);
+}
+.alk-sortheader:where(:not([data-active])):hover .alk-sortheader__caret {
+  opacity: 0.5;
+}
+.alk-sortheader:where([data-active]) .alk-sortheader__caret {
+  opacity: 1;
+}
+.alk-sortheader__caret:where([data-dir="asc"]) {
+  transform: rotate(180deg);
+}
+
+/* Visually-hidden sort-state suffix — folds "sorted ascending/descending" into the button's
+   accessible name without painting a pixel. */

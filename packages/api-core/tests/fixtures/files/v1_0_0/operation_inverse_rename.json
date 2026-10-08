@@ -1,0 +1,8 @@
+{
+  "$model": "alkera_core.schemas.files.operation.RenameInverse",
+  "kind": "rename",
+  "metadata": {},
+  "node_id": "n-1",
+  "previous_name": "report.pdf",
+  "schema_version": "1.0.0"
+}

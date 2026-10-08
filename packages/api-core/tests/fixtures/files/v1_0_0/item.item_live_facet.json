@@ -1,0 +1,9 @@
+{
+  "$model": "alkera_core.schemas.files.item.LiveFacet",
+  "box_mtime": "2026-01-01T12:00:47Z",
+  "box_size": 1048576,
+  "metadata": {},
+  "schema_version": "1.0.0",
+  "state": "uploading",
+  "updated_at": "2026-01-01T12:00:48Z"
+}

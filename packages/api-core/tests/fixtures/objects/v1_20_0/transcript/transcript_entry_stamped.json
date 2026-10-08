@@ -1,0 +1,17 @@
+{
+  "event_id": "9d4e3f60-6142-4e5f-b190-b5e703d4f555",
+  "kind": "message.created",
+  "metadata": {},
+  "payload": {
+    "event_id": "9d4e3f60-6142-4e5f-b190-b5e703d4f555",
+    "event_type": "message.created",
+    "message_id": "ae5f4071-7253-4f60-a2a1-c6f814e5f666",
+    "role": "assistant",
+    "schema_version": "1.0.0",
+    "session_id": "sess-01J7Q3M8",
+    "time": "2026-09-07T12:00:00+00:00"
+  },
+  "role": "assistant",
+  "schema_version": "1.1.0",
+  "seq": 17
+}

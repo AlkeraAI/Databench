@@ -1,0 +1,62 @@
+@import "./tokens.css";
+
+/* An index of places: the file that holds them, then each answer under it. */
+
+/* The operation is the call, so it reads in the register's own ink beside the
+   place it ran. */
+:global(.chat-root) [data-tool="lsp"] .op {
+  flex: none;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-tool-id);
+}
+
+
+:global(.chat-root) [data-tool="lsp"] .group + .group .file {
+  border-top: 1px solid var(--chat-hairline);
+}
+
+:global(.chat-root) [data-tool="lsp"] .file {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+/* An outline nests, so a row is seated by the depth the server reported. A flat
+   answer sits at depth zero and the indent costs nothing. */
+:global(.chat-root) [data-tool="lsp"] .site {
+  display: flex;
+  align-items: baseline;
+  gap: var(--chat-sp-2);
+  width: 100%;
+  margin: 0;
+  border: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1) calc(var(--chat-tool-pad-x) + 24px + var(--chat-lsp-depth, 0) * 12px);
+  background: none;
+  font: inherit;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  text-align: left;
+}
+
+:global(.chat-root) [data-tool="lsp"] button.site {
+  cursor: pointer;
+}
+
+:global(.chat-root) [data-tool="lsp"] button.site:hover .siteName,
+:global(.chat-root) [data-tool="lsp"] button.site:focus-visible .siteName {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+:global(.chat-root) [data-tool="lsp"] button.site:focus-visible {
+  outline: 1.5px solid var(--chat-focus);
+  outline-offset: -1.5px;
+}
+
+/* Hover answers with documentation; the shared .chat-tool-doc seat carries it. */

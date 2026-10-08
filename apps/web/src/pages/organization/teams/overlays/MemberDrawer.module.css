@@ -1,0 +1,9 @@
+/* The member drawer (usage view + org-admin account/budget controls). The layout is inline flex
+   wrappers (see MemberDrawer.tsx); only the who-row's divider and the big percent display size are
+   local. */
+
+/* The plan header is the shared Identity; the page only adds the divider under it. */
+.planWho {
+  padding-bottom: var(--alkSpace5);
+  border-bottom: 1px solid var(--alkDivider);
+}

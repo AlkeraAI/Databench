@@ -1,0 +1,63 @@
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace5) var(--alkSpace7);
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.reading {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.held,
+.hint {
+  overflow-wrap: anywhere;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace2);
+}
+
+.error {
+  color: var(--alkDangerText);
+  /* A refusal is a sentence; it wraps inside the cell rather than clipping at its edge. */
+  overflow-wrap: anywhere;
+  white-space: normal;
+}

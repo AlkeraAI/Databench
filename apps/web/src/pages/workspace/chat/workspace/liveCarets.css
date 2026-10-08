@@ -1,0 +1,81 @@
+/* Everybody else's carets in a CodeMirror editor: a live file's or a
+   notebook cell's. */
+
+/* Somebody else's caret: a bar in their colour, in the text. */
+/* Zero wide, so the text around it never moves; the bar is drawn over it. */
+.alk-cm-caret {
+  position: relative;
+  z-index: 10;
+  display: inline-block;
+  width: 0;
+  height: 1.2em;
+  vertical-align: text-bottom;
+  pointer-events: none;
+}
+
+.alk-cm-caret::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  border-inline-start: 2px solid hsl(var(--live-file-caret-hue, 210) 60% 45%);
+}
+
+/* The names' layer: beside the editor's scroller rather than in it, so a
+   name reaching past the editor's box is never clipped. Above sibling cells,
+   their sticky table headers and the carets themselves; below the floating
+   run button (25), a panel sheet (30), menus (40) and dialogs. */
+.alk-cm-caret-flags {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* The name shows when the caret moves and fades a moment later, so it never
+   sits over the line above while its owner is still. Placed at the caret's
+   top, it rises above the line. */
+.alk-cm-caret__name {
+  position: absolute;
+  transform: translateY(-100%);
+  animation: alk-cm-caret-name 2s ease-in forwards;
+  padding: 0 var(--alkSpace1);
+  border-radius: var(--alkRadiusSm) var(--alkRadiusSm) var(--alkRadiusSm) 0;
+  background: hsl(var(--live-file-caret-hue, 210) 60% 45%);
+  color: var(--alkOnAccentText);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextXs);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Placed at the caret's foot instead, it hangs below the line. */
+.alk-cm-caret__name--below {
+  transform: none;
+  border-radius: 0 var(--alkRadiusSm) var(--alkRadiusSm) var(--alkRadiusSm);
+}
+
+@keyframes alk-cm-caret-name {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-cm-caret__name {
+    animation-duration: 0.01s;
+    animation-delay: 1.5s;
+  }
+}
+
+/* Their selection: a wash of the same colour. */
+.alk-cm-caret-range {
+  background: hsl(var(--live-file-caret-hue, 210) 60% 45% / 20%);
+}

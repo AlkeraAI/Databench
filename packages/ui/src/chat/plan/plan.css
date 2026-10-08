@@ -1,0 +1,585 @@
+/* Plan surfaces: the transcript's proposed plan (.chat-plan-doc) and the dock's
+   approval card (.chat-plan-card), one design. The dock family's shell and its
+   --chat-dialog-* ramp arrive from dialog.css and theme/tokens.css; this file
+   adds only the plan's own identity and the per-mode fill ramp. The base reset,
+   icon sizing, and default focus come from the package base. */
+
+.chat-root :is(.chat-plan-doc, .chat-plan-card) {
+  /* Plan identity: the host's mode token marks the frame and the pending
+     glyph, and carries the status phrase — it is the shell's information ink,
+     which is dark on a light paper and light on a dark one, so one value reads
+     as text in both. Only the edge's STRENGTH differs by scheme. */
+  --chat-plan-ink: var(--chat-mode-plan);
+  --chat-plan-edge: color-mix(in srgb, var(--chat-mode-plan) 85%, transparent);
+  /* The one filled button's ink: a light card on the dark fill of a light
+     paper, a dark card on the light fill of a dark one. */
+  --chat-plan-fill-ink: var(--chat-paper-raised);
+}
+
+.chat-root[data-theme="dark"] :is(.chat-plan-doc, .chat-plan-card) {
+  /* On the dark ground a softer edge already clears 3:1. */
+  --chat-plan-edge: color-mix(in srgb, var(--chat-mode-plan) 58%, transparent);
+}
+
+/* Per-mode ramp. --chat-plan-mark is the mark step (glyphs, selected edges,
+   tints), from the host's mode tokens — the shell's status ink, which already
+   sits opposite the paper in either scheme, so the filled button takes the mark
+   itself and its hover steps one notch further toward the ink (down on a light
+   paper, up on a dark one). */
+.chat-root :is(.chat-plan-doc, .chat-plan-card) [data-mode],
+.chat-root .chat-plan-result[data-mode] {
+  --chat-plan-fill: var(--chat-plan-mark);
+  --chat-plan-fill-hover: color-mix(in srgb, var(--chat-plan-mark) 85%, var(--chat-ink));
+}
+
+.chat-root :is(.chat-plan-doc, .chat-plan-card) [data-mode="default"],
+.chat-root .chat-plan-result[data-mode="default"] {
+  --chat-plan-mark: var(--chat-mode-default);
+}
+
+.chat-root :is(.chat-plan-doc, .chat-plan-card) [data-mode="auto"],
+.chat-root .chat-plan-result[data-mode="auto"] {
+  --chat-plan-mark: var(--chat-mode-auto);
+}
+
+.chat-root :is(.chat-plan-doc, .chat-plan-card) [data-mode="bypass"],
+.chat-root .chat-plan-result[data-mode="bypass"] {
+  --chat-plan-mark: var(--chat-mode-bypass);
+}
+
+.chat-root :is(.chat-plan-doc, .chat-plan-card) [data-mode="plan"],
+.chat-root .chat-plan-result[data-mode="plan"] {
+  --chat-plan-mark: var(--chat-mode-plan);
+}
+
+.chat-root :is(.chat-plan-glyph, .chat-plan-mark, .chat-plan-opt__tick, .chat-plan-open__glyph) {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chat-root :is(.chat-plan-mark, .chat-plan-opt__tick) {
+  stroke-width: 1.7;
+}
+
+/* The dot comes from the host's one block mechanism; this only feeds it the
+   two lengths for the plan block's first row: the frame's border plus its top
+   padding, then the status row's line box. */
+.chat-root .chat-block:has(.chat-plan-doc) {
+  --chat-dot-lead: 13px;
+  --chat-first-row-lh: 24px;
+}
+
+/* ── The document: the proposed plan in the transcript ──────────────────────── */
+
+/* Dashed and plan-hued while the plan is provisional, solid and neutral once
+   decided. The frame spans the transcript's content width; the prose inside
+   keeps the host's reading measure and stays the block's apex. */
+.chat-root .chat-plan-doc {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px dashed var(--chat-plan-edge);
+  border-radius: var(--chat-radius-control);
+  background: color-mix(in srgb, var(--chat-mode-plan) 5%, transparent);
+  transition: background-color var(--chat-dur-slow) var(--chat-ease-soft), border-color var(--chat-dur-slow) var(--chat-ease-soft);
+}
+
+.chat-root .chat-plan-doc:not([data-state="pending"]) {
+  border-style: solid;
+  border-color: var(--chat-hairline);
+  background: none;
+}
+
+/* The document's interior. The padding lives here so it never reaches the
+   fold, which is the frame's own foot. */
+.chat-root .chat-plan-doc__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-3);
+  min-width: 0;
+  padding: var(--chat-sp-3);
+}
+
+.chat-root .chat-plan-doc__body {
+  min-width: 0;
+}
+
+/* Collapsed, the document rests at its opening. The cap bounds that excerpt at
+   every panel width, and the mask fades a mid-sentence cut into the fold; an
+   excerpt that ends on its own block simply ends. */
+.chat-root .chat-plan-doc:not([data-open]) .chat-plan-doc__body {
+  max-height: 144px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 104px, transparent 144px);
+  mask-image: linear-gradient(to bottom, #000 104px, transparent 144px);
+}
+
+/* ── The fold: the document's own footer ────────────────────────────────────── */
+
+.chat-root .chat-plan-fold {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--chat-sp-1);
+  width: 100%;
+  padding: var(--chat-sp-2) var(--chat-sp-3);
+  border-top: 1px solid var(--chat-hairline);
+  border-radius: 0 0 calc(var(--chat-radius-control) - 1px) calc(var(--chat-radius-control) - 1px);
+  font-size: var(--chat-fs-record);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  white-space: nowrap;
+  color: var(--chat-ink-3);
+  cursor: pointer;
+  transition: background-color var(--chat-dur-fast) var(--chat-ease-soft), color var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+.chat-root .chat-plan-fold:hover {
+  background: var(--chat-dialog-wash);
+  color: var(--chat-ink);
+}
+
+/* The footer runs edge to edge, so the ring sits inside the frame. */
+.chat-root .chat-plan-fold:focus-visible {
+  outline: 2px solid var(--chat-forest-bright);
+  outline-offset: -2px;
+}
+
+/* ── Status line: the same phrase in the document and the answered card ─────── */
+
+/* The phrase group takes the leading edge and the editor control the trailing
+   one. Both hold the row's 24px band, so the row's height is state-invariant.
+   The row reads at the control size: the phrase is the block's headline, and
+   the editor control beside it shares the size so the row is one register. */
+.chat-root .chat-plan-status {
+  display: flex;
+  align-items: flex-start;
+  column-gap: var(--chat-sp-2);
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+}
+
+/* The phrase and the mode chip each stay whole; below about 260px the chip
+   drops to its own line rather than breaking a phrase. */
+.chat-root .chat-plan-status__said {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 24px;
+  /* The verdict mark sits as close to its phrase as the editor control's glyph
+     sits to its label; the chip re-opens the phrase's own air. */
+  column-gap: var(--chat-sp-1);
+  row-gap: var(--chat-sp-1);
+}
+
+.chat-root .chat-plan-status__said .chat-plan-chip {
+  margin-left: var(--chat-sp-1);
+}
+
+/* The plan belongs in the editor once it is long, so the row that names its
+   state also offers it. Its wash bleeds into the frame's padding like the
+   fold's. */
+.chat-root .chat-plan-open {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: var(--chat-sp-1);
+  min-height: 24px;
+  margin-left: auto;
+  margin-right: -4px;
+  padding: 0 var(--chat-sp-1);
+  border-radius: var(--chat-radius-micro);
+  font-size: var(--chat-fs-record);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  white-space: nowrap;
+  color: var(--chat-ink-3);
+  cursor: pointer;
+  transition: background-color var(--chat-dur-fast) var(--chat-ease-soft), color var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+.chat-root .chat-plan-open:hover {
+  background: var(--chat-dialog-wash);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-plan-status__mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-plan-status[data-state="pending"] .chat-plan-status__mark {
+  color: var(--chat-plan-ink);
+}
+
+.chat-root .chat-plan-status__text {
+  font-weight: var(--chat-w-medium);
+  white-space: nowrap;
+  color: var(--chat-ink-2);
+}
+
+.chat-root .chat-plan-status[data-state="pending"] .chat-plan-status__text {
+  color: var(--chat-plan-ink);
+}
+
+/* A settled verdict wears its state: approval the theme's green, rejection the
+   danger ink, mark and phrase together. Light approval takes the forest tier
+   the shell's accent ink, which is the same tier as the mode ramp's own and so
+   needs no per-scheme flip. Danger takes the shell's danger ink. */
+.chat-root .chat-plan-status[data-state="approved"] :is(.chat-plan-status__mark, .chat-plan-status__text) {
+  color: var(--chat-forest);
+}
+
+.chat-root .chat-plan-status[data-state="rejected"] :is(.chat-plan-status__mark, .chat-plan-status__text) {
+  color: var(--chat-danger);
+}
+
+/* The mode chip: the one colored thing in a settled block, because the mode is
+   an identity. Glyph and label carry it too, so it survives a grayscale
+   squint. */
+.chat-root .chat-plan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  padding: var(--chat-sp-1) var(--chat-sp-2) var(--chat-sp-1) var(--chat-sp-2);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chat-plan-mark) 14%, transparent);
+  font-size: var(--chat-fs-record);
+  font-weight: var(--chat-w-medium);
+  letter-spacing: var(--chat-track-record);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-plan-chip__icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--chat-plan-mark);
+}
+
+/* ── The card: the one elevated performer while the plan is unanswered ──────── */
+
+/* The shell is the dock family's (dialog.css); the interior rhythm and the
+   entrance are the plan's. */
+.chat-root .chat-plan-card {
+  gap: var(--chat-sp-4);
+  animation: chat-rise-6 var(--chat-dur-medium) var(--chat-ease-out);
+}
+
+.chat-root .chat-plan-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-2);
+}
+
+.chat-root .chat-plan-title {
+  margin: 0;
+  font-size: var(--chat-fs-text);
+  font-weight: var(--chat-w-semi);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink);
+  overflow-wrap: break-word;
+  /* The heading is fixed copy today, but a wire-supplied ask must still never
+     grow the card past two lines. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ── Option rows: one way to proceed, chosen ────────────────────────────────── */
+
+.chat-root .chat-plan-opts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-2);
+  /* The scrolling half of the height cap: the body gives before the actions. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.chat-root .chat-plan-opt {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px 1fr 16px;
+  align-items: center;
+  column-gap: var(--chat-sp-2);
+  row-gap: var(--chat-sp-1);
+  padding: var(--chat-sp-2) var(--chat-sp-3);
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-control);
+  cursor: pointer;
+  transition: background-color var(--chat-dur-fast) var(--chat-ease-soft), border-color var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+/* The radio stays focusable and drives every selected rule; the row is what
+   the reader sees, so the ring wraps the row. */
+.chat-root .chat-plan-opt__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-root .chat-plan-opt:hover {
+  background: var(--chat-dialog-wash);
+}
+
+/* Selection reads three ways: a hued edge, a hued tint, and the trailing
+   check. The edge takes the mode hue at full strength -- the outline of the
+   row the reader has to find (it clears 3:1 over the tint in both themes). */
+.chat-root .chat-plan-opt:has(.chat-plan-opt__input:checked) {
+  border-color: var(--chat-plan-mark);
+  background: color-mix(in srgb, var(--chat-plan-mark) 9%, transparent);
+}
+
+.chat-root .chat-plan-opt:has(.chat-plan-opt__input:checked):hover {
+  background: color-mix(in srgb, var(--chat-plan-mark) 14%, transparent);
+}
+
+.chat-root .chat-plan-opt:has(.chat-plan-opt__input:focus-visible) {
+  outline: 2px solid var(--chat-plan-mark);
+  outline-offset: 2px;
+}
+
+/* The row's two mode-hued cells: the leading glyph and the trailing check. The
+   grid holds both open at every state, so choosing a row moves nothing. */
+.chat-root :is(.chat-plan-opt__icon, .chat-plan-opt__check) {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  color: var(--chat-plan-mark);
+}
+
+.chat-root .chat-plan-opt__label {
+  font-size: var(--chat-fs-text);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink-2);
+}
+
+.chat-root .chat-plan-opt:has(.chat-plan-opt__input:checked) .chat-plan-opt__label {
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-plan-opt__desc {
+  grid-column: 2 / -1;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-3);
+}
+
+/* ── The note: what the model gets with either answer ─────────────────────── */
+
+/* One line at rest; it grows with what is typed, up to a few lines, then scrolls. */
+.chat-root .chat-plan-note__input {
+  display: block;
+  width: 100%;
+  min-height: calc(var(--chat-lh-record, 16px) + 2 * var(--chat-sp-2));
+  max-height: calc(5 * var(--chat-lh-record, 16px) + 2 * var(--chat-sp-2));
+  field-sizing: content;
+  resize: none;
+  padding: var(--chat-sp-2) var(--chat-sp-3);
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-control);
+  background: transparent;
+  color: var(--chat-ink);
+  font: inherit;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+.chat-root .chat-plan-note__input::placeholder {
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-plan-note__input:focus-visible {
+  outline: 2px solid var(--chat-plan-mark, var(--chat-mode-plan));
+  outline-offset: 1px;
+}
+
+.chat-root .chat-plan-result__note {
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── Actions: one filled commit, one quiet way out ──────────────────────────── */
+
+/* The row metric is the dock family's; these two carry a keycap inside it, so
+   the box is wider than the pager's and the ink moves with the ground. */
+.chat-root :is(.chat-plan-reject, .chat-plan-approve) {
+  gap: var(--chat-sp-2);
+  padding: 0 var(--chat-sp-3);
+  border-radius: var(--chat-radius-control);
+  transition: background-color var(--chat-dur-fast) var(--chat-ease-soft), color var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+/* The commit wears the mode it grants, so the button says which permissions it
+   hands over. Its ink clears 4.5:1 over every mode fill in both themes. */
+.chat-root .chat-plan-approve {
+  background: var(--chat-plan-fill);
+  color: var(--chat-plan-fill-ink);
+  font-weight: var(--chat-w-semi);
+}
+
+.chat-root .chat-plan-approve:hover {
+  background: var(--chat-plan-fill-hover);
+}
+
+.chat-root .chat-plan-approve:focus-visible {
+  outline: 2px solid var(--chat-plan-mark);
+  outline-offset: 2px;
+}
+
+/* A keycap reads in its own button's ink, whatever the ground: the chip is a
+   translucent inset of that ink, so the label and the key never disagree over
+   a mode fill in either theme. */
+.chat-root .chat-plan-approve .chat-plan-key {
+  color: currentcolor;
+  background: color-mix(in srgb, currentcolor 14%, transparent);
+  border: 1px solid color-mix(in srgb, currentcolor 32%, transparent);
+}
+
+.chat-root .chat-plan-reject .chat-plan-key {
+  color: currentcolor;
+  border: 1px solid var(--chat-hairline);
+}
+
+/* ── Answered: the card states the mode the session is now in ───────────────── */
+
+.chat-root .chat-plan-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--chat-sp-2);
+  row-gap: var(--chat-sp-2);
+  padding: var(--chat-sp-2) var(--chat-sp-3) var(--chat-sp-3);
+  border-radius: var(--chat-radius-control);
+  background: color-mix(in srgb, var(--chat-plan-mark) 11%, transparent);
+  animation: chat-rise-4 var(--chat-dur-fast) var(--chat-ease-out);
+}
+
+/* Mark, verdict, and mode chip travel together and wrap as whole units, so a
+   narrow panel never breaks a phrase across two lines. */
+.chat-root .chat-plan-result__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: var(--chat-sp-2);
+  row-gap: var(--chat-sp-1);
+  min-width: 0;
+}
+
+.chat-root .chat-plan-result__mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--chat-ink-2);
+}
+
+.chat-root .chat-plan-result__label {
+  font-size: var(--chat-fs-record);
+  font-weight: var(--chat-w-medium);
+  letter-spacing: var(--chat-track-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-plan-result .chat-plan-chip {
+  background: color-mix(in srgb, var(--chat-plan-mark) 20%, transparent);
+}
+
+.chat-root .chat-plan-result__desc {
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-2);
+}
+
+/* ── Width ──────────────────────────────────────────────────────────────────── */
+
+/* Below the reference panel the status phrase and the editor control cannot
+   both set their words on one line, so the control folds to its mark and keeps
+   its full 24px target. Its name stays in the tooltip and accessible name. */
+@container chat-panel (max-width: 409px) {
+  .chat-root .chat-plan-open__label {
+    display: none;
+  }
+
+  .chat-root .chat-plan-open {
+    justify-content: center;
+    width: 24px;
+    padding: 0;
+  }
+}
+
+/* Under 300px the buttons cannot share a row, so the commit takes the top row
+   full width with the quiet action beneath it. Neither label ever wraps.
+
+   At those widths the dock would otherwise swallow the transcript, so two
+   pieces fold: the ask (the rows and the commit already carry it) and the
+   descriptions of the rows not chosen. The chosen row keeps its description --
+   the consequence about to be committed. */
+@container chat-panel (max-width: 299px) {
+  .chat-root .chat-plan-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: var(--chat-sp-2);
+  }
+
+  .chat-root .chat-plan-actions__gap {
+    display: none;
+  }
+
+  .chat-root :is(.chat-plan-reject, .chat-plan-approve) {
+    justify-content: center;
+  }
+
+  .chat-root .chat-plan-opt:not(:has(.chat-plan-opt__input:checked)) .chat-plan-opt__desc {
+    display: none;
+  }
+}
+
+/* At the panel's floor a status phrase, its mark, and the editor control
+   cannot share a line. The mark folds out, and the phrase and the chip may
+   then set on two lines rather than push past the frame; the control keeps
+   its size and rides the row's first line, where the gutter dot sits. */
+@container chat-panel (max-width: 219px) {
+  .chat-root :is(.chat-plan-status__mark, .chat-plan-result__mark) {
+    display: none;
+  }
+
+  .chat-root .chat-plan-status__text,
+  .chat-root .chat-plan-chip {
+    white-space: normal;
+  }
+}
+
+/* ── Reduced motion: swap every move for a fade ─────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-plan-card,
+  .chat-root .chat-plan-result {
+    animation-name: chat-fade-in;
+  }
+
+  .chat-root :is(.chat-plan-doc, .chat-plan-opt, .chat-plan-reject, .chat-plan-approve, .chat-plan-fold, .chat-plan-open) {
+    transition: none;
+  }
+}

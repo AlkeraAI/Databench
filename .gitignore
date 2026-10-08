@@ -1,0 +1,121 @@
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+*.iml
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+*.local
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage-files.json
+htmlcov/
+.tox/
+dist/
+build/
+# Locally-built wheels (cached in CI, never committed).
+wheelhouse/
+.venv/
+.venv-crdt-sandbox/
+venv/
+env/
+
+# --- uv ---
+# Keep uv.lock in git; ignore caches
+.uv/
+
+# --- TLA+ tools ---
+# The pinned tla2tools.jar `make files-specs` fetches (and TLC's states/ metadata).
+# It lives inside the checkout, not under $HOME, because the docker fallback only
+# bind-mounts the repo root -- see ops/scripts/ensure-tla-tools.sh.
+.cache/tla/
+
+# --- Node / pnpm ---
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-error.log
+.turbo/
+
+# --- Frontend builds ---
+apps/web/dist/
+apps/web/.vite/
+
+# --- CLI builds (the staged harness binary) ---
+apps/cli/dist/
+
+# --- Generated: intentionally committed ---
+# packages/shared-openapi/openapi.json is committed so SDK consumers
+# don't need to run `make gen-openapi` just to see the API shape.
+
+# --- Docker local volumes are named; nothing to ignore here ---
+
+# --- Alembic local DB dumps ---
+*.sqlite
+*.sqlite3
+*.db
+
+# --- Logs ---
+logs/
+*.log
+
+.claude
+.codex
+
+# Vendored reference clones (langflow, vscode, etc.: transient reference
+# material). `vendor/opencode/` and `vendor/marimo/` (subtrees) MUST be tracked;
+# we use `vendor/*/` (which doesn't exclude `vendor/` itself) so the re-includes
+# below actually fire. A deployment that vendors more trees re-includes them in
+# its own vendor ignore file.
+vendor/*/
+!vendor/opencode/
+!vendor/marimo/
+
+# Alkera workspace runtime state (graphs/, contexts/, etc. tracked by default)
+.alkera/
+.alkera/runs/
+.alkera/traces/
+.alkera/artifacts/objects/
+.alkera/worktrees/
+.alkera/cache/
+.alkera/conversations
+
+
+# --- Playwright e2e artifacts (baselines + per-run state) ---
+apps/web/e2e/__screenshots__/
+apps/web/e2e/__results__/
+
+# --- Local scratch dirs for manual testing (e.g. `alkera chat` in a temp
+# project at the repo root). Root-anchored so they only match at the top level.
+/test123/
+/scratch/
+# `make dev-chat-local` keeps its machine's sign-in and workspace here. It holds
+# a credential, so never commit it.
+/.alkera-dev/
+
+
+# --- Local exploration (DO NOT DELETE THIS) ---
+/preview/
+
+
+
+# Local developer boxes: the rendered bootstrap and node secrets each box
+# is recreated from (the localdev compute provider). Never commit.
+/.alkera-dev/

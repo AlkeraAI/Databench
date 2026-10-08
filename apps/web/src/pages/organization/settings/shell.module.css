@@ -1,0 +1,25 @@
+/* Settings shell — the few LAYOUT concepts shared by 2+ settings components. Row / cluster glue is
+   composed with the ui Stack/Inline primitives at the call sites; only genuinely concept-shaped
+   declarations live here. All colour is a token; no ui primitive is restyled. */
+
+/* ---- readable-measure cap ------------------------------------------------ */
+/* The one field-measure cap, shared by a CONTROL (TextInput's input / Select's trigger, via their
+   own `className` seam — the field ROW still spans the full card so its divider reaches both edges)
+   and the copyable reading (org id / MFA secret). Released on narrow screens. */
+.capped {
+  max-width: 360px;
+}
+
+/* A brand-logo chip keeps crisp primary ink — IconChip's surface tone would mute a monochrome
+   provider mark. The parent-qualified selector (the chip is always a direct child of an Inline
+   cluster) outranks the tone class regardless of stylesheet order. */
+:global(.alk-inline) > .brandLogo {
+  color: var(--alkPrimaryText);
+}
+
+/* ---- responsive ----------------------------------------------------------- */
+@media (max-width: 560px) {
+  .capped {
+    max-width: none;
+  }
+}

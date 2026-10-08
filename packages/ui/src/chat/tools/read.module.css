@@ -1,0 +1,15 @@
+@import "./tokens.css";
+
+/* A directory's entries: one name per row, in the tool's own order. The list
+   scrolls at the same height the file window does, so a directory of hundreds
+   costs the transcript no more room than a file of hundreds. */
+
+:global(.chat-root) [data-tool="read"] .list {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="read"] .listRow {
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x);
+}
+

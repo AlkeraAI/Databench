@@ -1,0 +1,78 @@
+@import "./tokens.css";
+
+/* A table's contract, or a connection's relations grouped by schema. */
+
+:global(.chat-root) [data-tool="sql_schema"] .sqlSchemaSep {
+  padding: 0 var(--chat-sp-1);
+  color: var(--chat-ink-4);
+}
+
+/* describe: the columns. */
+
+:global(.chat-root) [data-tool="sql_schema"] .sqlSchemaCols {
+  display: grid;
+  grid-template-columns: max-content max-content max-content minmax(0, 1fr);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+/* Ordinal position is part of a table's contract (it is what SELECT * returns),
+   so the roster keeps the same gutter the result grid uses. */
+:global(.chat-root) [data-tool="sql_schema"] .sqlSchemaColN {
+  padding: var(--chat-sp-1) var(--chat-sp-3) var(--chat-sp-1) var(--chat-tool-pad-x);
+  min-width: 2ch;
+  text-align: right;
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+:global(.chat-root) [data-tool="sql_schema"] .sqlSchemaColName {
+  padding: var(--chat-sp-1) var(--chat-sp-4) var(--chat-sp-1) 0;
+  white-space: nowrap;
+  color: var(--chat-ink);
+}
+
+/* A data type is the statement's own vocabulary, so it takes the keyword ink the
+   SQL card paints with. */
+:global(.chat-root) [data-tool="sql_schema"] .sqlSchemaColType {
+  padding: var(--chat-sp-1) var(--chat-sp-4) var(--chat-sp-1) 0;
+  white-space: nowrap;
+  color: var(--chat-sql-keyword);
+}
+
+/* Nullability shows only where the schema constrains it: the default carries no
+   information and costs no ink. */
+:global(.chat-root) [data-tool="sql_schema"] .sqlSchemaColBound {
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1) 0;
+  white-space: nowrap;
+  color: var(--chat-tool-ink-3);
+}
+
+/* list: the relations. */
+
+:global(.chat-root) [data-tool="sql_schema"] .sqlSchemaRels {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="sql_schema"] .sqlSchemaNsHead {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-1);
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="sql_schema"] .sqlSchemaNs + .sqlSchemaNs .sqlSchemaNsHead {
+  margin-top: var(--chat-sp-1);
+  border-top: 1px solid var(--chat-hairline);
+  padding-top: var(--chat-sp-2);
+}
+
+:global(.chat-root) [data-tool="sql_schema"] .sqlSchemaRel {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  min-width: 0;
+  padding: 1px var(--chat-tool-pad-x);
+}
+

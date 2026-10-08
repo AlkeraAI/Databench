@@ -1,0 +1,36 @@
+/* The chats panel — an @alkera/ui `Card` placed on the grid (the span class lives in
+   dashboard.module.css), its rows plain links on the shared `alk-rowlink` hover/focus treatment and
+   its text voices `Text`. This file owns only the list's reset and the row's two tracks: the title
+   takes every px the timestamp doesn't need and truncates, so a long title never pushes its own
+   "2h ago" off the card. */
+
+.chatList,
+.chatList > li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.chatRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--alkSpace5);
+  padding: var(--alkSpace3) var(--alkSpace3);
+  margin: 0 calc(-1 * var(--alkSpace3));
+  border-radius: var(--alkRadiusMd);
+  text-decoration: none;
+  color: inherit;
+}
+.chatTitle {
+  flex: 1 1 0;
+  min-width: 8ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The start action reads as an action, not a sentence — it keeps the link ink but drops the
+   underline the shared role carries in prose. */
+.start {
+  text-decoration: none;
+  font-weight: var(--alkWeightMedium);
+}

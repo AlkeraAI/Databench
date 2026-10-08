@@ -1,0 +1,368 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import abc
+import re
+import sys
+from collections.abc import AsyncIterator, Callable
+from typing import TYPE_CHECKING
+
+import msgspec
+
+from marimo import _loggers
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._messaging.notification import AlertNotification
+from marimo._messaging.notification_utils import broadcast_notification
+from marimo._runtime.packages.utils import (
+    append_version,
+    popen_package_command,
+    run_package_command,
+)
+
+if TYPE_CHECKING:
+    from marimo._utils.uv_tree import DependencyTreeNode
+
+LOGGER = _loggers.marimo_logger()
+
+# Default Python executable
+PY_EXE = sys.executable
+
+# Type alias for log callback function
+LogCallback = Callable[[str], None]
+
+
+def _normalize_package_name(name: str) -> str:
+    """Normalize a package name per PEP 503.
+
+    PyPI treats package names as case-insensitive and considers runs of
+    `-`, `_`, and `.` as equivalent, so `Pillow`, `pillow`, and `scikit_learn`
+    all normalize to a canonical form.
+    """
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+class PackageDescription(msgspec.Struct, rename="camel"):
+    name: str
+    version: str
+
+
+class PackageManager(abc.ABC):
+    """Interface for a package manager that can install packages."""
+
+    name: str
+    docs_url: str
+
+    def __init__(self) -> None:
+        self._attempted_packages: set[str] = set()
+
+    @property
+    def restart_required(self) -> bool:
+        """Whether the last mutation was saved but needs a kernel restart."""
+        return False
+
+    @abc.abstractmethod
+    def module_to_package(self, module_name: str) -> str:
+        """Canonicalizes a module name to a package name."""
+        ...
+
+    @abc.abstractmethod
+    def package_to_module(self, package_name: str) -> str:
+        """Canonicalizes a package name to a module name."""
+        ...
+
+    def is_manager_installed(self) -> bool:
+        """Is the package manager is installed on the user machine?"""
+        if DependencyManager.which(self.name):
+            return True
+        LOGGER.error(
+            f"{self.name} is not available. "
+            f"Check out the docs for installation instructions: {self.docs_url}"
+        )
+        return False
+
+    def install_command(
+        self, package: str, *, upgrade: bool, group: str | None = None
+    ) -> list[str]:
+        """
+        Get the shell command to install a package (where applicable).
+
+        Used by the _install method. If not applicable (for example, with micropip),
+        override the _install method instead.
+        """
+        # PackageManager's may not implement this method if they override _install
+        raise NotImplementedError
+
+    async def _install(
+        self,
+        package: str,
+        *,
+        upgrade: bool,
+        group: str | None = None,
+        log_callback: LogCallback | None = None,
+    ) -> bool:
+        """Installation logic."""
+        return await self.run(
+            self.install_command(package, upgrade=upgrade, group=group),
+            log_callback=log_callback,
+        )
+
+    async def install(
+        self,
+        package: str,
+        version: str | None,
+        upgrade: bool = False,
+        group: str | None = None,
+        log_callback: LogCallback | None = None,
+    ) -> bool:
+        """Attempt to install a package that makes this module available.
+
+        Args:
+            package: The package to install
+            version: Optional version specification
+            upgrade: Whether to upgrade the package if already installed
+            group: Dependency group (for uv projects)
+            log_callback: Optional callback to receive log output during installation
+
+        Returns True if installation succeeded, else False.
+        """
+        self._attempted_packages.add(package)
+        return await self._install(
+            append_version(package, version),
+            upgrade=upgrade,
+            group=group,
+            log_callback=log_callback,
+        )
+
+    async def stream_install(
+        self,
+        packages: list[str],
+        *,
+        versions: dict[str, str | None] | None = None,
+        index_urls: list[str] | None = None,
+        log_callback_factory: Callable[[str], LogCallback] | None = None,
+    ) -> AsyncIterator[tuple[str, bool]]:
+        """Install packages and yield (name, success) as each completes.
+
+        The default implementation installs sequentially. Subclasses (e.g.
+        `MicropipPackageManager`) may override to batch installs and stream
+        real progress. `index_urls` is honored by backends that support it
+        (currently only micropip); other backends ignore it.
+        """
+        # `index_urls` honored by overriding subclasses (micropip);
+        # the sequential default ignores it.
+        del index_urls
+        for pkg in packages:
+            if self.attempted_to_install(package=pkg):
+                yield (pkg, False)
+                continue
+            version = (versions or {}).get(pkg)
+            cb = log_callback_factory(pkg) if log_callback_factory else None
+            success = await self.install(
+                pkg,
+                version=version,
+                log_callback=cb,
+            )
+            yield (pkg, success)
+
+    @abc.abstractmethod
+    async def uninstall(self, package: str, group: str | None = None) -> bool:
+        """Attempt to uninstall a package
+
+        Args:
+            package: The package to uninstall
+            group: dependency group
+
+        Returns True if the package was uninstalled, else False.
+        """
+        ...
+
+    def attempted_to_install(self, package: str) -> bool:
+        """True iff package installation was previously attempted."""
+        return package in self._attempted_packages
+
+    def should_auto_install(self) -> bool:
+        """Should this package manager auto-install packages"""
+        return False
+
+    def _run_sync(
+        self, command: list[str], log_callback: LogCallback | None
+    ) -> bool:
+        if not self.is_manager_installed():
+            return False
+
+        LOGGER.info(f"Running command: {command}")
+
+        if log_callback is None:
+            # Original behavior - just run the command without capturing output
+            completed_process = run_package_command(command)
+            return completed_process.returncode == 0
+
+        # Stream output to both the callback and the terminal
+        proc = popen_package_command(command)
+
+        if proc is None:
+            return False
+
+        if proc.stdout:
+            for line in iter(proc.stdout.readline, b""):
+                # The terminal tee is best effort: a kernel replaces
+                # sys.stdout with a redirect whose buffer may be None.
+                try:
+                    buffer = getattr(sys.stdout, "buffer", None)
+                    if buffer is not None:
+                        buffer.write(line)
+                        buffer.flush()
+                except Exception:
+                    pass
+                # Send to callback for streaming
+                log_callback(line.decode("utf-8", errors="replace"))
+            proc.stdout.close()
+
+        return_code = proc.wait()
+        return return_code == 0
+
+    async def run(
+        self, command: list[str], log_callback: LogCallback | None
+    ) -> bool:
+        """Run a command asynchronously in a thread pool to avoid blocking the event loop."""
+        import asyncio
+
+        return await asyncio.to_thread(self._run_sync, command, log_callback)
+
+    def update_notebook_script_metadata(
+        self,
+        filepath: str,
+        *,
+        packages_to_add: list[str] | None = None,
+        packages_to_remove: list[str] | None = None,
+        import_namespaces_to_add: list[str] | None = None,
+        import_namespaces_to_remove: list[str] | None = None,
+        upgrade: bool,
+    ) -> bool:
+        del (
+            filepath,
+            packages_to_add,
+            packages_to_remove,
+            import_namespaces_to_add,
+            import_namespaces_to_remove,
+            upgrade,
+        )
+        """
+        Add or remove inline script metadata metadata
+        in the marimo notebook.
+
+        For packages_to_add, packages_to_remove, we use the package name as-is.
+        For import_namespaces_to_add, import_namespaces_to_remove, we canonicalize
+        to the module name based on popular packages on PyPI.
+
+        This follows PEP 723 https://peps.python.org/pep-0723/
+        """
+        return True
+
+    @abc.abstractmethod
+    def list_packages(self) -> list[PackageDescription]:
+        """List installed packages."""
+        ...
+
+    def dependency_tree(
+        self,
+        filename: str | None = None,  # noqa: ARG002
+    ) -> DependencyTreeNode | None:
+        """Get dependency tree for the current environment or script.
+
+        Args:
+            filename: Optional path to a script file for script-specific dependencies
+
+        Returns:
+            DependencyTreeNode if supported by this package manager, None otherwise
+        """
+        return None
+
+    def alert_not_installed(self) -> None:
+        """Alert the user that the package manager is not installed."""
+        broadcast_notification(
+            AlertNotification(
+                title="Package manager not installed",
+                description=(f"{self.name} is not available on your machine."),
+                variant="danger",
+            ),
+        )
+
+
+class CanonicalizingPackageManager(PackageManager):
+    """Base class for package managers.
+
+    Has a heuristic for mapping from package names to module names and back,
+    using a registry of well-known packages and basic rules for package
+    names.
+
+    Subclasses needs to implement _construct_module_name_mapping.
+    """
+
+    def __init__(self, python_exe: str | None = None) -> None:
+        # Initialized lazily
+        self._module_name_to_repo_name: dict[str, str] | None = None
+        self._repo_name_to_module_name: dict[str, str] | None = None
+        # Reverse map keyed on PEP 503-normalized package names, so we can
+        # resolve names that uv has normalized (e.g. `Pillow` -> `pillow`)
+        # back to their module.
+        self._normalized_repo_name_to_module_name: dict[str, str] | None = None
+        # Python executable for targeting a specific venv (used by pip/uv)
+        # Defaults to sys.executable if not provided
+        self._python_exe = python_exe or PY_EXE
+        super().__init__()
+
+    @abc.abstractmethod
+    def _construct_module_name_mapping(self) -> dict[str, str]: ...
+
+    def _initialize_mappings(self) -> None:
+        if self._module_name_to_repo_name is None:
+            self._module_name_to_repo_name = (
+                self._construct_module_name_mapping()
+            )
+
+        if self._repo_name_to_module_name is None:
+            self._repo_name_to_module_name = {
+                v: k for k, v in self._module_name_to_repo_name.items()
+            }
+
+        if self._normalized_repo_name_to_module_name is None:
+            self._normalized_repo_name_to_module_name = {
+                _normalize_package_name(k): v
+                for k, v in self._repo_name_to_module_name.items()
+            }
+
+    def module_to_package(self, module_name: str) -> str:
+        """Canonicalizes a module name to a package name on PyPI."""
+        if self._module_name_to_repo_name is None:
+            self._initialize_mappings()
+        assert self._module_name_to_repo_name is not None
+
+        if module_name in self._module_name_to_repo_name:
+            return self._module_name_to_repo_name[module_name]
+        else:
+            return module_name.replace("_", "-")
+
+    def package_to_module(self, package_name: str) -> str:
+        """Canonicalizes a package name to a module name."""
+        if (
+            self._repo_name_to_module_name is None
+            or self._normalized_repo_name_to_module_name is None
+        ):
+            self._initialize_mappings()
+        assert self._repo_name_to_module_name is not None
+        assert self._normalized_repo_name_to_module_name is not None
+
+        # Exact match first, to preserve any casing in the known mapping.
+        if package_name in self._repo_name_to_module_name:
+            return self._repo_name_to_module_name[package_name]
+
+        # PyPI package names are case-insensitive and treat runs of `-`, `_`,
+        # `.` as equivalent (PEP 503). uv normalizes names when it writes them
+        # into a notebook's script metadata (e.g. `Pillow` -> `pillow`), so
+        # fall back to a normalized lookup before guessing.
+        normalized = _normalize_package_name(package_name)
+        if normalized in self._normalized_repo_name_to_module_name:
+            return self._normalized_repo_name_to_module_name[normalized]
+
+        return package_name.replace("-", "_")

@@ -1,0 +1,15 @@
+{
+  "call_id": "c1",
+  "event_id": "01H_llm_call_started",
+  "event_type": "llm.call_started",
+  "metadata": {},
+  "model": {
+    "model_id": "claude-opus-4-7",
+    "provider_id": "anthropic"
+  },
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z",
+  "turn_id": "t1"
+}

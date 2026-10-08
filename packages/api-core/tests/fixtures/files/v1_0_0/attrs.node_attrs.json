@@ -1,0 +1,17 @@
+{
+  "$model": "alkera_core.schemas.files.attrs.NodeAttrs",
+  "atime_ns": 1767268800000000000,
+  "birthtime_ns": 1767182400000000000,
+  "gid": 20,
+  "metadata": {},
+  "mode": 33188,
+  "mtime_ns": 1767268800123456789,
+  "nlink": 1,
+  "owner": "e7c0f4a4-1f8e-4a6e-9b06-1f3d1e1a0001",
+  "rdev": 0,
+  "schema_version": "1.0.0",
+  "uid": 501,
+  "xattrs": {
+    "user.com.apple.metadata:_kMDItemUserTags": "UmVkCkltcG9ydGFudA=="
+  }
+}

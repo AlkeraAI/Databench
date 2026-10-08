@@ -1,0 +1,14 @@
+{
+  "filename": "x.png",
+  "message_id": "m1",
+  "metadata": {},
+  "mime": "image/png",
+  "part_id": "p1",
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "size": 42,
+  "source": null,
+  "time": "2026-05-26T00:00:00Z",
+  "type": "file"
+}

@@ -1,0 +1,237 @@
+[
+  {
+    "expression": "datum.x > 5",
+    "fields": [
+      "x"
+    ],
+    "name": "comparison"
+  },
+  {
+    "expression": "((datum.a > 1) && (datum.c === 'x'))",
+    "fields": [
+      "a",
+      "c"
+    ],
+    "name": "altair_and"
+  },
+  {
+    "expression": "(!(datum.a > 1))",
+    "fields": [
+      "a"
+    ],
+    "name": "altair_not"
+  },
+  {
+    "expression": "(datum['my col'] > 1)",
+    "fields": [
+      "my col"
+    ],
+    "name": "bracket_key_with_space"
+  },
+  {
+    "expression": "datum[\"a.b\"] * 2",
+    "fields": [
+      "a.b"
+    ],
+    "name": "bracket_key_with_dot"
+  },
+  {
+    "expression": "datum.a * 2 + datum.b / 3 - datum.c % 4",
+    "fields": [
+      "a",
+      "b",
+      "c"
+    ],
+    "name": "arithmetic"
+  },
+  {
+    "expression": "if((datum.a > 1),'big','small')",
+    "fields": [
+      "a"
+    ],
+    "name": "altair_if"
+  },
+  {
+    "expression": "datum.a > 0 ? 'pos' : datum.a < 0 ? 'neg' : 'zero'",
+    "fields": [
+      "a"
+    ],
+    "name": "nested_ternary"
+  },
+  {
+    "expression": "sqrt(-2*log(random()))*cos(2*PI*random())",
+    "fields": [],
+    "name": "jitter"
+  },
+  {
+    "expression": "\"v=\" + format(datum.b, \".1f\")",
+    "fields": [
+      "b"
+    ],
+    "name": "format_concat"
+  },
+  {
+    "expression": "upper(slice(trim(datum.name), 0, 3)) + lower(substring(datum.name, 1))",
+    "fields": [
+      "name"
+    ],
+    "name": "string_functions"
+  },
+  {
+    "expression": "(indexof(datum.c,'x') >= 0)",
+    "fields": [
+      "c"
+    ],
+    "name": "altair_indexof"
+  },
+  {
+    "expression": "isValid(datum.a) && isNumber(toNumber(datum.a))",
+    "fields": [
+      "a"
+    ],
+    "name": "type_checks"
+  },
+  {
+    "expression": "year(datum.t) - month(datum.t) + utchours(datum.t)",
+    "fields": [
+      "t"
+    ],
+    "name": "date_parts"
+  },
+  {
+    "expression": "timeFormat(toDate(datum.t), '%Y-%m')",
+    "fields": [
+      "t"
+    ],
+    "name": "time_format"
+  },
+  {
+    "expression": "(now() - time(datum.t)) / 86400000",
+    "fields": [
+      "t"
+    ],
+    "name": "days_since"
+  },
+  {
+    "expression": "indexof(['a', 'b'], datum.c) >= 0",
+    "fields": [
+      "c"
+    ],
+    "name": "array_literal"
+  },
+  {
+    "expression": "split(datum.name, ' ')[0]",
+    "fields": [
+      "name"
+    ],
+    "name": "index_into_a_value"
+  },
+  {
+    "expression": "pad(datum.code, 6, '0', 'left')",
+    "fields": [
+      "code"
+    ],
+    "name": "pad_literal_length"
+  },
+  {
+    "expression": "clamp(datum.a, 0, 10)",
+    "fields": [
+      "a"
+    ],
+    "name": "clamp"
+  },
+  {
+    "expression": "PI * E + LN2 - SQRT1_2 + MAX_VALUE + LOG10E",
+    "fields": [],
+    "name": "constants"
+  },
+  {
+    "expression": "datum.a === null || datum.b === true || datum.c !== false",
+    "fields": [
+      "a",
+      "b",
+      "c"
+    ],
+    "name": "literals"
+  },
+  {
+    "expression": "datum.a * 1.5e3 + 0x1F - .5 + 0 + 2.",
+    "fields": [
+      "a"
+    ],
+    "name": "number_forms"
+  },
+  {
+    "expression": "(datum.a & 1) | (datum.b ^ 2) << 1 >> 1 >>> 0 + ~datum.c",
+    "fields": [
+      "a",
+      "b",
+      "c"
+    ],
+    "name": "bitwise"
+  },
+  {
+    "expression": "datum.s === 'it\\'s \\u00e9 \\x41 \\u{1F600} \\n \\0'",
+    "fields": [
+      "s"
+    ],
+    "name": "string_escapes"
+  },
+  {
+    "expression": "datum.s === 'caf\u00e9'",
+    "fields": [
+      "s"
+    ],
+    "name": "unicode_text"
+  },
+  {
+    "expression": "  datum.a\n>\t1 ",
+    "fields": [
+      "a"
+    ],
+    "name": "whitespace"
+  },
+  {
+    "expression": "datum.if + datum.true",
+    "fields": [
+      "if",
+      "true"
+    ],
+    "name": "keyword_named_fields"
+  },
+  {
+    "expression": "datum.kind == 'window' || datum.kind == 'this'",
+    "fields": [
+      "kind"
+    ],
+    "name": "ordinary_word_in_a_string"
+  },
+  {
+    "expression": "datum.a?.5:1",
+    "fields": [
+      "a"
+    ],
+    "name": "ternary_with_leading_decimal"
+  },
+  {
+    "expression": "(((((((((((((((((((((((((((((((datum.a)))))))))))))))))))))))))))))))",
+    "fields": [
+      "a"
+    ],
+    "name": "deepest_nesting"
+  },
+  {
+    "expression": "datum.a + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 ",
+    "fields": [
+      "a"
+    ],
+    "name": "longest"
+  },
+  {
+    "expression": "datum.s === '\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00'",
+    "fields": [
+      "s"
+    ],
+    "name": "longest_in_utf16_units"
+  }
+]

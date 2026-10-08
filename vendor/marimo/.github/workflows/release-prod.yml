@@ -1,0 +1,123 @@
+name: Publish prod release
+
+on:
+  workflow_call:
+    outputs:
+      marimo_version:
+        description: "The release version that was built"
+        value: ${{ jobs.publish_release.outputs.marimo_version }}
+
+permissions:
+  contents: read
+
+env:
+  TURBO_TEAM: marimo
+  UV_EXCLUDE_NEWER: "7 days"
+
+jobs:
+  publish_release:
+    name: 📤 Build release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for Doppler OIDC
+    defaults:
+      run:
+        shell: bash
+
+    outputs:
+      marimo_version: ${{ steps.get_version.outputs.marimo_version }}
+
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: 🔐 Fetch Doppler secrets
+        uses: dopplerhq/secrets-fetch-action@cd2efbf9a404504316435873eff298b82f7e0562 # v1.3.0
+        id: secrets
+        with:
+          auth-method: oidc
+          doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
+          doppler-project: marimo-oss
+          doppler-config: ci_deploy
+
+      - name: 📦 Build frontend
+        uses: ./.github/actions/build-frontend
+        with:
+          turbo-token: ${{ steps.secrets.outputs.TURBO_TOKEN }}
+          codecov-token: ${{ steps.secrets.outputs.CODECOV_TOKEN }}
+
+      - name: 🐍 Setup uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: 📦 Build marimo
+        run: uv build
+
+      - name: 📦 Upload marimo dist artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: pypi-marimo
+          path: dist/
+          retention-days: 1
+
+      - name: 🔨 Get version
+        id: get_version
+        run: |
+          echo "marimo_version=$(uv version --short)" >> $GITHUB_OUTPUT
+
+      - name: 📦 Update package.json version from CLI
+        working-directory: frontend
+        run: |
+          echo "Updating package.json version to ${{ steps.get_version.outputs.marimo_version }}"
+          npm version ${{ steps.get_version.outputs.marimo_version }} --no-git-tag-version
+
+      - name: 📦 Upload frontend artifact for npm publish
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: frontend
+          path: frontend/
+          retention-days: 1
+
+      - name: 📦 Update package.json name to @marimo-team/islands
+        working-directory: frontend
+        run: |
+          sed -i 's/"name": "@marimo-team\/frontend"/"name": "@marimo-team\/islands"/' package.json
+
+      - name: 📦 Rebuild frontend for islands
+        working-directory: frontend
+        env:
+          NODE_ENV: production
+          VITE_MARIMO_ISLANDS: 'true'
+          VITE_MARIMO_VERSION: ${{ steps.get_version.outputs.marimo_version }}
+        run: |
+          pnpm turbo build:islands
+          ./islands/validate.sh
+
+      - name: 📦 Upload islands artifact for npm publish
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: frontend-islands
+          path: frontend/
+          retention-days: 1
+
+  publish_wasm:
+    name: 📤 Publish @marimo-team/frontend to npm
+    needs: publish_release
+    uses: ./.github/workflows/publish-npm.yml
+    with:
+      package-artifact-name: frontend
+      working-directory: '.'
+    permissions:
+      id-token: write  # Required for OIDC
+      contents: read
+
+  publish_islands:
+    name: 📤 Publish @marimo-team/islands to npm
+    needs: publish_release
+    uses: ./.github/workflows/publish-npm.yml
+    with:
+      package-artifact-name: frontend-islands
+      working-directory: '.'
+    permissions:
+      id-token: write  # Required for OIDC
+      contents: read

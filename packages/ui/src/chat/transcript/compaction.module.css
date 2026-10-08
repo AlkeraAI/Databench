@@ -1,0 +1,60 @@
+/* The compaction block. A ruled band rather than a card with a border: the
+   fold IS a boundary in the transcript, so the rule above it does the dividing
+   and the text sits on the tape like every other record line. */
+
+:global(.chat-root) .card {
+  padding: var(--chat-sp-2) 0;
+  border-top: 1px solid var(--chat-hairline);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-2);
+}
+
+:global(.chat-root) .head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: var(--chat-sp-2);
+  row-gap: var(--chat-sp-1);
+  margin: 0;
+}
+
+:global(.chat-root) .title {
+  color: var(--chat-ink);
+}
+
+:global(.chat-root) .fact,
+:global(.chat-root) .elapsed {
+  color: var(--chat-ink-3);
+}
+
+:global(.chat-root) .actions {
+  display: flex;
+  column-gap: var(--chat-sp-3);
+  margin: var(--chat-sp-1) 0 0;
+}
+
+:global(.chat-root) .disclose {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--chat-ink-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+:global(.chat-root) .disclose:hover,
+:global(.chat-root) .disclose:focus-visible {
+  color: var(--chat-ink);
+}
+
+:global(.chat-root) .summary {
+  margin-top: var(--chat-sp-2);
+  padding-left: var(--chat-sp-3);
+  border-left: 2px solid var(--chat-hairline);
+  color: var(--chat-ink-2);
+}

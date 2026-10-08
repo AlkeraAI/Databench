@@ -1,0 +1,180 @@
+/* The share dialog's own sheet. It opens from the files browser, the chat header,
+   a chat's file tab and the right pane — each a different lazy chunk — so it
+   brings its styles with it rather than borrowing the browser page's, which a
+   chat route never loads.
+
+   Layout: an add row on top (search, role, Share on one aligned line, the
+   matches under it), the people who can reach the node under that, and the link
+   buttons at the foot. Controls, rows and type come from the UI library; this
+   sheet only places them. An inherited row is dimmed rather than hidden — a
+   person has to be able to see that Dana can reach this, and learn that the
+   folder above is where that is decided. */
+
+.alk-files-share__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace5);
+  min-width: 0;
+}
+
+/* --- add row ------------------------------------------------------------- */
+
+.alk-files-share__add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+  min-width: 0;
+}
+
+/* Search, role and Share share one baseline: the field's label rides above the
+   search alone, so the row aligns on its bottom edge. */
+.alk-files-share__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--alkSpace2);
+  min-width: 0;
+}
+
+/* The search fills what the role picker and the button leave. A search field is
+   a fixed-width toolbar control by default; here it is the form's main field. */
+.alk-files-share__controls .alk-files-share__search {
+  flex: 1 1 14rem;
+  min-width: 0;
+  --alk-search-w: 100%;
+}
+
+.alk-files-share__controls .alk-files-share__role-new {
+  flex: 0 0 9.5rem;
+  width: 9.5rem;
+}
+
+/* The matches sit in the flow, on a line of their own under the field. Hung
+   absolutely off the field they were cut off by the dialog body's scroll box,
+   so the last matches were out of reach; in the flow they push the body down
+   and it scrolls to them. */
+.alk-files-share__suggestions {
+  position: static;
+  flex: 1 1 100%;
+  box-sizing: border-box;
+  max-height: 16rem;
+  margin: 0;
+  padding: var(--alkSpace1);
+  overflow-y: auto;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkControlBg);
+  list-style: none;
+}
+
+.alk-files-share__suggestion {
+  display: flex;
+  align-items: center;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border-radius: var(--alkRadiusSm);
+  cursor: pointer;
+}
+
+.alk-files-share__suggestion:hover,
+.alk-files-share__suggestion[aria-selected="true"] {
+  background: var(--alkHoverBg);
+}
+
+/* A search note (searching, nobody matches, not answered) takes the list's
+   place in the same box, so the field below it does not jump. */
+.alk-files-share__suggestions.alk-files-share__empty {
+  padding: var(--alkSpace3);
+}
+
+/* The refusal banner is the library's Callout; this wrapper only names the
+   server's code for it. */
+.alk-files-share__error {
+  min-width: 0;
+}
+
+/* --- people with access -------------------------------------------------- */
+
+.alk-files-share__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+  min-width: 0;
+}
+
+.alk-files-share__heading {
+  margin: 0;
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+}
+
+/* Rows, not bullets: each is one person, their role and what can be done. */
+.alk-files-share__rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alk-files-share__row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-block: var(--alkSpace2);
+}
+
+.alk-files-share__row + .alk-files-share__row {
+  border-top: 1px solid var(--alkDivider);
+}
+
+.alk-files-share__row[data-origin="inherited"] .alk-identity {
+  opacity: 0.7;
+}
+
+.alk-files-share__row-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--alkSpace1);
+}
+
+.alk-files-share__row-controls .alk-files-share__role {
+  width: 8.5rem;
+}
+
+.alk-files-share__role--readonly {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+  white-space: nowrap;
+}
+
+.alk-files-share__empty {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+/* --- links --------------------------------------------------------------- */
+
+/* A row that is two things at once offers a link to each, so the buttons share
+   a row that wraps, and the note sits on its own line beneath them. */
+.alk-files-share__links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+  padding-top: var(--alkSpace4);
+  border-top: 1px solid var(--alkDivider);
+}
+
+.alk-files-share__link-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace2);
+}
+
+.alk-files-share__note {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}

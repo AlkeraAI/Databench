@@ -1,0 +1,303 @@
+.nb-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  color: var(--nb-text);
+  font-family: var(--nb-font-ui);
+  font-size: 13px;
+}
+
+.nb-panel__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.nb-panel__empty {
+  margin: 0;
+  color: var(--nb-text-muted);
+}
+
+.nb-panel__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* An input grows along a row only. In a column (a panel's own stack) a flex
+   basis would become its height. */
+.nb-panel__row > .nb-input {
+  width: auto;
+  flex: 1 1 140px;
+}
+
+.nb-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.nb-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--nb-border-strong);
+  border-radius: var(--nb-radius);
+  background: var(--nb-bg);
+  color: var(--nb-text);
+  font: inherit;
+}
+
+.nb-input:focus-visible,
+.nb-chip:focus-visible,
+.nb-link:focus-visible,
+.nb-graph__node:focus-visible {
+  outline: 2px solid var(--nb-focus);
+  outline-offset: 1px;
+}
+
+.nb-input[aria-invalid="true"] {
+  border-color: var(--nb-danger);
+}
+
+.nb-chip {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--nb-border);
+  border-radius: var(--nb-radius);
+  background: var(--nb-surface);
+  color: var(--nb-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.nb-chip[aria-pressed="true"] {
+  border-color: var(--nb-accent);
+  color: var(--nb-accent-text);
+}
+
+.nb-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.nb-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nb-link:hover {
+  color: var(--nb-accent-text);
+}
+
+.nb-mono {
+  font-family: var(--nb-font-mono);
+}
+
+.nb-muted {
+  color: var(--nb-text-muted);
+}
+
+.nb-danger {
+  color: var(--nb-danger);
+}
+
+.nb-install {
+  margin: 6px 0 0;
+}
+
+.nb-install--error {
+  color: var(--nb-danger);
+}
+
+/* Graph */
+
+.nb-graph {
+  position: relative;
+  overflow: auto;
+  max-width: 100%;
+}
+
+.nb-graph__canvas {
+  position: relative;
+}
+
+.nb-graph__edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.nb-graph__edge {
+  stroke: var(--nb-border-strong);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.nb-graph__edge--active {
+  stroke: var(--nb-accent);
+}
+
+.nb-graph__nodes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nb-graph__node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  padding: 0 8px;
+  border: 1px solid var(--nb-border-strong);
+  border-radius: var(--nb-radius);
+  background: var(--nb-surface);
+  color: var(--nb-text);
+  font-family: var(--nb-font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.nb-graph__node[aria-current="true"] {
+  border-color: var(--nb-accent);
+  box-shadow: 0 0 0 1px var(--nb-accent);
+}
+
+.nb-graph__node--error {
+  border-color: var(--nb-danger);
+  color: var(--nb-danger);
+}
+
+.nb-graph__mark {
+  font-family: var(--nb-font-ui);
+  font-weight: 600;
+}
+
+/* Variables */
+
+.nb-table-wrap {
+  overflow: auto;
+  max-width: 100%;
+}
+
+.nb-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.nb-table th,
+.nb-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--nb-border);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.nb-table th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.nb-table__value {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Outline */
+
+.nb-outline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nb-outline li {
+  padding: 2px 0;
+}
+
+/* Environment */
+
+.nb-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.nb-facts dt {
+  color: var(--nb-text-muted);
+}
+
+.nb-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.nb-packages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.nb-packages li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.nb-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.nb-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nb-setting__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nb-setting__label {
+  font-weight: 600;
+}
+
+.nb-setting__help,
+.nb-setting__source {
+  margin: 0;
+  font-size: 12px;
+}

@@ -1,0 +1,72 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "00000000b2": {
+        "defs": [],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "",
+        "config": {},
+        "extra": {},
+        "id": "00000000b2",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": ""
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "# >>> alkera\n# format = \"1.0\"\n# <<< alkera\n",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "keep = 1",
+    "violations": [
+      [
+        "format_version",
+        1
+      ],
+      [
+        "settings_value",
+        1
+      ],
+      [
+        "settings_value",
+        1
+      ],
+      [
+        "settings_value",
+        1
+      ],
+      [
+        "settings_value",
+        1
+      ],
+      [
+        "settings_value",
+        1
+      ],
+      [
+        "settings_duplicate",
+        10
+      ]
+    ]
+  }
+}

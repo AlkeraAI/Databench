@@ -1,0 +1,352 @@
+/* The subagent as its own transcript block.
+
+   A delegation returns a piece of writing, so the block is a quiet framed
+   document in the transcript, the register the plan document already holds:
+   hairline frame, an identity head, the document, a fold at the foot. The
+   interrupt is the panel's only elevated performer, so nothing here is raised.
+
+   TYPE: 14px carries the head phrase and the report; 12px carries the
+   readings, the ask, and the fold. No other size exists here.
+   INK: the head phrase and the report at primary, everything else at ink-3,
+   the dimmest ink any informational text takes.
+   CHROMA: the avatar wears the agent register's hue, because it is an
+   identity mark. A failure wears bad. Nothing else is tinted.
+
+   Scope: the block's root carries [data-tool="spawn_agent"], which seats it in
+   the agent register of the shared --chat-tool-* vocabulary (tools/tokens.css) and
+   declares it a chat-toolwell container; every rule here is written against
+   [data-subagent-block], so nothing reaches a grouped tool step. */
+
+.chat-root [data-subagent-block] {
+  /* A framed document takes the control radius, not the micro radius a well's
+     carve takes. */
+  --chat-subagent-wash: color-mix(in srgb, var(--chat-ink) 6%, transparent);
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-control);
+}
+
+.chat-root[data-theme="dark"] [data-subagent-block] {
+  --chat-subagent-wash: color-mix(in srgb, var(--chat-ink) 10%, transparent);
+}
+
+/* The document's interior. The padding lives here so it never reaches the
+   fold, which is the frame's own foot. */
+.chat-root [data-subagent-block] .chat-subagent-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-3);
+  min-width: 0;
+  padding: var(--chat-sp-3);
+}
+
+.chat-root [data-subagent-block][data-status="error"] {
+  border-color: var(--chat-tool-bad-line);
+}
+
+/* ── The identity row: who wrote this, and the way into their chat ─────────── */
+
+.chat-root [data-subagent-block] .chat-subagent-who {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  min-width: 0;
+  min-height: 24px;
+}
+
+.chat-root [data-subagent-block] .chat-subagent-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+/* The child's mark: the register's hue on its wash, one cell per hash bit. */
+.chat-root [data-subagent-block] .chat-subagent-avatar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  width: 16px;
+  height: 16px;
+  overflow: hidden;
+  border: 1px solid var(--chat-tool-id-line);
+  border-radius: 3px;
+  background: var(--chat-tool-id-wash);
+}
+
+.chat-root [data-subagent-block] .chat-subagent-avatar > span[data-on] {
+  background: var(--chat-tool-id);
+}
+
+/* The name is the block's subject, so it reads at body size. It shrinks last
+   and clips rather than wrapping, since the row also holds a control. The
+   agent's own name differs from the phrase by weight alone. */
+.chat-root [data-subagent-block] .chat-subagent-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--chat-fs-text);
+  font-weight: var(--chat-w-regular);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink);
+}
+
+.chat-root [data-subagent-block] .chat-subagent-name__id {
+  font-weight: var(--chat-w-medium);
+}
+
+/* A failed delegation says so beside the name, in words and in a mark, so the
+   report below is read as what came back from a run that broke. */
+.chat-root [data-subagent-block] .chat-subagent-failed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  flex: 0 0 auto;
+  font-size: var(--chat-fs-record);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-tool-bad);
+}
+
+/* The child's chat is a page of its own, so the row that names the child
+   offers it. The wash bleeds into the frame's padding and stops 4px clear of
+   the border, so a hover never touches the frame. */
+.chat-root [data-subagent-block] .chat-subagent-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--chat-sp-1);
+  flex: none;
+  margin-left: auto;
+  margin-right: -4px;
+  min-height: 24px;
+  padding: 0 var(--chat-sp-1);
+  border-radius: var(--chat-radius-micro);
+  font-size: var(--chat-fs-record);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-tool-ink-3);
+  cursor: pointer;
+  transition:
+    background-color var(--chat-dur-fast) var(--chat-ease-soft),
+    color var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+.chat-root [data-subagent-block] .chat-subagent-open:hover {
+  background: var(--chat-subagent-wash);
+  color: var(--chat-ink);
+}
+
+/* ── The readings row: what the run cost ──────────────────────────────────── */
+
+/* One line, always. Each reading is a token that holds its own width; the
+   model id is the only thing that gives way, and it gives way last. */
+.chat-root [data-subagent-block] .chat-subagent-readings {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-3);
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-root [data-subagent-block] .chat-subagent-reading {
+  flex: 0 0 auto;
+}
+
+/* The model line leads with its vendor's mark, so the family is read before
+   the id is. The mark holds its box; the id is what shrinks. */
+.chat-root [data-subagent-block] .chat-subagent-model {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.chat-root [data-subagent-block] .chat-subagent-model .alk-provider-mark {
+  flex: 0 0 auto;
+}
+
+.chat-root [data-subagent-block] .chat-subagent-model__id {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── The ask: the parent's words, above the child's ───────────────────────── */
+
+/* Context for the report, not the report: quiet, and held to three lines. The
+   whole instruction is one hover away, on the row's tooltip. */
+.chat-root [data-subagent-block] .chat-subagent-ask {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+/* ── The report: the block's apex ─────────────────────────────────────────── */
+
+/* The rule is what separates the child's words from the parent's. The prose
+   renderer sets the reading matter; this frame only seats it. */
+.chat-root [data-subagent-block] .chat-subagent-report {
+  padding-top: var(--chat-sp-3);
+  border-top: 1px solid var(--chat-hairline);
+}
+
+/* Before the first child message lands, say what the frame is waiting for. */
+.chat-root [data-subagent-block] .chat-subagent-waiting {
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+/* An agent's report is the longest thing a turn can hand back, so opened it
+   scrolls inside its own bounds rather than pushing the transcript down. The
+   cap matches the skill document, the other long-form body in the package. */
+.chat-root [data-subagent-block] .chat-subagent-report {
+  max-height: 340px;
+  overflow: auto;
+}
+
+/* Collapsed, the report rests at a preview. The cap bounds it at every width
+   and the mask fades a mid-sentence cut into the fold below it. */
+.chat-root [data-subagent-block]:not([data-open]) .chat-subagent-report {
+  max-height: 132px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 92px, transparent 132px);
+  mask-image: linear-gradient(to bottom, #000 92px, transparent 132px);
+}
+
+/* The cause of a broken run reads before what came back from it. */
+.chat-root [data-subagent-block] .chat-subagent-fail {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-tool-bad);
+}
+
+.chat-root [data-subagent-block] .chat-subagent-fail__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── The fold: the card's footer ──────────────────────────────────────────── */
+
+/* An own section under the document: a hairline seats it, its padding is its
+   own, and the label centers with the caret at its right. The phrase never
+   breaks. */
+.chat-root [data-subagent-block] .chat-subagent-fold {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--chat-sp-1);
+  width: 100%;
+  padding: var(--chat-sp-2) var(--chat-sp-3);
+  border-top: 1px solid var(--chat-hairline);
+  border-radius: 0 0 calc(var(--chat-radius-control) - 1px)
+    calc(var(--chat-radius-control) - 1px);
+  font-size: var(--chat-fs-record);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-tool-ink-3);
+  cursor: pointer;
+  transition:
+    background-color var(--chat-dur-fast) var(--chat-ease-soft),
+    color var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+.chat-root [data-subagent-block] .chat-subagent-fold:hover {
+  background: var(--chat-subagent-wash);
+  color: var(--chat-ink);
+}
+
+/* The footer runs edge to edge, so the ring sits inside the frame. */
+.chat-root [data-subagent-block] .chat-subagent-fold:focus-visible {
+  outline: 2px solid var(--chat-focus);
+  outline-offset: -2px;
+}
+
+.chat-root [data-subagent-block] .chat-subagent-caret {
+  flex: none;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+.chat-root [data-subagent-block] .chat-subagent-caret[data-open] {
+  transform: rotate(180deg);
+}
+
+/* ── Width ────────────────────────────────────────────────────────────────── */
+
+/* The readings fold from the trailing end, so what is left is always the
+   reading that identifies the run rather than the one that measures it. */
+@container chat-toolwell (max-width: 239px) {
+  .chat-root [data-subagent-block] .chat-subagent-duration {
+    display: none;
+  }
+}
+
+@container chat-toolwell (max-width: 179px) {
+  .chat-root [data-subagent-block] .chat-subagent-calls {
+    display: none;
+  }
+}
+
+/* Below this the identity row cannot set the control's words beside the name,
+   so the control folds to its mark and keeps its full 24px target. Its name
+   stays in the tooltip and the accessible name. */
+@container chat-toolwell (max-width: 199px) {
+  .chat-root [data-subagent-block] .chat-subagent-open__label {
+    display: none;
+  }
+
+  .chat-root [data-subagent-block] .chat-subagent-open {
+    width: 24px;
+    padding: 0;
+  }
+}
+
+/* ── The readability dot ──────────────────────────────────────────────────── */
+
+/* The dot comes from the host's one block mechanism; this block only feeds it
+   the two lengths for its own first row: the frame's border plus its top
+   padding, then the identity row's band. */
+.chat-root .chat-block:has([data-subagent-block]) {
+  --chat-dot-lead: 13px;
+  --chat-first-row-lh: 24px;
+}
+
+/* ── Motion ───────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root
+    [data-subagent-block]
+    :is(.chat-subagent-open, .chat-subagent-fold, .chat-subagent-caret) {
+    transition: none;
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "0000000001": {
+        "defs": [
+          "alkera",
+          "pl"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {
+      "app_title": "Revenue",
+      "auto_download": [
+        "html",
+        "ipynb"
+      ],
+      "css_file": "custom.css",
+      "html_head_file": "head.html",
+      "layout_file": "layouts/revenue.grid.json",
+      "sql_output": "polars",
+      "width": "full"
+    },
+    "cells": [
+      {
+        "code": "import alkera\nimport polars as pl",
+        "config": {},
+        "extra": {},
+        "id": "0000000001",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "keyword",
+        "source": "import alkera\nimport polars as pl"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "adopted_chat_id": null,
+  "binding_authority": "chat",
+  "kind": "main",
+  "layout": "native",
+  "machine_id": null,
+  "machine_status": "none",
+  "metadata": {},
+  "mirror_state": null,
+  "sandbox_memory_mb": null,
+  "sandbox_vcpu": null,
+  "schema_version": "1.0.0",
+  "spare": false,
+  "spare_active_at": null,
+  "wake_requested_at": null,
+  "writable": false
+}

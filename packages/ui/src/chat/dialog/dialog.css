@@ -1,0 +1,166 @@
+/* The dock family's shared frame. The permission card, the question card, the
+   plan card, and the plan document are one surface family, so the raised shell,
+   the action row, the keycap, the danger face, and the focus ring are declared
+   once here. What an organ diverges on stays in that organ's own sheet: the
+   mode-hued approve fill, the split allow button, and the two choice-row
+   designs are each a different decision wearing a different shape.
+
+   Every rule matches the organ's own class rather than a wrapper class, so no
+   organ's markup changes to opt in and a new dock card joins by adding its name
+   to a list here. The rules sit at the same specificity as an organ's, so each
+   organ imports this sheet BEFORE its own and overrides by order.
+
+   Type is NOT aliased: these organs read the published ladder (theme/tokens.css)
+   directly, so no name sits between a dock card and the seam. The family's own
+   color ramp (--chat-dialog-*) is declared with the other theme tokens. */
+
+/* The family's inherited register. */
+.chat-root :is(.chat-permission-card, .chat-question-frame, .chat-asked-card, .chat-plan-doc, .chat-plan-card) {
+  color: var(--chat-ink);
+  font-family: var(--chat-sans);
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+}
+
+/* ── The card: the one elevated performer while it holds the dock ──────────── */
+
+/* The card fills the dock's left-anchored reading column (the host caps and
+   left-anchors it), so it shares the transcript's axis at every width. Past the
+   height cap the card's body scrolls, never its actions. The interior gap and
+   the entrance belong to each organ. */
+.chat-root :is(.chat-plan-card, .chat-question-card, .chat-permission-card) {
+  width: 100%;
+  padding: var(--chat-sp-4);
+  display: flex;
+  flex-direction: column;
+  max-height: var(--chat-dialog-max-h);
+  background: var(--chat-paper-raised);
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-surface);
+  box-shadow: var(--chat-dialog-elev);
+  outline: none;
+}
+
+/* ── The action bar ────────────────────────────────────────────────────────── */
+
+/* One row, one rhythm. Each organ folds this row at its own measured width,
+   because the controls on it are not the same width in any two cards. */
+.chat-root :is(.chat-plan-actions, .chat-question-bar, .chat-permission-bar) {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+}
+
+/* The spacer that drives the commit to the trailing edge. A folded bar drops it
+   rather than wrap it, since a growing item on a wrapped line takes a row of
+   its own. */
+.chat-root :is(.chat-plan-actions__gap, .chat-question-bar__gap, .chat-permission-bar__gap) {
+  flex: 1;
+}
+
+/* Every control on a bar shares one height, and no label ever wraps. Padding,
+   radius, and the transition set stay with each organ, whose controls carry
+   different accessories inside the same box. */
+.chat-root :is(.chat-plan-reject, .chat-plan-approve, .chat-question-page, .chat-question-primary, .chat-permission-deny, .chat-permission-allow__main, .chat-permission-allow__caret) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* ── One refusal treatment across the family ───────────────────────────────── */
+
+/* A designed danger chip: soft red tint, red label and edge, clearly secondary
+   to the filled primary, so the same decision never wears two costumes. */
+.chat-root :is(.chat-plan-reject, .chat-permission-deny) {
+  background: var(--chat-dialog-danger-wash);
+  border: 1px solid var(--chat-dialog-danger-edge);
+  color: var(--chat-dialog-danger);
+  font-weight: var(--chat-w-medium);
+}
+
+.chat-root :is(.chat-plan-reject, .chat-permission-deny):hover {
+  background: var(--chat-dialog-danger-wash-2);
+}
+
+.chat-root :is(.chat-plan-reject, .chat-permission-deny):focus-visible {
+  outline: 2px solid var(--chat-dialog-danger-ring);
+  outline-offset: 2px;
+}
+
+/* ── One failure line across the family ────────────────────────────────────── */
+
+/* An answer that did not reach the machine says so on the card that took it,
+   above the action bar where the reader's eye already is. Whichever ask was
+   being answered, the refusal reads the same. */
+.chat-root :is(.chat-permission-failure, .chat-question-failure, .chat-plan-failure) {
+  display: flex;
+  align-items: baseline;
+  gap: var(--chat-sp-2);
+  margin: var(--chat-sp-2) 0 0;
+  color: var(--chat-danger);
+  font-size: var(--chat-fs-record, 12px);
+  line-height: var(--chat-lh-record, 16px);
+}
+
+/* ── Focus: one forest ring, drawn on the whole control the user perceives ─── */
+
+/* The refusal follows its own accent above, and the plan's commit follows the
+   mode it grants, so neither is listed here. */
+.chat-root :is(.chat-plan-open, .chat-question-page, .chat-question-primary, .chat-permission-allow__main, .chat-permission-allow__caret, .chat-permission-scope):focus-visible {
+  outline: 2px solid var(--chat-forest-bright);
+  outline-offset: 2px;
+}
+
+/* ── The keycap: the shortcut fused to a button's trailing edge ────────────── */
+
+/* It fires, so it is hardware, not a caption. The shell is the family's; the
+   skin belongs to the button under it, because the ground a cap sits on decides
+   what its own ink has to clear. */
+.chat-root :is(.chat-plan-key, .chat-permission-key) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 22px;
+  padding: var(--chat-sp-1) var(--chat-sp-1);
+  border-radius: var(--chat-radius-micro);
+  font-family: var(--chat-sans);
+  font-size: var(--chat-fs-record, 12px);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-record, 16px);
+  letter-spacing: var(--chat-track-record, 0.014em);
+}
+
+/* The two keys measure past what a 360px panel affords beside their labels, so
+   the accessory folds out before any label does. Enter and Escape still fire. */
+@container chat-panel (max-width: 389px) {
+  .chat-root :is(.chat-plan-key, .chat-permission-key) {
+    display: none;
+  }
+}
+
+/* ── The disclosure caret ──────────────────────────────────────────────────── */
+
+.chat-root :is(.chat-plan-caret, .chat-permission-caret) {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+/* The caret points at the content it would reveal, so open flips it. */
+.chat-root :is(.chat-plan-caret, .chat-permission-caret)[data-open] {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root :is(.chat-plan-caret, .chat-permission-caret) {
+    transition: none;
+  }
+}

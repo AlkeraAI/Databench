@@ -1,0 +1,26 @@
+{
+  "connection_id": "8c4e3d6f-5031-4d5e-a08f-a4d6f2c3e444",
+  "connection_name": "Tideline Postgres",
+  "duration_ms": 412,
+  "engine": "postgres",
+  "event_id": "ev-1",
+  "executed_at": "2026-09-07T12:00:00Z",
+  "metadata": {},
+  "params": {
+    "customer": "acme"
+  },
+  "principal": {
+    "agent_id": "sess-01J7Q3M8",
+    "chain": [
+      "00000000-0000-4000-8000-000000000001",
+      "sess-01J7Q3M8"
+    ],
+    "metadata": {},
+    "schema_version": "1.0.0",
+    "user_id": "00000000-0000-4000-8000-000000000001"
+  },
+  "role": "analytics_readonly",
+  "row_count": 3,
+  "schema_version": "1.0.0",
+  "sql": "SELECT day, orders FROM daily WHERE customer = %(customer)s"
+}

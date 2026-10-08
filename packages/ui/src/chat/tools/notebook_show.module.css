@@ -1,0 +1,48 @@
+@import "./tokens.css";
+
+/* The output keeps the well's inset; each kind brings its own interior. */
+.chart,
+.prose,
+.error {
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+}
+
+/* An output read from where the notebook stores it. */
+.stored .chart {
+  padding: 0;
+}
+
+.stored {
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+}
+
+/* An image no taller than a screenful of the card: "Go to cell" shows it whole. */
+.image {
+  display: block;
+  max-width: 100%;
+  max-height: 480px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Printed text keeps its own line breaks; a long line wraps inside the card. */
+.text {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.error .text {
+  padding: var(--chat-sp-2) 0 0;
+}
+
+/* The output's own height while it loads, so nothing under it moves. */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  color: var(--chat-ink-3);
+}

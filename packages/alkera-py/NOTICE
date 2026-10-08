@@ -1,0 +1,64 @@
+Databench by Alkera
+Copyright 2026 Alkera AI, Inc.
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This repository includes third-party software, listed below with its licence
+and the changes made to it. Dependencies installed by a package manager are
+not part of this repository; scripts/licence_audit.py checks their licences.
+
+-------------------------------------------------------------------------------
+marimo
+-------------------------------------------------------------------------------
+
+Source:    https://github.com/marimo-team/marimo, release 0.25.1
+           (commit 92fbbbee742eccf4c88dbc2afee16167e34dc7d5)
+Location:  vendor/marimo
+           packages/alkera-notebook/alkera_notebook/_marimo (generated copy)
+Licence:   Apache License, Version 2.0 (vendor/marimo/LICENSE)
+Notices:   marimo's own third-party notices are kept in
+           vendor/marimo/marimo/third_party.txt and
+           vendor/marimo/marimo/third_party_licenses.txt.
+
+Changes (Apache License 2.0, section 4(b)). Alkera AI, Inc. modified the
+following files. Each one states so in a notice at its top, and every change is
+fenced between "== ALKERA EDIT START" and "== ALKERA EDIT END" comments.
+vendor/marimo/README.alkera.md lists each change and why it was made.
+
+  marimo/_ast/cell.py
+  marimo/_ast/cell_manager.py
+  marimo/_ast/codegen.py
+  marimo/_ast/compiler.py
+  marimo/_ast/parse.py
+  marimo/_ast/sql_visitor.py
+  marimo/_ast/toplevel.py
+  marimo/_ast/visitor.py
+
+The generated copy under alkera_notebook/_marimo rewrites marimo's import
+paths to that package name, so it never collides with an installed marimo.
+Every file it changes carries a one-line notice saying so. The copy leaves out
+marimo's frontend bundle and smoke-test notebooks. marimo's docs, frontend and
+examples are not included in this repository.
+
+This project is compatible with marimo notebooks. It is not marimo, and is not
+endorsed by the marimo project.
+
+-------------------------------------------------------------------------------
+opencode
+-------------------------------------------------------------------------------
+
+Source:    https://github.com/sst/opencode
+Location:  vendor/opencode
+Licence:   MIT License, Copyright (c) 2025 opencode (vendor/opencode/LICENSE)
+
+opencode is one implementation of this project's agent harness. The harness
+contract, HarnessAdapter in apps/cli/alkera_cli/harness/, has two
+implementations: opencode (the default) and Claude Code. Builds name the
+opencode runtime `alkera-agent` and give it the product's assistant persona.
+
+Alkera AI, Inc. modified opencode. Every source change is fenced between
+"== ALKERA EDIT START" and "== ALKERA EDIT END" comments, and
+vendor/opencode/README.alkera.md lists each change and why it was made.
+
+The function `tail` in apps/cli/alkera_cli/plugins/plugin_base/bash_exec.py is
+ported from opencode's function of the same name, under the same MIT License.

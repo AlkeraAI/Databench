@@ -1,0 +1,92 @@
+/* Terminal (alk-terminal) — a shell prompt + output plate, the sibling of CodeBlock. The command line
+ * gets lightweight shell highlighting; the output is plain mono text. The palette is DERIVED from the
+ * semantic tokens, so it resolves per light/dark AND per host: inside VS Code the surface adopts the
+ * editor's terminal background / foreground / font, and the token hues track the brand semantic tokens. */
+.alk-terminal {
+  /* Shell token hues — the command name carries the brand pull; the rest track the code palette. */
+  --alk-sh-command: var(--alkBrandText);
+  --alk-sh-flag: var(--alkBrandText);
+  --alk-sh-string: var(--alkSuccessText);
+  --alk-sh-number: var(--alkWarningText);
+  --alk-sh-variable: var(--alkWarningText);
+  --alk-sh-comment: var(--alkTertiaryText);
+  --alk-sh-operator: var(--alkSecondaryText);
+  --alk-terminal-max: none;
+
+  margin: 0;
+  max-width: 100%;
+  overflow: auto;
+  /* Surface: the editor terminal background inside VS Code, else the warm code ground. */
+  background: var(--vscode-terminal-background, var(--vscode-editor-background, var(--alkRaisedBg)));
+  color: var(--vscode-terminal-foreground, var(--vscode-editor-foreground, var(--alkPrimaryText)));
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  font-family: var(--vscode-editor-font-family, var(--alkFontMono));
+  font-size: var(--alkTextSm);
+  line-height: var(--alkLeadingSnug);
+  tab-size: 2;
+}
+
+.alk-terminal__line {
+  margin: 0;
+  padding: var(--alkSpace3) var(--alkSpace5);
+  white-space: pre;
+  font: inherit;
+}
+.alk-terminal--wrap .alk-terminal__line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.alk-terminal__line + .alk-terminal__line {
+  border-top: 1px solid color-mix(in srgb, var(--alkBorder) 70%, transparent);
+}
+
+.alk-terminal__line--command {
+  color: var(--vscode-terminal-foreground, var(--alkPrimaryText));
+}
+.alk-terminal__line--output {
+  color: var(--alkSecondaryText);
+  max-height: var(--alk-terminal-max);
+  overflow: auto;
+}
+.alk-terminal__line--output:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Prompt: the working directory then a brand-tinted sigil, both unselectable so copying the visible
+   line never drags the prompt into the clipboard. */
+.alk-terminal__prompt {
+  user-select: none;
+}
+.alk-terminal__cwd {
+  color: var(--alkTertiaryText);
+}
+.alk-terminal__sigil {
+  color: var(--alkBrandText);
+  font-weight: var(--alkWeightSemibold);
+}
+
+/* Shell tokens. */
+.alk-terminal__sh--command {
+  color: var(--alk-sh-command);
+  font-weight: var(--alkWeightSemibold);
+}
+.alk-terminal__sh--flag {
+  color: var(--alk-sh-flag);
+}
+.alk-terminal__sh--string {
+  color: var(--alk-sh-string);
+}
+.alk-terminal__sh--number {
+  color: var(--alk-sh-number);
+}
+.alk-terminal__sh--variable {
+  color: var(--alk-sh-variable);
+}
+.alk-terminal__sh--comment {
+  color: var(--alk-sh-comment);
+  font-style: italic;
+}
+.alk-terminal__sh--operator {
+  color: var(--alk-sh-operator);
+}

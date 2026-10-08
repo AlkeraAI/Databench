@@ -1,0 +1,12 @@
+/* Loading state — only the ruled placeholder row stays as a class (its border + padding pair with a
+   position-conditional `:last-child` reset); the column scaffolding is ui Stack in the TSX. */
+.trow {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace7);
+  padding: var(--alkSpace5) var(--alkSpace3);
+  border-bottom: 1px solid var(--alkDivider);
+}
+.trow:last-child {
+  border-bottom: 0;
+}

@@ -1,0 +1,114 @@
+/* SplitPane — the IDE column layout: named panes in a grid, a draggable gutter
+ * between them, one pane taking the leftover width. The column track widths are
+ * written on the element as `--alk-split-<pane id>` custom properties, so a drag
+ * repaints one property instead of re-flowing a tree of flex boxes.
+ *
+ * The gutter and the collapsed strip are the two widths the module also computes
+ * with (a grab point, a clamp, a collapse threshold), so they live here as
+ * properties the module's own constants are pinned against. */
+
+.alk-split {
+  --alkSplitGutter: 6px;
+  --alkSplitStrip: 20px;
+  box-sizing: border-box;
+  display: grid;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: var(--alkPageBg);
+  color: var(--alkPrimaryText);
+  transition: grid-template-columns var(--alkDurationFast) var(--alkEaseStandard);
+}
+
+/* A drag is a per-frame repaint: animating toward each frame would lag the
+   pointer, and the column the cursor is on must sit under the cursor. */
+.alk-split[data-dragging] {
+  transition: none;
+  user-select: none;
+  cursor: col-resize;
+}
+
+/* An embedded preview eats the pointer the moment the cursor crosses it, which
+   ends the drag halfway across the pane it is being dragged over. */
+.alk-split[data-dragging] iframe {
+  pointer-events: none;
+}
+
+.alk-split__pane {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.alk-split__gutter {
+  box-sizing: border-box;
+  position: relative;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: var(--alkDivider);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.alk-split__gutter:hover,
+.alk-split__gutter[data-active] {
+  background: var(--alkBrandSoft);
+}
+
+.alk-split__gutter:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}
+
+/* The grab area a person aims at is wider than the line they see, so the line
+   can stay hairline-thin without the drag becoming a test of aim. */
+.alk-split__gutter::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline: calc(-1 * var(--alkSpace1));
+}
+
+.alk-split__strip {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-inline: 1px solid var(--alkBorder);
+  background: var(--alkInsetBg);
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+}
+
+.alk-split__strip:hover {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+
+.alk-split__strip:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}
+
+/* The chevron points into the space the pane will reappear in. */
+.alk-split__strip svg {
+  width: var(--alkIconSm);
+  height: var(--alkIconSm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-split {
+    transition: none;
+  }
+}

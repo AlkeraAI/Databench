@@ -1,0 +1,12 @@
+# The kernel side of the widget walkthrough (the rig runs the kernel on this interpreter).
+aiohttp==3.14.3
+anywidget==0.11.0
+bqplot==0.13.1
+ipydatagrid==1.4.0
+ipykernel==7.4.0
+ipywidgets==8.1.9
+jupyter-client==8.10.0
+jupyter-scatter==1.0.1
+numpy==2.5.3
+pandas==3.0.6
+plotly==7.1.0

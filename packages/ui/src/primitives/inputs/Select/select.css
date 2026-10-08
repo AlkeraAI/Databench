@@ -1,0 +1,177 @@
+/* ── Select (alk-select-root) ───────────────────────────────────────────────
+ * A custom single-select: a hidden real <select> (the form control + value source of truth) under
+ * a button trigger + a portaled role="listbox" panel. The trigger matches the .alk-input text
+ * control; the panel shares the Dropdown's surface, shadow, and open/close animation. The OS menu
+ * is never shown. Every value is a role token. */
+
+.alk-select-root {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+/* The real <select>: present for form submission + as the value source of truth, but never seen.
+ * Pulled out of flow + clipped to a pixel so it can't intercept clicks or take layout. */
+.alk-select__native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── the trigger — looks like .alk-input, behaves like a button ─────────────── */
+.alk-select__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  width: 100%;
+  /* Size ladder — matches the .alk-input scale so a select lines up with the button / search /
+     segmented control / input of the same size. lg is the default. */
+  --alk-input-h: var(--alkControlLg);
+  --alk-input-px: var(--alkFieldPadLg);
+  min-height: var(--alk-input-h);
+  padding: 0 var(--alk-input-px);
+  background: var(--alkControlBg);
+  color: var(--alkPrimaryText);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextMd);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--alkDurationNormal) var(--alkEaseStandard),
+    box-shadow var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+.alk-select__trigger:where([data-size="md"]) {
+  --alk-input-h: var(--alkControlMd);
+  --alk-input-px: var(--alkFieldPadMd);
+}
+.alk-select__trigger:where([data-size="sm"]) {
+  --alk-input-h: var(--alkControlSm);
+  --alk-input-px: var(--alkFieldPadSm);
+}
+
+.alk-select__trigger:focus-visible {
+  outline: none;
+  border-color: var(--alkBrand);
+  box-shadow: 0 0 0 2px var(--alkFocusRing); /* solid ring — 32%-alpha brand composited sub-3:1 (see inputs.css) */
+}
+
+.alk-select__trigger[aria-invalid="true"] {
+  border-color: var(--alkDanger);
+}
+.alk-select__trigger[aria-invalid="true"]:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--alkDanger) 32%, transparent);
+}
+
+.alk-select__trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The closed trigger's leading glyph — the selected option's mark (see `optionIcons`). A fixed
+ * icon box centered by the trigger's flex row, so the glyph seats on the control's own center
+ * instead of riding the text's line box. */
+.alk-select__lead {
+  display: grid;
+  place-items: center;
+  width: var(--alkIconMd);
+  height: var(--alkIconMd);
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+}
+
+/* The selected label fills the trigger; the caret is pinned trailing. */
+.alk-select__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.alk-select__trigger:where([data-placeholder]) .alk-select__value {
+  color: var(--alkPlaceholderText);
+}
+
+.alk-select__caret {
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+  transition: transform var(--alkDurationNormal) var(--alkEaseStandard);
+}
+.alk-select__trigger[data-open] .alk-select__caret {
+  transform: rotate(180deg);
+}
+
+/* ── the listbox panel ────────────────────────────────────────────────────────
+ * Surface + open/close animation come from .alk-floating-surface (shared with Dropdown + Popover);
+ * only the listbox's own bounds + row padding live here. */
+.alk-select__panel {
+  /* Panel bounds — component-local dials (no shared width token; the floating surfaces each carry
+     their own). A host can widen/narrow the listbox by overriding either var. */
+  --alk-select-panel-min-w: 160px;
+  --alk-select-panel-max-w: 420px;
+  min-width: var(--alk-select-panel-min-w);
+  max-width: var(--alk-select-panel-max-w);
+  padding: var(--alkSpace2);
+}
+
+/* ── a listbox row: mark · label, the mark leading or trailing per `tickSide` ── */
+.alk-select__option {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace4);
+  width: 100%;
+  padding: var(--alkSpace3) var(--alkSpace5);
+  border-radius: var(--alkRadiusSm);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextMd);
+  color: var(--alkPrimaryText);
+  cursor: pointer;
+  text-align: left;
+  /* The shared hover/state cross-fade — see theme/motion.css. */
+  transition: var(--alk-control-transition);
+}
+/* The keyboard-active row (and the hovered row, which mirrors it) carries the hover wash. */
+.alk-select__option[data-active] {
+  background: var(--alkHoverBg);
+}
+.alk-select__option[data-disabled] {
+  color: var(--alkDisabledText);
+  cursor: not-allowed;
+}
+.alk-select__option[data-disabled][data-active] {
+  background: none;
+}
+
+/* The option's mark box (see `optionIcons`) is the shared .alk-option-mark — primitives/base.css. */
+.alk-select__option-label {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+/* With the check trailing, the stretching label pushes it flush to the row's trailing edge and the
+   row `gap` holds them apart. The check keeps its box, so a long label is what gives way. */
+.alk-select__option[data-tick="right"] .alk-select__option-label {
+  min-width: 0;
+  overflow: clip;
+  text-overflow: ellipsis;
+}
+.alk-select__option[data-on] {
+  color: var(--alkBrandText);
+  font-weight: var(--alkWeightMedium);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The panel's reduced-motion handling comes from .alk-floating-surface; only the caret is local. */
+  .alk-select__caret {
+    transition: none;
+  }
+}

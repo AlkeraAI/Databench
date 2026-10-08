@@ -1,0 +1,10 @@
+{
+  "enum_values": [],
+  "label": "Observed at",
+  "metadata": {},
+  "name": "observed_at",
+  "prompt": "",
+  "required": false,
+  "schema_version": "1.3.0",
+  "type": "datetime"
+}

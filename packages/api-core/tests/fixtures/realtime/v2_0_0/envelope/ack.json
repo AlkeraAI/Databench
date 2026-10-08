@@ -1,0 +1,17 @@
+{
+  "doc_id": "sess-01J7Q3M8",
+  "doc_type": "chat",
+  "epoch": 2,
+  "kind": "ack",
+  "metadata": {},
+  "payload": {
+    "changed": true,
+    "metadata": {},
+    "op_id": "op-append-1",
+    "schema_version": "1.0.0",
+    "seq": 8
+  },
+  "peer_id": "srv:0",
+  "schema_version": "2.0.0",
+  "seq": 8
+}

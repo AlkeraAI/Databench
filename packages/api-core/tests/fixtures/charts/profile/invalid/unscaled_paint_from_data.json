@@ -1,0 +1,22 @@
+{
+  "path": "encoding.color.scale",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": "url(https://evil.example/rows.json#g)"
+        }
+      ]
+    },
+    "encoding": {
+      "color": {
+        "field": "a",
+        "scale": null,
+        "type": "nominal"
+      }
+    },
+    "mark": "point"
+  },
+  "unsafe": true
+}

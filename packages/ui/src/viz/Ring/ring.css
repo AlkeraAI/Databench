@@ -1,0 +1,15 @@
+/* Ring — a single-arc progress dial. Paint only; the geometry is fixed by the component.
+ * The series colour is the shared --alk-viz-color token (see ../viz.css), brand when unset. */
+.alk-ring__track {
+  stroke: var(--alk-viz-color, var(--alkBrand));
+  opacity: 0.28;
+}
+.alk-ring__ind {
+  stroke: var(--alk-viz-color, var(--alkBrand));
+  transition: stroke-dashoffset 600ms var(--alkEaseStandard);
+}
+@media (prefers-reduced-motion: reduce) {
+  .alk-ring__ind {
+    transition: none;
+  }
+}

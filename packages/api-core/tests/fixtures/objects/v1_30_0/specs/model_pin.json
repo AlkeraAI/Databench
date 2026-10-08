@@ -1,0 +1,19 @@
+{
+  "context_window": 200000,
+  "display_name": "Claude Opus 4.5",
+  "effort": "high",
+  "efforts": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "id": "claude-opus-4.5",
+  "max_output_tokens": 64000,
+  "metadata": {},
+  "reads_reasoning_formats": [
+    "anthropic:claude-sonnet-4-5"
+  ],
+  "reasoning_format": "anthropic:claude-opus-4-5",
+  "schema_version": "1.1.0",
+  "wire": "anthropic"
+}

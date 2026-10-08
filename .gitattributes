@@ -1,0 +1,35 @@
+# opencode imports its system-prompt assets verbatim as text
+# (`import PROMPT_DEFAULT from "./prompt/default.txt"`) and the release build
+# rc4-compiles them into the shipped binary. They must be byte-identical on
+# every platform — LF, never CRLF-converted on a Windows checkout (the GitHub
+# windows runners set core.autocrlf=true). Without this, the spawned opencode
+# sends a CRLF system prompt on Windows while the source of truth is LF, so the
+# prompt differs by build host (and the verbatim e2e test fails). Force LF.
+vendor/opencode/packages/opencode/src/session/prompt/*.txt text eol=lf
+
+# Shell scripts are executed by bash even when the checkout happens on a
+# Windows runner (a WSL job runs the file suite from a DrvFs checkout made
+# with core.autocrlf=true). A CRLF ending turns
+# `set -euo pipefail` into `pipefail\r` — "invalid option name". Force LF.
+*.sh text eol=lf
+
+# Golden fixtures are compared as raw bytes (`read_bytes()` against what the
+# writer emits now), so a checkout that rewrites their newlines turns every
+# corpus into "a different writer produced this" — on the Windows runners
+# (core.autocrlf=true) the lineage tests then chase a version directory that
+# was never committed. Force LF so the committed bytes are the bytes on disk.
+packages/api-core/tests/fixtures/** text eol=lf
+# Renderer goldens are byte-exact outputs, CRLF included (CSV ends its records
+# with CRLF by the RFC), so they are compared as they are, never converted.
+packages/api-core/tests/fixtures/files/renderings/** -text
+
+# The permission presentation's generated files are compared against what the
+# generator writes now (the drift gate and test_permission_export.py). Keep the
+# committed LF bytes on a Windows checkout too.
+packages/chat-model/src/generated/permissionPresentation.ts text eol=lf
+packages/chat-model/src/generated/permissionPresentationVectors.json text eol=lf
+packages/api-core/alkera_core/permission_presentation/_alkera_tools.py text eol=lf
+
+# The notebook format corpus pins exact bytes (CRLF, a byte order mark, tabs,
+# no trailing newline are cases of their own): never convert line endings.
+packages/alkera-notebook/tests/format_corpus/** -text

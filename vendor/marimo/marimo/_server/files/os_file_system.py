@@ -1,0 +1,618 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import base64
+import heapq
+import os
+import platform
+import shutil
+import subprocess
+import tempfile
+import time
+from collections import deque
+from functools import lru_cache
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal, Protocol
+
+from marimo import _loggers
+from marimo._server.files.file_system import FileSystem
+from marimo._server.models.files import FileDetailsResponse, FileInfo
+from marimo._session.notebook.file_manager import AppFileManager
+from marimo._utils.files import natural_sort
+from marimo._utils.mime import guess_mime_type
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+LOGGER = _loggers.marimo_logger()
+
+LIST_IGNORE_LIST = [
+    ".",
+    "..",
+    ".DS_Store",
+]
+
+SEARCH_IGNORE_LIST = [
+    *LIST_IGNORE_LIST,
+    "__pycache__",
+    "node_modules",
+    ".git",
+    ".venv",
+    "site-packages",
+]
+
+DISALLOWED_NAMES = [
+    ".",
+    "..",
+]
+
+# 1 MiB. Large enough to amortize syscall overhead, small enough to keep
+# peak memory bounded when streaming.
+_STREAM_CHUNK_SIZE = 1024 * 1024
+
+# Hard cap on streamed uploads. Streaming removes the implicit OOM ceiling
+# that buffered uploads had, so without a cap an authenticated client could
+# exhaust disk. 1 GiB covers normal notebook-data use cases with margin.
+MAX_UPLOAD_BYTES = 1024 * 1024 * 1024
+
+
+class UploadTooLargeError(ValueError):
+    """Raised when a streamed upload exceeds `MAX_UPLOAD_BYTES`.
+
+    Separate type (vs. a bare `ValueError`) so the HTTP layer can map it
+    to a 413 response instead of the generic error path.
+    """
+
+
+class AsyncByteSource(Protocol):
+    """Structural type for things like Starlette's `UploadFile`."""
+
+    async def read(self, size: int = -1, /) -> bytes: ...
+
+
+class OSFileSystem(FileSystem):
+    def get_root(self) -> str:
+        return os.getcwd()
+
+    def list_files(self, path: str) -> list[FileInfo]:
+        files: list[FileInfo] = []
+        folders: list[FileInfo] = []
+        try:
+            with os.scandir(path) as it:
+                for entry in it:
+                    if entry.name in LIST_IGNORE_LIST:
+                        continue
+                    try:
+                        is_directory = entry.is_dir()
+                        entry_stat = entry.stat()
+                    except OSError:
+                        # do not include files that fail to read
+                        # (e.g. recursive/broken symlinks)
+                        continue
+
+                    info = FileInfo(
+                        id=entry.path,
+                        path=entry.path,
+                        name=entry.name,
+                        is_directory=is_directory,
+                        is_marimo_file=not is_directory
+                        and self._is_marimo_file(entry.path, entry_stat),
+                        last_modified=entry_stat.st_mtime,
+                        size=None if is_directory else entry_stat.st_size,
+                    )
+                    if is_directory:
+                        folders.append(info)
+                    else:
+                        files.append(info)
+        except OSError:
+            pass
+
+        return sorted(folders, key=natural_sort_file) + sorted(
+            files, key=natural_sort_file
+        )
+
+    def get_info(self, path: str) -> FileInfo:
+        stat = os.stat(path)
+        is_directory = os.path.isdir(path)
+        return FileInfo(
+            id=path,
+            path=path,
+            name=os.path.basename(path),
+            is_directory=is_directory,
+            is_marimo_file=not is_directory
+            and self._is_marimo_file(path, stat),
+            last_modified=stat.st_mtime,
+            size=None if is_directory else stat.st_size,
+        )
+
+    def get_details(
+        self,
+        path: str,
+        encoding: str | None = None,
+        contents: str | None = None,
+        max_bytes: int | None = None,
+    ) -> FileDetailsResponse:
+        if max_bytes is not None and max_bytes < 0:
+            raise ValueError("max_bytes must be non-negative")
+
+        file_info = self.get_info(path)
+        mime_type = guess_mime_type(path)
+        is_base64 = False
+        is_too_large = False
+        actual_contents: str | None
+        if file_info.is_directory:
+            actual_contents = None
+        elif contents is not None:
+            actual_contents = contents
+        elif (
+            max_bytes is not None
+            and file_info.size is not None
+            and file_info.size > max_bytes
+        ):
+            actual_contents = None
+            is_too_large = True
+        elif max_bytes is None:
+            opened = self.open_file(path, encoding=encoding)
+            if isinstance(opened, bytes):
+                actual_contents = base64.b64encode(opened).decode("utf-8")
+                is_base64 = True
+            else:
+                actual_contents = opened
+        else:
+            file_path = Path(path)
+            with file_path.open("rb") as file:
+                raw = file.read(max_bytes + 1)
+            if len(raw) > max_bytes:
+                actual_contents = None
+                is_too_large = True
+            else:
+                try:
+                    actual_contents = raw.decode(encoding or "utf-8")
+                except UnicodeDecodeError:
+                    actual_contents = base64.b64encode(raw).decode("utf-8")
+                    is_base64 = True
+
+        return FileDetailsResponse(
+            file=file_info,
+            contents=actual_contents,
+            mime_type=mime_type,
+            is_base64=is_base64,
+            is_too_large=is_too_large,
+        )
+
+    def _is_marimo_file(
+        self, path: str, stat: os.stat_result | None = None
+    ) -> bool:
+        file_path = Path(path)
+        if file_path.suffix not in (".py", ".md", ".qmd"):
+            return False
+
+        try:
+            stat = stat or os.stat(path)
+        except OSError:
+            return False
+        return _is_marimo_file_cached(
+            path,
+            stat.st_mtime_ns,
+            stat.st_ctime_ns,
+            stat.st_size,
+            int(time.monotonic() // 5),
+        )
+
+    def open_file(self, path: str, encoding: str | None = None) -> str | bytes:
+        file_path = Path(path)
+        try:
+            return file_path.read_text(encoding=encoding or "utf-8")
+        except UnicodeDecodeError:
+            return file_path.read_bytes()
+
+    @staticmethod
+    def _validate_create_name(name: str) -> None:
+        """Reject names that are empty, reserved, or traverse out of the
+        parent. Centralized so HTTP, WASM, and streaming paths all share it.
+        """
+        if name in DISALLOWED_NAMES:
+            raise ValueError(
+                f"Cannot create file or directory with name {name}"
+            )
+        if name.strip() == "":
+            raise ValueError("Cannot create file or directory with empty name")
+        if "/" in name or "\\" in name or "\x00" in name:
+            raise ValueError(
+                f"Invalid name {name!r}: must not contain path separators "
+                "or refer to a parent directory"
+            )
+
+    def create_file_or_directory(
+        self,
+        path: str,
+        file_type: Literal["file", "directory", "notebook"],
+        name: str,
+        contents: bytes | None,
+    ) -> FileInfo:
+        self._validate_create_name(name)
+
+        full_path = Path(path) / name
+        full_path = _generate_unique_path(full_path)
+
+        if file_type == "directory":
+            full_path.mkdir(parents=True, exist_ok=True)
+        elif file_type == "notebook" and not contents:
+            from marimo._convert.converters import MarimoConvert
+
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            # Create a new AppFileManager to get the default notebook code
+            # We pass None as filename to get the empty notebook template
+            ir = AppFileManager(None).app.to_ir()
+            converter = MarimoConvert.from_ir(ir)
+            if full_path.suffix in (".md", ".qmd"):
+                notebook_code = converter.to_markdown(full_path.name)
+            else:
+                notebook_code = converter.to_py()
+            full_path.write_text(notebook_code, encoding="utf-8")
+        else:
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_bytes(contents or b"")
+        return self.get_info(str(full_path))
+
+    async def stream_create_file(
+        self,
+        path: str,
+        name: str,
+        source: AsyncByteSource,
+    ) -> FileInfo:
+        """Stream-write an uploaded file to disk, chunk by chunk.
+
+        Avoids loading the full payload into memory (the HTTP multipart
+        path can otherwise buffer 100 MB at once). Writes to a `.part`
+        temp file and atomically renames on success so a failed upload
+        doesn't leave a half-written file at the final path.
+        """
+        self._validate_create_name(name)
+
+        parent = Path(path)
+        os.makedirs(parent, exist_ok=True)
+
+        # Atomic O_CREAT|O_EXCL reservation closes the TOCTOU window between
+        # picking a unique name and writing to it.
+        full_path = _claim_unique_path(parent / name)
+
+        tmp_path: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                dir=full_path.parent,
+                prefix=full_path.name + ".",
+                suffix=".part",
+                delete=False,
+            ) as tmp:
+                tmp_path = tmp.name
+                # Sync writes are bounded to one chunk between awaits, so event
+                # loop blockage stays small without pulling in aiofiles.
+                written = 0
+                while chunk := await source.read(_STREAM_CHUNK_SIZE):
+                    written += len(chunk)
+                    if written > MAX_UPLOAD_BYTES:
+                        raise UploadTooLargeError(
+                            f"Upload exceeds maximum size of "
+                            f"{MAX_UPLOAD_BYTES} bytes"
+                        )
+                    tmp.write(chunk)
+            assert tmp_path is not None
+            os.replace(tmp_path, full_path)
+        except BaseException:
+            # Both paths may or may not exist depending on where we failed;
+            # FileNotFoundError on either is expected.
+            paths = (
+                [str(full_path)]
+                if tmp_path is None
+                else [tmp_path, str(full_path)]
+            )
+            for p in paths:
+                try:
+                    os.unlink(p)
+                except FileNotFoundError:
+                    pass
+            raise
+
+        return self.get_info(str(full_path))
+
+    def delete_file_or_directory(self, path: str) -> bool:
+        if os.path.isdir(path):
+            safe_rmtree(path)
+        else:
+            os.remove(path)
+        return True
+
+    def copy_file_or_directory(self, path: str, new_path: str) -> FileInfo:
+        new_path = str(_generate_unique_path(new_path))
+        if not _is_allowed_paths(path, new_path):
+            raise ValueError(f"Cannot copy to {new_path}")
+        if Path(path).is_dir():
+            shutil.copytree(path, new_path)
+        else:
+            shutil.copy2(path, new_path)
+        return self.get_info(new_path)
+
+    def move_file_or_directory(self, path: str, new_path: str) -> FileInfo:
+        if not _is_allowed_paths(path, new_path):
+            raise ValueError(f"Cannot rename to {new_path}")
+        # Disallow moving to an existing path
+        if os.path.exists(new_path):
+            raise ValueError(f"Destination path {new_path} already exists")
+        safe_move(path, new_path)
+        return self.get_info(new_path)
+
+    def update_file(self, path: str, contents: str) -> FileInfo:
+        file_path = Path(path)
+        file_path.write_text(contents, encoding="utf-8")
+        return self.get_info(path)
+
+    def search(
+        self,
+        query: str,
+        *,
+        path: str | None = None,
+        include_directories: bool = True,
+        include_files: bool = True,
+        include_hidden: bool = True,
+        depth: int = 3,
+        limit: int = 100,
+    ) -> list[FileInfo]:
+        """Search for files and directories matching a query with high performance."""
+        if not query.strip() or limit <= 0:
+            return []
+
+        search_path = path if path is not None else self.get_root()
+        if not os.path.exists(search_path):
+            return []
+
+        query_lower = query.lower()
+
+        def candidates() -> Iterator[os.DirEntry[str]]:
+            seen_paths: set[str] = set()
+            queue = deque([(search_path, 0)])
+            while queue:
+                current_path, current_depth = queue.popleft()
+                if current_depth > depth:
+                    continue
+                real_path = os.path.realpath(current_path)
+                if real_path in seen_paths:
+                    continue
+                seen_paths.add(real_path)
+                try:
+                    with os.scandir(current_path) as entries:
+                        for entry in entries:
+                            if entry.name in SEARCH_IGNORE_LIST or (
+                                not include_hidden
+                                and entry.name.startswith(".")
+                            ):
+                                continue
+                            try:
+                                is_directory = entry.is_dir()
+                                if is_directory and current_depth < depth:
+                                    queue.append(
+                                        (entry.path, current_depth + 1)
+                                    )
+                                if query_lower not in entry.name.lower():
+                                    continue
+                                if is_directory and not include_directories:
+                                    continue
+                                if not is_directory and not include_files:
+                                    continue
+                                yield entry
+                            except OSError:
+                                continue
+                except OSError:
+                    continue
+
+        def sort_key(entry: os.DirEntry[str]) -> tuple[int, str, str]:
+            name_lower = entry.name.lower()
+            if name_lower == query_lower:
+                rank = 0
+            elif name_lower.startswith(query_lower):
+                rank = 1
+            else:
+                rank = 2
+            return (rank, entry.name, entry.path)
+
+        # Rank all names before fetching metadata, which can be expensive on
+        # network mounts. Only the best matches are retained in memory.
+        matches = heapq.nsmallest(limit, candidates(), key=sort_key)
+        files: list[FileInfo] = []
+        for entry in matches:
+            try:
+                entry_stat = entry.stat()
+                is_directory = entry.is_dir()
+            except OSError:
+                # A match may disappear or become unreadable during traversal.
+                continue
+            files.append(
+                FileInfo(
+                    id=entry.path,
+                    path=entry.path,
+                    name=entry.name,
+                    is_directory=is_directory,
+                    # Notebook detection is deferred to preview.
+                    is_marimo_file=False,
+                    last_modified=entry_stat.st_mtime,
+                    size=None if is_directory else entry_stat.st_size,
+                )
+            )
+        return files
+
+    def open_in_editor(self, path: str, line_number: int | None) -> bool:
+        try:
+            # First try to get editor from environment variable
+            editor = os.environ.get("EDITOR")
+
+            # If editor is a terminal-based editor, we just call `open`, because
+            # otherwise it silently opens the terminal in the same window that is
+            # running marimo.
+            if editor and not _is_terminal_editor(editor):
+                args = (
+                    [path]
+                    if line_number is None
+                    else editor_open_file_in_line_args(
+                        editor, path, line_number
+                    )
+                )
+
+                try:
+                    # For GUI editors
+                    subprocess.run([editor, *args])
+                    return True
+                except Exception as e:
+                    LOGGER.error(f"Error opening with EDITOR: {e}")
+
+            # Use system default if no editor specified
+            if platform.system() == "Darwin":  # macOS
+                subprocess.call(("open", path))
+            elif platform.system() == "Windows":  # Windows
+                # startfile only exists on Windows
+                os.startfile(path)  # type: ignore[attr-defined]
+            else:  # Linux variants
+                subprocess.call(("xdg-open", path))
+            return True
+        except Exception as e:
+            LOGGER.error(f"Error opening file: {e}")
+            return False
+
+
+# Keep a small working set for repeated listings of recently viewed folders.
+@lru_cache(maxsize=512)
+def _is_marimo_file_cached(
+    path: str, _mtime_ns: int, _ctime_ns: int, _size: int, _time_bucket: int
+) -> bool:
+    # Metadata invalidates cached detection when a file changes; repeated
+    # directory listings need not scan unchanged file contents. A five-second
+    # bucket also bounds stale detection on filesystems that preserve metadata.
+    from marimo._server.files.directory_scanner import is_marimo_app
+
+    return is_marimo_app(path)
+
+
+def editor_open_file_in_line_args(
+    editor: str, path: str, line_number: int
+) -> list[str]:
+    if editor == "code":
+        return ["--goto", f"{path}:{line_number}"]
+    elif editor == "subl":
+        return [f"{path}:{line_number}"]
+    else:
+        return [f"+{line_number}", path]
+
+
+def natural_sort_file(file: FileInfo) -> list[int | str]:
+    return natural_sort(file.name)
+
+
+def _is_terminal_editor(editor: str) -> bool:
+    return any(
+        ed in editor.lower()
+        for ed in [
+            "vim",
+            "vi",
+            "emacs",
+            "nano",
+            "nvim",
+            "neovim",
+            "pico",
+            "micro",
+        ]
+    )
+
+
+def safe_rmtree(path: str) -> None:
+    """
+    Remove a directory tree. If shutil.rmtree fails, recursively delete all files from the leaves up.
+
+    This is so we can be compatible with https://github.com/awslabs/mountpoint-s3.
+    """
+    try:
+        shutil.rmtree(path)
+    except PermissionError:
+        # Fallback: manual post-order traversal
+        p = Path(path)
+        for sub in sorted(
+            p.rglob("*"), key=lambda x: -x.as_posix().count("/")
+        ):
+            try:
+                if sub.is_file() or sub.is_symlink():
+                    sub.unlink()
+                elif sub.is_dir():
+                    sub.rmdir()
+            except Exception as inner_e:
+                LOGGER.warning("Failed to delete %s: %s", sub, inner_e)
+        try:
+            p.rmdir()
+        except Exception as final_e:
+            LOGGER.warning("Failed to delete directory %s: %s", p, final_e)
+
+
+def safe_move(src: str, dst: str) -> None:
+    """
+    Move a file or directory, but if it fails due to permissions,
+    copy the file or directory and then delete the original.
+
+    This is so we can be compatible with https://github.com/awslabs/mountpoint-s3.
+    """
+    try:
+        shutil.move(src, dst)
+    except PermissionError:
+        # Fallback: copy then delete
+        src_path = Path(src)
+        if src_path.is_dir():
+            shutil.copytree(src, dst)
+            safe_rmtree(src)
+        else:
+            shutil.copy2(src, dst)
+            src_path.unlink()
+
+
+def _generate_unique_path(new_path: str | Path) -> Path:
+    # If the file already exists, generate a new name
+    new_path = Path(new_path)
+    if not new_path.exists():
+        return new_path
+    i = 1
+    name_without_extension = new_path.stem
+    extension = new_path.suffix
+    while True:
+        new_name = f"{name_without_extension}_{i}{extension}"
+        new_path = new_path.parent / new_name
+        if not new_path.exists():
+            return new_path
+        i += 1
+
+
+def _claim_unique_path(target: Path) -> Path:
+    """Race-safe variant of `_generate_unique_path`: opens with O_EXCL and
+    walks numbered suffixes on collision. Returns an empty file at the
+    claimed path; the caller writes into or replaces it.
+    """
+    name_without_extension = target.stem
+    extension = target.suffix
+    candidate = target
+    i = 0
+    while True:
+        try:
+            fd = os.open(
+                candidate, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644
+            )
+            os.close(fd)
+            return candidate
+        except FileExistsError:
+            i += 1
+            candidate = target.parent / (
+                f"{name_without_extension}_{i}{extension}"
+            )
+
+
+def _is_allowed_paths(path: str | Path, new_path: str | Path) -> bool:
+    file_name = os.path.basename(new_path)
+    if file_name in DISALLOWED_NAMES or not file_name.strip():
+        return False
+
+    src = Path(path).resolve()
+    dst = Path(new_path).resolve()
+    return not (src.is_dir() and dst.is_relative_to(src))

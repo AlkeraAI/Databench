@@ -1,0 +1,26 @@
+# Config for the `make scan` vuln gate (grype, --fail-on >= high).
+#
+# Policy: the gate fails on any FIXABLE high/critical CVE we haven't patched — that's
+# the actionable bar. CVEs with NO upstream fix (base-OS / interpreter) are still listed
+# in the SBOM but don't block, because there is nothing to remediate. We re-scan on every
+# build, so the day a fix lands the gate flags it again. Keep this list short + justified.
+ignore:
+  # (1) No upstream fix exists — debian/alpine base packages marked won't-fix / not-fixed
+  # (glibc, perl-base, sqlite, ncurses, …). Not reachable from our app surface.
+  - fix-state: wont-fix
+  - fix-state: not-fixed
+
+  # (2) No patched release available (grype reports no fix version). All in base packages,
+  # not reachable from our code. RE-REVIEW each build — drop the moment the base image
+  # (python:3.13-slim / nginx-unprivileged alpine) ships a fix.
+  #
+  # CPython: the python:3.13-slim base now ships 3.13.14, which patches the asyncio / lzma /
+  # webbrowser CVEs (CVE-2026-6100, -3298, -4786) — those were dropped from this list and a
+  # rebuild clears them in the scan. The two below have NO released 3.13.x or 3.14.x patch
+  # (only fixed in the unreleased 3.16.0); they stay accepted until upstream backports them.
+  - vulnerability: CVE-2026-11940  # CPython tarfile data/tar filter bypass — affected <3.16.0; no 3.13.x backport yet
+  - vulnerability: CVE-2026-11972  # CPython tarfile streaming-EOF DoS — affected <3.16.0; no 3.13.x backport yet
+  - vulnerability: CVE-2026-5773   # alpine curl (web image; already at latest alpine)
+  - vulnerability: CVE-2026-6276   # alpine curl
+  - vulnerability: CVE-2023-52356  # alpine libtiff (transitive in the nginx base)
+  - vulnerability: CVE-2026-4775   # alpine libtiff

@@ -1,0 +1,22 @@
+/* Text — the general typographic component (see Text.tsx). The `variant` prop applies a shared voice
+   (an `alk-*` role defined once in typography.css); this file owns ONLY the orthogonal `tone` colour
+   overrides. Each is an attribute selector (specificity 0,1,1) so it beats a variant's single role
+   class (0,1,0) and the reading takes the prop's colour regardless of stylesheet order — never colour
+   alone at the call site (WCAG; pair a status tone with an icon or word). clamp/truncate reuse the
+   shared overflow utilities (alk-clamp / alk-truncate), so nothing is redefined here. Ellipsis is
+   CSS-only, so a screen reader still gets the whole string. */
+.alk-text[data-tone="muted"] {
+  color: var(--alkSecondaryText);
+}
+.alk-text[data-tone="faint"] {
+  color: var(--alkTertiaryText);
+}
+.alk-text[data-tone="danger"] {
+  color: var(--alkDangerText);
+}
+.alk-text[data-tone="warning"] {
+  color: var(--alkWarningText);
+}
+.alk-text[data-tone="success"] {
+  color: var(--alkSuccessText);
+}

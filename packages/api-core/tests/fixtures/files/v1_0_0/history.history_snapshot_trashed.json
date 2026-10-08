@@ -1,0 +1,14 @@
+{
+  "$model": "alkera_core.schemas.files.history.HistorySnapshot",
+  "acl_id": null,
+  "attrs": null,
+  "kind": "file",
+  "metadata": {
+    "history_kind": "trash"
+  },
+  "name": "ZHJhZnQuY3N2",
+  "parent_id": "1a2b3c4d-5e6f-4071-8293-a4b5c6d7e8f9",
+  "schema_version": "1.0.0",
+  "state": "live",
+  "trashed_at": "2026-01-01T12:00:00Z"
+}

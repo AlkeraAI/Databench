@@ -1,0 +1,15 @@
+{
+  "events": [
+    {
+      "event_id": "e3",
+      "event_type": "message.created",
+      "text": "hello"
+    }
+  ],
+  "fields": {},
+  "intent": "user_message",
+  "meta": {},
+  "metadata": {},
+  "op_id": "op-user-1",
+  "schema_version": "1.0.0"
+}

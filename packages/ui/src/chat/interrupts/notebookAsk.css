@@ -1,0 +1,126 @@
+/* A notebook ask in the permission card: the cells it would run, one row each,
+   in the card's inset. Owns its own rhythm; the card spaces it from its
+   neighbours with its gap. */
+
+/* The card caps its height and its subject gives first, before the action
+   bar: like the command and details insets, the ask shrinks, and its cell
+   list is what scrolls. The fold line, packages and reason keep their size. */
+.chat-root .chat-notebook-ask {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--chat-sp-2);
+  min-width: 0;
+  min-height: 0;
+}
+
+.chat-root .chat-notebook-ask > * {
+  flex: none;
+}
+
+/* The notebook named in the title: a link where the host opens files. */
+.chat-root .chat-notebook-ask__file {
+  font: inherit;
+  color: inherit;
+}
+
+.chat-root button.chat-notebook-ask__file {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--chat-dialog-link);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-root button.chat-notebook-ask__file:focus-visible {
+  outline: 2px solid var(--chat-forest-bright);
+  outline-offset: 1px;
+  border-radius: var(--chat-radius-micro);
+}
+
+.chat-root .chat-notebook-ask > .chat-notebook-ask__cells {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.chat-root .chat-notebook-ask__cells {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-3);
+  list-style: none;
+  background: var(--chat-dialog-inset);
+  border: 1px solid var(--chat-dialog-hairline-2);
+  border-radius: var(--chat-radius-control);
+}
+
+.chat-root .chat-notebook-ask__cell {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-root .chat-notebook-ask__name {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-notebook-ask__code {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-notebook-ask__line {
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+}
+
+.chat-root .chat-notebook-ask__more {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-2);
+  cursor: pointer;
+}
+
+.chat-root .chat-notebook-ask__more:hover,
+.chat-root .chat-notebook-ask__more:focus-visible {
+  color: var(--chat-ink);
+  text-decoration: underline;
+}
+
+.chat-root .chat-notebook-ask__packages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-notebook-ask__reason {
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-2);
+}

@@ -1,0 +1,64 @@
+{
+  "contested": [
+    {
+      "entity": "mentions",
+      "metadata": {},
+      "read_from": "tb_demo",
+      "schema_version": "1.0.0"
+    },
+    {
+      "entity": "prompt_runs",
+      "metadata": {},
+      "read_from": "tb_demo",
+      "schema_version": "1.0.0"
+    },
+    {
+      "entity": "share_of_voice_daily",
+      "metadata": {},
+      "read_from": "tb_demo",
+      "schema_version": "1.0.0"
+    }
+  ],
+  "generated_at": "2026-09-07T12:00:00Z",
+  "metadata": {},
+  "schema_version": "1.1.0",
+  "sources": [
+    {
+      "blessed_for": [],
+      "carries": [
+        "customers",
+        "target_prompts",
+        "responses",
+        "prompt_runs",
+        "mentions",
+        "share_of_voice_daily"
+      ],
+      "connection": "pg_demo",
+      "data_through": "2026-09-06",
+      "display_name": "Demo Postgres",
+      "engine": "postgres",
+      "holds": "the configuration and dimension side \u2014 who the customers are, which target prompts are active and their categories and locales, plan tiers, and the response text itself. Small tables, exact lookups, and joins within this engine.",
+      "metadata": {},
+      "schema_version": "1.1.0"
+    },
+    {
+      "blessed_for": [
+        "mentions",
+        "prompt_runs",
+        "share_of_voice_daily"
+      ],
+      "carries": [
+        "prompt_runs",
+        "mentions",
+        "share_of_voice_daily"
+      ],
+      "connection": "tb_demo",
+      "data_through": "2026-09-06",
+      "display_name": "Demo Tinybird",
+      "engine": "tinybird",
+      "holds": "the high-volume fact side \u2014 every prompt run and every brand mention, denormalized and sorted for range reads, plus the share-of-voice time series. Counting, ranking and bucketing over the full history belongs here.",
+      "metadata": {},
+      "schema_version": "1.1.0"
+    }
+  ]
+}

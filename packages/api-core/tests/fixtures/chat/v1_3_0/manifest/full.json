@@ -1,0 +1,36 @@
+{
+  "agent": "general",
+  "background_jobs_running": 0,
+  "cost_total": 0.01,
+  "created_at": "2026-05-26T00:00:00Z",
+  "cwd": "/Users/x/proj",
+  "harness": {
+    "name": "alkera-cli",
+    "version": "0.1.0"
+  },
+  "harness_type": "agent",
+  "last_event_id": null,
+  "last_message_preview": null,
+  "last_seen_event_id": null,
+  "metadata": {},
+  "model": {
+    "model_id": "claude-opus-4-7",
+    "provider_id": "anthropic"
+  },
+  "parent_session_id": null,
+  "permission_mode": "plan",
+  "provider_metadata": {},
+  "schema_version": "1.3.0",
+  "session_id": "s1",
+  "title": "Sample",
+  "tokens_total": {
+    "cache_read": 10,
+    "cache_write": 0,
+    "input": 100,
+    "metadata": {},
+    "output": 50,
+    "provider_metadata": {},
+    "schema_version": "1.0.0"
+  },
+  "updated_at": "2026-05-26T00:00:00Z"
+}

@@ -1,0 +1,1341 @@
+from __future__ import annotations
+
+import json
+import shutil
+import tempfile
+import unittest
+from pathlib import Path
+from typing import Literal
+from unittest.mock import patch
+
+import marimo._templates as templates
+from marimo._ast.app_config import _AppConfig
+from marimo._config.config import (
+    MarimoConfig,
+    PartialMarimoConfig,
+    merge_default_config,
+)
+from marimo._schemas.notebook import (
+    NotebookCell,
+    NotebookCellConfig,
+    NotebookMetadata,
+    NotebookV1,
+)
+from marimo._schemas.session import (
+    VERSION,
+    Cell,
+    DataOutput,
+    NotebookSessionMetadata,
+    NotebookSessionV1,
+    StreamOutput,
+)
+from marimo._server.tokens import SkewProtectionToken
+from marimo._session.model import SessionMode
+from marimo._utils.code import hash_code
+from tests._server.templates.utils import normalize_index_html
+from tests.mocks import snapshotter
+
+snapshot = snapshotter(__file__)
+default_config = merge_default_config({})
+
+
+def _assert_no_leftover_replacements(result: str) -> None:
+    has_replacement = "{{" in result and "}}" in result
+    assert not has_replacement, f"Found {{}} in {result}"
+
+
+class TestNotebookPageTemplate(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp_path = Path(tempfile.mkdtemp())
+        self.tmp_path = tmp_path
+        root = Path(__file__).parent / "data"
+        index_html = root / "index.html"
+        self.html = index_html.read_text(encoding="utf-8")
+
+        self.base_url = "/subpath"
+        self.user_config: MarimoConfig = default_config
+        self.config_overrides: PartialMarimoConfig = {}
+        self.server_token = SkewProtectionToken("token")
+        self.app_config = _AppConfig()
+        self.filename = tmp_path / "notebook.py"
+        self.mode = SessionMode.RUN
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp_path)
+
+    def test_notebook_page_template(self) -> None:
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=str(self.filename),
+            mode=self.mode,
+        )
+
+        assert self.base_url not in result
+        assert str(self.server_token) in result
+        assert self.filename.name in result
+        assert "read" in result
+        assert '"cwd": ""' in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_with_filepath(self) -> None:
+        absolute_path = str(self.filename.resolve())
+        expected_cwd = str(self.filename.resolve().parent)
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=self.filename.name,
+            filepath=absolute_path,
+            mode=self.mode,
+        )
+
+        assert self.filename.name in result
+        # json.dumps to match JSON-escaped backslashes on Windows paths
+        assert f'"cwd": {json.dumps(expected_cwd)}' in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_no_filename(self) -> None:
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=None,
+            mode=self.mode,
+        )
+
+        assert self.base_url not in result
+        assert str(self.server_token) in result
+        assert "<title>marimo</title>" in result
+        assert "read" in result
+        assert '"cwd": ""' in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_with_lsp_workspace(self) -> None:
+        root_uri = "file:///home/marimo/project"
+        document_uri = "file:///home/marimo/project/notebooks/notebook.py"
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=None,
+            lsp_workspace={"rootUri": root_uri, "documentUri": document_uri},
+            mode=self.mode,
+        )
+        assert f'"rootUri": "{root_uri}"' in result
+        assert f'"documentUri": "{document_uri}"' in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_edit_mode(self) -> None:
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=str(self.filename),
+            mode=SessionMode.EDIT,
+        )
+
+        assert self.base_url not in result
+        assert str(self.server_token) in result
+        assert self.filename.name in result
+        assert "edit" in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_custom_css(self) -> None:
+        # Create css file
+        css = "/* custom css */"
+
+        css_file = self.filename.parent / "custom.css"
+        css_file.write_text(css)
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=_AppConfig(css_file="custom.css"),
+            filename=str(self.filename),
+            mode=self.mode,
+        )
+
+        assert css in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_custom_css_escapes_style_breakout(
+        self,
+    ) -> None:
+        # Regression: a notebook-controlled css_file must not be able to
+        # break out of the <style> block and inject script/html. See the
+        # pre-execution XSS originally reported against marimo 0.23.0.
+        payload = "</style><script>window.__xss__ = 1;</script><style>"
+        css_file = self.filename.parent / "custom.css"
+        css_file.write_text(payload)
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=_AppConfig(css_file="custom.css"),
+            filename=str(self.filename),
+            mode=SessionMode.EDIT,
+        )
+
+        # The escaped form must be present — proving the sanitizer ran
+        # rather than the attacker's payload having been silently dropped.
+        assert "<\\/style>" in result
+        # And the raw breakout sequence from the payload must not survive.
+        # The only literal "</style" the HTML parser should see inside our
+        # injected block is the legitimate closer emitted by
+        # _custom_css_block itself.
+        marker = "<style title='marimo-custom'>"
+        assert marker in result
+        body_after_marker = result.split(marker, 1)[1]
+        # Up to the first real closer, the content is our sanitized CSS;
+        # the attacker's payload should be present only in escaped form
+        # (so the browser stays in <style> raw-text mode the whole time).
+        injected = body_after_marker.split("</style>", 1)[0]
+        assert "<\\/style>" in injected
+        assert "</style" not in injected  # case-sensitive: no raw end-tag
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_custom_css_workspace_relative(
+        self,
+    ) -> None:
+        # Simulate workspace mode: filename is workspace-relative display path,
+        # filepath is the absolute path used for I/O.
+        subdir = self.tmp_path / "data"
+        subdir.mkdir()
+        notebook = subdir / "notebook.py"
+        css = "/* workspace relative css */"
+        css_file = subdir / "custom.css"
+        css_file.write_text(css)
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=_AppConfig(css_file="custom.css"),
+            filename="data/notebook.py",  # workspace-relative display name
+            filepath=str(notebook.resolve()),  # absolute path for I/O
+            mode=self.mode,
+        )
+
+        assert css in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_custom_head_workspace_relative(
+        self,
+    ) -> None:
+        # Simulate workspace mode: filename is workspace-relative display path,
+        # filepath is the absolute path used for I/O.
+        subdir = self.tmp_path / "data"
+        subdir.mkdir()
+        notebook = subdir / "notebook.py"
+        head = "<style>.workspace-specific { color: blue; }</style>"
+        head_file = subdir / "head.html"
+        head_file.write_text(head)
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=_AppConfig(html_head_file="head.html"),
+            filename="data/notebook.py",  # workspace-relative display name
+            filepath=str(notebook.resolve()),  # absolute path for I/O
+            mode=self.mode,
+        )
+
+        assert head in result.split("</head>", 1)[0]
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_custom_head(self) -> None:
+        # Create html head file
+        head = """
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-XXXXXXXXXX');
+        </script>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+        """
+
+        head_file = self.filename.parent / "head.html"
+        head_file.write_text(head)
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=_AppConfig(html_head_file="head.html"),
+            filename=str(self.filename),
+            mode=self.mode,
+        )
+
+        assert head in result.split("</head>", 1)[0]
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_with_custom_css_config(self) -> None:
+        # Create CSS files
+        css1 = "/* custom css 1 */"
+        css2 = "/* custom css 2 */"
+
+        css_file1 = self.filename.parent / "custom1.css"
+        css_file2 = self.filename.parent / "custom2.css"
+        css_file1.write_text(css1)
+        css_file2.write_text(css2)
+
+        # Update config with custom CSS paths
+        config = merge_default_config(self.user_config)
+        config["display"]["custom_css"] = ["custom1.css", "custom2.css"]
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=str(self.filename),
+            mode=self.mode,
+        )
+
+        assert css1 in result
+        assert css2 in result
+        assert "<style title='marimo-custom'>" in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_with_absolute_custom_css(self) -> None:
+        # Create CSS file with absolute path
+        css = "/* absolute path css */"
+        css_file = self.filename.parent / "absolute.css"
+        css_file.write_text(css)
+
+        # Update config with absolute CSS path
+        config = merge_default_config(self.user_config)
+        config["display"]["custom_css"] = [str(css_file)]
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=str(self.filename),
+            mode=self.mode,
+        )
+
+        assert css in result
+        assert "<style title='marimo-custom'>" in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_with_config_overrides_custom_css(
+        self,
+    ) -> None:
+        # Create CSS files
+        css1 = "/* config override css */"
+        css_file1 = self.filename.parent / "override.css"
+        css_file1.write_text(css1)
+
+        # Update config_overrides with custom CSS path
+        config_overrides = self.config_overrides.copy()
+        config_overrides["display"] = {"custom_css": ["override.css"]}
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=str(self.filename),
+            mode=self.mode,
+        )
+
+        assert css1 in result
+        assert "<style title='marimo-custom'>" in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_with_nonexistent_custom_css(self) -> None:
+        # Update config with nonexistent CSS path
+        config = merge_default_config(self.user_config)
+        config["display"]["custom_css"] = ["nonexistent.css"]
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=str(self.filename),
+            mode=self.mode,
+        )
+
+        assert "nonexistent.css" in result
+        assert "<style title='marimo-custom'>" not in result
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_global_html_head(self) -> None:
+        global_head = (
+            '<script src="https://analytics.example.com/tracker.js"></script>'
+        )
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=str(self.filename),
+            mode=self.mode,
+            html_head=global_head,
+        )
+
+        assert global_head in result.split("</head>", 1)[0]
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_global_and_per_notebook_html_head(
+        self,
+    ) -> None:
+        global_head = (
+            '<script src="https://analytics.example.com/tracker.js"></script>'
+        )
+
+        per_notebook_head = "<style>.notebook-specific { color: red; }</style>"
+        head_file = self.filename.parent / "head.html"
+        head_file.write_text(per_notebook_head)
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=_AppConfig(html_head_file="head.html"),
+            filename=str(self.filename),
+            mode=self.mode,
+            html_head=global_head,
+        )
+
+        head_section = result.split("</head>", 1)[0]
+        assert global_head in head_section
+        assert per_notebook_head in head_section
+        # Global should appear before per-notebook
+        assert head_section.index(global_head) < head_section.index(
+            per_notebook_head
+        )
+        _assert_no_leftover_replacements(result)
+
+    def test_notebook_page_template_with_asset_url(self) -> None:
+        """Test notebook page template with custom asset URL."""
+        asset_url = "https://cdn.example.com/v{version}"
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=str(self.filename),
+            mode=self.mode,
+            asset_url=asset_url,
+        )
+
+        # Asset URLs should be replaced
+        assert 'href="https://cdn.example.com/' in result
+        assert 'src="https://cdn.example.com/' in result
+        assert 'crossorigin="anonymous"' in result
+        _assert_no_leftover_replacements(result)
+
+    def test_edit_mode_allows_css_file_injection(self) -> None:
+        """In edit mode, css_file is still injected (CSS-only, no scripts)."""
+        css = "/* custom styling */"
+        css_file = self.filename.parent / "style.css"
+        css_file.write_text(css)
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=_AppConfig(css_file="style.css"),
+            filename=str(self.filename),
+            mode=SessionMode.EDIT,
+        )
+
+        head_section = result.split("</head>", 1)[0]
+        assert css in head_section
+        _assert_no_leftover_replacements(result)
+
+    def test_edit_mode_blocks_html_head_file_injection(self) -> None:
+        """In edit mode, html_head_file content must not appear in <head>."""
+        head = '<script src="https://evil.example.com/keylogger.js"></script>'
+        head_file = self.filename.parent / "head.html"
+        head_file.write_text(head)
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=_AppConfig(html_head_file="head.html"),
+            filename=str(self.filename),
+            mode=SessionMode.EDIT,
+        )
+
+        head_section = result.split("</head>", 1)[0]
+        assert head not in head_section
+        _assert_no_leftover_replacements(result)
+
+    def test_run_mode_injects_html_head_file(self) -> None:
+        """In run mode, html_head_file must be injected into <head>."""
+        head = (
+            '<script src="https://analytics.example.com/tracker.js"></script>'
+        )
+        head_file = self.filename.parent / "head.html"
+        head_file.write_text(head)
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=_AppConfig(html_head_file="head.html"),
+            filename=str(self.filename),
+            mode=SessionMode.RUN,
+        )
+
+        head_section = result.split("</head>", 1)[0]
+        assert head in head_section
+        _assert_no_leftover_replacements(result)
+
+    def test_global_html_head_not_blocked_in_edit_mode(self) -> None:
+        """The operator-level html_head param is not blocked in edit mode."""
+        global_head = '<meta name="robots" content="noindex">'
+
+        result = templates.notebook_page_template(
+            html=self.html,
+            base_url=self.base_url,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            server_token=self.server_token,
+            app_config=self.app_config,
+            filename=str(self.filename),
+            mode=SessionMode.EDIT,
+            html_head=global_head,
+        )
+
+        head_section = result.split("</head>", 1)[0]
+        assert global_head in head_section
+        _assert_no_leftover_replacements(result)
+
+
+class TestHomePageTemplate(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp_path = Path(tempfile.mkdtemp())
+        root = Path(__file__).parent / "data"
+        index_html = root / "index.html"
+        self.html = index_html.read_text(encoding="utf-8")
+
+        self.base_url = "/subpath"
+        self.user_config: MarimoConfig = default_config
+        self.config_overrides: PartialMarimoConfig = {
+            "formatting": {"line_length": 100},
+        }
+        self.server_token = SkewProtectionToken("token")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp_path)
+
+    def test_home_page_template(self) -> None:
+        result = templates.home_page_template(
+            self.html,
+            self.base_url,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            SessionMode.EDIT,
+        )
+
+        assert self.base_url not in result
+        assert str(self.server_token) in result
+        assert json.dumps(self.user_config, sort_keys=True) in result
+        assert "marimo" in result
+        assert json.dumps({}) in result
+        assert "" in result
+        assert "home" in result
+        _assert_no_leftover_replacements(result)
+
+    def test_home_page_template_with_asset_url(self) -> None:
+        """Test home page template with custom asset URL."""
+        asset_url = "https://cdn.example.com/v{version}"
+
+        result = templates.home_page_template(
+            self.html,
+            self.base_url,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            SessionMode.EDIT,
+            asset_url=asset_url,
+        )
+
+        # Asset URLs should be replaced
+        assert 'href="https://cdn.example.com/' in result
+        assert 'src="https://cdn.example.com/' in result
+        assert 'crossorigin="anonymous"' in result
+        _assert_no_leftover_replacements(result)
+
+    def test_home_page_template_run_mode(self) -> None:
+        result = templates.home_page_template(
+            self.html,
+            self.base_url,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            SessionMode.RUN,
+        )
+
+        assert "gallery" in result
+        _assert_no_leftover_replacements(result)
+
+
+class TestStaticNotebookTemplate(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp_path = Path(tempfile.mkdtemp())
+        self.tmp_path = tmp_path
+        root = Path(__file__).parent / "data"
+        index_html = root / "index.html"
+        self.html = index_html.read_text(encoding="utf-8")
+
+        self.user_config = default_config
+        self.config_overrides: PartialMarimoConfig = {
+            "formatting": {"line_length": 100},
+        }
+        self.server_token = SkewProtectionToken("token")
+        self.app_config = _AppConfig()
+        self.filename = tmp_path / "notebook.py"
+        self.filepath = "path/to/notebook.py"
+        self.code = "print('Hello, World!')"
+
+        # Create session and notebook snapshots
+        self.session_snapshot = NotebookSessionV1(
+            version=VERSION,
+            metadata=NotebookSessionMetadata(marimo_version="0.1.0"),
+            cells=[
+                Cell(
+                    id="cell1",
+                    code_hash="abc123",
+                    outputs=[
+                        DataOutput(
+                            type="data",
+                            data={
+                                "text/plain": "Hello, Cell 1",
+                            },
+                        )
+                    ],
+                    console=[
+                        StreamOutput(
+                            type="stream",
+                            name="stdout",
+                            text="Hello, Cell 1",
+                        ),
+                        StreamOutput(
+                            type="stream",
+                            name="stderr",
+                            text="Error in Cell 1",
+                        ),
+                    ],
+                ),
+                Cell(
+                    id="cell2",
+                    code_hash="def456",
+                    outputs=[],
+                    console=[],
+                ),
+            ],
+        )
+
+        self.notebook_snapshot = NotebookV1(
+            version=VERSION,
+            metadata=NotebookMetadata(marimo_version="0.1.0"),
+            cells=[
+                NotebookCell(
+                    id="cell1",
+                    code="print('Hello, Cell 1')",
+                    code_hash=hash_code("print('Hello, Cell 1')"),
+                    name="Cell 1",
+                    config=NotebookCellConfig(),
+                ),
+                NotebookCell(
+                    id="cell2",
+                    code="print('Hello, Cell 2')",
+                    code_hash=hash_code("print('Hello, Cell 2')"),
+                    name="Cell 2",
+                    config=NotebookCellConfig(),
+                ),
+            ],
+        )
+
+        self.files = {"file1": "File 1 content", "file2": "File 2 content"}
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp_path)
+
+    def test_static_notebook_template(self) -> None:
+        result = templates.static_notebook_template(
+            self.html,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            self.app_config,
+            self.filepath,
+            self.code,
+            hash_code(self.code),
+            self.session_snapshot,
+            self.notebook_snapshot,
+            self.files,
+        )
+
+        assert "__MARIMO_EXPORT_CONTEXT__" in result
+        assert '<marimo-code hidden="">' in result
+        snapshot("export1.txt", normalize_index_html(result))
+        _assert_no_leftover_replacements(result)
+
+    def test_static_notebook_template_no_filename(self) -> None:
+        result = templates.static_notebook_template(
+            self.html,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            self.app_config,
+            None,
+            self.code,
+            hash_code(self.code),
+            self.session_snapshot,
+            self.notebook_snapshot,
+            files=self.files,
+        )
+
+        assert "__MARIMO_EXPORT_CONTEXT__" in result
+        assert '<marimo-code hidden="">' in result
+        snapshot("export2.txt", normalize_index_html(result))
+        _assert_no_leftover_replacements(result)
+
+    def test_static_notebook_template_no_code(self) -> None:
+        # Create empty snapshots for no-code case
+        empty_session = NotebookSessionV1(
+            version=VERSION,
+            metadata=NotebookSessionMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+        empty_notebook = NotebookV1(
+            version=VERSION,
+            metadata=NotebookMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+
+        result = templates.static_notebook_template(
+            self.html,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            self.app_config,
+            self.filepath,
+            "",
+            hash_code(self.code),
+            empty_session,
+            empty_notebook,
+            {},
+        )
+
+        assert "__MARIMO_EXPORT_CONTEXT__" in result
+        assert '<marimo-code hidden="">' in result
+        snapshot("export3.txt", normalize_index_html(result))
+        _assert_no_leftover_replacements(result)
+
+    def test_static_notebook_template_with_css(self) -> None:
+        # Create css file
+        css = "/* custom css */"
+
+        css_file = self.filename.parent / "custom.css"
+        css_file.write_text(css)
+
+        # Create empty snapshots
+        empty_session = NotebookSessionV1(
+            version=VERSION,
+            metadata=NotebookSessionMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+        empty_notebook = NotebookV1(
+            version=VERSION,
+            metadata=NotebookMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+
+        result = templates.static_notebook_template(
+            self.html,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            _AppConfig(css_file="custom.css"),
+            str(self.filename),
+            "",
+            hash_code(self.code),
+            empty_session,
+            empty_notebook,
+            {},
+        )
+
+        assert "__MARIMO_EXPORT_CONTEXT__" in result
+        assert '<marimo-code hidden="">' in result
+        snapshot("export4.txt", normalize_index_html(result))
+        _assert_no_leftover_replacements(result)
+
+    def test_static_notebook_template_with_head(self) -> None:
+        # Create html head file
+        head = """
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-XXXXXXXXXX');
+        </script>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+        """
+
+        head_file = self.filename.parent / "head.html"
+        head_file.write_text(head)
+
+        # Create empty snapshots
+        empty_session = NotebookSessionV1(
+            version=VERSION,
+            metadata=NotebookSessionMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+        empty_notebook = NotebookV1(
+            version=VERSION,
+            metadata=NotebookMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+
+        result = templates.static_notebook_template(
+            self.html,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            _AppConfig(html_head_file="head.html", app_title="My App"),
+            str(self.filename),
+            "",
+            hash_code(self.code),
+            empty_session,
+            empty_notebook,
+            {},
+        )
+
+        assert "__MARIMO_EXPORT_CONTEXT__" in result
+        assert '<marimo-code hidden="">' in result
+        snapshot("export5.txt", normalize_index_html(result))
+        _assert_no_leftover_replacements(result)
+
+    def test_static_notebook_template_with_custom_css_config(self) -> None:
+        # Create CSS files
+        css1 = "/* custom css 1 */"
+        css2 = "/* custom css 2 */"
+
+        css_file1 = self.filename.parent / "custom1.css"
+        css_file2 = self.filename.parent / "custom2.css"
+        css_file1.write_text(css1)
+        css_file2.write_text(css2)
+
+        # Update config with custom CSS paths
+        config = merge_default_config(self.user_config)
+        config["display"]["custom_css"] = ["custom1.css", "custom2.css"]
+
+        # Create empty snapshots
+        empty_session = NotebookSessionV1(
+            version=VERSION,
+            metadata=NotebookSessionMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+        empty_notebook = NotebookV1(
+            version=VERSION,
+            metadata=NotebookMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+
+        result = templates.static_notebook_template(
+            self.html,
+            config,
+            self.config_overrides,
+            self.server_token,
+            self.app_config,
+            str(self.filename),
+            "",
+            hash_code(self.code),
+            empty_session,
+            empty_notebook,
+            {},
+        )
+
+        assert css1 in result
+        assert css2 in result
+        assert "<style title='marimo-custom'>" in result
+        assert "__MARIMO_EXPORT_CONTEXT__" in result
+        assert '<marimo-code hidden="">' in result
+        snapshot("export6.txt", normalize_index_html(result))
+        _assert_no_leftover_replacements(result)
+
+    def test_static_notebook_template_with_absolute_custom_css(self) -> None:
+        # Create CSS file with absolute path
+        css = "/* absolute path css */"
+        css_file = self.filename.parent / "absolute.css"
+        css_file.write_text(css)
+
+        # Update config with absolute CSS path
+        config = merge_default_config(self.user_config)
+        config["display"]["custom_css"] = [str(css_file)]
+
+        # Create empty snapshots
+        empty_session = NotebookSessionV1(
+            version=VERSION,
+            metadata=NotebookSessionMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+        empty_notebook = NotebookV1(
+            version=VERSION,
+            metadata=NotebookMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+
+        result = templates.static_notebook_template(
+            self.html,
+            config,
+            self.config_overrides,
+            self.server_token,
+            self.app_config,
+            str(self.filename),
+            "",
+            hash_code(self.code),
+            empty_session,
+            empty_notebook,
+            {},
+        )
+
+        assert css in result
+        assert "<style title='marimo-custom'>" in result
+        _assert_no_leftover_replacements(result)
+
+    def test_static_notebook_template_with_nonexistent_custom_css(
+        self,
+    ) -> None:
+        # Update config with nonexistent CSS path
+        config = merge_default_config(self.user_config)
+        config["display"]["custom_css"] = ["nonexistent.css"]
+
+        # Create empty snapshots
+        empty_session = NotebookSessionV1(
+            version=VERSION,
+            metadata=NotebookSessionMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+        empty_notebook = NotebookV1(
+            version=VERSION,
+            metadata=NotebookMetadata(marimo_version="0.1.0"),
+            cells=[],
+        )
+
+        result = templates.static_notebook_template(
+            self.html,
+            config,
+            self.config_overrides,
+            self.server_token,
+            self.app_config,
+            str(self.filename),
+            "",
+            hash_code(self.code),
+            empty_session,
+            empty_notebook,
+            {},
+        )
+
+        assert "nonexistent.css" in result
+        assert "<style title='marimo-custom'>" not in result
+        _assert_no_leftover_replacements(result)
+
+    def test_static_files_injection_prevention(self) -> None:
+        """Test that malicious content in files dict doesn't enable script breakout."""
+        # Test with malicious file keys and values
+        malicious_files = {
+            "normal.txt": "safe content",
+            "</script><script>alert(1)</script>": "content",
+            "file.js": "</script><img src=x onerror=alert(1)>",
+            "test&<>.py": "content with <script>alert(1)</script>",
+        }
+
+        result = templates.static_notebook_template(
+            self.html,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            self.app_config,
+            self.filepath,
+            self.code,
+            hash_code(self.code),
+            self.session_snapshot,
+            self.notebook_snapshot,
+            malicious_files,
+        )
+
+        # Must not contain unescaped script breakout sequences (< and > escaped)
+        assert "</script><script>alert(1)" not in result
+        assert "<img" not in result  # The < should be escaped
+
+        # Must contain escaped versions of < and >
+        assert "\\u003C" in result or "\\u003E" in result
+
+        # Must still be valid HTML
+        _assert_no_leftover_replacements(result)
+
+    def test_static_malicious_filename_injection(self) -> None:
+        """Test that malicious filenames in static exports are properly escaped."""
+        malicious_filepath = (
+            self.tmp_path / "</script><script>alert(1)</script>.py"
+        )
+
+        result = templates.static_notebook_template(
+            self.html,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            self.app_config,
+            str(malicious_filepath),
+            self.code,
+            hash_code(self.code),
+            self.session_snapshot,
+            self.notebook_snapshot,
+            self.files,
+        )
+
+        # Must not contain unescaped script tags
+        assert "</script><script>" not in result
+        assert "<script>alert(1)" not in result.replace(
+            "\\u003Cscript\\u003E", ""
+        )
+
+        # Must contain escaped versions in JSON context
+        assert "\\u003C" in result or "\\u003E" in result
+
+        _assert_no_leftover_replacements(result)
+
+    def test_static_malicious_code_content(self) -> None:
+        """Test that malicious code content is properly escaped in static export."""
+        malicious_code = """
+import marimo as mo
+# This code contains </script><script>alert('XSS')</script>
+mo.md("<img src=x onerror=alert(1)>")
+"""
+
+        # Create session with malicious code in output
+        malicious_session = NotebookSessionV1(
+            version=VERSION,
+            metadata=NotebookSessionMetadata(marimo_version="0.1.0"),
+            cells=[
+                Cell(
+                    cell_id="cell1",
+                    code=malicious_code,
+                    outputs=[
+                        DataOutput(
+                            channel="output",
+                            mimetype="text/html",
+                            data="</script><script>alert(1)</script>",
+                            timestamp=0.0,
+                        )
+                    ],
+                    console=[],
+                )
+            ],
+        )
+
+        result = templates.static_notebook_template(
+            self.html,
+            self.user_config,
+            self.config_overrides,
+            self.server_token,
+            self.app_config,
+            self.filepath,
+            malicious_code,
+            hash_code(malicious_code),
+            malicious_session,
+            self.notebook_snapshot,
+            self.files,
+        )
+
+        # The malicious code itself should be in JSON context (escaped)
+        # Must not have unescaped dangerous sequences in script tags (< and > escaped)
+        assert "</script><script>alert('XSS')" not in result
+
+        # Must have escaped versions of < and >
+        assert "\\u003C" in result or "\\u003E" in result
+
+        _assert_no_leftover_replacements(result)
+
+    def test_static_notebook_template_dev_version_in_asset_url(self) -> None:
+        # jsdelivr treats `.dev` as a separate path segment, so dev versions
+        # like "0.16.5.dev6+gabc" must be normalized to "0.16.5-dev6+gabc"
+        # for the CDN URL to resolve.
+        with patch.object(templates, "__version__", "0.16.5.dev6+gabc"):
+            result = templates.static_notebook_template(
+                self.html,
+                self.user_config,
+                self.config_overrides,
+                self.server_token,
+                self.app_config,
+                self.filepath,
+                self.code,
+                hash_code(self.code),
+                self.session_snapshot,
+                self.notebook_snapshot,
+                self.files,
+            )
+
+        assert (
+            "https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.16.5-dev6+gabc/dist"
+            in result
+        )
+        assert "@0.16.5.dev6" not in result
+        _assert_no_leftover_replacements(result)
+
+    def test_static_notebook_template_release_version_in_asset_url(
+        self,
+    ) -> None:
+        with patch.object(templates, "__version__", "0.16.5"):
+            result = templates.static_notebook_template(
+                self.html,
+                self.user_config,
+                self.config_overrides,
+                self.server_token,
+                self.app_config,
+                self.filepath,
+                self.code,
+                hash_code(self.code),
+                self.session_snapshot,
+                self.notebook_snapshot,
+                self.files,
+            )
+
+        assert (
+            "https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.16.5/dist"
+            in result
+        )
+        _assert_no_leftover_replacements(result)
+
+
+class TestWasmNotebookTemplate(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp_path = Path(tempfile.mkdtemp())
+        self.tmp_path = tmp_path
+        root = Path(__file__).parent / "data"
+        index_html = root / "index.html"
+        self.html = index_html.read_text(encoding="utf-8")
+
+        self.version = "1.0.0"
+        self.filename = tmp_path / "notebook.py"
+        self.mode: Literal["edit", "run"] = "run"
+        self.user_config: MarimoConfig = default_config
+        self.app_config = _AppConfig()
+        self.code = "print('Hello, World!')"
+        self.config_overrides: PartialMarimoConfig = {}
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp_path)
+
+    def test_wasm_notebook_template(self) -> None:
+        result = templates.wasm_notebook_template(
+            html=self.html,
+            version=self.version,
+            filename=str(self.filename),
+            mode=self.mode,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            app_config=self.app_config,
+            code=self.code,
+            show_code=False,
+        )
+
+        assert self.filename.name in result
+        assert self.mode in result
+        assert json.dumps(self.user_config, sort_keys=True) in result
+        assert '<marimo-wasm hidden="">' in result
+        assert "__MARIMO_EXPORT_CONTEXT__" in result
+        assert '<marimo-code hidden="">' in result
+        assert '"showAppCode": false' in result
+        assert "<title>notebook</title>" in result
+        _assert_no_leftover_replacements(result)
+
+    def test_wasm_notebook_template_custom_css_and_assets(self) -> None:
+        # Create css file
+        css = "/* custom css */"
+
+        css_file = self.filename.parent / "custom.css"
+        css_file.write_text(css)
+
+        result = templates.wasm_notebook_template(
+            html=self.html,
+            version=self.version,
+            filename=str(self.filename),
+            mode=self.mode,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            app_config=_AppConfig(css_file="custom.css"),
+            code=self.code,
+            asset_url="https://my.cdn.com",
+            show_code=True,
+        )
+
+        assert css in result
+        assert '<marimo-wasm hidden="">' in result
+        assert "https://my.cdn.com/assets/" in result
+        assert "__MARIMO_EXPORT_CONTEXT__" in result
+        assert '<marimo-code hidden="">' in result
+        assert '"showAppCode": true' in result
+        _assert_no_leftover_replacements(result)
+
+    def test_wasm_notebook_template_custom_head(self) -> None:
+        # Create html head file
+        head = """
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-XXXXXXXXXX');
+        </script>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+        """
+
+        head_file = self.filename.parent / "head.html"
+        head_file.write_text(head)
+
+        result = templates.wasm_notebook_template(
+            html=self.html,
+            version=self.version,
+            filename=str(self.filename),
+            mode=self.mode,
+            user_config=self.user_config,
+            config_overrides=self.config_overrides,
+            app_config=_AppConfig(
+                html_head_file="head.html", app_title="My App"
+            ),
+            code=self.code,
+            show_code=False,
+        )
+
+        assert head in result
+        assert '<marimo-wasm hidden="">' in result
+        assert "__MARIMO_EXPORT_CONTEXT__" in result
+        assert '<marimo-code hidden="">' in result
+        assert '"showAppCode": false' in result
+        assert "#save-button" in result
+        assert "#filename-input" in result
+        assert "<title>My App</title>" in result
+        _assert_no_leftover_replacements(result)
+
+
+class TestReplaceAssetUrls(unittest.TestCase):
+    """Test the _replace_asset_urls function."""
+
+    def test_replace_asset_urls_basic(self) -> None:
+        """Test basic asset URL replacement."""
+        html = """<link href="./assets/style.css" rel="stylesheet">
+<script src="./assets/app.js"></script>"""
+
+        result = templates._replace_asset_urls(html, "https://cdn.example.com")
+
+        assert (
+            result
+            == """<link crossorigin="anonymous" href="https://cdn.example.com/assets/style.css" rel="stylesheet">
+<script crossorigin="anonymous" src="https://cdn.example.com/assets/app.js"></script>"""
+        )
+
+    def test_replace_asset_urls_with_version(self) -> None:
+        """Test asset URL replacement with version placeholder."""
+        from marimo._version import __version__
+
+        html = """<link href="./assets/style.css" rel="stylesheet">"""
+
+        result = templates._replace_asset_urls(
+            html, "https://cdn.example.com/v{version}"
+        )
+
+        expected = f"""<link crossorigin="anonymous" href="https://cdn.example.com/v{__version__}/assets/style.css" rel="stylesheet">"""
+        assert result == expected
+
+    def test_replace_asset_urls_preserves_crossorigin(self) -> None:
+        html = """<script type="module" crossorigin src="./assets/app.js"></script>
+<link href='./assets/style.css' rel='stylesheet' crossorigin='use-credentials'>
+<script src="./assets/other.js" CROSSORIGIN="anonymous"></script>"""
+
+        result = templates._replace_asset_urls(html, "https://cdn.example.com")
+
+        assert result == html.replace(
+            "./assets/", "https://cdn.example.com/assets/"
+        )
+
+    def test_replace_asset_urls_crossorigin_in_attribute_value(self) -> None:
+        html = """<link title="preload > crossorigin='use-credentials'" href='./assets/style.css'>"""
+
+        result = templates._replace_asset_urls(html, "https://cdn.example.com")
+
+        assert (
+            result
+            == """<link title="preload > crossorigin='use-credentials'" crossorigin='anonymous' href='https://cdn.example.com/assets/style.css'>"""
+        )
+
+    def test_replace_asset_urls_double_quotes(self) -> None:
+        """Test asset URL replacement with double quotes."""
+        html = '<link href="./assets/style.css" rel="stylesheet">'
+
+        result = templates._replace_asset_urls(html, "https://cdn.example.com")
+
+        assert (
+            result
+            == '<link crossorigin="anonymous" href="https://cdn.example.com/assets/style.css" rel="stylesheet">'
+        )

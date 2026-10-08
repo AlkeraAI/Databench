@@ -1,0 +1,14 @@
+{
+  "path": "data",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "format": {
+        "type": "csv"
+      },
+      "values": "region,units\nnorth,12\nsouth,18"
+    },
+    "mark": "bar"
+  },
+  "unsafe": true
+}

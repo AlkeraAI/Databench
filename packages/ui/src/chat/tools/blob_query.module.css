@@ -1,0 +1,50 @@
+@import "./tokens.css";
+
+/* The transform over the result it ran on, then the answer it produced. */
+
+:global(.chat-root) [data-tool="blob"] .blobQuerySrc {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  flex: none;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  color: var(--chat-ink-2);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobQueryName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A recipe row is keyword-then-argument, so it flexes; a statement line is one
+   run of painted tokens, so it flows as text -- flexing it spread every token
+   into its own column. */
+:global(.chat-root) [data-tool="blob"] .blobQueryLine {
+  display: flex;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+:global(.chat-root) [data-tool="blob"] .blobQuerySqlLine {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A reshape compiles to a SELECT, so its clause words take the statement's own
+   keyword ink and the recipe reads as the SQL it becomes. */
+:global(.chat-root) [data-tool="blob"] .blobQueryKw {
+  flex: none;
+  min-width: 7ch;
+  color: var(--chat-sql-keyword);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobQueryH:first-child,
+:global(.chat-root) [data-tool="blob"] .blobQueryD:first-child {
+  padding-left: var(--chat-tool-pad-x);
+}
+

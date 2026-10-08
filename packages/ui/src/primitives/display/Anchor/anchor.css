@@ -1,0 +1,33 @@
+/* Anchor / text link — component styles for @alkera/ui. Every value is a role token (tokens.css). */
+
+/* The link treatment also dresses a `<button>` (an in-flow action — an inline "Set" / "Cancel"
+   editor): strip the native button chrome first. Zero-specificity (:where) so the .alk-link rules
+   below always win on any shared property (the font shorthand must not clobber the link weight). */
+:where(button.alk-link) {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.alk-link {
+  color: var(--alkLinkText);
+  font-weight: var(--alkWeightMedium);
+  text-decoration: none;
+  text-underline-offset: 2px;
+  border-radius: var(--alkRadiusSm);
+  transition: color var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+.alk-link:hover {
+  color: var(--alkPrimaryText);
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-link {
+    transition: none;
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "chat",
+  "target_id": "c3cce655-add6-42bd-9096-ac67ea1df362",
+  "drive_id": "e8a0d9bc-1fc5-4819-bd4a-67e689d2b124",
+  "node_id": "bec759c8-7546-4ea3-b099-fa9fa393f4f8",
+  "title": "Quarterly plan",
+  "root": "/Users/ana/Library/Application Support/Code/User/globalStorage/alkera-ai.alkera/working-copies/Quarterly plan c3cce655",
+  "watch_ids": ["4abd3a82-8a33-4a3e-9d3b-aa41531f59dc"],
+  "files": {
+    "data/a.csv": {
+      "schema_version": "1.0.0",
+      "node_id": "5f0c1c55-0000-4000-8000-000000000001",
+      "etag": "3",
+      "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+      "size": 8,
+      "mtime_ns": 1759573200000000000
+    }
+  },
+  "folders": {"data": "5f0c1c55-0000-4000-8000-000000000002"}
+}

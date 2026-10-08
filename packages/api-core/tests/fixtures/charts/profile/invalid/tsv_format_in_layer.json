@@ -1,0 +1,22 @@
+{
+  "path": "layer[0].data",
+  "policy": "inline",
+  "spec": {
+    "layer": [
+      {
+        "data": {
+          "format": {
+            "type": "tsv"
+          },
+          "values": [
+            {
+              "a": 1
+            }
+          ]
+        },
+        "mark": "point"
+      }
+    ]
+  },
+  "unsafe": true
+}

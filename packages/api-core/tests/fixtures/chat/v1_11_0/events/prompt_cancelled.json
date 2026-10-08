@@ -1,0 +1,12 @@
+{
+  "client_id": "c1",
+  "event_id": "01H_prompt_cancelled",
+  "event_type": "prompt.cancelled",
+  "message_id": "usr:c1",
+  "metadata": {},
+  "provider_metadata": {},
+  "reason": "stopped",
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

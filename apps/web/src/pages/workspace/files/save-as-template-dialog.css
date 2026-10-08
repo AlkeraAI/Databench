@@ -1,0 +1,17 @@
+/* The save-as-template dialog's own sheet. The chat header, the chat rail and
+   the files browser all open it — different lazy chunks — so it brings its
+   styles with it. Fields and the refusal are the UI library's; this sheet only
+   spaces them. */
+
+.alk-files-template__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace4);
+  min-width: 0;
+}
+
+.alk-files-template__lede {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}

@@ -1,0 +1,28 @@
+{
+  "connection_id": "8c4e3d6f-5031-4d5e-a08f-a4d6f2c3e444",
+  "engine": "postgres",
+  "metadata": {},
+  "params": [
+    {
+      "enum_values": [],
+      "label": "Customer",
+      "metadata": {},
+      "name": "customer",
+      "required": true,
+      "schema_version": "1.1.0",
+      "type": "string"
+    },
+    {
+      "enum_values": [],
+      "label": "Period",
+      "metadata": {},
+      "name": "period",
+      "required": true,
+      "schema_version": "1.1.0",
+      "type": "daterange"
+    }
+  ],
+  "schema_version": "1.1.0",
+  "source_chat_id": "5f1f0a3c-2f0e-4a2b-9d5c-71a3c9f0b111",
+  "sql_template": "SELECT day, count(*) FROM prompts WHERE customer = {customer} AND day BETWEEN {period.start} AND {period.end}"
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@alkera/sdk",
+  "version": "0.0.0",
+  "license": "Apache-2.0",
+  "description": "Generated TypeScript client for the Databench API.",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "gen": "openapi-typescript ../shared-openapi/openapi.json -o src/schema.d.ts && node scripts/gen-limits.mjs",
+    "build": "tsc -p .",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.13.0"
+  },
+  "devDependencies": {
+    "@alkera/eslint-config": "workspace:*",
+    "eslint": "^9.10.0",
+    "openapi-typescript": "^7.4.0",
+    "typescript": "^5.5.4"
+  }
+}

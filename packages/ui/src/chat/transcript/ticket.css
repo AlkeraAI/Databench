@@ -1,0 +1,102 @@
+/* The user turn's share of the reading column. Placement is what marks the turn
+   as the reader's own, so it keeps a right-hand inset while the column has width
+   to spare. As the column narrows the inset yields step by step and finally
+   goes: a measure too short costs reading as much as one too long, and under
+   ~320px the column has no spare width to give away. Both transfer ladders --
+   this one and the agent's, below -- step at the same widths, so the two sides
+   never yield out of time with each other. */
+
+.chat-root .chat-ticket-wrap {
+  max-width: var(--chat-user-share, 85%);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.chat-root .chat-ticket {
+  background: var(--chat-wash);
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-micro);
+  padding: var(--chat-sp-2) var(--chat-sp-3);
+}
+
+/* The agent's own blocks: prose, reasoning, the documents it hands over, and
+   its tool runs. All of them share one measure, so a wide pane never carries a
+   well whose rules overshoot the column everything else reads in. */
+.chat-root .chat-tape > .chat-block:is(
+    [data-block="prose"],
+    [data-block="thinking"],
+    [data-block="plan"],
+    [data-block="question"],
+    [data-block="activity"]
+  ) {
+  max-width: var(--chat-agent-share, 90%);
+}
+
+@container chat-panel (max-width: 460px) {
+  .chat-root .chat-block {
+    --chat-user-share: 90%;
+    --chat-agent-share: 95%;
+  }
+}
+
+@container chat-panel (max-width: 380px) {
+  .chat-root .chat-block {
+    --chat-user-share: 95%;
+    --chat-agent-share: 100%;
+  }
+}
+
+@container chat-panel (max-width: 300px) {
+  .chat-root .chat-block {
+    --chat-user-share: 100%;
+  }
+}
+
+.chat-root .chat-ticket__body {
+  margin: 0;
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink);
+  overflow-wrap: anywhere;
+}
+
+/* A picture the reader attached, inside their own bubble: stacked above the
+   words rather than beside them, and thumbnail-sized, because a ticket is a
+   message and not a gallery. The bubble's own padding is the inset on every
+   side, so a message with a picture sits on exactly the margins a message of
+   only words does -- the figure's own vertical margin is spent between the
+   picture and the words, and nowhere else. */
+.chat-root .chat-ticket__body > .alk-chat-image {
+  --alk-chat-image-max-w: 100%;
+  --alk-chat-image-max-h: 200px;
+  margin: 0 0 var(--chat-sp-2);
+}
+
+.chat-root .chat-ticket__body > .alk-chat-image:last-child {
+  margin-bottom: 0;
+}
+
+/* Where the words came from when nobody typed them: the template whose brief
+   opened the chat. Stamped in the same outside margin as the time and set the
+   same way, because it is the same kind of thing -- a record about the message
+   rather than part of it. */
+.chat-root .chat-ticket__from {
+  margin: var(--chat-sp-1) var(--chat-sp-1) 0 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-3);
+}
+
+/* The time the order was placed, stamped in the margin OUTSIDE the ticket,
+   under its lower-right corner. Smaller and dimmer than the message, because
+   the message is what the reader came back for. */
+.chat-root .chat-ticket__at {
+  margin: var(--chat-sp-1) var(--chat-sp-1) 0 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-3);
+}

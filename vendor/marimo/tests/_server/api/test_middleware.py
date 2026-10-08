@@ -1,0 +1,1023 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import asyncio
+import io
+import json
+import socket
+import sys
+import time
+from multiprocessing import Process
+from typing import TYPE_CHECKING, Any
+from unittest.mock import AsyncMock
+from urllib.parse import quote
+
+import pytest
+import uvicorn
+from starlette.applications import Starlette
+from starlette.datastructures import QueryParams
+from starlette.middleware import Middleware
+from starlette.responses import Response
+from starlette.routing import Route
+from starlette.testclient import TestClient
+from starlette.websockets import WebSocket, WebSocketDisconnect
+from uvicorn import Config, Server
+
+from marimo._config.manager import MarimoConfigManager, UserConfigManager
+from marimo._server._pylsp import create_server
+from marimo._server.api.auth import TOKEN_QUERY_PARAM
+from marimo._server.api.middleware import (
+    ProxyMiddleware,
+    _AsyncHTTPClient,
+    _URLRequest,
+)
+from marimo._server.codes import WebSocketCodes
+from marimo._server.config import StarletteServerStateInit
+from marimo._server.lsp import BaseLspServer
+from marimo._server.main import (
+    _create_lsps_proxy_middleware,
+    create_starlette_app,
+)
+from marimo._server.session_manager import SessionManager
+from marimo._server.tokens import AuthToken
+from marimo._session.model import SessionMode
+from tests._server.conftest import join_kernel_thread_tasks, serve_in_thread
+from tests._server.mocks import get_mock_session_manager, token_header
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from starlette.requests import Request
+    from starlette.types import Receive, Scope, Send
+
+
+def init_state(
+    *,
+    session_manager: SessionManager,
+    enable_auth: bool = True,
+    skew_protection: bool = False,
+    base_url: str = "",
+) -> StarletteServerStateInit:
+    return StarletteServerStateInit(
+        port=1234,
+        host="localhost",
+        base_url=base_url,
+        asset_url=None,
+        headless=False,
+        quiet=False,
+        session_manager=session_manager,
+        config_manager=MarimoConfigManager(UserConfigManager()),
+        remote_url=None,
+        mcp_server_enabled=False,
+        skew_protection=skew_protection,
+        enable_auth=enable_auth,
+    )
+
+
+def test_base_url() -> None:
+    app = create_starlette_app(base_url="/foo")
+    init_state(
+        session_manager=get_mock_session_manager(mode=SessionMode.EDIT),
+        base_url="/foo",
+    ).apply(app.state)
+    with_server(app)
+
+    client = TestClient(app)
+
+    # Infra routes
+    response = client.get("/foo/health")
+    assert response.status_code == 200, response.text
+    response = client.get("/foo/healthz")
+    assert response.status_code == 200, response.text
+    response = client.get("/health")
+    assert response.status_code == 404, response.text
+    response = client.get("/healthz")
+    assert response.status_code == 404, response.text
+
+    # Index (requires auth)
+    response = client.get("/foo/", headers=token_header("fake-token"))
+    assert response.status_code == 200, response.text
+    response = client.get("/")
+    assert response.status_code == 404, response.text
+
+    # Favicon, fails when missing base_url
+    response = client.get("/foo/favicon.ico")
+    assert response.status_code == 200, response.text
+    response = client.get("/favicon.ico")
+    assert response.status_code == 404, response.text
+
+    # API, fails when missing base_url
+    response = client.get("/foo/api/status")
+    assert response.status_code == 200, response.text
+    response = client.get("/api/status")
+    assert response.status_code == 404, response.text
+
+
+def test_skew_protection(edit_app: Starlette) -> None:
+    client = TestClient(edit_app)
+    # Unauthorized access
+    response = client.get("/api/status")
+    assert response.status_code == 401, response.text
+    assert response.headers.get("Set-Cookie") is None
+
+    # Authorized access
+    response = client.get("/api/status", headers=token_header("fake-token"))
+    assert response.status_code == 200, response.text
+    assert response.headers.get("Set-Cookie") is not None
+
+    # POST with a new passing skew protection token
+    response = client.post(
+        "/api/home/running_notebooks",
+        headers=token_header("fake-token"),
+    )
+    assert response.status_code == 200, response.text
+
+    # POST with a new skew protection token
+    response = client.post(
+        "/api/home/running_notebooks",
+        headers=token_header("fake-token", "old-skew-id"),
+    )
+    assert response.status_code == 401, response.text
+
+
+def with_server(app: Starlette) -> Starlette:
+    uvicorn_server = uvicorn.Server(uvicorn.Config(app))
+    uvicorn_server.servers = []
+    app.state.server = uvicorn_server
+    return app
+
+
+def test_skew_protection_skips_execute(edit_app: Starlette) -> None:
+    """POST /api/kernel/execute is exempt from skew protection."""
+    client = TestClient(edit_app, raise_server_exceptions=False)
+
+    # An invalid skew token would normally return 401, but the execute
+    # endpoint is exempt.  The endpoint itself will fail (no session),
+    # but it should NOT be blocked by skew protection (401).
+    response = client.post(
+        "/api/kernel/execute",
+        headers=token_header("fake-token", "wrong-skew-id"),
+        json={"code": "1+1"},
+    )
+    assert response.status_code != 401, (
+        "skew protection should not gate /api/kernel/execute"
+    )
+
+
+def test_skew_protection_enforced_for_form_content_type(
+    edit_app: Starlette,
+) -> None:
+    """The skew protection token is enforced regardless of Content-Type."""
+    client = TestClient(edit_app)
+
+    # An invalid skew token with a form-urlencoded Content-Type is rejected.
+    # `data=` sends an application/x-www-form-urlencoded body.
+    response = client.post(
+        "/api/home/running_notebooks",
+        headers=token_header("fake-token", "old-skew-id"),
+        data={"foo": "bar"},
+    )
+    assert response.status_code == 401, response.text
+
+    # And a valid skew token still passes.
+    response = client.post(
+        "/api/home/running_notebooks",
+        headers=token_header("fake-token"),
+        data={"foo": "bar"},
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_skew_protection_skips_login(edit_app: Starlette) -> None:
+    """The login form is a plain HTML form and cannot attach the server
+    token, so it must be exempt from skew protection."""
+    client = TestClient(edit_app, follow_redirects=False)
+
+    # A login POST without any skew token reaches the handler instead of
+    # being blocked (401) by skew protection. The login itself fails
+    # (bad password), which re-renders the login page with an error.
+    response = client.post(
+        "/auth/login",
+        data={"password": "wrong-password"},
+    )
+    assert response.status_code == 200, response.text
+    assert "Invalid password" in response.text
+
+
+def test_skew_protection_disabled() -> None:
+    """Test that skew protection can be disabled via CLI flag"""
+    app = create_starlette_app(base_url="", skew_protection=False)
+    init_state(
+        session_manager=get_mock_session_manager(mode=SessionMode.EDIT),
+        skew_protection=False,
+    ).apply(app.state)
+    # Mock out the server
+    with_server(app)
+
+    client = TestClient(app)
+
+    # POST with an invalid skew protection token should succeed when disabled
+    response = client.post(
+        "/api/home/running_notebooks",
+        headers=token_header("fake-token", "old-skew-id"),
+    )
+    assert response.status_code == 200, response.text
+
+
+@pytest.fixture
+def edit_app() -> Starlette:
+    app = create_starlette_app(base_url="")
+    session_manager = get_mock_session_manager()
+    with_server(app)
+    init_state(session_manager=session_manager).apply(app.state)
+    return app
+
+
+@pytest.fixture
+def read_app() -> Starlette:
+    main = sys.modules["__main__"]
+    app = create_starlette_app(base_url="")
+    # Mock out the server
+    with_server(app)
+    session_manager = get_mock_session_manager(mode=SessionMode.RUN)
+    init_state(session_manager=session_manager).apply(app.state)
+    yield app
+
+    try:
+        asyncio.run(join_kernel_thread_tasks(session_manager))
+    finally:
+        sys.modules["__main__"] = main
+
+
+@pytest.fixture(params=["read_app", "edit_app"])
+def app(request: Any) -> Starlette:
+    return request.getfixturevalue(request.param)
+
+
+@pytest.fixture
+def no_auth_edit_app() -> Starlette:
+    app = create_starlette_app(base_url="", enable_auth=False)
+    session_manager = get_mock_session_manager()
+    session_manager.mode = SessionMode.EDIT
+    session_manager._token_manager.auth_token = AuthToken("")
+    with_server(app)
+    init_state(session_manager=session_manager, enable_auth=False).apply(
+        app.state
+    )
+    return app
+
+
+@pytest.fixture
+def no_auth_read_app() -> Starlette:
+    main = sys.modules["__main__"]
+    app = create_starlette_app(base_url="", enable_auth=False)
+    session_manager = get_mock_session_manager(mode=SessionMode.RUN)
+    # no auth
+    session_manager._token_manager.auth_token = AuthToken("")
+    with_server(app)
+    init_state(session_manager=session_manager, enable_auth=False).apply(
+        app.state
+    )
+
+    yield app
+
+    try:
+        asyncio.run(join_kernel_thread_tasks(session_manager))
+    finally:
+        sys.modules["__main__"] = main
+
+
+@pytest.fixture(params=["no_auth_read_app", "no_auth_edit_app"])
+def no_auth_app(request: Any) -> Starlette:
+    return request.getfixturevalue(request.param)
+
+
+class TestAuth:
+    def test_no_auth_index_page(self, app: Starlette) -> None:
+        # Test unauthorized access
+        client = TestClient(app)
+        response = client.get("/")
+        assert response.status_code == 200, response.text
+        assert response.headers.get("Set-Cookie") is None
+        assert "Login" in response.text
+
+    def test_no_auth_api_route(self, app: Starlette) -> None:
+        # Test unauthorized access
+        client = TestClient(app)
+        response = client.get("/api/status")
+        assert response.status_code == 401, response.text
+        assert response.headers.get("Set-Cookie") is None
+
+    def test_auth_by_query(self, app: Starlette) -> None:
+        # Test authorized access by auth_token in query. The server now
+        # 303-redirects `/?access_token=...` to `/` after validating the
+        # token and attaching the session cookie to the redirect response,
+        # so the browser lands on a clean URL without exposing the token
+        # to JavaScript or Referer.
+        client = TestClient(app)
+        response = client.get(
+            "/?access_token=fake-token", follow_redirects=False
+        )
+        assert response.status_code == 303, response.text
+        assert response.headers.get("Set-Cookie") is not None
+        assert response.headers["Location"] == "/"
+
+        # Following the redirect with the new cookie lands on the
+        # authenticated page.
+        response = client.get("/")
+        assert response.status_code == 200, response.text
+
+    def tets_bath_auth_query(self, app: Starlette) -> None:
+        # Test unauthorized access with bad auth token
+        client = TestClient(app)
+        response = client.get("/?access_token=bad-token")
+        assert response.status_code == 401, response.text
+        assert response.headers.get("Set-Cookie") is None
+
+    def test_auth_by_header(self, app: Starlette) -> None:
+        # Test authorized access by auth_token in header (basic auth login)
+        client = TestClient(app)
+        response = client.get("/", headers=token_header("fake-token"))
+        assert response.status_code == 200, response.text
+        assert response.headers.get("Set-Cookie") is not None
+
+        # Can access again with cookie
+        response = client.get("/")
+        assert response.status_code == 200, response.text
+
+    def test_bad_auth_header(self, app: Starlette) -> None:
+        # Test unauthorized access with bad auth token
+        client = TestClient(app)
+        response = client.get("/api/status", headers=token_header("bad-token"))
+        assert response.status_code == 401, response.text
+        assert response.headers.get("Set-Cookie") is None
+
+
+class TestNoAuth:
+    def test_no_auth(self, no_auth_app: Starlette) -> None:
+        client = TestClient(no_auth_app)
+        response = client.get("/")
+        assert response.status_code == 200, response.text
+        assert response.headers.get("Set-Cookie") is None
+
+    def tets_any_query(self, no_auth_app: Starlette) -> None:
+        client = TestClient(no_auth_app)
+        response = client.get("/?access_token=bad-token")
+        assert response.status_code == 200, response.text
+        assert response.headers.get("Set-Cookie") is None
+
+    def test_any_header(self, no_auth_app: Starlette) -> None:
+        client = TestClient(no_auth_app)
+        response = client.get("/", headers=token_header("bad-token"))
+        assert response.status_code == 200, response.text
+        assert response.headers.get("Set-Cookie") is None
+
+
+async def target_app(scope: Scope, receive: Receive, send: Send) -> None:
+    if scope["type"] == "http":
+        response = Response(
+            json.dumps({"message": "response from proxied app"}),
+            media_type="application/json",
+        )
+        await response(scope, receive, send)
+    elif scope["type"] == "websocket":
+        websocket = WebSocket(scope, receive=receive, send=send)
+        await websocket.accept()
+        try:
+            while True:
+                await websocket.receive_json()
+                await websocket.send_json(
+                    {"message": "ws response from proxied app"}
+                )
+        except WebSocketDisconnect:
+            print("Client disconnected")
+            return
+
+
+def run_target_server():
+    """Runs the target app with uvicorn."""
+    config = Config(
+        app=target_app, host="127.0.0.1", port=8765, log_level="info"
+    )
+    server = Server(config)
+    server.run()
+
+
+async def serve_static(request: Request) -> Response:
+    del request
+    content = "body { color: red; }"
+    return Response(content=content, media_type="text/css")
+
+
+async def serve_large_file(request: Request) -> Response:
+    del request
+    content = "x" * 1024 * 1024  # 1MB of 'x' characters
+    return Response(content=content, media_type="text/plain")
+
+
+target_static_app = Starlette(
+    routes=[
+        Route("/_static/css/page.css", serve_static),
+        Route("/_static/large-file.txt", serve_large_file),
+    ]
+)
+
+
+def run_static_server():
+    """Runs the static file server with uvicorn."""
+    config = Config(
+        app=target_static_app, host="127.0.0.1", port=8766, log_level="info"
+    )
+    server = Server(config)
+    server.run()
+
+
+def _wait_for_server(host: str, port: int, timeout: float = 10.0) -> None:
+    """Poll until a TCP connection to host:port succeeds."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=0.5):
+                return
+        except OSError:
+            time.sleep(0.1)
+    raise RuntimeError(
+        f"Server on {host}:{port} did not start within {timeout}s"
+    )
+
+
+class TestProxyMiddleware:
+    @pytest.fixture(scope="module")
+    def target_server(self):
+        """Start a separate `uvicorn` server for the target app."""
+        process = Process(target=run_target_server, daemon=True)
+        process.start()
+        _wait_for_server("127.0.0.1", 8765)
+        yield None
+        process.terminate()
+        process.join()
+
+    @pytest.fixture
+    def app_with_proxy(self, target_server: None) -> Starlette:
+        del target_server
+        app = create_starlette_app(
+            base_url="",
+            skew_protection=False,
+            middleware=[
+                Middleware(
+                    ProxyMiddleware,
+                    proxy_path="/proxy",
+                    target_url="http://127.0.0.1:8765",
+                )
+            ],
+        )
+        with_server(app)
+        init_state(
+            session_manager=get_mock_session_manager(mode=SessionMode.EDIT),
+            skew_protection=False,
+        ).apply(app.state)
+        return app
+
+    @pytest.fixture(scope="module")
+    def static_server(self):
+        """Start a separate server for static files."""
+        process = Process(target=run_static_server, daemon=True)
+        process.start()
+        _wait_for_server("127.0.0.1", 8766)
+        yield None
+        process.terminate()
+        process.join()
+
+    @pytest.fixture
+    def app_with_static_proxy(
+        self, static_server: None, tmp_path: Path
+    ) -> Starlette:
+        del static_server
+        css_dir = tmp_path / "static" / "css"
+        css_dir.mkdir(parents=True)
+        css_file = css_dir / "page.css"
+        css_file.write_text("body { color: red; }")
+
+        large_file = tmp_path / "static" / "large-file.txt"
+        large_file.write_text("x" * 1024 * 1024)  # 1MB file
+
+        app = create_starlette_app(
+            base_url="",
+            skew_protection=False,
+            middleware=[
+                Middleware(
+                    ProxyMiddleware,
+                    proxy_path="/_static",
+                    target_url="http://127.0.0.1:8766",
+                    require_auth=False,
+                )
+            ],
+        )
+        with_server(app)
+        init_state(
+            session_manager=get_mock_session_manager(mode=SessionMode.EDIT),
+            skew_protection=False,
+        ).apply(app.state)
+        return app
+
+    @pytest.mark.flaky(reruns=5)
+    def test_proxy_static_file(self, app_with_static_proxy: Starlette) -> None:
+        client = TestClient(app_with_static_proxy)
+        response = client.get("/_static/css/page.css")
+        assert response.status_code == 200, response.text
+        assert response.headers["content-type"].startswith("text/css")
+        assert "body { color: red; }" in response.text
+
+    @pytest.mark.flaky(reruns=5)
+    def test_proxy_large_static_file(
+        self, app_with_static_proxy: Starlette
+    ) -> None:
+        client = TestClient(app_with_static_proxy)
+        response = client.get("/_static/large-file.txt")
+        assert response.status_code == 200, response.text
+        assert response.headers["content-type"].startswith("text/plain")
+        assert (
+            len(response.content) == 1024 * 1024
+        )  # Check full content length
+
+    def test_proxy_static_file_streaming(
+        self, app_with_static_proxy: Starlette
+    ) -> None:
+        client = TestClient(app_with_static_proxy)
+        with client.stream("GET", "/_static/large-file.txt") as response:
+            assert response.status_code == 200, response.text
+            content_length = 0
+            for chunk in response.iter_bytes():
+                content_length += len(chunk)
+            assert content_length == 1024 * 1024
+
+    @pytest.mark.flaky(reruns=5)
+    async def test_http_client_streaming(
+        self, app_with_proxy: Starlette
+    ) -> None:
+        del app_with_proxy
+        client = _AsyncHTTPClient(base_url="http://127.0.0.1:8765")
+
+        request = _URLRequest(
+            "http://127.0.0.1:8765/test",
+            method="POST",
+            headers={"Content-Type": "application/json"},
+            data=b"test string",
+        )
+        response = await client.send(request, stream=True)
+        assert response.status_code == 200
+        chunks = [chunk async for chunk in response.aiter_raw()]
+        assert len(chunks) > 0
+        await response.aclose()
+
+    async def test_http_client_body_types(
+        self, app_with_proxy: Starlette
+    ) -> None:
+        del app_with_proxy
+        client = _AsyncHTTPClient(base_url="http://127.0.0.1:8765")
+
+        # Test with bytes data
+        request = _URLRequest(
+            "http://127.0.0.1:8765/test",
+            method="POST",
+            headers={"Content-Type": "application/json"},
+            data=b'{"test": "data"}',
+        )
+        response = await client.send(request)
+        assert response.status_code == 200
+        await response.aclose()
+
+        # Test with iterable of bytes using a file-like object
+        class BytesBuffer(io.BytesIO):
+            def read(self, size: int | None = -1) -> bytes:
+                return super().read(size)
+
+        buffer = BytesBuffer(b'{"test": "data"}')
+        request = _URLRequest(
+            "http://127.0.0.1:8765/test",
+            method="POST",
+            headers={"Content-Type": "application/json"},
+            data=buffer,
+        )
+        response = await client.send(request)
+        assert response.status_code == 200
+        await response.aclose()
+
+    async def test_http_client_headers(
+        self, app_with_proxy: Starlette
+    ) -> None:
+        del app_with_proxy
+        client = _AsyncHTTPClient(base_url="http://127.0.0.1:8765")
+
+        custom_headers = {
+            "X-Test-Header": "test-value",
+            "Content-Type": "application/json",
+        }
+        request = _URLRequest(
+            "http://127.0.0.1:8765/test",
+            method="GET",
+            headers=custom_headers,
+            data=None,  # Explicitly set to None for GET request
+        )
+        response = await client.send(request)
+        assert response.headers.get("content-type") == "application/json"
+        await response.aclose()
+
+    def test_http_client_url_building(self) -> None:
+        client = _AsyncHTTPClient(base_url="http://127.0.0.1:8765")
+
+        url = type(
+            "URL", (), {"path": "/test/path", "query": b"param=value"}
+        )()
+
+        request = client.build_request("GET", url, headers={}, content=None)
+        assert (
+            request.full_url == "http://127.0.0.1:8765/test/path?param=value"
+        )
+        assert "host" in request.headers
+
+    @pytest.mark.parametrize(
+        ("method", "payload"),
+        [
+            ("GET", None),
+            ("POST", {"data": "test"}),
+        ],
+    )
+    def test_proxy_basic_http_functionality(
+        self,
+        app_with_proxy: Starlette,
+        method: str,
+        payload: dict[str, Any] | None,
+    ) -> None:
+        client = TestClient(app_with_proxy)
+        response = client.request(
+            method,
+            "/proxy/api/test",
+            headers=token_header("fake-token"),
+            json=payload,
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["message"] == "response from proxied app"
+
+    def test_original_app_auth_still_works(
+        self, app_with_proxy: Starlette
+    ) -> None:
+        client = TestClient(app_with_proxy)
+        response = client.get("/api/status", headers=token_header("bad-token"))
+        assert response.status_code == 401, response.text
+        assert response.headers.get("Set-Cookie") is None
+
+    async def test_proxy_websocket(self, app_with_proxy: Starlette) -> None:
+        client = TestClient(app_with_proxy)
+        with client.websocket_connect(
+            "/proxy/ws", headers=token_header("fake-token")
+        ) as websocket:
+            websocket.send_json({"message": "hello there"})
+            response = websocket.receive_json()
+            assert response["message"] == "ws response from proxied app"
+            websocket.send_json({"message": "hello there again"})
+            response_2 = websocket.receive_json()
+            assert response_2["message"] == "ws response from proxied app"
+            websocket.send_json({"message": "hello there again"})
+            response_3 = websocket.receive_json()
+            assert response_3["message"] == "ws response from proxied app"
+
+    async def test_proxy_middleware_websocket_protocol(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that ProxyMiddleware correctly converts http/https to ws/wss."""
+        # Create a simple app and middleware
+        app = Starlette()
+        middleware = ProxyMiddleware(
+            app, "/proxy", "http://example.com", require_auth=False
+        )
+
+        # Mock the _proxy_websocket method to capture the URL
+        proxy_calls: list[str] = []
+
+        async def mock_proxy_websocket(
+            self: Any, scope: Scope, receive: Receive, send: Send, ws_url: str
+        ):
+            del self, scope, receive, send
+            proxy_calls.append(ws_url)
+
+        monkeypatch.setattr(
+            ProxyMiddleware, "_proxy_websocket", mock_proxy_websocket
+        )
+
+        # Create test scope for websocket
+        scope = {
+            "type": "websocket",
+            "path": "/proxy/test",
+            "query_string": b"",
+        }
+
+        # Test with http target
+        middleware.target_url = "http://example.com"
+        await middleware(scope, None, None)
+        assert proxy_calls[-1] == "ws://example.com/proxy/test"
+
+        # Test with https target
+        middleware.target_url = "https://example.com"
+        await middleware(scope, None, None)
+        assert proxy_calls[-1] == "wss://example.com/proxy/test"
+
+        # Test with callable target that returns http
+        middleware.target_url = lambda _path: "http://example.com"
+        await middleware(scope, None, None)
+        assert proxy_calls[-1] == "ws://example.com/proxy/test"
+
+        # Test with callable target that returns https
+        middleware.target_url = lambda _path: "https://example.com"
+        await middleware(scope, None, None)
+        assert proxy_calls[-1] == "wss://example.com/proxy/test"
+
+    def test_proxy_websocket_strips_access_token(self) -> None:
+        """access_token is used for marimo auth and must not leak upstream."""
+
+        def _encode_params_without_token(query_string: bytes) -> str:
+            """Reproduce the encoding logic from _proxy_websocket."""
+            params = QueryParams(query_string.decode())
+            encoded = [
+                (k, quote(v))
+                for k, v in params.items()
+                if k != TOKEN_QUERY_PARAM
+            ]
+            if not encoded:
+                return ""
+            return "&".join(f"{k}={v}" for k, v in encoded)
+
+        # access_token should be stripped
+        result = _encode_params_without_token(
+            b"access_token=secret&file=test.py"
+        )
+        assert result == "file=test.py"
+
+        # Only access_token → empty string
+        result = _encode_params_without_token(b"access_token=secret")
+        assert result == ""
+
+        # No access_token → unchanged
+        result = _encode_params_without_token(b"file=test.py&mode=edit")
+        assert result == "file=test.py&mode=edit"
+
+    def test_proxy_websocket_query_params_space_encoding(self) -> None:
+        """Spaces in query params encoded as '+' are re-encoded as '%20'.
+
+        Starlette/browsers may encode spaces as '+' in query strings
+        (application/x-www-form-urlencoded), but upstream servers like
+        python-lsp-server expect percent-encoding (%20).
+        See: https://github.com/marimo-team/marimo/issues/9041
+        """
+
+        def _encode_params(query_string: bytes) -> str:
+            """Reproduce the encoding logic from _proxy_websocket."""
+            params = QueryParams(query_string.decode())
+            encoded = [(k, quote(v)) for k, v in params.items()]
+            return "&".join(f"{k}={v}" for k, v in encoded)
+
+        # '+' in query string should be converted to %20
+        result = _encode_params(b"file=my+file+name.py")
+        assert result == "file=my%20file%20name.py"
+
+        # Already percent-encoded spaces should stay as %20
+        result = _encode_params(b"file=my%20file%20name.py")
+        assert result == "file=my%20file%20name.py"
+
+        # Params without spaces should pass through unchanged
+        result = _encode_params(b"file=simple.py&mode=edit")
+        assert result == "file=simple.py&mode=edit"
+
+        # Path-like values: slashes are preserved (quote's default safe='/')
+        result = _encode_params(b"file=/path/to/my+file.py")
+        assert result == "file=/path/to/my%20file.py"
+
+        # Literal plus signs (%2B) should be preserved, not turned into spaces
+        result = _encode_params(b"file=a%2Bb.py")
+        assert result == "file=a%2Bb.py"
+
+
+def _mock_lsp_server(server_id: str, port: int):
+    """Helper to create a mock LSP server."""
+
+    class MockLspServer(BaseLspServer):
+        id = server_id
+
+        def validate_requirements(self):
+            return True
+
+        def get_command(self):
+            return []
+
+        def missing_binary_alert(self):
+            return None
+
+    return MockLspServer(port=port)
+
+
+class TestLspProxyMiddleware:
+    """Test that LSP proxy middleware respects base_url configuration."""
+
+    def test_lsp_proxy_without_base_url(self) -> None:
+        middlewares = list(
+            _create_lsps_proxy_middleware(
+                base_url="", servers=[_mock_lsp_server("test-lsp", 8888)]
+            )
+        )
+
+        assert len(middlewares) == 1
+        assert middlewares[0].kwargs["proxy_path"] == "/lsp/test-lsp"
+        assert middlewares[0].kwargs["target_url"] == "http://127.0.0.1:8888"
+
+    def test_lsp_proxy_with_base_url(self) -> None:
+        middlewares = list(
+            _create_lsps_proxy_middleware(
+                base_url="/foo", servers=[_mock_lsp_server("test-lsp", 8888)]
+            )
+        )
+
+        assert len(middlewares) == 1
+        assert middlewares[0].kwargs["proxy_path"] == "/foo/lsp/test-lsp"
+        assert middlewares[0].kwargs["target_url"] == "http://127.0.0.1:8888"
+
+    def test_lsp_proxy_multiple_servers(self) -> None:
+        middlewares = list(
+            _create_lsps_proxy_middleware(
+                base_url="/app",
+                servers=[
+                    _mock_lsp_server("pylsp", 8888),
+                    _mock_lsp_server("copilot", 8889),
+                ],
+            )
+        )
+
+        assert len(middlewares) == 2
+        assert middlewares[0].kwargs["proxy_path"] == "/app/lsp/pylsp"
+        assert middlewares[0].kwargs["target_url"] == "http://127.0.0.1:8888"
+        assert middlewares[1].kwargs["proxy_path"] == "/app/lsp/copilot"
+        assert middlewares[1].kwargs["target_url"] == "http://127.0.0.1:8889"
+
+    def test_lsp_proxy_integration(self) -> None:
+        """Verify LSP proxy works with create_starlette_app."""
+        app = create_starlette_app(
+            base_url="/marimo",
+            lsp_servers=[_mock_lsp_server("test-lsp", 8888)],
+        )
+
+        proxy_mw = [
+            mw
+            for mw in app.user_middleware
+            if mw.cls == ProxyMiddleware
+            and mw.kwargs.get("proxy_path") == "/marimo/lsp/test-lsp"
+        ]
+
+        assert len(proxy_mw) == 1
+        assert proxy_mw[0].kwargs["target_url"] == "http://127.0.0.1:8888"
+
+
+class TestLspProxyAuth:
+    """Access control for the LSP proxy middleware."""
+
+    @pytest.fixture
+    def lsp_app(self) -> Starlette:
+        app = create_starlette_app(
+            base_url="",
+            lsp_servers=[_mock_lsp_server("test-lsp", 8888)],
+            skew_protection=False,
+        )
+        with_server(app)
+        init_state(
+            session_manager=get_mock_session_manager(mode=SessionMode.EDIT),
+            skew_protection=False,
+        ).apply(app.state)
+        return app
+
+    def test_http_unauthenticated_is_rejected(
+        self, lsp_app: Starlette
+    ) -> None:
+        client = TestClient(lsp_app)
+        response = client.get("/lsp/test-lsp/anything")
+        assert response.status_code == 401, response.text
+
+    def test_http_bad_token_is_rejected(self, lsp_app: Starlette) -> None:
+        client = TestClient(lsp_app)
+        response = client.get(
+            "/lsp/test-lsp/anything",
+            headers=token_header("bad-token"),
+        )
+        assert response.status_code == 401, response.text
+
+    def test_http_bad_access_token_query_param_is_rejected(
+        self, lsp_app: Starlette
+    ) -> None:
+        client = TestClient(lsp_app)
+        response = client.get(
+            "/lsp/test-lsp/anything?access_token=not-the-right-token"
+        )
+        assert response.status_code == 401, response.text
+
+    def test_websocket_unauthenticated_is_rejected(
+        self, lsp_app: Starlette
+    ) -> None:
+        client = TestClient(lsp_app)
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            with client.websocket_connect("/lsp/test-lsp/ws"):
+                pass
+        assert exc_info.value.code == WebSocketCodes.UNAUTHORIZED
+
+    def test_websocket_bad_access_token_is_rejected(
+        self, lsp_app: Starlette
+    ) -> None:
+        client = TestClient(lsp_app)
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            with client.websocket_connect(
+                "/lsp/test-lsp/ws?access_token=not-the-right-token"
+            ):
+                pass
+        assert exc_info.value.code == WebSocketCodes.UNAUTHORIZED
+
+    def test_private_lsp_token_cannot_bypass_marimo_auth(
+        self, lsp_app: Starlette, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        proxy = next(
+            mw for mw in lsp_app.user_middleware if mw.cls == ProxyMiddleware
+        )
+        connect = AsyncMock()
+        monkeypatch.setattr("marimo._server.api.middleware.connect", connect)
+        client = TestClient(lsp_app)
+        with pytest.raises(WebSocketDisconnect) as exc:
+            with client.websocket_connect(
+                "/lsp/test-lsp/ws", headers=proxy.kwargs["websocket_headers"]
+            ):
+                pytest.fail(
+                    "Private upstream token bypassed marimo authentication"
+                )
+        assert exc.value.code == WebSocketCodes.UNAUTHORIZED
+        connect.assert_not_called()
+
+    def test_http_authenticated_is_forwarded(self, lsp_app: Starlette) -> None:
+        # The mock LSP server points at an unused port, so the upstream
+        # connection fails with 503. We only care that auth let the
+        # request through rather than 401.
+        client = TestClient(lsp_app)
+        response = client.get(
+            "/lsp/test-lsp/anything",
+            headers=token_header("fake-token"),
+        )
+        assert response.status_code != 401, response.text
+
+    async def test_websocket_injects_private_credential(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lsp = _mock_lsp_server("test-lsp", 0)
+        assert lsp.auth_token != _mock_lsp_server("other-lsp", 0).auth_token
+
+        def echo(websocket):
+            for message in websocket:
+                websocket.send(message)
+
+        monkeypatch.setattr("marimo._server._pylsp.pylsp_connection", echo)
+        with (
+            create_server(0, lsp.auth_token) as upstream,
+            serve_in_thread(upstream),
+        ):
+            lsp.port = upstream.socket.getsockname()[1]
+            app = create_starlette_app(
+                base_url="/notebook", lsp_servers=[lsp], skew_protection=False
+            )
+            with_server(app)
+            init_state(
+                session_manager=get_mock_session_manager(
+                    mode=SessionMode.EDIT
+                ),
+                skew_protection=False,
+                base_url="/notebook",
+            ).apply(app.state)
+
+            def exchange():
+                client = TestClient(app)
+                with client.websocket_connect(
+                    "/notebook/lsp/test-lsp/ws",
+                    headers={
+                        **token_header("fake-token"),
+                        "Marimo-LSP-Token": "client-cannot-override-this",
+                        "Origin": "http://testserver",
+                    },
+                ) as websocket:
+                    websocket.send_text("LSP message")
+                    assert websocket.receive_text() == "LSP message"
+
+            await asyncio.wait_for(asyncio.to_thread(exchange), timeout=10)
+
+    def test_proxy_middleware_defaults_require_auth(self) -> None:
+        async def _noop_app(
+            scope: Scope, receive: Receive, send: Send
+        ) -> None:
+            del scope, receive, send
+
+        middleware = ProxyMiddleware(
+            app=_noop_app,
+            proxy_path="/proxy",
+            target_url="http://example.com",
+        )
+        assert middleware.require_auth is True

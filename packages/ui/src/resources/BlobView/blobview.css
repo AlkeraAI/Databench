@@ -1,0 +1,45 @@
+/* Full read-only blob view (editor page): a scrolling body over a footer pager
+   bar. Surface-neutral: base --alk* tokens only, with in-var() literal fallbacks
+   inside every color-mix() on a non-inherited property. */
+
+.alk-blobv {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* A column, so a renderer that owns its own scroll (the grid, via `fill`) is
+   handed a height to scroll inside rather than growing past this box. The
+   `overflow` stays for the renderers that do NOT — the text view is a single
+   <pre> as tall as the blob. */
+.alk-blobv__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+/* The pager bar sits at the BOTTOM of the view (a footer), so the border faces
+   up toward the scrolling table above it. Its content is the shared DataTablePager
+   (count + page input + nav); the bar owns only the border + padding. */
+.alk-blobv__bar {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border-top: 1px solid color-mix(in srgb, var(--alkPrimaryText, #ece9e2) 10%, transparent);
+}
+
+/* A centered status (loading / error) that fills the stacked detail-page body. */
+.alk-blobv-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  padding: var(--alkSpaceLg) var(--alkSpace6);
+  color: var(--alkSecondaryText);
+  text-align: center;
+}

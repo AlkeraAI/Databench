@@ -1,0 +1,57 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.4.1.json",
+  "config": {
+    "view": {
+      "continuousHeight": 300,
+      "continuousWidth": 300
+    }
+  },
+  "data": {
+    "name": "data-aec22b5641fce54c6a1b0f41e0a05405"
+  },
+  "datasets": {
+    "data-aec22b5641fce54c6a1b0f41e0a05405": [
+      {
+        "a": 1,
+        "b": 4.0,
+        "c": "x",
+        "t": "2026-01-01T00:00:00"
+      },
+      {
+        "a": 2,
+        "b": 5.5,
+        "c": "y",
+        "t": "2026-01-02T00:00:00"
+      },
+      {
+        "a": 3,
+        "b": 6.25,
+        "c": "x",
+        "t": "2026-01-03T00:00:00"
+      },
+      {
+        "a": 4,
+        "b": 3.0,
+        "c": "y",
+        "t": "2026-01-04T00:00:00"
+      }
+    ]
+  },
+  "encoding": {
+    "color": {
+      "field": "b",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "a",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "c",
+      "type": "nominal"
+    }
+  },
+  "mark": {
+    "type": "rect"
+  }
+}

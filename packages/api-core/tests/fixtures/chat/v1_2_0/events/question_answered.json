@@ -1,0 +1,16 @@
+{
+  "answers": [
+    [
+      "Red"
+    ]
+  ],
+  "decided_by": "user",
+  "event_id": "01H_question_answered",
+  "event_type": "question.answered",
+  "metadata": {},
+  "provider_metadata": {},
+  "request_id": "qr1",
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

@@ -1,0 +1,31 @@
+@import "./tokens.css";
+
+/* The targets you can query, handle first. */
+
+:global(.chat-root) [data-tool="sql_connections"] .sqlConnectionsList {
+  padding: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="sql_connections"] .sqlConnectionsConn {
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x);
+}
+
+/* The class lands on the vendor's mark or on the plug the mark falls back to,
+   so it holds the box for both; the plug is the only one that takes the ink. */
+:global(.chat-root) [data-tool="sql_connections"] .sqlConnectionsConnMark {
+  flex: none;
+  color: var(--chat-tool-id);
+}
+
+/* Production is the one qualifier that changes how the next query should be
+   written, so it is the only one that carries ink. */
+:global(.chat-root) [data-tool="sql_connections"] .sqlConnectionsConnEnv[data-env="prod"] {
+  padding: 0 var(--chat-sp-1);
+  border: 1px solid var(--chat-tool-warn-line);
+  border-radius: var(--chat-tool-radius-chip);
+  background: var(--chat-tool-warn-wash);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-tool-warn);
+}

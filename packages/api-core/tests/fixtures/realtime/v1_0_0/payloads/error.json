@@ -1,0 +1,6 @@
+{
+  "code": "stale_epoch",
+  "message": "the document moved on",
+  "metadata": {},
+  "schema_version": "1.0.0"
+}

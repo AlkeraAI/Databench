@@ -1,0 +1,162 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "0000000001": {
+        "defs": [
+          "alkera",
+          "pl"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000051": {
+        "defs": [
+          "area"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000052": {
+        "defs": [
+          "Box"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000053": {
+        "defs": [
+          "scale"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000054": {
+        "defs": [
+          "scaled"
+        ],
+        "errors": [],
+        "refs": [
+          "scale"
+        ],
+        "sql_tables": []
+      },
+      "0000000055": {
+        "defs": [],
+        "errors": [],
+        "refs": [
+          "Box",
+          "area",
+          "scale"
+        ],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "0000000051",
+        "0000000055"
+      ],
+      [
+        "0000000052",
+        "0000000055"
+      ],
+      [
+        "0000000053",
+        "0000000054"
+      ],
+      [
+        "0000000053",
+        "0000000055"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "import alkera\nimport polars as pl",
+        "config": {},
+        "extra": {},
+        "id": "0000000001",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "keyword",
+        "source": "import alkera\nimport polars as pl"
+      },
+      {
+        "code": "def area(r: float) -> float:\n    return 3.14159 * r * r",
+        "config": {},
+        "extra": {},
+        "id": "0000000051",
+        "kind": "function",
+        "meta": {},
+        "name": "area",
+        "resolution": "keyword",
+        "source": "def area(r: float) -> float:\n    return 3.14159 * r * r"
+      },
+      {
+        "code": "class Box:\n    def __init__(self, w: int) -> None:\n        self.w = w",
+        "config": {},
+        "extra": {},
+        "id": "0000000052",
+        "kind": "class",
+        "meta": {},
+        "name": "Box",
+        "resolution": "keyword",
+        "source": "class Box:\n    def __init__(self, w: int) -> None:\n        self.w = w"
+      },
+      {
+        "code": "scale = 2",
+        "config": {},
+        "extra": {},
+        "id": "0000000053",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "scale = 2"
+      },
+      {
+        "code": "def scaled(v):\n    return v * scale",
+        "config": {},
+        "extra": {},
+        "id": "0000000054",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "def scaled(v):\n    return v * scale"
+      },
+      {
+        "code": "area(Box(scale).w)",
+        "config": {},
+        "extra": {},
+        "id": "0000000055",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "area(Box(scale).w)"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

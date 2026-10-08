@@ -1,0 +1,71 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "0000000041": {
+        "defs": [
+          "x"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000042": {
+        "defs": [
+          "y"
+        ],
+        "errors": [],
+        "refs": [
+          "x"
+        ],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "0000000041",
+        "0000000042"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "x = 1",
+        "config": {},
+        "extra": {},
+        "id": "0000000041",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "x = 1"
+      },
+      {
+        "code": "y = x + 1\ny",
+        "config": {},
+        "extra": {},
+        "id": "0000000042",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "y = x + 1\ny"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

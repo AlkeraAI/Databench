@@ -1,0 +1,20 @@
+.statGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace7);
+  container-type: inline-size;
+}
+.statGrid > * {
+  flex: 1 1 calc((100% - 3 * var(--alkSpace7)) / 4);
+  min-width: 0;
+}
+@container (max-width: 900px) {
+  .statGrid > * {
+    flex-basis: calc((100% - var(--alkSpace7)) / 2);
+  }
+}
+@container (max-width: 520px) {
+  .statGrid > * {
+    flex-basis: 100%;
+  }
+}

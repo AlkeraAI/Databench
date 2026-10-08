@@ -1,0 +1,78 @@
+@import "./tokens.css";
+
+/* The capability register, shared with the tool roster and anchored on the hue a
+   delegation wears: all of them answer what this agent can do here. */
+
+/* The loaded instructions as a document; the shared .chat-tool-doc seat
+   carries them. */
+
+.chat-root [data-tool="skill"] .chat-skill-files {
+  border-top: 1px solid var(--chat-hairline);
+}
+
+.chat-root [data-tool="skill"] .chat-skill-files__head {
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-tool-ink-3);
+}
+
+/* A bundled file is a door when the host can open one, and reads identically
+   when it cannot. */
+.chat-root [data-tool="skill"] .chat-skill-file {
+  width: 100%;
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  text-align: left;
+}
+
+.chat-root [data-tool="skill"] button.chat-skill-file {
+  cursor: pointer;
+}
+
+.chat-root [data-tool="skill"] button.chat-skill-file .chat-tool-leaf {
+  text-decoration: underline transparent;
+  text-underline-offset: 2px;
+  transition: color 140ms ease, text-decoration-color 140ms ease;
+}
+
+.chat-root [data-tool="skill"] button.chat-skill-file:hover .chat-tool-leaf,
+.chat-root [data-tool="skill"] button.chat-skill-file:focus-visible .chat-tool-leaf {
+  color: var(--chat-tool-id);
+  text-decoration-color: currentcolor;
+}
+
+.chat-root [data-tool="skill"] button.chat-skill-file:focus-visible {
+  outline: 1.5px solid var(--chat-focus);
+  outline-offset: -1.5px;
+}
+
+
+.chat-root [data-tool="skill"] .chat-skill-skill {
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-2);
+}
+
+.chat-root [data-tool="skill"] .chat-skill-skill__name {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+}
+
+.chat-root [data-tool="skill"] .chat-skill-skill__desc {
+  margin: 1px 0 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+  overflow-wrap: anywhere;
+}

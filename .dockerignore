@@ -1,0 +1,36 @@
+# Build-context exclusions for `docker build -f <app>/Dockerfile .` and
+# `docker compose build`, run from this folder. Keep the context small and
+# reproducible.
+
+# Local and IDE state
+.env
+.env.local
+.env.workspace
+.idea/
+*.iml
+.vscode/
+
+# Python local state
+.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+*.pyc
+*.pyo
+
+# Node local state and build output
+**/node_modules/
+**/dist/
+**/.turbo/
+
+# Git internals: a directory in a clone, a file when this folder is a submodule.
+.git
+.gitignore
+
+# Compose files are not needed in any image. The root
+# README.md stays: pyproject.toml names it as the long description.
+compose.yaml
+deploy/docker/compose.*.yml
+AGENTS.md
+CHANGELOG.md

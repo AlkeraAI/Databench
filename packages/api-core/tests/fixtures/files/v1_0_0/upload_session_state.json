@@ -1,0 +1,31 @@
+{
+  "$model": "alkera_core.schemas.files.session.UploadSessionState",
+  "aborted": false,
+  "bytes_received": 33554432,
+  "conflict_behavior": "fail",
+  "declared_size": 67108864,
+  "drive_id": null,
+  "expires_at": "2026-01-08T12:00:00Z",
+  "hold_id": null,
+  "idempotency_key": "c0ffee",
+  "lease_epoch": null,
+  "metadata": {},
+  "mime_hint": "application/pdf",
+  "name": "report.pdf",
+  "opened_at": "2026-01-01T12:00:00Z",
+  "parent_id": null,
+  "parts": [
+    {
+      "checksum": "abababababababababababababababababababababababababababababababab",
+      "metadata": {},
+      "part_no": 1,
+      "received_at": null,
+      "schema_version": "1.0.0",
+      "size": 33554432,
+      "store_etag": null
+    }
+  ],
+  "schema_version": "1.0.0",
+  "session_id": null,
+  "transfer_mode": "proxied"
+}

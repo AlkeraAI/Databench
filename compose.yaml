@@ -1,0 +1,347 @@
+# Databench on one machine: `docker compose up`.
+#
+#   cp .env.example .env        then add ANTHROPIC_API_KEY or OPENAI_API_KEY to .env
+#   docker compose up --build   first run builds the images from this folder
+#   open http://localhost:8080  sign in as admin@example.com / admin (AUTH_DEV_ADMIN_* in .env)
+#
+# This stack runs with APP_ENV=local: development secrets, no TLS, every port
+# bound to 127.0.0.1. It is for trying the product on your own machine. A
+# deployment other people reach uses deploy/docker/compose.prod.example.yml,
+# which refuses to start without real secrets.
+#
+# Services: Postgres, Temporal, SeaweedFS (the S3-compatible Files store),
+# Mailpit (catches every email; its inbox is at http://localhost:8025), the
+# backend, the worker, the model gateway, the web app, and a box: the machine
+# chats run on. `init` runs the database migrations and the idempotent seeds
+# before the backend starts.
+#
+# SELF_HOSTED=true lets a data connection reach any host the box can, this
+# computer included (host.docker.internal). Metadata addresses and the chat
+# sandbox networks stay refused.
+#
+# Pull the published images instead of building: set DATABENCH_IMAGE_PREFIX and
+# DATABENCH_VERSION (for example ghcr.io/alkeraai/databench and 0.1.0) and run
+# `docker compose pull && docker compose up`.
+
+name: ${COMPOSE_PROJECT_NAME:-databench}
+
+x-build-args: &build-args
+  APP_VERSION: ${DATABENCH_VERSION:-dev}
+  BUILD_ID: ${BUILD_ID:-local}
+  # The node bundles the backend and worker carry: native, all, amd64 or arm64
+  # (deploy/INSTALL.md, "Machines of both architectures").
+  NODE_BUNDLE_ARCHES: ${NODE_BUNDLE_ARCHES:-native}
+
+x-app-env: &app-env
+  APP_ENV: local
+  SELF_HOSTED: "true"
+  # Inside the network every service listens on its own fixed port; API_PORT,
+  # GATEWAY_PORT and WEB_PORT in .env choose only the published ones.
+  API_PORT: "8000"
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATABASE_URL: postgresql+asyncpg://alkera:alkera@postgres:5432/alkera
+  DATABASE_URL_SYNC: postgresql+psycopg://alkera:alkera@postgres:5432/alkera
+  TEMPORAL_ADDRESS: temporal:7233
+  TEMPORAL_NAMESPACE: default
+  # The browser reaches the API through the web container's /api proxy, so the
+  # app, its cookies and its CSRF origin are all the web origin.
+  FRONTEND_BASE_URL: http://localhost:${WEB_PORT:-8080}
+  API_CORS_ORIGINS: http://localhost:${WEB_PORT:-8080}
+  API_PUBLIC_BASE_URL: http://localhost:${API_PORT:-8000}
+  GATEWAY_BASE_URL: http://gateway:8081
+  # Every email lands in Mailpit.
+  EMAIL_ENABLED: "true"
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  # Files on SeaweedFS. The credentials are the development pair in
+  # deploy/docker/seaweedfs-s3.json. The content origin is a different host
+  # name from the app, so a downloaded file never runs where the session
+  # cookie lives.
+  FILES_ENABLED: "true"
+  FILES_STORE_PROVIDER: s3_compatible
+  FILES_STORE_ENDPOINT: http://seaweedfs:8333
+  FILES_STORE_ADMIN_ENDPOINT: http://seaweedfs:9333
+  FILES_STORE_BUCKET: ${FILES_STORE_BUCKET:-databench-files}
+  FILES_STORE_REGION: us-east-1
+  FILES_STORE_ACCESS_KEY: alkera
+  FILES_STORE_SECRET_KEY: alkera-dev-secret
+  FILES_CONTENT_BASE_URL: http://files.localhost:${API_PORT:-8000}
+  ALKERA_API_URL: http://localhost:${WEB_PORT:-8080}
+  ALKERA_FRONTEND_URL: http://localhost:${WEB_PORT:-8080}
+  ALKERA_GATEWAY_URL: http://localhost:${GATEWAY_PORT:-8081}
+  # The session-signing secret, the token pepper, the content-URL key and the
+  # secrets-at-rest key are generated on first start into the `secrets` volume
+  # and read back by every service. Left unset with no directory, APP_ENV=local
+  # signs every session with a value published in this repository, and anything
+  # that reaches the API could mint a session for the seeded admin.
+  GENERATED_SECRETS_DIR: /var/lib/alkera/secrets
+
+x-secrets-volume: &secrets-volume
+  - secrets:/var/lib/alkera/secrets
+
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:e013e867e712fec275706a6c51c966f0bb0c93cfa8f51000f85a15f9865a28cb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: alkera
+      POSTGRES_PASSWORD: alkera
+      POSTGRES_DB: alkera
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alkera -d alkera"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  temporal:
+    image: temporalio/auto-setup:1.29.7@sha256:f14912b699cf73015ad5c4fc18d522d4b014db90e794039214dfb7c022c2644f
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_SEEDS: postgres
+      POSTGRES_USER: alkera
+      POSTGRES_PWD: alkera
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      DEFAULT_NAMESPACE: default
+      DEFAULT_NAMESPACE_RETENTION: 72h
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "temporal:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.99@sha256:8d5b323911a996d5ea152115306bed468d9a849d72bcbb3800ea8d91b7728563
+    restart: unless-stopped
+    command: server -dir=/data -s3 -filer -ip.bind=0.0.0.0 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256 -master.volumePreallocate=false
+    volumes:
+      - seaweedfs_data:/data
+      - ./deploy/docker/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -S -O /dev/null http://localhost:8333/ 2>&1 | grep -q 'HTTP/1.1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  seaweedfs-init:
+    image: chrislusf/seaweedfs:3.99@sha256:8d5b323911a996d5ea152115306bed468d9a849d72bcbb3800ea8d91b7728563
+    restart: "no"
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        bucket='${FILES_STORE_BUCKET:-databench-files}';
+        echo 's3.bucket.list' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888 2>/dev/null
+        | tr -s '[:space:]' '\n' | grep -Fxq "$$bucket"
+        || echo "s3.bucket.create -name $$bucket" | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+
+  mailpit:
+    image: axllent/mailpit:latest@sha256:3bd7c2f2696deb35a4780d152b404dceec99cb041b942c0877b3b22384714f85
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+
+  # Hands the generated-secrets volume to the app user (uid 1000) before any
+  # service writes to it.
+  secrets-init:
+    image: ${DATABENCH_IMAGE_PREFIX:-databench}-backend:${DATABENCH_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      args: *build-args
+    user: "0"
+    restart: "no"
+    volumes: *secrets-volume
+    command: ["sh", "-c", "chown 1000:1000 /var/lib/alkera/secrets && chmod 700 /var/lib/alkera/secrets"]
+
+  # Migrations, then the idempotent seeds (the first admin, the model catalog,
+  # the local machine type). Every start runs it; both steps are no-ops once done.
+  init:
+    image: ${DATABENCH_IMAGE_PREFIX:-databench}-backend:${DATABENCH_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      args: *build-args
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      secrets-init:
+        condition: service_completed_successfully
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *app-env
+    volumes: *secrets-volume
+    command: ["sh", "-c", "alembic upgrade head && python -m scripts.seed"]
+
+  backend:
+    image: ${DATABENCH_IMAGE_PREFIX:-databench}-backend:${DATABENCH_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      args: *build-args
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      temporal:
+        condition: service_healthy
+      seaweedfs-init:
+        condition: service_completed_successfully
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *app-env
+    volumes: *secrets-volume
+    # Above the server's own 25 s graceful shutdown.
+    stop_grace_period: 60s
+    ports:
+      # Published for the Files content origin (files.localhost) and the CLI.
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/ready').status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  worker:
+    image: ${DATABENCH_IMAGE_PREFIX:-databench}-worker:${DATABENCH_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+      args: *build-args
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *app-env
+    volumes: *secrets-volume
+    stop_grace_period: 120s
+
+  gateway:
+    image: ${DATABENCH_IMAGE_PREFIX:-databench}-gateway:${DATABENCH_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: apps/model-gateway/Dockerfile
+      args: *build-args
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *app-env
+      # The gateway refuses to start with no provider configured.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}
+    volumes: *secrets-volume
+    stop_grace_period: 120s
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8081/health/ready').status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  # The machine chats run on: the box image, registered for this stack with the
+  # seeded admin's credential (device flow, kept in its volume) and serving
+  # cloud chats through `alkera cloud-mirror run`. The URLs the stack hands a
+  # box name localhost (the API, the gateway, the files.localhost content
+  # origin), so the box forwards those ports to the services.
+  box:
+    image: ${DATABENCH_IMAGE_PREFIX:-databench}-box:${DATABENCH_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: deploy/docker/box/Dockerfile
+      args: *build-args
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+    environment:
+      ALKERA_API_URL: http://localhost:${API_PORT:-8000}
+      ALKERA_GATEWAY_URL: http://localhost:${GATEWAY_PORT:-8081}
+      SELF_HOSTED: "true"
+      # The block chat sandboxes are carved from, which no connection may reach.
+      # Shared address space, so it cannot overlap a Docker network (the default
+      # 10.200.0.0/14 can, on a daemon whose address pools start at 10.200).
+      ALKERA_SANDBOX_NET: 100.80.0.0/14
+      CHAT_MACHINE_WEB_ORIGIN: http://localhost:${WEB_PORT:-8080}
+      CHAT_MACHINE_EMAIL: ${AUTH_DEV_ADMIN_EMAIL:-admin@example.com}
+      CHAT_MACHINE_PASSWORD: ${AUTH_DEV_ADMIN_PASSWORD:-admin}
+      CHAT_MACHINE_NAME: ${BOX_NAME:-databench-box}
+      CHAT_MACHINE_STATE_DIR: /var/lib/alkera-box
+      CHAT_MACHINE_PYTHON: python
+      CHAT_MACHINE_ALKERA: alkera
+    # A fixed host name: the machine registers under it, so a recreated
+    # container is the same machine.
+    hostname: ${BOX_NAME:-databench-box}
+    extra_hosts:
+      - "files.localhost:127.0.0.1"
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - box_state:/var/lib/alkera-box
+    stop_grace_period: 60s
+    command:
+      - bash
+      - -c
+      - >-
+        socat TCP-LISTEN:${API_PORT:-8000},bind=127.0.0.1,fork,reuseaddr TCP:backend:8000 &
+        socat TCP-LISTEN:${GATEWAY_PORT:-8081},bind=127.0.0.1,fork,reuseaddr TCP:gateway:8081 &
+        exec bash /opt/alkera-box/chat-local-machine.sh
+
+  web:
+    image: ${DATABENCH_IMAGE_PREFIX:-databench}-web:${DATABENCH_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      ALKERA_BACKEND_URL: http://backend:8000
+      # The model gateway at /gateway/ on this origin, as in production.
+      ALKERA_GATEWAY_UPSTREAM: http://gateway:8081
+      FILES_CONTENT_BASE_URL: http://files.localhost:${API_PORT:-8000}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+
+volumes:
+  pg_data:
+  seaweedfs_data:
+  box_state:
+  # The generated server secrets. Removing it signs everyone out and strands
+  # the stored connection credentials.
+  secrets:

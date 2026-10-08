@@ -1,0 +1,33 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {},
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [],
+    "format": "1.0",
+    "generated_with": "",
+    "header_text": "import os\n\nprint(os.getcwd())\n",
+    "read_only_reason": "not_a_notebook",
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": [
+      [
+        "settings_missing",
+        0
+      ],
+      [
+        "not_a_notebook",
+        0
+      ]
+    ]
+  }
+}

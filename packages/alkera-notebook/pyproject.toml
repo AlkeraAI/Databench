@@ -1,0 +1,43 @@
+[project]
+name = "alkera-notebook"
+version = "0.0.0"
+description = "Alkera notebooks: the .alknb.py format, the engine, and the kernel RPC client."
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2",
+    "msgspec>=0.20.0",
+    # The settings block of `.alknb.py` files (round-trips unknown keys).
+    "tomlkit>=0.12.0",
+    # SQL table references when DuckDB is not installed.
+    "sqlglot>=26",
+    # What importing the private marimo fork (alkera_notebook._marimo) needs;
+    # marimo's server-only dependencies are left out because nothing imports
+    # its server.
+    "narwhals>=2.0.0",
+    "markdown>=3.6,<4",
+    "pymdown-extensions>=10.21.2,<12",
+    "pygments>=2.19,<3",
+    "pyyaml>=6.0.1",
+    "packaging",
+    "typing_extensions>=4.4.0; python_version < '3.12'",
+]
+
+[project.scripts]
+alkera-notebook = "alkera_notebook.cli.main:entry"
+
+[project.optional-dependencies]
+# Arrow codecs for SQL results and dataframe outputs.
+arrow = ["pyarrow>=14.0.1"]
+duckdb = ["duckdb>=1.1"]
+# The agent tools, notebook digest and simulator (alkera_notebook.tools, .digest,
+# .sim): the simulator drives its state machines with hypothesis and reaches a
+# running service over httpx.
+agent = ["hypothesis>=6.100", "httpx>=0.27.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["alkera_notebook"]

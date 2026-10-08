@@ -1,0 +1,17 @@
+{
+  "event_id": "01H_tool_call",
+  "event_type": "tool.call",
+  "input": {
+    "path": "/etc/hosts"
+  },
+  "message_id": "m1",
+  "metadata": {},
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "status": "pending",
+  "time": "2026-05-26T00:00:00Z",
+  "tool_call_id": "tc1",
+  "tool_kind": "read",
+  "tool_name": "read"
+}

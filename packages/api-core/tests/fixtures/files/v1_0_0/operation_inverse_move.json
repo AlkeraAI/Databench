@@ -1,0 +1,8 @@
+{
+  "$model": "alkera_core.schemas.files.operation.MoveInverse",
+  "kind": "move",
+  "metadata": {},
+  "node_id": "n-1",
+  "previous_parent_id": "p-0",
+  "schema_version": "1.0.0"
+}

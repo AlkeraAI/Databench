@@ -1,0 +1,42 @@
+{
+ "doc_id": "c1d571f0-5ee6-4a08-bb3a-529302609945",
+ "epoch": 1,
+ "seq": 647,
+ "turn_state": "working",
+ "turn_state_at": "2026-09-21T12:15:10.651157+00:00",
+ "meta": {
+  "session_id": "c1d571f0-5ee6-4a08-bb3a-529302609945",
+  "turn_state": {
+   "at": "2026-09-21T12:10:24.614105+00:00",
+   "state": "working",
+   "budget": {
+    "max_tokens": null,
+    "token_weights": {
+     "input": 1.0,
+     "output": 1.0,
+     "reasoning": 1.0,
+     "cache_read": 0.1,
+     "cache_write": 1.25
+    },
+    "max_tool_calls": null,
+    "wall_clock_seconds": null
+   }
+  },
+  "turn_state_at": "2026-09-21T12:10:24.614105+00:00"
+ },
+ "window": {
+  "count": 642,
+  "first_seq": 2,
+  "last_seq": 651
+ },
+ "event_keys": [
+  "event_id",
+  "kind",
+  "metadata",
+  "payload",
+  "role",
+  "schema_version",
+  "seq"
+ ],
+ "schema_version": "1.0.0"
+}

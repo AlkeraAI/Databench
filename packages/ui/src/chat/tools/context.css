@@ -1,0 +1,151 @@
+@import "./tokens.css";
+
+/* One knowledge item: where it lives, what it says, how far to trust it.
+   The knowledge register, anchored on the hue context_search already wears, so
+   every touch of the project's memory reads as one thing down a run of steps. */
+
+.chat-root [data-tool="context"] button.chat-tool-band .chat-context-name {
+  text-decoration: underline transparent;
+  text-underline-offset: 2px;
+  transition:
+    color 140ms ease,
+    text-decoration-color 140ms ease;
+}
+
+.chat-root [data-tool="context"] button.chat-tool-band:hover .chat-context-name,
+.chat-root
+  [data-tool="context"]
+  button.chat-tool-band:focus-visible
+  .chat-context-name {
+  color: var(--chat-tool-id);
+  text-decoration-color: currentcolor;
+}
+
+.chat-root [data-tool="context"] .chat-context-title {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+  overflow-wrap: anywhere;
+}
+
+/* The note is the knowledge, so it takes the well's full ink and wraps whole;
+   only a long one scrolls. */
+.chat-root [data-tool="context"] .chat-context-body {
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-2);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-root [data-tool="context"] .chat-context-body--sql {
+  padding-bottom: var(--chat-sp-2);
+  line-height: var(--chat-lh-record);
+}
+
+.chat-root [data-tool="context"] .chat-context-sqlline {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-root [data-tool="context"] .chat-context-changed {
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-2);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+/* The warrant line: how far to lean on this, and who can see it. */
+.chat-root [data-tool="context"] .chat-context-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--chat-sp-2) var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  border-top: 1px solid var(--chat-hairline);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+/* An edit that changed no prose puts the warrant directly under the band, whose
+   own rule already closes it. */
+.chat-root [data-tool="context"] .chat-tool-band + .chat-context-strip {
+  border-top: 0;
+}
+
+.chat-root [data-tool="context"] .chat-context-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  flex: none;
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-tool-ink-3);
+}
+
+/* Confirmed knowledge can be leaned on; an agent's own claim is the one a reader
+   must still check, so it wears the caution ink rather than the confirmed one.
+   Unverified keeps the neutral chip: it is the default, not a warning. */
+.chat-root [data-tool="context"] .chat-context-chip[data-trust="verified"] {
+  border-color: var(--chat-tool-good-line);
+  background: var(--chat-tool-good-wash);
+  color: var(--chat-tool-good);
+}
+
+.chat-root [data-tool="context"] .chat-context-chip[data-trust="asserted"] {
+  border-color: var(--chat-tool-warn-line);
+  background: var(--chat-tool-warn-wash);
+  color: var(--chat-tool-warn);
+}
+
+/* Shared means it left this machine for the team, so it takes the register's own
+   ink; private stays neutral. */
+.chat-root [data-tool="context"] .chat-context-chip[data-vis="shared"] {
+  border-color: var(--chat-tool-id-line);
+  background: var(--chat-tool-id-wash);
+  color: var(--chat-tool-id);
+}
+
+/* A supporting file that changed after the item was written can make a verified
+   note wrong, so it is called out where the sources are, not in the warrant. */
+.chat-root [data-tool="context"] .chat-context-stale {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-warn);
+}
+
+/* Asking to share and landing private is the one outcome that contradicts what
+   the call meant, so it carries its own ground under the chip it corrects. */
+.chat-root [data-tool="context"] .chat-context-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  border-top: 1px solid var(--chat-tool-warn-line);
+  background: var(--chat-tool-warn-wash);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-warn);
+}
+
+.chat-root
+  [data-tool="context"]
+  :is(.chat-context-stale, .chat-context-warn)
+  svg {
+  flex: none;
+  margin-top: 1px;
+}

@@ -1,0 +1,88 @@
+{
+  "about": "Which files a message LINKS to in its own chat. Read by BOTH rules: alkera_core.chat_paths.chat_file_links (what the Slack thread attaches beside the pictures) and the web renderer's chatFileLinks (packages/ui/src/primitives/render/Markdown/chatFileLinks.ts, the links it opens as chat files). A case added here is pinned on both sides at once. `links` is each link's label and the path it names below the chat's working folder, in order, each path once. Pictures on a line of their own are images.json's, not links.",
+  "chat_id": "d6d800e9-5bce-4d9f-b0e0-dd5367ea4298",
+  "cases": [
+    {
+      "id": "one-csv-link",
+      "markdown": "The data is in [the extract](./out/extract.csv).",
+      "links": [{ "label": "the extract", "path": "out/extract.csv" }]
+    },
+    {
+      "id": "pdf-and-csv-in-order",
+      "markdown": "Read [the report](reports/q3.pdf) first, then [the numbers](data.csv).",
+      "links": [
+        { "label": "the report", "path": "reports/q3.pdf" },
+        { "label": "the numbers", "path": "data.csv" }
+      ]
+    },
+    {
+      "id": "same-file-twice-is-one-link",
+      "markdown": "[a](data.csv) and again [b](./data.csv)",
+      "links": [{ "label": "a", "path": "data.csv" }]
+    },
+    {
+      "id": "web-url-is-not-a-chat-file",
+      "markdown": "See [the docs](https://docs.example.com/x.pdf).",
+      "links": []
+    },
+    {
+      "id": "blob-handle-is-not-a-chat-file",
+      "markdown": "[Result](blob:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef)",
+      "links": []
+    },
+    {
+      "id": "link-in-a-code-span-is-code",
+      "markdown": "Write `[x](x.csv)` to link a file.",
+      "links": []
+    },
+    {
+      "id": "link-in-a-fence-is-code",
+      "markdown": "```\n[x](x.csv)\n```\nand [y](y.csv)",
+      "links": [{ "label": "y", "path": "y.csv" }]
+    },
+    {
+      "id": "picture-line-is-not-a-link",
+      "markdown": "![chart](charts/revenue.png)\n\n[the chart's data](charts/revenue.csv)",
+      "links": [{ "label": "the chart's data", "path": "charts/revenue.csv" }]
+    },
+    {
+      "id": "mid-sentence-image-syntax-is-not-a-link",
+      "markdown": "inline ![c](c.png) stays words",
+      "links": []
+    },
+    {
+      "id": "escaping-the-chat-folder-is-nothing",
+      "markdown": "[secret](../other/secret.csv) and [etc](/etc/passwd)",
+      "links": []
+    },
+    {
+      "id": "percent-escaped-name",
+      "markdown": "[my file](my%20file.pdf)",
+      "links": [{ "label": "my file", "path": "my file.pdf" }]
+    },
+    {
+      "id": "box-path-into-this-chat",
+      "markdown": "[r](/opt/alkera-work/.alkera/chats/d6d800e9-5bce-4d9f-b0e0-dd5367ea4298/scratch/r.csv)",
+      "links": [{ "label": "r", "path": "scratch/r.csv" }]
+    },
+    {
+      "id": "box-path-into-another-chat",
+      "markdown": "[r](/opt/alkera-work/.alkera/chats/00000000-0000-0000-0000-000000000000/r.csv)",
+      "links": []
+    },
+    {
+      "id": "list-and-quote-links",
+      "markdown": "- [one](a.csv)\n- [two](b.xlsx)\n\n> [three](c.txt)",
+      "links": [
+        { "label": "one", "path": "a.csv" },
+        { "label": "two", "path": "b.xlsx" },
+        { "label": "three", "path": "c.txt" }
+      ]
+    },
+    {
+      "id": "composer-staged-file",
+      "markdown": "Can you summarize this?\n\n[File 1: notes.pdf](uploads/notes.pdf)",
+      "links": [{ "label": "File 1: notes.pdf", "path": "uploads/notes.pdf" }]
+    }
+  ]
+}

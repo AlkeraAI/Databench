@@ -1,0 +1,170 @@
+@import "./tokens.css";
+
+/* Two lanes, each entry led by its warrant. */
+
+:global(.chat-root)
+  [data-tool="context_search"]
+  .contextSearchLane
+  + .contextSearchLane
+  .contextSearchLaneHead {
+  border-top: 1px solid var(--chat-hairline);
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnow {
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-2);
+}
+
+:global(.chat-root)
+  [data-tool="context_search"]
+  .contextSearchKnow
+  + .contextSearchKnow {
+  border-top: 1px solid var(--chat-hairline);
+  padding-top: var(--chat-sp-2);
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnowTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  min-width: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnow[data-door] {
+  cursor: pointer;
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnowOpen {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline transparent;
+  text-underline-offset: 2px;
+  transition:
+    var(--chat-control-transition),
+    text-decoration-color var(--chat-dur-slow) var(--chat-ease-soft);
+}
+
+:global(.chat-root)
+  [data-tool="context_search"]
+  .contextSearchKnow[data-door]:hover
+  .contextSearchKnowOpen,
+:global(.chat-root)
+  [data-tool="context_search"]
+  .contextSearchKnowOpen:focus-visible {
+  color: var(--chat-tool-id);
+  text-decoration-color: currentcolor;
+}
+
+:global(.chat-root)
+  [data-tool="context_search"]
+  .contextSearchKnowOpen:focus-visible {
+  outline: 1.5px solid var(--chat-focus);
+  outline-offset: 2px;
+  border-radius: var(--chat-tool-radius-chip);
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnowGlyph {
+  display: inline-flex;
+  align-items: center;
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnowBody {
+  margin: var(--chat-sp-1) 0 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnowMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  margin: var(--chat-sp-1) 0 0;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchTrust {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  flex: none;
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-tool-ink-3);
+}
+
+/* A verified warrant decides whether a note can be acted on, so it reads as a
+   chip rather than one more tinted word in the meta line. */
+:global(.chat-root)
+  [data-tool="context_search"]
+  .contextSearchTrust[data-trust="verified"] {
+  padding: 0 var(--chat-sp-1);
+  border: 1px solid var(--chat-tool-good-line);
+  border-radius: var(--chat-tool-radius-chip);
+  background: var(--chat-tool-good-wash);
+  color: var(--chat-tool-good);
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnowSrc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Under squeeze an entry keeps its trust word and drops the rest of the warrant. */
+@container chat-toolwell (max-width: 299px) {
+  :global(.chat-root)
+    [data-tool="context_search"]
+    .contextSearchKnowMeta
+    > :not(.contextSearchTrust) {
+    display: none;
+  }
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnowAged {
+  margin-left: var(--chat-sp-2);
+  font-family: var(--chat-sans);
+  font-size: var(--chat-fs-text);
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnowSubject {
+  margin: var(--chat-sp-1) 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--chat-fs-mono, inherit);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="context_search"] .contextSearchKnowStale {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  margin: var(--chat-sp-1) 0 0;
+  overflow: hidden;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-tool-warn);
+}

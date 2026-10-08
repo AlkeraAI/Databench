@@ -1,0 +1,6589 @@
+{
+  "$defs": {
+    "AgentTypeInfo": {
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "input_schema": {
+          "additionalProperties": true,
+          "title": "Input Schema",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "input_schema"
+      ],
+      "title": "AgentTypeInfo",
+      "type": "object"
+    },
+    "AgentUsageStats": {
+      "description": "The tool/usage counts a spawn result carries back to the parent.",
+      "properties": {
+        "by_tool": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "default": {},
+          "title": "By Tool",
+          "type": "object"
+        },
+        "duration_seconds": {
+          "default": 0.0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "files_read": {
+          "default": 0,
+          "title": "Files Read",
+          "type": "integer"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "tool_calls": {
+          "default": 0,
+          "title": "Tool Calls",
+          "type": "integer"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "title": "AgentUsageStats",
+      "type": "object"
+    },
+    "BackgroundCancelInput": {
+      "properties": {
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "title": "BackgroundCancelInput",
+      "type": "object"
+    },
+    "BackgroundCancelResult": {
+      "properties": {
+        "cancelled": {
+          "title": "Cancelled",
+          "type": "boolean"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "state",
+        "cancelled"
+      ],
+      "title": "BackgroundCancelResult",
+      "type": "object"
+    },
+    "BackgroundJobView": {
+      "description": "One job's state for ``background_status`` \u2014 relative times only (the repo\nconvention, via ``format_age_ago``), never raw timestamps.",
+      "properties": {
+        "child_session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Child Session Id"
+        },
+        "completed_ago": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completed Ago"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "output_preview": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Preview"
+        },
+        "started_ago": {
+          "default": "",
+          "title": "Started Ago",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "kind",
+        "state"
+      ],
+      "title": "BackgroundJobView",
+      "type": "object"
+    },
+    "BackgroundStatusInput": {
+      "properties": {
+        "job_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job Id"
+        }
+      },
+      "title": "BackgroundStatusInput",
+      "type": "object"
+    },
+    "BackgroundStatusResult": {
+      "properties": {
+        "jobs": {
+          "items": {
+            "$ref": "#/$defs/BackgroundJobView"
+          },
+          "title": "Jobs",
+          "type": "array"
+        }
+      },
+      "title": "BackgroundStatusResult",
+      "type": "object"
+    },
+    "BashInput": {
+      "properties": {
+        "background": {
+          "default": false,
+          "description": "Run this command in the BACKGROUND: return a job id immediately instead of blocking, and notify you with the command's full output when it finishes. Use for a slow, independent command (a build, a full test run, a long-running script, a dev server). Permissions are still checked up front. Don't poll; you'll be notified. Leave false when you need the output for your next step.",
+          "title": "Background",
+          "type": "boolean"
+        },
+        "command": {
+          "description": "The command to execute. Runs in a fresh, stateless shell \u2014 chain dependent steps in one call with `&&`; set `workdir` instead of `cd`.",
+          "title": "Command",
+          "type": "string"
+        },
+        "description": {
+          "description": "Clear, concise description of what this command does in 5-10 words.",
+          "title": "Description",
+          "type": "string"
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional timeout in milliseconds. The command is killed if it exceeds this. Leave it unset to let the command run as long as it needs; it is then stopped only if it sits idle, printing nothing and using no CPU.",
+          "title": "Timeout"
+        },
+        "workdir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The working directory to run the command in (relative to the workspace root, or absolute under it). Defaults to the workspace root. Use this instead of a `cd` in the command \u2014 `cd` does not persist.",
+          "title": "Workdir"
+        }
+      },
+      "required": [
+        "command",
+        "description"
+      ],
+      "title": "BashInput",
+      "type": "object"
+    },
+    "BashResult": {
+      "properties": {
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Code"
+        },
+        "job_id": {
+          "default": "",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "output": {
+          "default": "",
+          "title": "Output",
+          "type": "string"
+        },
+        "output_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Path"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "title": "BashResult",
+      "type": "object"
+    },
+    "BlobCreateInput": {
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Columns"
+        },
+        "result_name": {
+          "default": "",
+          "description": "A SHORT, human-friendly name for the result you expect (5 words or fewer, e.g. 'Q3 revenue by region', 'failed login counts'). Always provide it: when the result is large it's stored and shown under this name in the editor, so a good label makes it findable. Describe the result, not the query.",
+          "maxLength": 200,
+          "title": "Result Name",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {},
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rows"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        }
+      },
+      "title": "BlobCreateInput",
+      "type": "object"
+    },
+    "BlobCreateOutput": {
+      "properties": {
+        "blob": {
+          "$ref": "#/$defs/BlobHandle"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "total": {
+          "default": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "blob",
+        "kind"
+      ],
+      "title": "BlobCreateOutput",
+      "type": "object"
+    },
+    "BlobDeleteInput": {
+      "properties": {
+        "handle": {
+          "title": "Handle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "handle"
+      ],
+      "title": "BlobDeleteInput",
+      "type": "object"
+    },
+    "BlobDeleteOutput": {
+      "properties": {
+        "deleted": {
+          "title": "Deleted",
+          "type": "boolean"
+        },
+        "freed_bytes": {
+          "default": 0,
+          "title": "Freed Bytes",
+          "type": "integer"
+        },
+        "message": {
+          "default": "",
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "title": "BlobDeleteOutput",
+      "type": "object"
+    },
+    "BlobDeriveInput": {
+      "properties": {
+        "descending": {
+          "default": false,
+          "title": "Descending",
+          "type": "boolean"
+        },
+        "distinct": {
+          "default": false,
+          "title": "Distinct",
+          "type": "boolean"
+        },
+        "handle": {
+          "title": "Handle",
+          "type": "string"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limit"
+        },
+        "order_by": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Columns to sort by.",
+          "title": "Order By"
+        },
+        "result_name": {
+          "default": "",
+          "description": "A SHORT, human-friendly name for the result you expect (5 words or fewer, e.g. 'Q3 revenue by region', 'failed login counts'). Always provide it: when the result is large it's stored and shown under this name in the editor, so a good label makes it findable. Describe the result, not the query.",
+          "maxLength": 200,
+          "title": "Result Name",
+          "type": "string"
+        },
+        "select_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Columns to keep (omit for all).",
+          "title": "Select Columns"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A SQL boolean predicate over the columns (e.g. \"amount > 100\").",
+          "title": "Where"
+        }
+      },
+      "required": [
+        "handle"
+      ],
+      "title": "BlobDeriveInput",
+      "type": "object"
+    },
+    "BlobHandle": {
+      "additionalProperties": true,
+      "description": "A pointer to a spilled result in the content-addressed blob store. Handed\nto the model / editor in place of an oversized inline payload; dereferenced\nvia the ``fetch_result`` tool or the ``blob.fetch`` RPC.\n\nPersisted \u21d2 ``VersionedModel``: the handle rides a promoted result's spec\ninto the cloud, so a field a newer daemon adds beside the digest has to\nsurvive an older reader instead of being dropped on the way through.",
+      "properties": {
+        "media_type": {
+          "default": "application/json",
+          "title": "Media Type",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "schema_version": {
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "title": "BlobHandle",
+      "type": "object"
+    },
+    "BlobInfoInput": {
+      "properties": {
+        "handle": {
+          "title": "Handle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "handle"
+      ],
+      "title": "BlobInfoInput",
+      "type": "object"
+    },
+    "BlobInfoOutput": {
+      "properties": {
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "content_type": {
+          "default": "application/octet-stream",
+          "title": "Content Type",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "size_bytes": {
+          "default": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "total": {
+          "default": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "BlobInfoOutput",
+      "type": "object"
+    },
+    "BlobMaterializeInput": {
+      "properties": {
+        "filename": {
+          "default": "",
+          "description": "Optional file name (a single name, no path). The right extension is added automatically; defaults to a name derived from the handle.",
+          "title": "Filename",
+          "type": "string"
+        },
+        "format": {
+          "default": "parquet",
+          "enum": [
+            "parquet",
+            "csv",
+            "json",
+            "arrow"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "handle": {
+          "title": "Handle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "handle"
+      ],
+      "title": "BlobMaterializeInput",
+      "type": "object"
+    },
+    "BlobMaterializeOutput": {
+      "properties": {
+        "bytes": {
+          "default": 0,
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "char_count": {
+          "default": 0,
+          "title": "Char Count",
+          "type": "integer"
+        },
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "format": {
+          "title": "Format",
+          "type": "string"
+        },
+        "path": {
+          "description": "Absolute path to the written file (under the chat sandbox). Run your own code over it \u2014 e.g. `python -c \"import pandas as pd; df = pd.read_parquet(...)\"`. Reference it in a reply by its name relative to the working directory.",
+          "title": "Path",
+          "type": "string"
+        },
+        "row_count": {
+          "default": 0,
+          "title": "Row Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "format"
+      ],
+      "title": "BlobMaterializeOutput",
+      "type": "object"
+    },
+    "BlobProfileInput": {
+      "properties": {
+        "handle": {
+          "title": "Handle",
+          "type": "string"
+        },
+        "top_k": {
+          "default": 5,
+          "title": "Top K",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "handle"
+      ],
+      "title": "BlobProfileInput",
+      "type": "object"
+    },
+    "BlobProfileOutput": {
+      "properties": {
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/ColumnProfile"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "row_count": {
+          "default": 0,
+          "title": "Row Count",
+          "type": "integer"
+        }
+      },
+      "title": "BlobProfileOutput",
+      "type": "object"
+    },
+    "BlobQueryInput": {
+      "properties": {
+        "handle": {
+          "title": "Handle",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "description": "A SHORT, human-friendly name for the result you expect (5 words or fewer, e.g. 'Q3 revenue by region', 'failed login counts'). Always provide it: when the result is large it's stored and shown under this name in the editor, so a good label makes it findable. Describe the result, not the query.",
+          "maxLength": 200,
+          "title": "Result Name",
+          "type": "string"
+        },
+        "sql": {
+          "title": "Sql",
+          "type": "string"
+        }
+      },
+      "required": [
+        "handle",
+        "sql"
+      ],
+      "title": "BlobQueryInput",
+      "type": "object"
+    },
+    "CallToolInput": {
+      "properties": {
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "CallToolInput",
+      "type": "object"
+    },
+    "CallToolOutput": {
+      "properties": {
+        "result": {
+          "additionalProperties": true,
+          "title": "Result",
+          "type": "object"
+        }
+      },
+      "title": "CallToolOutput",
+      "type": "object"
+    },
+    "CellAfterOp": {
+      "description": "A cell a batch touched, as it is after the batch.\n\n``index`` is its place among the live cells, ``None`` once it is deleted.\n``status`` is its run status when the writer knows it: the engine's client\nfills it; a document store, which holds no run state, leaves it ``None``.",
+      "properties": {
+        "deleted": {
+          "default": false,
+          "title": "Deleted",
+          "type": "boolean"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Index"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "fresh",
+                "edited",
+                "stale",
+                "not_run",
+                "queued",
+                "running",
+                "error",
+                "interrupted",
+                "skipped",
+                "stopped",
+                "disabled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "index"
+      ],
+      "title": "CellAfterOp",
+      "type": "object"
+    },
+    "CellNotice": {
+      "description": "Something a reader of the document should know about a cell.\n\n``kind`` is an open string. Core kinds: ``cell_running``,\n``edited_deleted_cell``, ``external_conflict``, ``kind_changed_by_other``,\n``upstream_being_edited``. The engine also emits ``stale_base``,\n``duplicate_name``, ``invalid_file``,\n``file_deleted``, ``corrupt_snapshot``, ``memory_warning``.",
+      "properties": {
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By"
+        },
+        "cell_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cell Id"
+        },
+        "data": {
+          "additionalProperties": true,
+          "title": "Data",
+          "type": "object"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "message": {
+          "default": "",
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "CellNotice",
+      "type": "object"
+    },
+    "ColumnProfile": {
+      "properties": {
+        "distinct_capped": {
+          "default": false,
+          "title": "Distinct Capped",
+          "type": "boolean"
+        },
+        "distinct_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Distinct Count"
+        },
+        "dtype": {
+          "title": "Dtype",
+          "type": "string"
+        },
+        "max": {
+          "default": null,
+          "title": "Max"
+        },
+        "min": {
+          "default": null,
+          "title": "Min"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "null_count": {
+          "default": 0,
+          "title": "Null Count",
+          "type": "integer"
+        },
+        "top_k": {
+          "items": {
+            "$ref": "#/$defs/TopValue"
+          },
+          "title": "Top K",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "dtype"
+      ],
+      "title": "ColumnProfile",
+      "type": "object"
+    },
+    "DeleteCellOp": {
+      "additionalProperties": false,
+      "properties": {
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "op": {
+          "const": "delete",
+          "default": "delete",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cell_id"
+      ],
+      "title": "DeleteCellOp",
+      "type": "object"
+    },
+    "EditCellOp": {
+      "additionalProperties": false,
+      "properties": {
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "edits": {
+          "items": {
+            "$ref": "#/$defs/NotebookTextEdit"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Edits",
+          "type": "array"
+        },
+        "op": {
+          "const": "edit",
+          "default": "edit",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cell_id",
+        "edits"
+      ],
+      "title": "EditCellOp",
+      "type": "object"
+    },
+    "EnvironmentCaptureInput": {
+      "properties": {
+        "env_path": {
+          "default": "",
+          "description": "The environment to capture. Leave empty for the active one (in a cloud chat, the environment `python` runs in).",
+          "title": "Env Path",
+          "type": "string"
+        }
+      },
+      "title": "EnvironmentCaptureInput",
+      "type": "object"
+    },
+    "EnvironmentCaptureResult": {
+      "properties": {
+        "editable": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Editable",
+          "type": "array"
+        },
+        "not_portable": {
+          "items": {
+            "$ref": "#/$defs/NotPortable"
+          },
+          "title": "Not Portable",
+          "type": "array"
+        },
+        "packages": {
+          "default": 0,
+          "title": "Packages",
+          "type": "integer"
+        },
+        "path": {
+          "default": ".alkera-environment.json",
+          "title": "Path",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "title": "EnvironmentCaptureResult",
+      "type": "object"
+    },
+    "EnvironmentRecreateInput": {
+      "properties": {
+        "dry_run": {
+          "default": false,
+          "description": "Only plan: list the commands without running any.",
+          "title": "Dry Run",
+          "type": "boolean"
+        },
+        "env_path": {
+          "default": "",
+          "description": "The environment to build or update. Leave empty for the active one (in a cloud chat) or the project's `.venv` (locally).",
+          "title": "Env Path",
+          "type": "string"
+        }
+      },
+      "title": "EnvironmentRecreateInput",
+      "type": "object"
+    },
+    "EnvironmentRecreateResult": {
+      "properties": {
+        "already_satisfied": {
+          "default": false,
+          "title": "Already Satisfied",
+          "type": "boolean"
+        },
+        "dry_run": {
+          "default": false,
+          "title": "Dry Run",
+          "type": "boolean"
+        },
+        "not_recreated": {
+          "items": {
+            "$ref": "#/$defs/Gap"
+          },
+          "title": "Not Recreated",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/StepReport"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "target_env": {
+          "default": "",
+          "title": "Target Env",
+          "type": "string"
+        }
+      },
+      "title": "EnvironmentRecreateResult",
+      "type": "object"
+    },
+    "FetchResultInput": {
+      "properties": {
+        "handle": {
+          "title": "Handle",
+          "type": "string"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limit"
+        },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "handle"
+      ],
+      "title": "FetchResultInput",
+      "type": "object"
+    },
+    "FetchResultOutput": {
+      "description": "Cursor fields FIRST: when an oversized page rides the generic dispatch\nspill, only the head of the serialized result survives as the preview, and\nthe cursor (``next_offset``/``has_more``) must be in it or paging dead-ends.\nSerialization follows this declaration order.",
+      "properties": {
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "has_more": {
+          "default": false,
+          "title": "Has More",
+          "type": "boolean"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "limit": {
+          "default": 0,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Offset"
+        },
+        "offset": {
+          "default": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "returned": {
+          "default": 0,
+          "title": "Returned",
+          "type": "integer"
+        },
+        "rows": {
+          "items": {
+            "items": {},
+            "type": "array"
+          },
+          "title": "Rows",
+          "type": "array"
+        },
+        "text": {
+          "default": "",
+          "title": "Text",
+          "type": "string"
+        },
+        "total": {
+          "default": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "FetchResultOutput",
+      "type": "object"
+    },
+    "Gap": {
+      "description": "Something the recreate cannot (or did not) make match the spec.",
+      "properties": {
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "python_mismatch",
+            "target_not_conda",
+            "conda_unavailable",
+            "no_installer",
+            "local_source_missing",
+            "not_installed",
+            "deadline",
+            "step_failed",
+            "unknown_source",
+            "unpinned_input"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Gap",
+      "type": "object"
+    },
+    "GraphCellSummary": {
+      "properties": {
+        "defs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Defs",
+          "type": "array"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/GraphErrorInfo"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Refs",
+          "type": "array"
+        }
+      },
+      "title": "GraphCellSummary",
+      "type": "object"
+    },
+    "GraphErrorInfo": {
+      "description": "A problem in the dependency graph: its code (``multiple_definitions``,\n``cycle``, ``syntax``, ``delete_nonlocal``, ...), the name it is about,\nand the cells it involves. The one graph error model: ``GraphSummary``,\n``GraphView``, the cells of a view and the ``graph`` event all carry it.",
+      "properties": {
+        "cells": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cells",
+          "type": "array"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "GraphErrorInfo",
+      "type": "object"
+    },
+    "GraphSummary": {
+      "description": "The document graph (current text): for diagnostics only.\n\n``computed`` is false when the writer had no analysis of exactly the state\nit answers for (the platform analyses off the hot path, and the ``graph``\nevent on the notebook channel carries the analysis once it is ready);\n``cells`` and ``edges`` are empty then.",
+      "properties": {
+        "cells": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GraphCellSummary"
+          },
+          "title": "Cells",
+          "type": "object"
+        },
+        "computed": {
+          "default": true,
+          "title": "Computed",
+          "type": "boolean"
+        },
+        "edges": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Edges",
+          "type": "array"
+        }
+      },
+      "title": "GraphSummary",
+      "type": "object"
+    },
+    "InsertCellOp": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After"
+        },
+        "before": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before"
+        },
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "kind": {
+          "default": "python",
+          "title": "Kind",
+          "type": "string"
+        },
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "name": {
+          "default": "_",
+          "title": "Name",
+          "type": "string"
+        },
+        "op": {
+          "const": "insert",
+          "default": "insert",
+          "title": "Op",
+          "type": "string"
+        },
+        "source": {
+          "default": "",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "title": "InsertCellOp",
+      "type": "object"
+    },
+    "ListAgentTypesInput": {
+      "description": "No arguments \u2014 listing is unconditional.",
+      "properties": {},
+      "title": "ListAgentTypesInput",
+      "type": "object"
+    },
+    "ListAgentTypesResult": {
+      "properties": {
+        "agents": {
+          "items": {
+            "$ref": "#/$defs/AgentTypeInfo"
+          },
+          "title": "Agents",
+          "type": "array"
+        }
+      },
+      "required": [
+        "agents"
+      ],
+      "title": "ListAgentTypesResult",
+      "type": "object"
+    },
+    "ListPluginsInput": {
+      "properties": {},
+      "title": "ListPluginsInput",
+      "type": "object"
+    },
+    "ListPluginsOutput": {
+      "properties": {
+        "plugins": {
+          "items": {
+            "$ref": "#/$defs/PluginInfo"
+          },
+          "title": "Plugins",
+          "type": "array"
+        }
+      },
+      "title": "ListPluginsOutput",
+      "type": "object"
+    },
+    "ManageTasksInput": {
+      "properties": {
+        "clear": {
+          "default": false,
+          "description": "Wipe the whole list (work finished).",
+          "title": "Clear",
+          "type": "boolean"
+        },
+        "delete": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Delete",
+          "type": "array"
+        },
+        "upsert": {
+          "items": {
+            "$ref": "#/$defs/TaskUpsert"
+          },
+          "title": "Upsert",
+          "type": "array"
+        }
+      },
+      "title": "ManageTasksInput",
+      "type": "object"
+    },
+    "ManageTasksOutput": {
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/TaskSummary"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/$defs/TaskView"
+          },
+          "title": "Tasks",
+          "type": "array"
+        }
+      },
+      "title": "ManageTasksOutput",
+      "type": "object"
+    },
+    "MoveCellOp": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After"
+        },
+        "before": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before"
+        },
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "op": {
+          "const": "move",
+          "default": "move",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cell_id"
+      ],
+      "title": "MoveCellOp",
+      "type": "object"
+    },
+    "NotPortable": {
+      "additionalProperties": true,
+      "properties": {
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "NotPortable",
+      "type": "object"
+    },
+    "NotebookCellBrief": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "index"
+      ],
+      "title": "NotebookCellBrief",
+      "type": "object"
+    },
+    "NotebookCellState": {
+      "properties": {
+        "defs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Defs",
+          "type": "array"
+        },
+        "downstream": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Downstream",
+          "type": "array"
+        },
+        "graph_errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Graph Errors",
+          "type": "array"
+        },
+        "head": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "last_run": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookRunAttribution"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "lines": {
+          "default": 0,
+          "title": "Lines",
+          "type": "integer"
+        },
+        "links_omitted": {
+          "default": 0,
+          "title": "Links Omitted",
+          "type": "integer"
+        },
+        "matches": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Matches",
+          "type": "array"
+        },
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "names_omitted": {
+          "default": 0,
+          "title": "Names Omitted",
+          "type": "integer"
+        },
+        "output": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookOutputSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_outdated": {
+          "default": false,
+          "title": "Output Outdated",
+          "type": "boolean"
+        },
+        "refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source_page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookTextPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "enum": [
+            "fresh",
+            "edited",
+            "stale",
+            "not_run",
+            "queued",
+            "running",
+            "error",
+            "interrupted",
+            "skipped",
+            "stopped",
+            "disabled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "upstream": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Upstream",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "index",
+        "status"
+      ],
+      "title": "NotebookCellState",
+      "type": "object"
+    },
+    "NotebookCellsInput": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "clear_outputs",
+            "enable",
+            "disable",
+            "duplicate",
+            "move",
+            "set_kind"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "cells": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 500,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The cells to act on, each its id, name, position (Cell 3), first or last. Omit with clear_outputs to clear every cell.",
+          "title": "Cells"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "python",
+                "sql",
+                "markdown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For set_kind: the new kind.",
+          "title": "Kind"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "enum": [
+                "up",
+                "down",
+                "top",
+                "bottom"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For move: up, down, top or bottom.",
+          "title": "To"
+        }
+      },
+      "required": [
+        "path",
+        "action"
+      ],
+      "title": "NotebookCellsInput",
+      "type": "object"
+    },
+    "NotebookCellsOutput": {
+      "properties": {
+        "action": {
+          "enum": [
+            "clear_outputs",
+            "enable",
+            "disable",
+            "duplicate",
+            "move",
+            "set_kind"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "changed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Changed",
+          "type": "array"
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "stale": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Stale",
+          "type": "array"
+        },
+        "token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Token"
+        }
+      },
+      "required": [
+        "path",
+        "action"
+      ],
+      "title": "NotebookCellsOutput",
+      "type": "object"
+    },
+    "NotebookCreateInput": {
+      "additionalProperties": false,
+      "properties": {
+        "cells": {
+          "items": {
+            "$ref": "#/$defs/NotebookNewCell"
+          },
+          "maxItems": 500,
+          "title": "Cells",
+          "type": "array"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": true,
+          "title": "Settings",
+          "type": "object"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "NotebookCreateInput",
+      "type": "object"
+    },
+    "NotebookCreateOutput": {
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "cells": {
+          "items": {
+            "$ref": "#/$defs/NotebookCellBrief"
+          },
+          "title": "Cells",
+          "type": "array"
+        },
+        "more": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookMore"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "token": {
+          "title": "Token",
+          "type": "string"
+        },
+        "total_cells": {
+          "default": 0,
+          "title": "Total Cells",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "token",
+        "cells"
+      ],
+      "title": "NotebookCreateOutput",
+      "type": "object"
+    },
+    "NotebookEditInput": {
+      "additionalProperties": false,
+      "properties": {
+        "base_token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Token"
+        },
+        "ops": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "delete": "#/$defs/DeleteCellOp",
+                "edit": "#/$defs/EditCellOp",
+                "insert": "#/$defs/InsertCellOp",
+                "move": "#/$defs/MoveCellOp",
+                "rename": "#/$defs/RenameCellOp",
+                "replace": "#/$defs/ReplaceCellOp",
+                "restore": "#/$defs/RestoreCellOp",
+                "set_config": "#/$defs/SetCellConfigOp",
+                "set_kind": "#/$defs/SetCellKindOp",
+                "set_meta": "#/$defs/SetCellMetaOp",
+                "set_setting": "#/$defs/SetSettingOp"
+              },
+              "propertyName": "op"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/InsertCellOp"
+              },
+              {
+                "$ref": "#/$defs/EditCellOp"
+              },
+              {
+                "$ref": "#/$defs/ReplaceCellOp"
+              },
+              {
+                "$ref": "#/$defs/DeleteCellOp"
+              },
+              {
+                "$ref": "#/$defs/RestoreCellOp"
+              },
+              {
+                "$ref": "#/$defs/MoveCellOp"
+              },
+              {
+                "$ref": "#/$defs/RenameCellOp"
+              },
+              {
+                "$ref": "#/$defs/SetCellKindOp"
+              },
+              {
+                "$ref": "#/$defs/SetCellConfigOp"
+              },
+              {
+                "$ref": "#/$defs/SetCellMetaOp"
+              },
+              {
+                "$ref": "#/$defs/SetSettingOp"
+              }
+            ]
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "title": "Ops",
+          "type": "array"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "ops"
+      ],
+      "title": "NotebookEditInput",
+      "type": "object"
+    },
+    "NotebookEditOutput": {
+      "description": "The engine's result of the batch (each touched cell with its run\nstatus, notices), for ``path``. ``graph`` covers the touched cells and\nthe edges into and out of them, not the whole notebook.",
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "cells": {
+          "items": {
+            "$ref": "#/$defs/CellAfterOp"
+          },
+          "title": "Cells",
+          "type": "array"
+        },
+        "created": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Created",
+          "type": "array"
+        },
+        "graph": {
+          "$ref": "#/$defs/GraphSummary"
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "notices": {
+          "items": {
+            "$ref": "#/$defs/CellNotice"
+          },
+          "title": "Notices",
+          "type": "array"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "repeat": {
+          "title": "Repeat",
+          "type": "boolean"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "stale": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Stale",
+          "type": "array"
+        },
+        "stale_total": {
+          "default": 0,
+          "title": "Stale Total",
+          "type": "integer"
+        },
+        "token": {
+          "title": "Token",
+          "type": "string"
+        }
+      },
+      "required": [
+        "token",
+        "repeat",
+        "cells",
+        "created",
+        "notices",
+        "graph",
+        "path"
+      ],
+      "title": "NotebookEditOutput",
+      "type": "object"
+    },
+    "NotebookEnvInfo": {
+      "properties": {
+        "env_id": {
+          "title": "Env Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "python": {
+          "title": "Python",
+          "type": "string"
+        },
+        "recorded_in_file": {
+          "title": "Recorded In File",
+          "type": "boolean"
+        },
+        "spec_root": {
+          "title": "Spec Root",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "env_id",
+        "kind",
+        "spec_root",
+        "python",
+        "state",
+        "recorded_in_file"
+      ],
+      "title": "NotebookEnvInfo",
+      "type": "object"
+    },
+    "NotebookEnvInput": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "default": "info",
+          "enum": [
+            "info",
+            "list",
+            "packages",
+            "install",
+            "remove",
+            "materialize",
+            "cancel",
+            "switch"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Env"
+        },
+        "limit": {
+          "default": 200,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Packages",
+          "type": "array"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "search": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Search"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "NotebookEnvInput",
+      "type": "object"
+    },
+    "NotebookEnvOutput": {
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "env": {
+          "$ref": "#/$defs/NotebookEnvInfo"
+        },
+        "envs": {
+          "items": {
+            "$ref": "#/$defs/NotebookEnvInfo"
+          },
+          "title": "Envs",
+          "type": "array"
+        },
+        "log": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "packages": {
+          "items": {
+            "$ref": "#/$defs/NotebookPackage"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "spec_changed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Spec Changed",
+          "type": "array"
+        }
+      },
+      "required": [
+        "path",
+        "env"
+      ],
+      "title": "NotebookEnvOutput",
+      "type": "object"
+    },
+    "NotebookErrorInfo": {
+      "description": "A cell's error. ``ename`` is the exception class, reduced to a dotted\nidentifier; the message and traceback are the notebook's own words.",
+      "properties": {
+        "ename": {
+          "title": "Ename",
+          "type": "string"
+        },
+        "evalue": {
+          "$ref": "#/$defs/Untrusted"
+        },
+        "traceback": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "ename",
+        "evalue"
+      ],
+      "title": "NotebookErrorInfo",
+      "type": "object"
+    },
+    "NotebookFramePage": {
+      "properties": {
+        "column_offset": {
+          "default": 0,
+          "title": "Column Offset",
+          "type": "integer"
+        },
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "offset": {
+          "title": "Offset",
+          "type": "integer"
+        },
+        "rows": {
+          "$ref": "#/$defs/Untrusted"
+        },
+        "total_columns": {
+          "default": 0,
+          "title": "Total Columns",
+          "type": "integer"
+        },
+        "total_rows": {
+          "title": "Total Rows",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "columns",
+        "rows",
+        "total_rows",
+        "offset"
+      ],
+      "title": "NotebookFramePage",
+      "type": "object"
+    },
+    "NotebookGraphCell": {
+      "properties": {
+        "defs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Defs",
+          "type": "array"
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Distance"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "fresh",
+            "edited",
+            "stale",
+            "not_run",
+            "queued",
+            "running",
+            "error",
+            "interrupted",
+            "skipped",
+            "stopped",
+            "disabled"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "defs",
+        "refs",
+        "status"
+      ],
+      "title": "NotebookGraphCell",
+      "type": "object"
+    },
+    "NotebookGraphError": {
+      "properties": {
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Names",
+          "type": "array"
+        }
+      },
+      "required": [
+        "cell_id",
+        "kind"
+      ],
+      "title": "NotebookGraphError",
+      "type": "object"
+    },
+    "NotebookGraphInput": {
+      "additionalProperties": false,
+      "properties": {
+        "cell": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cell"
+        },
+        "depth": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "const": "all",
+              "type": "string"
+            }
+          ],
+          "default": 1,
+          "title": "Depth"
+        },
+        "direction": {
+          "default": "both",
+          "enum": [
+            "both",
+            "up",
+            "down"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "limit": {
+          "default": 200,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "NotebookGraphInput",
+      "type": "object"
+    },
+    "NotebookGraphOutput": {
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "cells": {
+          "additionalProperties": {
+            "$ref": "#/$defs/NotebookGraphCell"
+          },
+          "title": "Cells",
+          "type": "object"
+        },
+        "complete": {
+          "default": true,
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "downstream": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Downstream",
+          "type": "array"
+        },
+        "downstream_direct": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Downstream Direct",
+          "type": "array"
+        },
+        "downstream_total": {
+          "default": 0,
+          "title": "Downstream Total",
+          "type": "integer"
+        },
+        "downstream_transitive": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Downstream Transitive",
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/NotebookGraphError"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "errors_total": {
+          "default": 0,
+          "title": "Errors Total",
+          "type": "integer"
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGraphSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "upstream": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Upstream",
+          "type": "array"
+        },
+        "upstream_direct": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Upstream Direct",
+          "type": "array"
+        },
+        "upstream_total": {
+          "default": 0,
+          "title": "Upstream Total",
+          "type": "integer"
+        },
+        "upstream_transitive": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Upstream Transitive",
+          "type": "array"
+        }
+      },
+      "required": [
+        "path",
+        "cells",
+        "edges"
+      ],
+      "title": "NotebookGraphOutput",
+      "type": "object"
+    },
+    "NotebookGraphSummary": {
+      "properties": {
+        "by_status": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Status",
+          "type": "object"
+        },
+        "cells": {
+          "title": "Cells",
+          "type": "integer"
+        },
+        "edges": {
+          "title": "Edges",
+          "type": "integer"
+        },
+        "errors": {
+          "title": "Errors",
+          "type": "integer"
+        },
+        "first_roots": {
+          "items": {
+            "type": "string"
+          },
+          "title": "First Roots",
+          "type": "array"
+        },
+        "leaves": {
+          "title": "Leaves",
+          "type": "integer"
+        },
+        "roots": {
+          "title": "Roots",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cells",
+        "edges",
+        "roots",
+        "leaves",
+        "errors"
+      ],
+      "title": "NotebookGraphSummary",
+      "type": "object"
+    },
+    "NotebookGuide": {
+      "description": "The essentials of the ``notebooks`` skill, carried by the first notebook\ntool result in a conversation so the agent has them without loading the\nskill. ``version`` changes whenever the text does.",
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "text"
+      ],
+      "title": "NotebookGuide",
+      "type": "object"
+    },
+    "NotebookImage": {
+      "properties": {
+        "bytes": {
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "data_base64": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Base64"
+        },
+        "index": {
+          "default": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "mime": {
+          "title": "Mime",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mime",
+        "bytes",
+        "sha256"
+      ],
+      "title": "NotebookImage",
+      "type": "object"
+    },
+    "NotebookInspectInput": {
+      "additionalProperties": false,
+      "properties": {
+        "column_limit": {
+          "default": 50,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Column Limit",
+          "type": "integer"
+        },
+        "column_offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Column Offset",
+          "type": "integer"
+        },
+        "filter_sql": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filter Sql"
+        },
+        "limit": {
+          "default": 50,
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sort"
+        },
+        "what": {
+          "default": "variables",
+          "enum": [
+            "variables",
+            "frame",
+            "value"
+          ],
+          "title": "What",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "NotebookInspectInput",
+      "type": "object"
+    },
+    "NotebookInspectOutput": {
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "frame": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookFramePage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "variables": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/NotebookVariable"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variables"
+        },
+        "what": {
+          "enum": [
+            "variables",
+            "frame",
+            "value"
+          ],
+          "title": "What",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "what"
+      ],
+      "title": "NotebookInspectOutput",
+      "type": "object"
+    },
+    "NotebookKernelInfo": {
+      "properties": {
+        "env": {
+          "$ref": "#/$defs/NotebookEnvInfo"
+        },
+        "memory_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Memory Bytes"
+        },
+        "queue": {
+          "items": {
+            "$ref": "#/$defs/NotebookQueuedRun"
+          },
+          "title": "Queue",
+          "type": "array"
+        },
+        "queue_total": {
+          "default": 0,
+          "title": "Queue Total",
+          "type": "integer"
+        },
+        "reactivity": {
+          "enum": [
+            "autorun",
+            "lazy"
+          ],
+          "title": "Reactivity",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "state": {
+          "enum": [
+            "absent",
+            "starting",
+            "idle",
+            "busy",
+            "restarting",
+            "stopped"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "env",
+        "reactivity"
+      ],
+      "title": "NotebookKernelInfo",
+      "type": "object"
+    },
+    "NotebookKernelInput": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "default": "status",
+          "description": "status; interrupt (the running cell); interrupt_all (the running cell, and drop every queued run); restart (clears every value); shutdown (stops the kernel).",
+          "enum": [
+            "status",
+            "interrupt",
+            "interrupt_all",
+            "restart",
+            "shutdown"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "NotebookKernelInput",
+      "type": "object"
+    },
+    "NotebookKernelOutput": {
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "kernel": {
+          "$ref": "#/$defs/NotebookKernelInfo"
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/NotebookRunBrief"
+          },
+          "title": "Runs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "path",
+        "kernel"
+      ],
+      "title": "NotebookKernelOutput",
+      "type": "object"
+    },
+    "NotebookMore": {
+      "description": "The call that returns what a result left out, ready to send as is.",
+      "properties": {
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool",
+        "args"
+      ],
+      "title": "NotebookMore",
+      "type": "object"
+    },
+    "NotebookNewCell": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "default": "python",
+          "title": "Kind",
+          "type": "string"
+        },
+        "meta": {
+          "additionalProperties": true,
+          "description": "Cell settings the file records; for a SQL cell: output_var, connection, engine, show_output.",
+          "title": "Meta",
+          "type": "object"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "source": {
+          "default": "",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "title": "NotebookNewCell",
+      "type": "object"
+    },
+    "NotebookOutputInput": {
+      "additionalProperties": false,
+      "properties": {
+        "cell": {
+          "description": "A cell: its id, its name, its position (Cell 3), first or last.",
+          "title": "Cell",
+          "type": "string"
+        },
+        "item_limit": {
+          "default": 10,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Item Limit",
+          "type": "integer"
+        },
+        "item_offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Item Offset",
+          "type": "integer"
+        },
+        "line_limit": {
+          "default": 200,
+          "maximum": 2000,
+          "minimum": 1,
+          "title": "Line Limit",
+          "type": "integer"
+        },
+        "line_offset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Offset"
+        },
+        "max_chars": {
+          "default": 20000,
+          "maximum": 40000,
+          "minimum": 100,
+          "title": "Max Chars",
+          "type": "integer"
+        },
+        "part": {
+          "default": "all",
+          "enum": [
+            "all",
+            "text",
+            "error",
+            "image",
+            "chart",
+            "table",
+            "widget"
+          ],
+          "title": "Part",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "row_limit": {
+          "default": 20,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Row Limit",
+          "type": "integer"
+        },
+        "row_offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Row Offset",
+          "type": "integer"
+        },
+        "text_offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Text Offset",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "cell"
+      ],
+      "title": "NotebookOutputInput",
+      "type": "object"
+    },
+    "NotebookOutputOutput": {
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "chart_page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookTextPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "chart_spec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookErrorInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "images": {
+          "items": {
+            "$ref": "#/$defs/NotebookImage"
+          },
+          "title": "Images",
+          "type": "array"
+        },
+        "images_page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "run": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookRunAttribution"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "table": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "table_page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "text_page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookTextPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        },
+        "widgets": {
+          "items": {
+            "$ref": "#/$defs/NotebookWidgetState"
+          },
+          "title": "Widgets",
+          "type": "array"
+        },
+        "widgets_page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "path",
+        "cell_id"
+      ],
+      "title": "NotebookOutputOutput",
+      "type": "object"
+    },
+    "NotebookOutputSummary": {
+      "properties": {
+        "chars": {
+          "default": 0,
+          "title": "Chars",
+          "type": "integer"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookErrorInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "has_chart": {
+          "default": false,
+          "title": "Has Chart",
+          "type": "boolean"
+        },
+        "has_image": {
+          "default": false,
+          "title": "Has Image",
+          "type": "boolean"
+        },
+        "has_table": {
+          "default": false,
+          "title": "Has Table",
+          "type": "boolean"
+        },
+        "has_widget": {
+          "default": false,
+          "title": "Has Widget",
+          "type": "boolean"
+        },
+        "kinds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kinds",
+          "type": "array"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "title": "NotebookOutputSummary",
+      "type": "object"
+    },
+    "NotebookPackage": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "NotebookPackage",
+      "type": "object"
+    },
+    "NotebookPage": {
+      "description": "Where a page sits in its list.",
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "cut_by_budget": {
+          "default": false,
+          "title": "Cut By Budget",
+          "type": "boolean"
+        },
+        "limit": {
+          "title": "Limit",
+          "type": "integer"
+        },
+        "more": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookMore"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Offset"
+        },
+        "offset": {
+          "title": "Offset",
+          "type": "integer"
+        },
+        "returned": {
+          "title": "Returned",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "offset",
+        "limit",
+        "returned",
+        "total"
+      ],
+      "title": "NotebookPage",
+      "type": "object"
+    },
+    "NotebookPlanStep": {
+      "properties": {
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "target",
+            "upstream",
+            "descendant"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cell_id",
+        "name",
+        "reason"
+      ],
+      "title": "NotebookPlanStep",
+      "type": "object"
+    },
+    "NotebookPresence": {
+      "properties": {
+        "cell_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cell Id"
+        },
+        "who": {
+          "title": "Who",
+          "type": "string"
+        }
+      },
+      "required": [
+        "who"
+      ],
+      "title": "NotebookPresence",
+      "type": "object"
+    },
+    "NotebookQueuedRun": {
+      "properties": {
+        "by": {
+          "title": "By",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "trigger": {
+          "title": "Trigger",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "by",
+        "trigger",
+        "status"
+      ],
+      "title": "NotebookQueuedRun",
+      "type": "object"
+    },
+    "NotebookReadInput": {
+      "additionalProperties": false,
+      "properties": {
+        "cells": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 500,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cells"
+        },
+        "include_outputs": {
+          "default": true,
+          "title": "Include Outputs",
+          "type": "boolean"
+        },
+        "include_source": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Include Source"
+        },
+        "limit": {
+          "default": 100,
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "regex": {
+          "default": false,
+          "title": "Regex",
+          "type": "boolean"
+        },
+        "search": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Search"
+        },
+        "source_limit": {
+          "default": 400,
+          "maximum": 2000,
+          "minimum": 1,
+          "title": "Source Limit",
+          "type": "integer"
+        },
+        "source_offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Offset",
+          "type": "integer"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "fresh",
+                  "edited",
+                  "stale",
+                  "not_run",
+                  "queued",
+                  "running",
+                  "error",
+                  "interrupted",
+                  "skipped",
+                  "stopped",
+                  "disabled"
+                ],
+                "type": "string"
+              },
+              "maxItems": 12,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "NotebookReadInput",
+      "type": "object"
+    },
+    "NotebookReadOutput": {
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "cells": {
+          "items": {
+            "$ref": "#/$defs/NotebookCellState"
+          },
+          "title": "Cells",
+          "type": "array"
+        },
+        "kernel": {
+          "$ref": "#/$defs/NotebookKernelInfo"
+        },
+        "matched": {
+          "default": 0,
+          "title": "Matched",
+          "type": "integer"
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "presence": {
+          "items": {
+            "$ref": "#/$defs/NotebookPresence"
+          },
+          "title": "Presence",
+          "type": "array"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": true,
+          "title": "Settings",
+          "type": "object"
+        },
+        "token": {
+          "title": "Token",
+          "type": "string"
+        },
+        "total_cells": {
+          "default": 0,
+          "title": "Total Cells",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "token",
+        "settings",
+        "kernel",
+        "cells"
+      ],
+      "title": "NotebookReadOutput",
+      "type": "object"
+    },
+    "NotebookRunAttribution": {
+      "properties": {
+        "by": {
+          "title": "By",
+          "type": "string"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "trigger": {
+          "title": "Trigger",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "by",
+        "trigger"
+      ],
+      "title": "NotebookRunAttribution",
+      "type": "object"
+    },
+    "NotebookRunBrief": {
+      "properties": {
+        "by": {
+          "title": "By",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "by",
+        "status"
+      ],
+      "title": "NotebookRunBrief",
+      "type": "object"
+    },
+    "NotebookRunInput": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm_expensive": {
+          "default": false,
+          "title": "Confirm Expensive",
+          "type": "boolean"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "target": {
+          "discriminator": {
+            "mapping": {
+              "above": "#/$defs/RunAbove",
+              "all": "#/$defs/RunAll",
+              "below": "#/$defs/RunBelow",
+              "cells": "#/$defs/RunCells",
+              "downstream": "#/$defs/RunDownstream",
+              "stale": "#/$defs/RunStale",
+              "upstream": "#/$defs/RunUpstream"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/RunCells"
+            },
+            {
+              "$ref": "#/$defs/RunAll"
+            },
+            {
+              "$ref": "#/$defs/RunStale"
+            },
+            {
+              "$ref": "#/$defs/RunAbove"
+            },
+            {
+              "$ref": "#/$defs/RunBelow"
+            },
+            {
+              "$ref": "#/$defs/RunUpstream"
+            },
+            {
+              "$ref": "#/$defs/RunDownstream"
+            }
+          ],
+          "title": "Target"
+        },
+        "timeout_s": {
+          "default": 300,
+          "exclusiveMinimum": 0,
+          "maximum": 3600,
+          "title": "Timeout S",
+          "type": "number"
+        },
+        "wait": {
+          "default": true,
+          "title": "Wait",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path",
+        "target"
+      ],
+      "title": "NotebookRunInput",
+      "type": "object"
+    },
+    "NotebookRunOutput": {
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "cells": {
+          "items": {
+            "$ref": "#/$defs/NotebookCellState"
+          },
+          "title": "Cells",
+          "type": "array"
+        },
+        "counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Counts",
+          "type": "object"
+        },
+        "env": {
+          "$ref": "#/$defs/NotebookEnvInfo"
+        },
+        "estimate_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Estimate S"
+        },
+        "failures": {
+          "items": {
+            "$ref": "#/$defs/NotebookCellState"
+          },
+          "title": "Failures",
+          "type": "array"
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "plan": {
+          "items": {
+            "$ref": "#/$defs/NotebookPlanStep"
+          },
+          "title": "Plan",
+          "type": "array"
+        },
+        "plan_total": {
+          "default": 0,
+          "title": "Plan Total",
+          "type": "integer"
+        },
+        "queued_behind": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Queued Behind",
+          "type": "array"
+        },
+        "reactivity": {
+          "enum": [
+            "autorun",
+            "lazy"
+          ],
+          "title": "Reactivity",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Run Id"
+        },
+        "see": {
+          "items": {
+            "$ref": "#/$defs/NotebookMore"
+          },
+          "title": "See",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "finished",
+            "running",
+            "needs_confirmation"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "run_id",
+        "status",
+        "reactivity",
+        "env",
+        "plan"
+      ],
+      "title": "NotebookRunOutput",
+      "type": "object"
+    },
+    "NotebookSettingsInput": {
+      "additionalProperties": false,
+      "properties": {
+        "autoreload": {
+          "anyOf": [
+            {
+              "enum": [
+                "off",
+                "on"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Autoreload"
+        },
+        "dataframe": {
+          "anyOf": [
+            {
+              "enum": [
+                "polars",
+                "pandas",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dataframe"
+        },
+        "env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Env"
+        },
+        "outputs_in_git": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs In Git"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "reactivity": {
+          "anyOf": [
+            {
+              "enum": [
+                "autorun",
+                "lazy"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reactivity"
+        },
+        "sql_row_limit": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The most rows kept from a SQL query that has no LIMIT of its own.",
+          "title": "Sql Row Limit"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "NotebookSettingsInput",
+      "type": "object"
+    },
+    "NotebookSettingsOutput": {
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": true,
+          "title": "Settings",
+          "type": "object"
+        }
+      },
+      "required": [
+        "path",
+        "settings"
+      ],
+      "title": "NotebookSettingsOutput",
+      "type": "object"
+    },
+    "NotebookShowOutputInput": {
+      "additionalProperties": false,
+      "properties": {
+        "cell": {
+          "default": "last",
+          "description": "A cell: its id, its name, its position (Cell 3), first or last.",
+          "title": "Cell",
+          "type": "string"
+        },
+        "image": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Image",
+          "type": "integer"
+        },
+        "part": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "table",
+            "chart",
+            "image",
+            "markdown",
+            "text"
+          ],
+          "title": "Part",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "row_limit": {
+          "default": 50,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Row Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "NotebookShowOutputInput",
+      "type": "object"
+    },
+    "NotebookShowOutputOutput": {
+      "properties": {
+        "available": {
+          "items": {
+            "enum": [
+              "table",
+              "chart",
+              "image",
+              "markdown",
+              "text",
+              "error"
+            ],
+            "type": "string"
+          },
+          "title": "Available",
+          "type": "array"
+        },
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "cell_error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookErrorInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "cell_name": {
+          "title": "Cell Name",
+          "type": "string"
+        },
+        "chart_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookStoredChart"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "chart_spec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "chart_summary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookShownImage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "kind": {
+          "enum": [
+            "table",
+            "chart",
+            "image",
+            "markdown",
+            "text",
+            "error"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "markdown": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "table": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookShownTable"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "path",
+        "cell_id",
+        "cell_name",
+        "kind"
+      ],
+      "title": "NotebookShowOutputOutput",
+      "type": "object"
+    },
+    "NotebookShownImage": {
+      "properties": {
+        "bytes": {
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "mime": {
+          "title": "Mime",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "index",
+        "total",
+        "mime",
+        "bytes",
+        "sha256"
+      ],
+      "title": "NotebookShownImage",
+      "type": "object"
+    },
+    "NotebookShownTable": {
+      "properties": {
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "rows": {
+          "$ref": "#/$defs/Untrusted"
+        },
+        "shown_rows": {
+          "title": "Shown Rows",
+          "type": "integer"
+        },
+        "total_columns": {
+          "title": "Total Columns",
+          "type": "integer"
+        },
+        "total_rows": {
+          "title": "Total Rows",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "columns",
+        "rows",
+        "shown_rows",
+        "total_rows",
+        "total_columns"
+      ],
+      "title": "NotebookShownTable",
+      "type": "object"
+    },
+    "NotebookStoredChart": {
+      "description": "A chart too large to carry in the reply, by the file the notebook keeps\nits spec in beside itself (``<sha256>.json`` in the notebook's output\nfolder): where a chat or a thread reads the spec to draw it.",
+      "properties": {
+        "bytes": {
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sha256",
+        "bytes"
+      ],
+      "title": "NotebookStoredChart",
+      "type": "object"
+    },
+    "NotebookTextEdit": {
+      "additionalProperties": false,
+      "properties": {
+        "new": {
+          "title": "New",
+          "type": "string"
+        },
+        "occurrence": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Occurrence"
+        },
+        "old": {
+          "title": "Old",
+          "type": "string"
+        }
+      },
+      "required": [
+        "old",
+        "new"
+      ],
+      "title": "NotebookTextEdit",
+      "type": "object"
+    },
+    "NotebookTextPage": {
+      "description": "Where a window of text sits in the whole text.",
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "cut_by_budget": {
+          "default": false,
+          "title": "Cut By Budget",
+          "type": "boolean"
+        },
+        "more": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookMore"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Offset"
+        },
+        "offset": {
+          "title": "Offset",
+          "type": "integer"
+        },
+        "returned": {
+          "title": "Returned",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "unit": {
+          "enum": [
+            "line",
+            "char"
+          ],
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit",
+        "offset",
+        "returned",
+        "total"
+      ],
+      "title": "NotebookTextPage",
+      "type": "object"
+    },
+    "NotebookVariable": {
+      "properties": {
+        "cell_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cell Id"
+        },
+        "columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Columns"
+        },
+        "columns_total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Columns Total"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "repr": {
+          "$ref": "#/$defs/Untrusted"
+        },
+        "shape": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shape"
+        },
+        "size_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size Bytes"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "repr"
+      ],
+      "title": "NotebookVariable",
+      "type": "object"
+    },
+    "NotebookWidgetInput": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "default": "list",
+          "enum": [
+            "list",
+            "get",
+            "set"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "limit": {
+          "default": 50,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "NotebookWidgetInput",
+      "type": "object"
+    },
+    "NotebookWidgetOutput": {
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "notebook_guide": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookGuide"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_type": {
+          "default": "",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "run": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotebookRunOutput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "widgets": {
+          "items": {
+            "$ref": "#/$defs/NotebookWidgetState"
+          },
+          "title": "Widgets",
+          "type": "array"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "NotebookWidgetOutput",
+      "type": "object"
+    },
+    "NotebookWidgetState": {
+      "properties": {
+        "cell_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cell Id"
+        },
+        "model_id": {
+          "title": "Model Id",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Untrusted"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id",
+        "type"
+      ],
+      "title": "NotebookWidgetState",
+      "type": "object"
+    },
+    "PluginConnectionInfo": {
+      "description": "A connection a plugin manages, for the agent's discovery tool \u2014 live\n(``added``) or merely detected (a candidate the user can enable).",
+      "properties": {
+        "added": {
+          "default": false,
+          "title": "Added",
+          "type": "boolean"
+        },
+        "environment": {
+          "default": "",
+          "title": "Environment",
+          "type": "string"
+        },
+        "handle": {
+          "title": "Handle",
+          "type": "string"
+        },
+        "plugin": {
+          "title": "Plugin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "handle",
+        "plugin"
+      ],
+      "title": "PluginConnectionInfo",
+      "type": "object"
+    },
+    "PluginInfo": {
+      "description": "One plugin's status for the agent's ``list_plugins`` discovery tool.",
+      "properties": {
+        "active": {
+          "default": false,
+          "title": "Active",
+          "type": "boolean"
+        },
+        "connections": {
+          "items": {
+            "$ref": "#/$defs/PluginConnectionInfo"
+          },
+          "title": "Connections",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "surfaces": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Surfaces",
+          "type": "array"
+        },
+        "urn_format": {
+          "default": "",
+          "title": "Urn Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "PluginInfo",
+      "type": "object"
+    },
+    "RenameCellOp": {
+      "additionalProperties": false,
+      "properties": {
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "op": {
+          "const": "rename",
+          "default": "rename",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cell_id",
+        "name"
+      ],
+      "title": "RenameCellOp",
+      "type": "object"
+    },
+    "ReplaceCellOp": {
+      "additionalProperties": false,
+      "properties": {
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "op": {
+          "const": "replace",
+          "default": "replace",
+          "title": "Op",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cell_id",
+        "source"
+      ],
+      "title": "ReplaceCellOp",
+      "type": "object"
+    },
+    "RestoreCellOp": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After"
+        },
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "op": {
+          "const": "restore",
+          "default": "restore",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cell_id"
+      ],
+      "title": "RestoreCellOp",
+      "type": "object"
+    },
+    "RunAbove": {
+      "additionalProperties": false,
+      "description": "Every cell above this one in notebook order (not the cell itself).",
+      "properties": {
+        "id": {
+          "description": "A cell: its id, its name, its position (Cell 3), first or last.",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "above",
+          "default": "above",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "RunAbove",
+      "type": "object"
+    },
+    "RunAll": {
+      "additionalProperties": false,
+      "description": "Every cell, in dependency order.",
+      "properties": {
+        "kind": {
+          "const": "all",
+          "default": "all",
+          "title": "Kind",
+          "type": "string"
+        },
+        "restart": {
+          "default": false,
+          "description": "Restart the kernel first, so every cell runs from a clean state.",
+          "title": "Restart",
+          "type": "boolean"
+        }
+      },
+      "title": "RunAll",
+      "type": "object"
+    },
+    "RunBelow": {
+      "additionalProperties": false,
+      "description": "This cell and every cell below it in notebook order.",
+      "properties": {
+        "id": {
+          "description": "A cell: its id, its name, its position (Cell 3), first or last.",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "below",
+          "default": "below",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "RunBelow",
+      "type": "object"
+    },
+    "RunCells": {
+      "additionalProperties": false,
+      "description": "These cells, after any cell they need that has not run yet.",
+      "properties": {
+        "ids": {
+          "description": "A cell: its id, its name, its position (Cell 3), first or last.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 500,
+          "minItems": 1,
+          "title": "Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "cells",
+          "default": "cells",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ids"
+      ],
+      "title": "RunCells",
+      "type": "object"
+    },
+    "RunDownstream": {
+      "additionalProperties": false,
+      "description": "This cell and every cell that reads it, in either reactivity mode.",
+      "properties": {
+        "id": {
+          "description": "A cell: its id, its name, its position (Cell 3), first or last.",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "downstream",
+          "default": "downstream",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "RunDownstream",
+      "type": "object"
+    },
+    "RunStale": {
+      "additionalProperties": false,
+      "description": "Every cell whose result no longer matches its code or inputs.",
+      "properties": {
+        "kind": {
+          "const": "stale",
+          "default": "stale",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "RunStale",
+      "type": "object"
+    },
+    "RunUpstream": {
+      "additionalProperties": false,
+      "description": "This cell and every cell it depends on, run again even when they hold values.",
+      "properties": {
+        "id": {
+          "description": "A cell: its id, its name, its position (Cell 3), first or last.",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "upstream",
+          "default": "upstream",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "RunUpstream",
+      "type": "object"
+    },
+    "SearchResult": {
+      "properties": {
+        "snippet": {
+          "default": "",
+          "title": "Snippet",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "default": "",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "title": "SearchResult",
+      "type": "object"
+    },
+    "SearchToolsInput": {
+      "properties": {
+        "app": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "App"
+        },
+        "k": {
+          "default": 8,
+          "title": "K",
+          "type": "integer"
+        },
+        "query": {
+          "title": "Query",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "SearchToolsInput",
+      "type": "object"
+    },
+    "SearchToolsOutput": {
+      "properties": {
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/ToolCard"
+          },
+          "title": "Tools",
+          "type": "array"
+        }
+      },
+      "title": "SearchToolsOutput",
+      "type": "object"
+    },
+    "SetCellConfigOp": {
+      "additionalProperties": false,
+      "description": "marimo's cell options, for any cell: ``disabled``, ``hide_code``,\n``expand_output``, ``column``. A SQL cell's ``show_output``,\n``output_var`` and ``connection`` are not here: they are ``set_meta``.",
+      "properties": {
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "config": {
+          "additionalProperties": true,
+          "description": "Only disabled, hide_code, expand_output or column; SQL settings are set_meta.",
+          "title": "Config",
+          "type": "object"
+        },
+        "op": {
+          "const": "set_config",
+          "default": "set_config",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cell_id",
+        "config"
+      ],
+      "title": "SetCellConfigOp",
+      "type": "object"
+    },
+    "SetCellKindOp": {
+      "additionalProperties": false,
+      "properties": {
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "op": {
+          "const": "set_kind",
+          "default": "set_kind",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cell_id",
+        "kind"
+      ],
+      "title": "SetCellKindOp",
+      "type": "object"
+    },
+    "SetCellMetaOp": {
+      "additionalProperties": false,
+      "description": "A SQL or Markdown cell's settings: for SQL ``connection`` (the name of\none of the workspace's connections; ``None`` runs it in the notebook's\nDuckDB), ``output_var`` and ``show_output``; for Markdown ``quote``.\nKeys not named keep their value.",
+      "properties": {
+        "cell_id": {
+          "title": "Cell Id",
+          "type": "string"
+        },
+        "meta": {
+          "additionalProperties": true,
+          "description": "SQL: connection, output_var, show_output, engine. Markdown: quote.",
+          "title": "Meta",
+          "type": "object"
+        },
+        "op": {
+          "const": "set_meta",
+          "default": "set_meta",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cell_id",
+        "meta"
+      ],
+      "title": "SetCellMetaOp",
+      "type": "object"
+    },
+    "SetSettingOp": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "op": {
+          "const": "set_setting",
+          "default": "set_setting",
+          "title": "Op",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "title": "SetSettingOp",
+      "type": "object"
+    },
+    "SkillCard": {
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SkillCard",
+      "type": "object"
+    },
+    "SpawnAgentInput": {
+      "properties": {
+        "agent": {
+          "default": "explore",
+          "title": "Agent",
+          "type": "string"
+        },
+        "background": {
+          "default": false,
+          "title": "Background",
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "title": "SpawnAgentInput",
+      "type": "object"
+    },
+    "SpawnAgentResult": {
+      "properties": {
+        "child_session_id": {
+          "default": "",
+          "title": "Child Session Id",
+          "type": "string"
+        },
+        "stats": {
+          "$ref": "#/$defs/AgentUsageStats"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "stats"
+      ],
+      "title": "SpawnAgentResult",
+      "type": "object"
+    },
+    "SqlProvenance": {
+      "description": "Where a SQL result came from, beside the rows it describes.\n\nRendered inline on the result card \u2014 never behind a click \u2014 and copied onto\nthe receipt when the result is promoted. Names only: the connection, the\ncredential role the statement ran under, the engine. A secret never rides\nhere, and the connector that fills it never sees one.",
+      "properties": {
+        "connection_id": {
+          "default": "",
+          "title": "Connection Id",
+          "type": "string"
+        },
+        "connection_name": {
+          "default": "",
+          "title": "Connection Name",
+          "type": "string"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "engine": {
+          "default": "",
+          "title": "Engine",
+          "type": "string"
+        },
+        "executed_at": {
+          "default": "",
+          "title": "Executed At",
+          "type": "string"
+        },
+        "join_columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Join Columns",
+          "type": "array"
+        },
+        "role": {
+          "default": "",
+          "title": "Role",
+          "type": "string"
+        },
+        "row_count": {
+          "default": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/SqlProvenance"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "sql": {
+          "default": "",
+          "title": "Sql",
+          "type": "string"
+        }
+      },
+      "title": "SqlProvenance",
+      "type": "object"
+    },
+    "SqlQueryResult": {
+      "description": "The shared tabular result shape every rows producer returns, so the\neditor chip and ``fetch_result`` paging are identical for every producer.",
+      "properties": {
+        "blob": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlobHandle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "cost_warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cost Warnings",
+          "type": "array"
+        },
+        "job_id": {
+          "default": "",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "preview_rows": {
+          "items": {
+            "items": {},
+            "type": "array"
+          },
+          "title": "Preview Rows",
+          "type": "array"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SqlProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ref_type": {
+          "default": "rows",
+          "title": "Ref Type",
+          "type": "string"
+        },
+        "result_name": {
+          "default": "",
+          "title": "Result Name",
+          "type": "string"
+        },
+        "row_count": {
+          "default": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "title": "SqlQueryResult",
+      "type": "object"
+    },
+    "StepReport": {
+      "properties": {
+        "command": {
+          "title": "Command",
+          "type": "string"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Code"
+        },
+        "inputs": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Inputs",
+          "type": "object"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "output_tail": {
+          "default": "",
+          "title": "Output Tail",
+          "type": "string"
+        },
+        "purpose": {
+          "enum": [
+            "create_env",
+            "conda_install",
+            "uv_sync",
+            "install_requirements",
+            "install_packages",
+            "install_local",
+            "path_entries"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "ran": {
+          "default": false,
+          "title": "Ran",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "purpose",
+        "command"
+      ],
+      "title": "StepReport",
+      "type": "object"
+    },
+    "TaskSummary": {
+      "properties": {
+        "counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Counts",
+          "type": "object"
+        },
+        "ready": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ready",
+          "type": "array"
+        },
+        "total": {
+          "default": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "title": "TaskSummary",
+      "type": "object"
+    },
+    "TaskUpsert": {
+      "description": "One add-or-edit. A new ``id`` creates (``title`` required); an existing ``id``\nedits only the fields provided here.",
+      "properties": {
+        "depends_on": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Ids of prerequisite tasks (replaces the current list).",
+          "title": "Depends On"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "id": {
+          "description": "Stable slug; new id = create, existing id = edit.",
+          "title": "Id",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "pending",
+                "in_progress",
+                "completed",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "pending | in_progress | completed | cancelled.",
+          "title": "Status"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Required when creating a task.",
+          "title": "Title"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "TaskUpsert",
+      "type": "object"
+    },
+    "TaskView": {
+      "description": "A task as the model sees it \u2014 full detail + derived blocked state +\nRELATIVE updated time (never a raw timestamp).",
+      "properties": {
+        "blocked": {
+          "default": false,
+          "title": "Blocked",
+          "type": "boolean"
+        },
+        "blocked_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocked By",
+          "type": "array"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "in_progress",
+            "completed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "updated_ago": {
+          "default": "",
+          "title": "Updated Ago",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "status"
+      ],
+      "title": "TaskView",
+      "type": "object"
+    },
+    "ToolCard": {
+      "description": "A discovered tool's advertised shape (what ``search_tools`` returns).",
+      "properties": {
+        "app": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "App"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "input_schema": {
+          "additionalProperties": true,
+          "title": "Input Schema",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ToolCard",
+      "type": "object"
+    },
+    "TopValue": {
+      "properties": {
+        "count": {
+          "default": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "title": "TopValue",
+      "type": "object"
+    },
+    "Untrusted": {
+      "additionalProperties": false,
+      "description": "Text a notebook produced, carried as data.\n\n``author`` names who caused the text to exist (the person or agent whose run\nprinted it, or whose edit wrote the source) so the reader can weigh it;\n``content`` is the text itself, or for structured outputs (a chart spec, a\ntable page) the JSON value.",
+      "properties": {
+        "author": {
+          "title": "Author",
+          "type": "string"
+        },
+        "content": {
+          "title": "Content"
+        },
+        "untrusted": {
+          "const": true,
+          "default": true,
+          "title": "Untrusted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "author",
+        "content"
+      ],
+      "title": "Untrusted",
+      "type": "object"
+    },
+    "UseSkillInput": {
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        }
+      },
+      "title": "UseSkillInput",
+      "type": "object"
+    },
+    "UseSkillResult": {
+      "properties": {
+        "body": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "skills": {
+          "items": {
+            "$ref": "#/$defs/SkillCard"
+          },
+          "title": "Skills",
+          "type": "array"
+        }
+      },
+      "title": "UseSkillResult",
+      "type": "object"
+    },
+    "WebFetchInput": {
+      "properties": {
+        "max_chars": {
+          "default": 20000,
+          "maximum": 1000000,
+          "minimum": 500,
+          "title": "Max Chars",
+          "type": "integer"
+        },
+        "url": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "WebFetchInput",
+      "type": "object"
+    },
+    "WebFetchResult": {
+      "properties": {
+        "content": {
+          "default": "",
+          "title": "Content",
+          "type": "string"
+        },
+        "status": {
+          "default": 0,
+          "title": "Status",
+          "type": "integer"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "total_chars": {
+          "default": 0,
+          "title": "Total Chars",
+          "type": "integer"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        },
+        "url": {
+          "default": "",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "title": "WebFetchResult",
+      "type": "object"
+    },
+    "WebSearchInput": {
+      "properties": {
+        "backend": {
+          "default": "auto",
+          "maxLength": 120,
+          "title": "Backend",
+          "type": "string"
+        },
+        "max_results": {
+          "default": 8,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Results",
+          "type": "integer"
+        },
+        "query": {
+          "maxLength": 400,
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "region": {
+          "default": "us-en",
+          "maxLength": 16,
+          "title": "Region",
+          "type": "string"
+        },
+        "timelimit": {
+          "anyOf": [
+            {
+              "pattern": "^[dwmy]$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timelimit"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "WebSearchInput",
+      "type": "object"
+    },
+    "WebSearchResult": {
+      "properties": {
+        "query": {
+          "default": "",
+          "title": "Query",
+          "type": "string"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/SearchResult"
+          },
+          "title": "Results",
+          "type": "array"
+        }
+      },
+      "title": "WebSearchResult",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AlkeraToolManifest",
+  "x-alkera-tools": {
+    "background_cancel": {
+      "app": "background",
+      "hot": true,
+      "input": "BackgroundCancelInput",
+      "output": "BackgroundCancelResult",
+      "title": "Cancel a background job"
+    },
+    "background_status": {
+      "app": "background",
+      "hot": true,
+      "input": "BackgroundStatusInput",
+      "output": "BackgroundStatusResult",
+      "title": "Background job status"
+    },
+    "bash": {
+      "app": "bash",
+      "hot": true,
+      "input": "BashInput",
+      "output": "BashResult",
+      "title": "Run a bash command"
+    },
+    "blob.create": {
+      "app": "blob",
+      "hot": true,
+      "input": "BlobCreateInput",
+      "output": "BlobCreateOutput",
+      "title": "Create a result blob"
+    },
+    "blob.delete": {
+      "app": "blob",
+      "hot": false,
+      "input": "BlobDeleteInput",
+      "output": "BlobDeleteOutput",
+      "title": "Delete a result blob"
+    },
+    "blob.derive": {
+      "app": "blob",
+      "hot": false,
+      "input": "BlobDeriveInput",
+      "output": "SqlQueryResult",
+      "title": "Reshape a result"
+    },
+    "blob.info": {
+      "app": "blob",
+      "hot": true,
+      "input": "BlobInfoInput",
+      "output": "BlobInfoOutput",
+      "title": "Inspect a result's shape"
+    },
+    "blob.materialize": {
+      "app": "blob",
+      "hot": false,
+      "input": "BlobMaterializeInput",
+      "output": "BlobMaterializeOutput",
+      "title": "Write a result to a file"
+    },
+    "blob.profile": {
+      "app": "blob",
+      "hot": true,
+      "input": "BlobProfileInput",
+      "output": "BlobProfileOutput",
+      "title": "Profile a tabular result"
+    },
+    "blob.query": {
+      "app": "blob",
+      "hot": true,
+      "input": "BlobQueryInput",
+      "output": "SqlQueryResult",
+      "title": "Query a result with SQL"
+    },
+    "call_tool": {
+      "app": null,
+      "hot": true,
+      "input": "CallToolInput",
+      "output": "CallToolOutput",
+      "title": "Call tool"
+    },
+    "environment.capture": {
+      "app": "environment",
+      "hot": false,
+      "input": "EnvironmentCaptureInput",
+      "output": "EnvironmentCaptureResult",
+      "title": "Capture the environment"
+    },
+    "environment.recreate": {
+      "app": "environment",
+      "hot": false,
+      "input": "EnvironmentRecreateInput",
+      "output": "EnvironmentRecreateResult",
+      "title": "Recreate the environment"
+    },
+    "fetch_result": {
+      "app": null,
+      "hot": true,
+      "input": "FetchResultInput",
+      "output": "FetchResultOutput",
+      "title": "Fetch a large result"
+    },
+    "list_agent_types": {
+      "app": "agent",
+      "hot": true,
+      "input": "ListAgentTypesInput",
+      "output": "ListAgentTypesResult",
+      "title": "List agent types"
+    },
+    "list_plugins": {
+      "app": null,
+      "hot": true,
+      "input": "ListPluginsInput",
+      "output": "ListPluginsOutput",
+      "title": "List plugins & connections"
+    },
+    "manage_tasks": {
+      "app": "tasks",
+      "hot": true,
+      "input": "ManageTasksInput",
+      "output": "ManageTasksOutput",
+      "title": "Manage tasks"
+    },
+    "notebook.cells": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookCellsInput",
+      "output": "NotebookCellsOutput",
+      "title": "Notebook cell actions"
+    },
+    "notebook.create": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookCreateInput",
+      "output": "NotebookCreateOutput",
+      "title": "Create a notebook"
+    },
+    "notebook.edit": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookEditInput",
+      "output": "NotebookEditOutput",
+      "title": "Edit notebook cells"
+    },
+    "notebook.env": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookEnvInput",
+      "output": "NotebookEnvOutput",
+      "title": "Notebook environment"
+    },
+    "notebook.graph": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookGraphInput",
+      "output": "NotebookGraphOutput",
+      "title": "Notebook dependency graph"
+    },
+    "notebook.inspect": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookInspectInput",
+      "output": "NotebookInspectOutput",
+      "title": "Inspect notebook values"
+    },
+    "notebook.kernel": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookKernelInput",
+      "output": "NotebookKernelOutput",
+      "title": "Notebook kernel"
+    },
+    "notebook.output": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookOutputInput",
+      "output": "NotebookOutputOutput",
+      "title": "Read a cell's output"
+    },
+    "notebook.read": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookReadInput",
+      "output": "NotebookReadOutput",
+      "title": "Read a notebook"
+    },
+    "notebook.run": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookRunInput",
+      "output": "NotebookRunOutput",
+      "title": "Run notebook cells"
+    },
+    "notebook.settings": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookSettingsInput",
+      "output": "NotebookSettingsOutput",
+      "title": "Notebook settings"
+    },
+    "notebook.show_output": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookShowOutputInput",
+      "output": "NotebookShowOutputOutput",
+      "title": "Show a cell's output"
+    },
+    "notebook.widget": {
+      "app": "notebook",
+      "hot": false,
+      "input": "NotebookWidgetInput",
+      "output": "NotebookWidgetOutput",
+      "title": "Notebook widgets"
+    },
+    "search_tools": {
+      "app": null,
+      "hot": true,
+      "input": "SearchToolsInput",
+      "output": "SearchToolsOutput",
+      "title": "Search tools"
+    },
+    "spawn_agent": {
+      "app": "agent",
+      "hot": true,
+      "input": "SpawnAgentInput",
+      "output": "SpawnAgentResult",
+      "title": "Spawn agent"
+    },
+    "use_skill": {
+      "app": "skill",
+      "hot": false,
+      "input": "UseSkillInput",
+      "output": "UseSkillResult",
+      "title": "Load a skill"
+    },
+    "web.fetch": {
+      "app": "web",
+      "hot": true,
+      "input": "WebFetchInput",
+      "output": "WebFetchResult",
+      "title": "Web fetch"
+    },
+    "web.search": {
+      "app": "web",
+      "hot": true,
+      "input": "WebSearchInput",
+      "output": "WebSearchResult",
+      "title": "Web search"
+    }
+  }
+}

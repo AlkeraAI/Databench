@@ -1,0 +1,53 @@
+{
+  "about": "What a link target an agent wrote names inside chat `chat_id`'s folder. Read by BOTH rules: alkera_core.chat_paths.chat_path (the box, the Slack thread) and the web renderer's chatRelativePath (packages/ui/src/primitives/render/Markdown/chatPaths.ts). A case added here is pinned on both sides at once, so the two cannot drift. `path` is the steps below the folder, or null for a target that is not a file in this chat.",
+  "chat_id": "d6d800e9-5bce-4d9f-b0e0-dd5367ea4298",
+  "cases": [
+    { "id": "relative", "target": "result-f087b00a.csv", "path": "result-f087b00a.csv" },
+    { "id": "nested", "target": "out/2026/q3/sum.csv", "path": "out/2026/q3/sum.csv" },
+    { "id": "dot-slash", "target": "./result-f087b00a.csv", "path": "result-f087b00a.csv" },
+    { "id": "repeated-dot-slash", "target": "././a.csv", "path": "a.csv" },
+    { "id": "tool-output-folder", "target": "tool-output/bash-1.txt", "path": "tool-output/bash-1.txt" },
+    { "id": "url-encoded-space", "target": "Active%20prompts.csv", "path": "Active prompts.csv" },
+    {
+      "id": "box-path-into-this-chat",
+      "target": "/opt/alkera-work/.alkera/chats/d6d800e9-5bce-4d9f-b0e0-dd5367ea4298/scratch/result-f087b00a.csv",
+      "path": "scratch/result-f087b00a.csv"
+    },
+    {
+      "id": "local-path-into-this-chat",
+      "target": "/home/u/proj/.alkera/chats/d6d800e9-5bce-4d9f-b0e0-dd5367ea4298/report.md",
+      "path": "report.md"
+    },
+    {
+      "id": "encoded-box-path-into-this-chat",
+      "target": "/opt/alkera-work/.alkera/chats/d6d800e9-5bce-4d9f-b0e0-dd5367ea4298/scratch/my%20chart.png",
+      "path": "scratch/my chart.png"
+    },
+    {
+      "id": "box-path-into-another-chat",
+      "target": "/opt/alkera-work/.alkera/chats/0a0b0c0d-1111-4222-8333-444455556666/scratch/a.csv",
+      "path": null
+    },
+    {
+      "id": "box-path-climbing-sideways",
+      "target": "/opt/alkera-work/.alkera/chats/d6d800e9-5bce-4d9f-b0e0-dd5367ea4298/../0a0b0c0d-1111-4222-8333-444455556666/a.csv",
+      "path": null
+    },
+    { "id": "box-chat-folder-itself", "target": "/opt/alkera-work/.alkera/chats/d6d800e9-5bce-4d9f-b0e0-dd5367ea4298/", "path": null },
+    { "id": "system-path", "target": "/etc/passwd", "path": null },
+    { "id": "climbs-out", "target": "../secrets.csv", "path": null },
+    { "id": "climbs-out-midway", "target": "charts/../../x.png", "path": null },
+    { "id": "encoded-climb", "target": "%2E%2E/x.png", "path": null },
+    { "id": "encoded-query", "target": "a%3Fraw.csv", "path": null },
+    { "id": "web-url", "target": "https://evil.example/a.csv", "path": null },
+    { "id": "file-url", "target": "file:///etc/passwd", "path": null },
+    { "id": "data-uri", "target": "data:text/csv;base64,AAAA", "path": null },
+    { "id": "blob-handle", "target": "blob:f087b00a98f9897e0e5fa09b733e70f6eb94dbc66fe370bbb57c70197446d653", "path": null },
+    { "id": "backslash", "target": "a\\b.csv", "path": null },
+    { "id": "query", "target": "a.csv?raw=1", "path": null },
+    { "id": "fragment", "target": "#section", "path": null },
+    { "id": "empty-step", "target": "charts//x.png", "path": null },
+    { "id": "empty", "target": "", "path": null },
+    { "id": "padded", "target": " a.csv", "path": null }
+  ]
+}

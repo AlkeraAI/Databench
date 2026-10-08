@@ -1,0 +1,24 @@
+{
+  "path": "encoding.color.condition.test",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "encoding": {
+      "color": {
+        "condition": {
+          "test": "datum['\\x5f_proto__'] != null",
+          "value": "red"
+        },
+        "value": "blue"
+      }
+    },
+    "mark": "point"
+  },
+  "unsafe": true
+}

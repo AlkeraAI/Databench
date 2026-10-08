@@ -1,0 +1,45 @@
+/* The bans register's two local rules: the user picker that drops under the search
+   field, and the lifted-ban disclosure. Everything else is composed from the
+   @alkera/ui Card / Stack / Toolbar / Table primitives in the TSX. */
+
+/* The candidate list a search opens — a bordered sheet directly under the field, in
+   flow (not floating), so it pushes the form's rows rather than covering the table. */
+.picker {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+  overflow: hidden;
+}
+.pickerRow {
+  display: flex;
+  gap: var(--alkSpace5);
+  align-items: baseline;
+  width: 100%;
+  padding: var(--alkSpace3) var(--alkSpace5);
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.pickerRow:hover,
+.pickerRow:focus-visible {
+  background: var(--alkHoverBg);
+}
+.picker li + li .pickerRow {
+  border-top: 1px solid var(--alkBorder);
+}
+
+/* The lifted-ban disclosure: the trigger sits flush left under the live table, and
+   the revealed body gets the top rule that separates record from register. */
+.history {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.historyBody {
+  padding-top: var(--alkSpace5);
+}

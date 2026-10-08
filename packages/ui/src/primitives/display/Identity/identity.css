@@ -1,0 +1,38 @@
+/* Identity — an avatar beside a name over a quiet second line (a roster row, a people picker, the
+   account button). The name is the medium-weight reading; the second line is the quiet caption; both
+   truncate so a long name or email never widens the row. Self-contained on --alk tokens. */
+.alk-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace5);
+  min-width: 0;
+  /* Fill a flex parent (a picker row, the account button) so a trailing control rides the far edge;
+     in a block parent (a table cell) the div fills anyway and this is inert. */
+  flex: 1 1 auto;
+}
+.alk-identity__text {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  line-height: var(--alkLeadingHeading);
+  /* Reset the inherited button `text-align: center` — Identity is the label inside a <button> (the
+     account trigger, people-picker rows), where the stretched name/secondary spans would otherwise
+     centre their text (invisible on a full-width name, visible on the shorter second line). */
+  text-align: left;
+}
+.alk-identity__name {
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightMedium);
+  color: var(--alkPrimaryText);
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+}
+.alk-identity__secondary {
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+}

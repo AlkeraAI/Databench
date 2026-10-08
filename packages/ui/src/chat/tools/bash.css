@@ -1,0 +1,36 @@
+@import "./tokens.css";
+
+/* The terminal the command ran in. */
+
+/* The invocation flows as one run of shell text: a long command wraps across
+   the well's full width, and a wrapped line indents one step -- the shell's own
+   continuation rhythm. */
+.chat-root [data-tool="bash"] .chat-tool-band {
+  display: block;
+  padding-left: calc(var(--chat-tool-pad-x) + 2ch);
+  text-indent: -2ch;
+}
+
+.chat-root [data-tool="bash"] .chat-bash-cwd {
+  margin-right: var(--chat-sp-2);
+  color: var(--chat-tool-ink-3);
+}
+
+.chat-root [data-tool="bash"] .chat-bash-sigil {
+  margin-right: var(--chat-sp-2);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-tool-ink-3);
+}
+
+/* A printout keeps its columns: it scrolls sideways rather than reflowing lines
+   whose alignment is part of what it printed. */
+.chat-root [data-tool="bash"] .chat-bash-term {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  max-height: 220px;
+  overflow: auto;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  white-space: pre;
+  color: var(--chat-ink);
+}

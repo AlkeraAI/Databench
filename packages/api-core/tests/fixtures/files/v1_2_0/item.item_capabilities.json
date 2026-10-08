@@ -1,0 +1,19 @@
+{
+  "$model": "alkera_core.schemas.files.item.Capabilities",
+  "can_delete": false,
+  "can_download": false,
+  "can_lease": false,
+  "can_lease_force": false,
+  "can_lease_request": false,
+  "can_purge": false,
+  "can_read": true,
+  "can_rename": false,
+  "can_share": false,
+  "can_write": false,
+  "metadata": {},
+  "refusals": {
+    "canDownload": "files.held",
+    "canWrite": "files.leased"
+  },
+  "schema_version": "1.2.0"
+}

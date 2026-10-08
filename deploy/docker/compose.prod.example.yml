@@ -1,0 +1,784 @@
+# ============================================================
+# Example production Compose file.
+#
+# This file is the reference deployment shape for self-hosted /
+# VPC / on-prem installs. Copy it to `compose.yml`,
+# fill in the `${...}` placeholders (typically from your secret
+# store), and run `docker compose up -d`.
+#
+# Architecture:
+#   web        nginx serving the SPA + reverse-proxying /api and /health
+#   backend    FastAPI (uvicorn), 8000 internal-only
+#   gateway    authenticated, metered LLM proxy (Anthropic/OpenAI/Bedrock), 8081
+#   worker     Temporal worker: polls the four task queues (money, email, sync,
+#              default) and owns the periodic schedules; :9000 liveness
+#   temporal   Temporal server (single-node auto-setup) on the bundled Postgres;
+#              the background-work engine (replaces a broker + scheduler pair)
+#   temporal-db-init
+#              one-shot: creates the least-privileged `temporal` role and
+#              the two databases it owns, before the server starts
+#   temporal-ui
+#              OPTIONAL operator console (profile `temporal-ui`), bound to
+#              localhost only because it is unauthenticated
+#   postgres   primary store (also hosts Temporal's two databases)
+#
+# TLS termination is the operator's responsibility (front this with your
+# own load balancer / Caddy / Cloudflare / etc.). The `web` container
+# listens on HTTP only.
+#
+# The production config validator (alkera_core.config._validate_production)
+# runs in EVERY Python process (backend, worker AND gateway) so all of them
+# need the full prod-required env, not just the backend. That shared set lives
+# in the `x-app-env` anchor below and is merged into each service.
+#
+# Required env vars (set in your shell or a private .env beside this file):
+#   DB_PASSWORD              Postgres password for the `alkera` user (the application's
+#                            own role; the Temporal server never gets it)
+#   TEMPORAL_DB_PASSWORD     Postgres password for the `temporal` role, which owns
+#                            nothing but Temporal's two databases. Random, and NOT
+#                            equal to DB_PASSWORD, so that the
+#                            bundled third-party server holds no credential that
+#                            reads application data.
+#                            python -c 'import secrets; print(secrets.token_urlsafe(32))'
+#   PUBLIC_BASE_URL          Public URL the SPA is served at (e.g. https://alkera.acme.com)
+#   FILES_CONTENT_BASE_URL   The Files content origin, on a registrable domain of its own
+#                            (or set it empty with FILES_ENABLED=false)
+#   SMTP_HOST                Production SMTP relay hostname (SES: email-smtp.<region>.amazonaws.com; Resend: smtp.resend.com)
+#   SMTP_USERNAME            SMTP auth username (Resend: the literal "resend")
+#   SMTP_PASSWORD            SMTP auth password (Resend: your re_… API key)
+#
+# Optional:
+#   AUTH_JWT_SECRET, TOKEN_HASH_PEPPER, FILES_CONTENT_SIGNING_KEY, SECRET_BOX_KEY
+#                            Left unset, each is generated on first boot
+#                            into the alkera_secrets volume (GENERATED_SECRETS_DIR)
+#                            and every later boot reads it back. Set one to choose
+#                            it yourself; back the volume up with the database.
+#   APP_VERSION              Image tag (defaults to 0.0.0)
+#   BUILD_ID                 git SHA / CI build id, surfaced via /health/info
+#   SMTP_FROM / SMTP_FROM_NAME
+#                            sender identity (defaults below)
+#   TURNSTILE_REQUIRED       Cloudflare Turnstile bot-protection. Defaults to FALSE
+#                            for self-hosted (no Cloudflare egress, internal signup).
+#                            Set true + TURNSTILE_SECRET_KEY to enable it.
+#   TURNSTILE_SECRET_KEY     required only when TURNSTILE_REQUIRED=true
+#   TEMPORAL_ADDRESS / TEMPORAL_NAMESPACE / TEMPORAL_API_KEY
+#                            point the app at an
+#                            external or managed Temporal instead of the bundled
+#                            one (defaults: temporal:7233 / default / unset)
+#
+# First-admin bootstrap (run ONCE, after `up` + migrations have applied):
+#   ADMIN_BOOTSTRAP_EMAIL=admin@acme.example \
+#   ADMIN_BOOTSTRAP_ORG_NAME="Acme" \
+#   docker compose --profile bootstrap run --rm bootstrap
+#   (idempotent + safe: refuses to run if any user already exists; prints a
+#    generated password if ADMIN_BOOTSTRAP_PASSWORD is unset.)
+# ============================================================
+
+name: alkera-prod
+
+# Shared base env for every Python service. The prod config validator runs in all
+# of them, so the full required set must be present everywhere, not just backend.
+x-app-env: &app-env
+  APP_ENV: production
+  APP_VERSION: ${APP_VERSION:-0.0.0}
+  BUILD_ID: ${BUILD_ID:-}
+  LOG_LEVEL: INFO
+
+  # Deployment shape. true = a self-hosted install: NO telemetry (Sentry) is
+  # ever wired up. The gateway reads it too. Leave true.
+  SELF_HOSTED: ${SELF_HOSTED:-true}
+
+  # Upstream mode, shared by the gateway and the worker so the two always agree.
+  #   direct (default): the gateway calls the providers itself.
+  #   proxy: the gateway forwards to another gateway at ALKERA_PROXY_URL with
+  #     ALKERA_PROXY_TOKEN. Both must be set; the stack refuses to start otherwise.
+  GATEWAY_UPSTREAM: ${GATEWAY_UPSTREAM:-direct}
+  ALKERA_PROXY_URL: ${ALKERA_PROXY_URL:-}
+  ALKERA_PROXY_TOKEN: ${ALKERA_PROXY_TOKEN:-}
+
+  DATABASE_URL: postgresql+asyncpg://alkera:${DB_PASSWORD}@postgres:5432/alkera
+  DATABASE_URL_SYNC: postgresql+psycopg://alkera:${DB_PASSWORD}@postgres:5432/alkera
+
+  # Temporal: the background-work engine (schedules + queued activities). The
+  # bundled server speaks plaintext gRPC in-cluster; no API key → no TLS. To use
+  # an external / clustered Temporal or Temporal Cloud instead, point these at
+  # it and set TEMPORAL_API_KEY (a key also turns TLS on). Blank = unset.
+  TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+  TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-default}
+  TEMPORAL_API_KEY: ${TEMPORAL_API_KEY:-}
+
+  # Unset server secrets are generated once into this volume (alkera_secrets)
+  # and read back on every boot, by every service that mounts it.
+  GENERATED_SECRETS_DIR: /var/lib/alkera/secrets
+  AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-}
+  TOKEN_HASH_PEPPER: ${TOKEN_HASH_PEPPER:-}
+  AUTH_COOKIE_SECURE: "true"
+  # Encrypts secrets stored at rest (connection credentials, SSO client
+  # secrets, BYOK provider keys). Unset, they are encrypted under a key derived
+  # from AUTH_JWT_SECRET, so rotating the JWT secret to sign everyone out would
+  # also strand every stored credential. A fresh install generates one beside
+  # the generated JWT secret; to choose your own:
+  #   python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
+  SECRET_BOX_KEY: ${SECRET_BOX_KEY:-}
+
+  API_CORS_ORIGINS: ${PUBLIC_BASE_URL:?must set PUBLIC_BASE_URL}
+  FRONTEND_BASE_URL: ${PUBLIC_BASE_URL}
+  # Further origins allowed to make a cookie-authenticated state change, on top
+  # of PUBLIC_BASE_URL. Empty for a single-hostname deploy, which is most of
+  # them; a session cookie reaches every origin under the registrable domain, so
+  # each entry here is one more page that may spend it.
+  AUTH_CSRF_TRUSTED_ORIGINS: ${AUTH_CSRF_TRUSTED_ORIGINS:-}
+
+  # Email. EMAIL_ENABLED=false → a no-email / air-gapped deploy: no relay needed,
+  # sends become no-ops, verification auto-satisfies, invitations accept in-app.
+  # When EMAIL_ENABLED=true the app validator requires a real SMTP_HOST (rejects
+  # localhost/empty); SMTP auth is optional (set both or neither). NOT compose-
+  # required (no `:?`) so a no-email deploy can `up` with none of these set; the
+  # app's prod validator is the single source of truth for what's required.
+  EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_FROM: ${SMTP_FROM:-no-reply@alkera.example}
+  SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Alkera AI}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+
+  # Bot protection. Self-hosted defaults to OFF because most VPC/on-prem installs have
+  # an internal signup surface and no egress to challenges.cloudflare.com, so the
+  # web image ships with no Turnstile widget and the default strict same-origin
+  # CSP is correct. To turn it on you must do all of: set TURNSTILE_REQUIRED=true
+  # + TURNSTILE_SECRET_KEY here, rebuild the web image with VITE_TURNSTILE_SITE_KEY,
+  # AND set ALKERA_CSP on the web service to allow challenges.cloudflare.com
+  # (add it to script-src, frame-src, and connect-src). Otherwise the browser
+  # blocks the captcha and login/signup can never get a token.
+  TURNSTILE_REQUIRED: ${TURNSTILE_REQUIRED:-false}
+  TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+
+  # White-label. Override to run under your own brand from one image (no rebuild).
+  # Shown in the SPA (via GET /api/v1/config) and in transactional email.
+  BRAND_PRODUCT_NAME: ${BRAND_PRODUCT_NAME:-Alkera}
+  BRAND_SUPPORT_EMAIL: ${BRAND_SUPPORT_EMAIL:-}
+  # The welcome email's sender. Unset, it goes out from SMTP_FROM with replies to
+  # BRAND_SUPPORT_EMAIL. Set EMAIL_FOUNDERS_FROM (and optionally _NAME) here to
+  # send it from an address people can reply to.
+
+  # Feature entitlement (optional). A signed token string that unlocks an
+  # opt-in capability, such as per-org BYOK
+  # provider keys (an org admin then manages keys under Organization → Deployment →
+  # Model providers). Omit it and the deployment runs unentitled. Read by EVERY
+  # Python service (backend / worker / gateway all gate on it), so it lives here.
+  ALKERA_ENTITLEMENTS: ${ALKERA_ENTITLEMENTS:-}
+
+  # The address a machine added over SSH (or any remote machine) uses to reach
+  # this server, and the gateway its chats go through. Both must be reachable
+  # from the machine. Unset, the API address is PUBLIC_BASE_URL and the gateway
+  # is that address plus /gateway (the web service's route to it).
+  ALKERA_NODE_API_URL: ${ALKERA_NODE_API_URL:-}
+  ALKERA_NODE_GATEWAY_URL: ${ALKERA_NODE_GATEWAY_URL:-}
+
+  # Where the backend/worker deployment-health checks reach the gateway
+  # (Organization → Deployment → Health). In-cluster the service name resolves.
+  GATEWAY_BASE_URL: ${GATEWAY_BASE_URL:-http://gateway:8081}
+
+  # --- The pod reconciler ---------------------------------------------------
+  # The pass that compares the compute provider's machines against the rows
+  # that own them, terminating what no row will ever bill or stop. Every one of
+  # these decides what it may DESTROY, so each is validated at boot.
+
+  # The prefix every pod this deployment creates is named with, and the ONLY
+  # pods its reconciler will ever touch. Two deployments sharing one provider
+  # account MUST set different values (e.g. alkera-a and alkera-b) or one
+  # will reap the other's machines.
+  COMPUTE_POD_NAME_PREFIX: ${COMPUTE_POD_NAME_PREFIX:-alkera}
+  # How often the pass runs, in seconds (30-86400).
+  COMPUTE_RECONCILE_PERIOD_SECONDS: ${COMPUTE_RECONCILE_PERIOD_SECONDS:-60}
+  # How old an unowned pod must be before it may be terminated, in seconds
+  # (60-86400), the margin that keeps a create still in flight from being
+  # read as an orphan.
+  COMPUTE_RECONCILE_GRACE_SECONDS: ${COMPUTE_RECONCILE_GRACE_SECONDS:-600}
+  # How long a create the provider never confirmed holds its grant slot before
+  # the row is written off, in seconds (60-86400). Never below the grace.
+  COMPUTE_UNCONFIRMED_CREATE_SECONDS: ${COMPUTE_UNCONFIRMED_CREATE_SECONDS:-900}
+  # The pod count a COMPLETE listing is expected to stay under (>=1). A listing
+  # that reaches it is treated as possibly truncated and nothing is written
+  # off on that pass. Raise it above your provider account's pod count.
+  COMPUTE_RECONCILE_MAX_PODS: ${COMPUTE_RECONCILE_MAX_PODS:-5000}
+  # How many orphaned pods ONE pass may terminate (>=1); the rest wait for the
+  # next pass, so a misconfiguration cannot empty an account on one tick.
+  COMPUTE_RECONCILE_MAX_TERMINATIONS: ${COMPUTE_RECONCILE_MAX_TERMINATIONS:-25}
+  # A worker serving the `money` queue refuses to boot in production when no
+  # provider the platform starts machines at is configured, unless this is
+  # false. Leave it false: machines are added over SSH (see Machines in the
+  # README).
+  COMPUTE_REQUIRE_PROVIDER_KEY: ${COMPUTE_REQUIRE_PROVIDER_KEY:-false}
+
+  # --- Alkera Files (on by default) ----------------------------------------
+  # The drive, uploads, notebooks, templates, and the chat folder a sleeping
+  # chat wakes from on any machine. Off, a chat's files and its agent's memory
+  # stay on the one machine that ran it. Files needs a SECOND hostname
+  # (FILES_CONTENT_BASE_URL) and keeps its bytes in the alkera_files_data
+  # volume: back it up with the database. See deploy/INSTALL.md ("Files").
+  FILES_ENABLED: ${FILES_ENABLED:-true}
+
+  # The origin user content is served from. MUST be a different registrable
+  # hostname from PUBLIC_BASE_URL. Cookies ignore ports and are scoped by
+  # hostname, so serving uploaded bytes from the app host would put the session
+  # cookie on attacker-controlled content. Give it its own DNS record and
+  # certificate, and size its reverse proxy for a 64 MiB body and 3600s
+  # read/send timeouts. The production validator refuses an empty or clashing
+  # value when FILES_ENABLED=true.
+  FILES_CONTENT_BASE_URL: ${FILES_CONTENT_BASE_URL?set FILES_CONTENT_BASE_URL to the Files content origin, or set it empty with FILES_ENABLED=false}
+  # The HMAC key over every content URL, the only check between a forged URL
+  # and another tenant's bytes, so treat it like the session secret. The
+  # validator refuses an empty value (or one under 32 bytes) when
+  # FILES_ENABLED=true. Rotating it invalidates outstanding URLs (clients
+  # re-fetch); losing it costs no bytes, but leaking it hands out every file.
+  FILES_CONTENT_SIGNING_KEY: ${FILES_CONTENT_SIGNING_KEY:-}
+
+  # filesystem = a volume on this host (the default self-hosted shape; needs the
+  # alkera_files_data volume mounted into backend and worker). s3_compatible =
+  # your own bucket, or the optional bundled seaweedfs service below.
+  FILES_STORE_PROVIDER: ${FILES_STORE_PROVIDER:-filesystem}
+  FILES_STORE_ROOT: ${FILES_STORE_ROOT:-/var/lib/alkera/files}
+  FILES_STORE_ENDPOINT: ${FILES_STORE_ENDPOINT:-}
+  FILES_STORE_BUCKET: ${FILES_STORE_BUCKET:-}
+  FILES_STORE_REGION: ${FILES_STORE_REGION:-us-east-1}
+  FILES_STORE_ACCESS_KEY: ${FILES_STORE_ACCESS_KEY:-}
+  FILES_STORE_SECRET_KEY: ${FILES_STORE_SECRET_KEY:-}
+  # proxied streams bytes through the backend and works on every store. direct
+  # hands out a presigned URL and is refused on the filesystem driver.
+  FILES_TRANSFER_MODE: ${FILES_TRANSFER_MODE:-proxied}
+
+  # How many files one chat may hold over its whole life. Blank = no ceiling,
+  # which is the shipped default: the files a conversation gathers are the
+  # conversation, and refusing the next one refuses the conversation. Set a
+  # number on a deployment that would rather bound the table.
+  CHAT_MAX_ATTACHMENTS: ${CHAT_MAX_ATTACHMENTS:-}
+
+  # --- Capacity and edge agreement -----------------------------------------
+  # The defaults below are the application's own, which are sized for a 4 GiB
+  # container behind a load balancer with a 4000s idle timeout. Compose does
+  # not check them against a memory limit. If you cap these
+  # containers (`mem_limit`, or a cgroup outside compose), do this arithmetic
+  # by hand first:
+  #
+  #   FILES_UPLOAD_RESIDENT_BUDGET_BYTES + REALTIME_WS_MAX_CONNECTIONS x 2.0625 MiB
+  #       <= memory limit - ~192 MiB steady state
+  #
+  # Over it the kernel OOM-kills the backend before it can shed with a 503,
+  # which loses every in-flight upload session rather than slowing one client.
+
+  # Bytes one backend process holds resident for in-flight upload parts. In
+  # proxied mode every part PUT streams through the backend and each holds
+  # roughly 24 MiB of driver staging, so this is ~50 concurrent parts.
+  FILES_UPLOAD_RESIDENT_BUDGET_BYTES: ${FILES_UPLOAD_RESIDENT_BUDGET_BYTES:-1258291200}
+  # The most parts one upload session may span (bounds the manifest, not memory).
+  FILES_MAX_UPLOAD_PARTS: ${FILES_MAX_UPLOAD_PARTS:-10000}
+  # How long a folder's write fence survives without a heartbeat from the machine
+  # holding it. The fence stops two writers, so it is generous on purpose: the
+  # holder beats four times inside it, and a holder that is merely unreachable
+  # for a while is still the only writer.
+  FILES_LEASE_TTL_SECONDS: ${FILES_LEASE_TTL_SECONDS:-600}
+  # Version retention, which is what the object-store bill is made of: this many
+  # newest versions unconditionally, plus anything inside the window.
+  FILES_VERSION_KEEP_NEWEST: ${FILES_VERSION_KEEP_NEWEST:-5}
+  FILES_VERSION_KEEP_WINDOW_DAYS: ${FILES_VERSION_KEEP_WINDOW_DAYS:-90}
+
+  # Concurrent websocket connections one backend process accepts. uvicorn
+  # reserves up to the launch line's --ws-max-size (2 MiB plus envelope) per
+  # connection, so the peak frame footprint is this number times that.
+  # How long a second `alembic upgrade` waits for the first to finish. One
+  # backend here, so nothing contends today -- it is the number to raise if you
+  # scale the backend out and a long revision outlives the wait.
+  MIGRATION_RUNNER_WAIT_SECONDS: ${MIGRATION_RUNNER_WAIT_SECONDS:-900}
+  REALTIME_WS_MAX_CONNECTIONS: ${REALTIME_WS_MAX_CONNECTIONS:-500}
+  # The memory that peak is allowed to reach. The backend refuses to boot when the
+  # cap above times the 2162688-byte frame ceiling exceeds this, so the two move
+  # together: lower the cap for a smaller container and lower this with it.
+  REALTIME_WS_FRAME_BUDGET_BYTES: ${REALTIME_WS_FRAME_BUDGET_BYTES:-1081344000}
+  # The budget /health/ready gives the database before answering 503. Keep it
+  # below the timeout of whatever polls /health/ready in front of these
+  # containers (your load balancer or reverse proxy), or a slow database
+  # produces a check timeout instead of the fast 503 the endpoint exists to
+  # return.
+  HEALTH_READY_TIMEOUT_SECONDS: ${HEALTH_READY_TIMEOUT_SECONDS:-4.0}
+
+  # The gateway's agreement with whatever proxy you put in front of it. Set
+  # GATEWAY_EDGE_IDLE_TIMEOUT_SECONDS to your edge's REAL idle timeout: a value
+  # above it means the edge drops a quiet stream first and the client sees a
+  # truncated response with no error in it. The keepalive must stay well below
+  # it (the boot validator refuses otherwise). A stream is cut by a deploy once
+  # stop_grace_period passes regardless of GATEWAY_MAX_STREAM_SECONDS.
+  GATEWAY_MAX_STREAM_SECONDS: ${GATEWAY_MAX_STREAM_SECONDS:-86400}
+  GATEWAY_EDGE_IDLE_TIMEOUT_SECONDS: ${GATEWAY_EDGE_IDLE_TIMEOUT_SECONDS:-4000.0}
+  GATEWAY_CLIENT_KEEPALIVE_SECONDS: ${GATEWAY_CLIENT_KEEPALIVE_SECONDS:-15.0}
+
+  # Serve GET /metrics at all. With it on, set METRICS_AUTH_TOKEN or every
+  # scrape outside APP_ENV=local answers 404.
+  METRICS_ENABLED: ${METRICS_ENABLED:-true}
+  # The bearer a scraper sends for /metrics (16+ characters, 5+ distinct).
+  METRICS_AUTH_TOKEN: ${METRICS_AUTH_TOKEN:-}
+  # Request throttling. Production refuses to boot with it off; it is here so
+  # the value is visible, not so it can be turned off.
+  RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+  # The agent's web.fetch tool, a READ tool in every permission mode. Off stops the
+  # gateway advertising it at all -- the answer for an install whose agents may not
+  # reach the public web.
+  AGENT_WEB_FETCH_ENABLED: ${AGENT_WEB_FETCH_ENABLED:-true}
+  # Whether an org admin may open a chat of their org that nobody shared with
+  # them. Off (the shipped answer) a private chat is the same opaque not-found to
+  # an admin as to any other member. On, an admin reads it and only reads it.
+  CHAT_ORG_ADMIN_READS_PRIVATE: ${CHAT_ORG_ADMIN_READS_PRIVATE:-false}
+
+# Container hardening. The Alkera app images already run non-root (uid 1000 / nginx 101)
+# and need no Linux capabilities, so they drop ALL caps + forbid privilege escalation +
+# run with a read-only root filesystem (writable temp via tmpfs). The bundled
+# postgres is an official image that starts as root to initialize + drops to its
+# own user, so it keeps its caps (cap_drop ALL would break that) but still forbids
+# privilege escalation. (A production install may use an external managed
+# database instead.) The
+# bundled temporal runs as uid 1000 and needs no caps, but renders its config into
+# /etc/temporal/config at start, so it keeps a writable root.
+x-no-new-privs: &no-new-privs
+  security_opt: ["no-new-privileges:true"]
+x-secure: &secure
+  cap_drop: ["ALL"]
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  postgres:
+    # Pinned by digest (immutable). Re-pin via `docker buildx imagetools inspect
+    # postgres:16-alpine --format '{{.Manifest.Digest}}'`.
+    image: postgres:16-alpine@sha256:e013e867e712fec275706a6c51c966f0bb0c93cfa8f51000f85a15f9865a28cb
+    <<: *no-new-privs
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: alkera
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?must set DB_PASSWORD}
+      POSTGRES_DB: alkera
+    volumes:
+      - alkera_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alkera -d alkera"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  temporal-db-init:
+    # Temporal is a third-party server we bundle, so it gets its OWN least-
+    # privileged Postgres role instead of `alkera`, the instance superuser that
+    # owns the application database: a credential that reads every application
+    # row is not something to hand to another project's image. This one-shot creates the
+    # `temporal` role and the two databases it owns before the server starts,
+    # which is also why the server itself runs with SKIP_DB_CREATE=true.
+    #
+    # The role is a plain LOGIN role: no superuser, no CREATEDB, no CREATEROLE,
+    # and no privilege on anything in the `alkera` database; it owns its two
+    # databases and nothing else. (Postgres still lets any role connect to a
+    # database and read the system catalogues; that is the PUBLIC grant, and
+    # revoking it is an operator decision about their own roles, not ours.)
+    #
+    # Idempotent, and it runs on every `up`: it re-asserts the password (so
+    # rotating TEMPORAL_DB_PASSWORD is just an `up`) and takes ownership of the
+    # two databases if an earlier release created them as `alkera`, which is what
+    # makes an in-place upgrade work.
+    image: postgres:16-alpine@sha256:e013e867e712fec275706a6c51c966f0bb0c93cfa8f51000f85a15f9865a28cb
+    <<: *no-new-privs
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: alkera
+      PGPASSWORD: ${DB_PASSWORD:?must set DB_PASSWORD}
+      PGDATABASE: alkera
+      TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:?must set TEMPORAL_DB_PASSWORD}
+    entrypoint: ["/bin/sh", "-euc"]
+    # psql -c does not interpolate :variables, so the password goes in on stdin
+    # as :'pw' -- quoted by psql, never spliced into the SQL text by the shell.
+    command:
+      - |
+        if [ -z "$$(psql -tAc "SELECT 1 FROM pg_roles WHERE rolname = 'temporal'")" ]; then
+          echo "CREATE ROLE temporal LOGIN PASSWORD :'pw'" | psql -v ON_ERROR_STOP=1 -v pw="$$TEMPORAL_DB_PASSWORD"
+        else
+          echo "ALTER ROLE temporal LOGIN PASSWORD :'pw'" | psql -v ON_ERROR_STOP=1 -v pw="$$TEMPORAL_DB_PASSWORD"
+        fi
+        for db in temporal temporal_visibility; do
+          if [ -z "$$(psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$$db'")" ]; then
+            psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE $$db OWNER temporal"
+          else
+            psql -v ON_ERROR_STOP=1 -c "ALTER DATABASE $$db OWNER TO temporal"
+            psql -v ON_ERROR_STOP=1 -d "$$db" -c "ALTER SCHEMA public OWNER TO temporal"
+            psql -tA -d "$$db" -c "SELECT format(CASE c.relkind WHEN 'S' THEN 'ALTER SEQUENCE %I.%I OWNER TO temporal;' ELSE 'ALTER TABLE %I.%I OWNER TO temporal;' END, n.nspname, c.relname) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('r','p','S') AND n.nspname NOT IN ('pg_catalog','information_schema') AND pg_get_userbyid(c.relowner) <> 'temporal'" | psql -v ON_ERROR_STOP=1 -d "$$db" -f -
+          fi
+        done
+        echo "temporal role + databases ready"
+
+  temporal:
+    # Temporal server (single-node "auto-setup" image): the background-work
+    # engine. It migrates its own two databases (`temporal`,
+    # `temporal_visibility`) on the bundled Postgres, as the dedicated `temporal`
+    # role that owns them and nothing else. temporal-db-init above creates both,
+    # so the server runs with SKIP_DB_CREATE=true and never needs CREATEDB.
+    # One replica; for HA point TEMPORAL_ADDRESS at a clustered/managed Temporal
+    # instead. Pinned by digest like postgres (re-pin via `docker buildx
+    # imagetools inspect temporalio/auto-setup:<tag> --format '{{.Manifest.Digest}}'`).
+    # The app stack and the workers reach it on 7233 in-network only; nothing is
+    # published on the host.
+    image: temporalio/auto-setup:1.29.7@sha256:f14912b699cf73015ad5c4fc18d522d4b014db90e794039214dfb7c022c2644f
+    <<: *secure
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal-db-init:
+        condition: service_completed_successfully
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_SEEDS: postgres
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:?must set TEMPORAL_DB_PASSWORD}
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      SKIP_DB_CREATE: "true"
+      DEFAULT_NAMESPACE: default
+      DEFAULT_NAMESPACE_RETENTION: 72h
+      # auto-setup waits for its own frontend and registers the namespace through
+      # this address; the service name resolves from inside the container too.
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+    expose:
+      - "7233"
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "temporal:7233"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  temporal-ui:
+    # Optional operator console: `docker compose --profile temporal-ui up -d`.
+    # UNAUTHENTICATED (it shows every workflow's input and can terminate or
+    # signal them), so it binds to localhost only; reach it over an SSH tunnel
+    # (ssh -L 8233:127.0.0.1:8233 <host>) or behind your own auth proxy. Never
+    # publish it on 0.0.0.0.
+    image: temporalio/ui:2.53.3@sha256:eef301146e60fad34b47adaecfae4149016e34b2d44ba94fca5fd8e5441f182a
+    profiles: ["temporal-ui"]
+    <<: *secure
+    restart: unless-stopped
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:8233
+    ports:
+      - "127.0.0.1:8233:8080"
+
+  backend:
+    image: alkera/backend:${APP_VERSION:-0.0.0}
+    <<: *secure
+    read_only: true
+    tmpfs: ["/tmp"]
+    volumes:
+      # Alkera Files, filesystem driver (FILES_STORE_ROOT). Harmless while
+      # FILES_ENABLED=false; durable and un-reconstructable once it is on.
+      - alkera_files_data:/var/lib/alkera/files
+      - alkera_secrets:/var/lib/alkera/secrets
+    restart: unless-stopped
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    # Every setting in the repository root's .env reaches the app, so .env is
+    # the one place an operator sets anything. `environment` below wins.
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      <<: *app-env
+      AUTH_TOKEN_TTL_SECONDS: "1800"
+    # Run migrations on startup. For larger deploys, split this into an
+    # init container + a long-running uvicorn process.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn --factory backend.app_factory:create_app --host 0.0.0.0 --port 8000 --ws-max-size 2162688 --timeout-graceful-shutdown 25 --no-access-log"
+    # Above the 25 s drain above: compose SIGKILLs 10 s after SIGTERM by default,
+    # which would end an event stream the deadline exists to finish.
+    stop_grace_period: 60s
+    expose:
+      - "8000"
+    # Liveness, not readiness: compose acts on an unhealthy container by
+    # restarting it (or holding back what depends on it), and a restart cannot
+    # fix a database every container shares. /health/ready is for whatever
+    # routes traffic.
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/live').status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    # Temporal worker: polls the four task queues (money, email, sync, default)
+    # and owns the periodic schedules (registered idempotently at every boot;
+    # there is no separate scheduler process, and any replica count is safe).
+    # One process serves all four here; to scale a hot queue on its own, copy
+    # this block per queue with `--queues sync` (etc.) and a distinct service
+    # name; Temporal splits the work. Liveness is the worker's own
+    # `python -m worker health`, which probes its /health/live on :9000 (200
+    # while the pollers run). Waits for the backend so migrations have applied
+    # and for the Temporal server so the boot connect succeeds first time.
+    image: alkera/worker:${APP_VERSION:-0.0.0}
+    <<: *secure
+    read_only: true
+    tmpfs: ["/tmp"]
+    volumes:
+      # Alkera Files, filesystem driver (FILES_STORE_ROOT). Harmless while
+      # FILES_ENABLED=false; durable and un-reconstructable once it is on.
+      - alkera_files_data:/var/lib/alkera/files
+      - alkera_secrets:/var/lib/alkera/secrets
+    restart: unless-stopped
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    # Every setting in the repository root's .env reaches the app, so .env is
+    # the one place an operator sets anything. `environment` below wins.
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      <<: *app-env
+    command: ["python", "-m", "worker", "run", "--queues", "money,email,sync,default"]
+    # The worker gives in-flight activities 110 s after SIGTERM (its
+    # graceful_shutdown_timeout); compose's 10 s default would kill them instead.
+    stop_grace_period: 120s
+    healthcheck:
+      test: ["CMD", "python", "-m", "worker", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+
+  gateway:
+    # Authenticated, metered LLM proxy (Anthropic / OpenAI / Bedrock). Shares
+    # the same Postgres (billing tables) as the backend. Clients (the `alkera`
+    # CLI / opencode) reach it on its own public hostname. Front it with TLS
+    # like `web`, or route a path to it from your reverse proxy.
+    image: alkera/gateway:${APP_VERSION:-0.0.0}
+    <<: *secure
+    read_only: true
+    tmpfs: ["/tmp"]
+    volumes:
+      - alkera_secrets:/var/lib/alkera/secrets
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # Wait for the backend to finish `alembic upgrade head` before the gateway
+      # opens, because the gateway's startup reservation sweeper reads the billing tables,
+      # which don't exist until the backend has migrated a fresh database.
+      backend:
+        condition: service_healthy
+    # Every setting in the repository root's .env reaches the app, so .env is
+    # the one place an operator sets anything. `environment` below wins.
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      # MUST share the backend's AUTH_JWT_SECRET, because the gateway verifies the
+      # caller's JWT with the same secret (provided by the anchor).
+      <<: *app-env
+
+      # Upstream mode (GATEWAY_UPSTREAM / ALKERA_PROXY_*) comes from the shared
+      # anchor above. The worker's heartbeat needs the same values, so they must
+      # never be set on this service alone. In direct mode per-org BYOK keys can
+      # come from the DB when an ALKERA_ENTITLEMENTS token unlocks BYOK.
+
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      # Provider credentials (DIRECT mode only, ignored under GATEWAY_UPSTREAM=proxy).
+      # In direct mode the gateway refuses to boot if it has NO way to reach a
+      # provider: set at least one key, OR GATEWAY_ASSUME_BEDROCK_IAM=true for an
+      # instance/IAM role, OR unlock per-org BYOK keys via ALKERA_ENTITLEMENTS
+      # (then org admins add keys in the web UI; no env key needed).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}
+      GATEWAY_ASSUME_BEDROCK_IAM: ${GATEWAY_ASSUME_BEDROCK_IAM:-false}
+    # --timeout-graceful-shutdown: a provider stream belongs to a chat turn that
+    # may have been running for hours, and uvicorn's default graceful stop has
+    # no deadline, so the supervisor's SIGKILL is what ends the process, and a
+    # stream torn that way ends the turn. The window matches the image's.
+    command: >
+      sh -c "uvicorn --factory model_gateway.app_factory:create_app --host 0.0.0.0 --port 8081 --timeout-graceful-shutdown 110 --no-access-log"
+    stop_grace_period: 120s
+    expose:
+      - "8081"
+    # Liveness, not readiness: compose acts on an unhealthy container by
+    # restarting it (or holding back what depends on it), and a restart cannot
+    # fix a database every container shares. /health/ready is for whatever
+    # routes traffic.
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8081/health/live').status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  seaweedfs:
+    # OPTIONAL bundled object store for Alkera Files:
+    #   docker compose --profile files-store up -d
+    # Only needed for a MULTI-REPLICA install with no external bucket. A single
+    # backend replica should use FILES_STORE_PROVIDER=filesystem on a volume
+    # instead. Same image the local dev stack runs (one binary: master, volume
+    # server, filer, S3 gateway). With this profile set:
+    #   FILES_STORE_PROVIDER=s3_compatible
+    #   FILES_STORE_ENDPOINT=http://seaweedfs:8333
+    #   FILES_STORE_BUCKET=alkera-files
+    #   FILES_STORE_ACCESS_KEY / FILES_STORE_SECRET_KEY = the pair in your
+    #     seaweedfs-s3.json (the committed one is for development only; replace it)
+    # This is a single-node store on one volume: alkera_files_data is durable and
+    # must be in your backup schedule.
+    image: chrislusf/seaweedfs:3.99@sha256:8d5b323911a996d5ea152115306bed468d9a849d72bcbb3800ea8d91b7728563
+    profiles: ["files-store"]
+    <<: *no-new-privs
+    restart: unless-stopped
+    command: server -dir=/data -s3 -filer -ip.bind=0.0.0.0 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=1024
+    volumes:
+      - alkera_files_data:/data
+      - ./seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    # Not published: the backend reaches it on the compose network. Publishing the
+    # S3 port would expose every tenant's objects behind one static key pair.
+    expose:
+      - "8333"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -S -O /dev/null http://localhost:8333/ 2>&1 | grep -q 'HTTP/1.1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  seaweedfs-init:
+    # One-shot bucket creation for the bundled store (profile `files-store`).
+    # The application never creates its bucket, so without this the first
+    # upload fails. Idempotent: it creates FILES_STORE_BUCKET only when the
+    # listing does not already name it, and never touches an existing bucket.
+    image: chrislusf/seaweedfs:3.99@sha256:8d5b323911a996d5ea152115306bed468d9a849d72bcbb3800ea8d91b7728563
+    profiles: ["files-store"]
+    <<: *no-new-privs
+    restart: "no"
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        bucket='${FILES_STORE_BUCKET:-alkera-files}';
+        echo 's3.bucket.list' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888 2>/dev/null
+        | tr -s '[:space:]' '\n' | grep -Fxq "$$bucket"
+        || echo "s3.bucket.create -name $$bucket" | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+
+  secrets-init:
+    # One-shot: give the app user (uid 1000) the generated-secrets volume and
+    # the Files volume. The app writes the secrets itself on first boot; this
+    # only sets the owners.
+    image: alkera/backend:${APP_VERSION:-0.0.0}
+    <<: *no-new-privs
+    user: "0"
+    restart: "no"
+    volumes:
+      - alkera_secrets:/var/lib/alkera/secrets
+      - alkera_files_data:/var/lib/alkera/files
+    command: ["sh", "-c", "chown 1000:1000 /var/lib/alkera/secrets /var/lib/alkera/files && chmod 700 /var/lib/alkera/secrets /var/lib/alkera/files"]
+
+  bootstrap:
+    # One-shot: create the first org + admin on a fresh deployment. Run ONCE,
+    # after the stack is up and migrations have applied:
+    #   docker compose --profile bootstrap run --rm bootstrap
+    # Idempotent and safe: it refuses to do anything if ANY user already exists,
+    # so a second run can never mint another admin. If ADMIN_BOOTSTRAP_PASSWORD
+    # is unset, a strong random password is generated and printed once to this
+    # command's output (read it from the run output / `docker compose logs`).
+    image: alkera/backend:${APP_VERSION:-0.0.0}
+    profiles: ["bootstrap"]
+    <<: *secure
+    read_only: true
+    tmpfs: ["/tmp"]
+    restart: "no"
+    volumes:
+      - alkera_secrets:/var/lib/alkera/secrets
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Every setting in the repository root's .env reaches the app, so .env is
+    # the one place an operator sets anything. `environment` below wins.
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      <<: *app-env
+      # Checked by the script, not by compose: compose interpolates every
+      # service, profiled or not, so a `:?` here refused `docker compose up` on
+      # any stack that had not set the bootstrap values.
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
+      ADMIN_BOOTSTRAP_ORG_NAME: ${ADMIN_BOOTSTRAP_ORG_NAME:-}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
+    command: ["python", "-m", "scripts.bootstrap_admin"]
+
+  web:
+    image: alkera/web:${APP_VERSION:-0.0.0}
+    # No read_only root: the entrypoint renders the nginx config from a template at
+    # startup. Still drops caps + forbids privilege escalation (runs as nginx uid 101).
+    <<: *secure
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      ALKERA_BACKEND_URL: http://backend:8000
+      # The model gateway at ${PUBLIC_BASE_URL}/gateway/, for remote machines:
+      # a host added over SSH runs its chats' model calls through it. The
+      # gateway publishes no port of its own; this one origin is all a machine
+      # needs. Empty removes the route.
+      ALKERA_GATEWAY_UPSTREAM: ${ALKERA_GATEWAY_UPSTREAM:-http://gateway:8081}
+      # The same content origin the API is given. Alkera Files serves uploaded
+      # bytes from their own hostname, so every preview is cross-origin: the SPA's
+      # default policy names this origin in connect-src, frame-src and media-src,
+      # and without it the browser blocks the fetch, the framed PDF and the
+      # streamed media. This container also answers that hostname, passing /c
+      # to the backend, so point its DNS at the same proxy as PUBLIC_BASE_URL.
+      FILES_CONTENT_BASE_URL: ${FILES_CONTENT_BASE_URL?set FILES_CONTENT_BASE_URL to the Files content origin, or set it empty with FILES_ENABLED=false}
+      # Override the SPA Content-Security-Policy. The image default (see
+      # apps/web/docker-entrypoint.sh) is a strict same-origin policy that works
+      # out of the box. Set this to add external origins if you enable Cloudflare
+      # Turnstile, Sentry, or a cross-origin API. KEEP `ws: wss:` in
+      # connect-src: the portal's live updates ride a websocket to the same
+      # origin, which browsers only admit when the scheme is listed. An override
+      # is taken WHOLE, so with Files on it must also carry FILES_CONTENT_BASE_URL
+      # in connect-src, frame-src and media-src. E.g.:
+      #   ALKERA_CSP: "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; connect-src 'self' ws: wss: https://*.ingest.sentry.io; frame-src https://challenges.cloudflare.com; img-src 'self' data: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+    ports:
+      # Your reverse proxy or load balancer terminates TLS in front of
+      # this; bind to localhost or an internal interface as appropriate.
+      # Container listens on 8080 (non-root nginx).
+      - "80:8080"
+
+volumes:
+  alkera_pg_data:
+  # Alkera Files object bytes, the filesystem driver's FILES_STORE_ROOT, or the
+  # bundled seaweedfs store. DURABLE: Postgres cannot reconstruct what is here.
+  alkera_files_data:
+  # Generated server secrets (GENERATED_SECRETS_DIR). DURABLE: losing them signs
+  # everyone out and strands stored credentials. Back it up with the database.
+  alkera_secrets:

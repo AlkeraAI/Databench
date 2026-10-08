@@ -1,0 +1,31 @@
+# Copyright 2026 Marimo. All rights reserved.
+
+import marimo
+
+__generated_with = "0.15.5"
+app = marimo.App(width="medium")
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+        $$
+        \begin{align*}
+        x &= 1 && \tag{Taylor} \\
+        x &= 1123123123123123 && \tag{Taylor's rule} \\
+        \end{align*}
+        $$
+        """
+    )
+    return
+
+
+@app.cell
+def _():
+    import marimo as mo
+    return (mo,)
+
+
+if __name__ == "__main__":
+    app.run()

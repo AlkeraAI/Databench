@@ -1,0 +1,21 @@
+{
+  "columns": [
+    "day",
+    "orders"
+  ],
+  "kind": "rows",
+  "metadata": {},
+  "rows": [
+    [
+      "2026-09-01",
+      3
+    ],
+    [
+      "2026-09-02",
+      5
+    ]
+  ],
+  "schema_version": "1.0.0",
+  "text": "",
+  "total": 2
+}

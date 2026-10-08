@@ -1,0 +1,433 @@
+# ============================================================
+# Databench — root Python workspace (uv)
+#
+# This is NOT a published package. It only exists to:
+#   1. Declare the uv workspace (the open apps and packages).
+#   2. Pin shared dev tools (ruff, mypy, pyright, pytest) in one place.
+#   3. Centralize tool configuration so every app obeys the same rules.
+#
+# One command `uv sync` from the repo root creates ./.venv with every
+# workspace member installed in editable mode plus dev tools.
+# ============================================================
+
+[project]
+name = "databench-workspace"
+version = "0.0.0"
+description = "Databench workspace root (not published)."
+requires-python = ">=3.11"
+readme = "README.md"
+
+# The root depends on every workspace member so plain `uv sync` installs
+# them all. Without this, `uv sync` would only sync the (empty) root and
+# uninstall everything. (tool.uv.package = false below still prevents the
+# root from being built as a distributable wheel.)
+dependencies = [
+    "alkera-backend",
+    "alkera-worker",
+    "alkera-cli",
+    "alkera-core",
+    "alkera-sdk",
+    "alkera-model-gateway",
+    "alkera",
+    "alkera-kernel",
+    "alkera-notebook",
+]
+
+[tool.uv]
+package = false          # root is not a package, just a workspace anchor
+# dbt-core (every release through 1.12.x) caps sqlparse at <0.6.0, but 0.6.0 is the
+# first release patching four sqlparse DoS advisories and its only breaking change is
+# dropping Python 3.8/3.9 (we run 3.13). Override the cap until dbt-core relaxes it.
+# databricks-sql-connector (through 4.6.0) caps oauthlib at <4.0.0, but 4.0.0 is the
+# first release patching two oauthlib advisories; its breaking changes are confined to
+# the provider side (revocation JSONP, grant validation order), while the connector only
+# uses the WebApplicationClient helpers. Override the cap until the connector relaxes it.
+override-dependencies = ["sqlparse>=0.6.0,<0.7", "oauthlib>=4.0.0,<5"]
+
+[dependency-groups]
+dev = [
+    # The in-memory fakes the suites drive the shared packages with. A dev
+    # dependency only, never a [project] dependency above: the app images sync
+    # with --no-dev, so the fakes never ship.
+    "alkera-test-support",
+    "ruff>=0.6.9",
+    "mypy>=1.11.0",
+    "pyright>=1.1.408",
+    # Import contracts between the apps and the shared packages (`make lint-imports`).
+    "import-linter>=2.1",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    # Parallel test execution. `make test` runs `-n auto --dist loadgroup`, and the
+    # repo-root conftest gives every test its module's path as its group, so a module
+    # stays whole on one worker. A module that shares nothing across its tests says
+    # `pytestmark = [pytest.mark.spread]` and is handed out one test at a time (see
+    # the `test-py` target). Each xdist worker gets its own Postgres database,
+    # cloned from the migrated base (see the repo-root conftest.py), so the suite
+    # parallelizes without cross-worker DB contention. Bare `uv run pytest` stays
+    # serial (debugging keeps --pdb / -s).
+    "pytest-xdist>=3.6.0",
+    # No make target passes `--reruns` any more: a failure under load is fixed in
+    # the test, not retried. The plugin stays installed only because dropping it
+    # re-locks uv.lock, which must be done on Linux (see CLAUDE.md); remove it
+    # with the next Linux re-lock.
+    "pytest-rerunfailures>=14.0",
+    "pytest-timeout>=2.3",
+    "freezegun>=1.5.0",
+    # Property-based tests for the Files name/tree/op-sequence strategies — the name
+    # rules and the tree invariants have far too many boundary cases to enumerate.
+    "hypothesis>=6.100",
+    # Stock marimo at the vendored fork's base version: the notebook format's
+    # compatibility tests read and run every corpus case through it.
+    "marimo==0.25.1",
+    # The Files coverage gate (`--cov-branch --cov-fail-under=95`) runs as its own
+    # target, so the plugin is a dev dep rather than part of the default suite.
+    "pytest-cov>=5",
+    # Typed S3 / STS clients so the store driver typechecks under mypy --strict
+    # (boto3 itself ships no annotations).
+    "boto3-stubs[s3,sts]>=1.34",
+    # Real dotenv parsing for the live-warehouse tests' credential loading (quotes,
+    # escapes, inline comments) — a hand-rolled split mis-reads a quoted secret.
+    "python-dotenv>=1.0",
+    # A real HCL parser (apps/backend/tests/_hcl.py).
+    "python-hcl2>=8.1.0",
+    # Real dbt for the gate's dbt test ingestion, which consumes `dbt parse`'s own
+    # target/manifest.json instead of hand-parsing schema.yml. The suite runs the
+    # real binary (offline, no warehouse connection) against fixture projects, so
+    # ingestion is pinned to dbt's ground truth on every PR. dbt-duckdb is the one
+    # adapter the fixtures' stub profiles need.
+    "dbt-core>=1.11,<2",
+    "dbt-duckdb>=1.9",
+    "httpx>=0.27.0",
+    "respx>=0.23.0",
+    "types-requests",
+    "openapi-python-client>=0.21.0",
+]
+
+[tool.uv.workspace]
+members = [
+    "apps/backend",
+    "apps/worker",
+    "apps/cli",
+    "apps/model-gateway",
+    "packages/api-core",
+    "packages/py-sdk",
+    "packages/alkera-py",
+    "packages/alkera-kernel",
+    "packages/alkera-notebook",
+    "packages/test-support",
+]
+
+[tool.uv.sources]
+# Workspace members resolve locally, not from PyPI.
+alkera-backend = { workspace = true }
+alkera-worker = { workspace = true }
+alkera-cli = { workspace = true }
+alkera-core = { workspace = true }
+alkera-sdk = { workspace = true }
+alkera-model-gateway = { workspace = true }
+alkera = { workspace = true }
+alkera-kernel = { workspace = true }
+alkera-notebook = { workspace = true }
+alkera-test-support = { workspace = true }
+
+# ============================================================
+# Ruff — lint + format. ANN rules enforce type hints everywhere.
+# ============================================================
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# The `alkera` package runs in the person's own Python, down to its declared
+# floor (packages/alkera-py/pyproject.toml). Linted for 3.11, pyupgrade would
+# rewrite the typing.Dict / typing.Union aliases it evaluates at import into
+# dict[...] and X | Y, which fail before 3.9 / 3.10. Linting those files for the
+# floor keeps such rewrites to annotations, which `from __future__ import
+# annotations` leaves unevaluated. The chart profile validator is copied byte for
+# byte into that package (`make gen-chart-profile`), so its source is linted the
+# same way. packages/alkera-notebook/tests/test_alkera_python_floor.py is the gate.
+per-file-target-version = { "packages/alkera-py/alkera/**" = "py38", "packages/api-core/alkera_core/charts/profile.py" = "py38" }
+extend-exclude = [
+    "alembic/versions",
+    ".venv",
+    "node_modules",
+    # Untracked deep-review session state; its scratch scripts are not product code.
+    ".deep-review",
+    "packages/py-sdk/alkera_sdk/_generated",
+    # Vendored third-party source, not ours to lint.
+    "vendor",
+    # The private copy of the marimo fork, generated from vendor/marimo.
+    "packages/alkera-notebook/alkera_notebook/_marimo",
+    # Notebook format corpus: files kept byte for byte (CRLF, BOM, odd spacing).
+    "packages/alkera-notebook/tests/format_corpus",
+    # Test fixtures captured VERBATIM from real public repos (e.g. Airflow DAG .py
+    # files) — their authenticity is the regression net, so they must not be
+    # reformatted/modernized to satisfy our lint rules.
+    "**/tests/fixtures/real_repos",
+]
+
+[tool.ruff.lint]
+# Enabled rule sets:
+#   E/W  pycodestyle errors / warnings
+#   F    pyflakes
+#   I    isort
+#   N    pep8-naming
+#   UP   pyupgrade
+#   B    flake8-bugbear
+#   ANN  flake8-annotations (type hints enforced)
+#   ASYNC flake8-async
+#   S    flake8-bandit (security)
+#   RUF  ruff-specific
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "ANN", "ASYNC", "S", "RUF",
+]
+ignore = [
+    "ANN401",  # allow `Any` where genuinely needed (e.g. **kwargs: Any)
+    "S101",    # asserts are fine in tests
+]
+# Chevron/cursor glyphs the terminal UI draws on purpose — not typos for
+# ASCII </>. Whitelisting the specific characters keeps RUF001/RUF002 live
+# for genuinely confusable text elsewhere.
+allowed-confusables = ["❯", "›", "‹"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["ANN", "S"]           # tests need not be fully typed; bandit noisy
+"**/alembic/**" = ["ANN", "E501"]      # alembic boilerplate
+
+[tool.ruff.lint.isort]
+# Each app's tests import their shared helpers as `tests.*` (the app's own test
+# directory on the path). A repository-level tests package would otherwise
+# make ruff read `tests` as this repository's first-party package and re-sort every one of those imports into a block of its own.
+known-third-party = ["tests"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's `Depends(...)` / `Query(...)` etc. in argument defaults is idiomatic.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Form",
+    "fastapi.File",
+    "fastapi.Security",
+    "typer.Argument",
+    "typer.Option",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ============================================================
+# mypy — strict type checking across the whole workspace.
+# ============================================================
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+check_untyped_defs = true
+exclude = [
+    "alembic/versions",
+    "^.venv/",
+    "^node_modules/",
+    "^build/",
+    "^dist/",
+    "/tests/",
+    "alkera_notebook/_marimo/",
+]
+
+# The private copy of the marimo fork (generated from vendor/marimo) is
+# third-party code: followed for its types, never reported on.
+[[tool.mypy.overrides]]
+module = ["alkera_notebook._marimo", "alkera_notebook._marimo.*"]
+ignore_errors = true
+follow_imports = "silent"
+
+# Third-party libs without stubs
+[[tool.mypy.overrides]]
+module = [
+    "jsonschema",
+    "jsonschema.*",
+    "botocore.*",
+    "aioboto3.*",
+    "aiobotocore.*",
+    "asyncpg",
+    "asyncpg.*",
+    "pandas",
+    "pandas.*",
+    "authlib.*",
+    "lancedb",
+    "lancedb.*",
+    "lxml",
+    "lxml.*",
+    "signxml",
+    "signxml.*",
+    # tiktoken is an OPTIONAL runtime dependency of the gateway's token estimate:
+    # it is locked, but the estimator falls back to its measured ratios when the
+    # import fails, so the tree must typecheck with it absent too. An inline
+    # ignore cannot do that — `warn_unused_ignores` turns it into an error on
+    # every tree where tiktoken IS installed. A module override is silent both
+    # ways, which is the point.
+    "tiktoken",
+    "tiktoken.*",
+]
+ignore_missing_imports = true
+
+# pyarrow ships py.typed but leaves writer methods (write_table/close) un-annotated,
+# so calls into them trip `no-untyped-call` despite being genuinely typed upstream
+# as returning None. Treat pyarrow as untyped at the call boundary.
+[[tool.mypy.overrides]]
+module = ["pyarrow.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
+# google-auth ships py.typed but leaves credential methods (e.g. Credentials.refresh)
+# un-annotated, so calls into them trip `no-untyped-call` despite being genuinely typed
+# upstream as returning None. Treat google-auth as untyped at the call boundary (same as
+# pyarrow above) — we only use it to mint/refresh a BigQuery access token.
+[[tool.mypy.overrides]]
+module = ["google.auth.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
+# Generated OpenAPI client — regenerated by `make gen-sdk`, not hand-written.
+[[tool.mypy.overrides]]
+module = ["alkera_sdk._generated.*"]
+ignore_errors = true
+
+# The OTel SDK is an optional extra (alkera-cli[otel]) absent from the default
+# dev sync; otel_export.py imports it lazily and no-ops without it.
+[[tool.mypy.overrides]]
+module = ["opentelemetry.*"]
+ignore_missing_imports = true
+
+# ============================================================
+# pytest
+# ============================================================
+# Mutation testing of the Files authorization policy (`make files-mutation`,
+# run nightly). The killer suite is the policy branch table: every mutant of a
+# comparison, a boolean or a returned decision must flip a case there.
+[tool.mutmut]
+paths_to_mutate = [
+    "packages/api-core/alkera_core/authz/policies/files.py",
+    "packages/api-core/alkera_core/files/authz/decider.py",
+]
+tests_dir = ["packages/api-core/tests/authz/"]
+
+[tool.coverage.run]
+# The Files coverage gate. Coverage only engages when `--cov` is
+# passed, so `make test` runs exactly as before; `make files-coverage` is the
+# only caller. Branch coverage is on because most of the Files invariants live
+# in the *else* of a guard (fail-closed paths, fault branches).
+branch = true
+# Paths, not dotted module names, on purpose: coverage resolves a dotted source
+# with `find_spec`, which imports the parent packages inside coverage's own
+# startup — importing `worker` that early re-enters SQLAlchemy and aborts the
+# whole run ("Type <class 'object'> is already registered"). A path is walked,
+# never imported, and a path that does not exist yet is simply skipped, so the
+# not-yet-written backend/worker Files modules can be listed here today.
+source = [
+    "packages/api-core/alkera_core/files",
+    "apps/backend/backend/api/routes/files",
+    "apps/backend/backend/services/files",
+    "apps/worker/worker/tasks/files.py",
+]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+# Lines that can never execute under the measured interpreter. Everything else
+# that is genuinely unreachable on this platform is listed, with a reason, in
+# packages/api-core/tests/files/UNCOVERED.md and enforced by
+# scripts/check_files_uncovered.py — a bare `# pragma: no cover` that is not in
+# that table fails the gate.
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "@overload",
+    "raise NotImplementedError",
+    "\\.\\.\\.$",
+]
+
+[tool.pytest.ini_options]
+# Every test, setup and teardown included, finishes inside ninety seconds or
+# fails by name (pytest-timeout). The suite's slowest legitimate test is well
+# under that; anything past it is either waiting on the clock or doing more
+# work than a unit proof needs, and both belong in the test, not in the budget.
+# No timeout_method on purpose: pytest-timeout picks the signal method where
+# SIGALRM exists, which raises inside the test so the xdist worker survives and
+# the run goes on, and the thread method on Windows. Forcing "thread" ended the
+# POSIX worker with os._exit, which xdist reported as "node down" and then sat on
+# forever; forcing "signal" is an internal error on Windows, not a fallback. The
+# faulthandler dump, thirty seconds later, prints every thread's stack for a wait
+# the signal could not interrupt.
+timeout = 90
+faulthandler_timeout = 120
+minversion = "8.0"
+# The CLI test suite is organized into concept subdirectories (tui/, harness/,
+# daemon/, …) with NO `__init__.py` (adding one collides the three `tests`
+# packages). In pytest's default prepend import mode each test file only gets
+# its OWN directory on sys.path, so a test in a subdir can't see the shared
+# `_helpers` / `_mocks` packages that live at `apps/cli/tests/`. Putting that
+# dir on the path makes those helpers importable from every CLI subdir. It is
+# CLI-only — no other app defines `_helpers`/`_mocks`, so there is no collision.
+# `packages/api-core/tests/files/store` carries the store conformance suite
+# (`conformance.py`), which the driver bindings import by name; it is on the
+# path so a binding outside that directory — the CLI's, when it lands — imports
+# the same one instead of copying it.
+pythonpath = ["apps/cli/tests", "packages/api-core/tests/files/store"]
+# `-m 'not opencode_e2e'` gates the live-opencode suite out of the default
+# pytest invocation (those tests need bun on PATH + spawn real subprocesses).
+# CI's required `e2e-opencode` job and the `make e2e` target pass
+# `-m opencode_e2e` explicitly to opt in.
+addopts = "-ra --strict-markers -m 'not opencode_e2e and not claude_e2e and not live_provider and not live and not context_embed_eval and not perf_wallclock and not bench and not marimo_compat and not stress'"
+asyncio_mode = "auto"
+# All async tests share a single event loop for the session so SQLAlchemy's
+# asyncpg pool stays valid across tests.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+    "opencode_e2e: end-to-end tests that spawn a real bun-driven opencode subprocess against a scripted mock OpenAI server. Required-blocking in CI via the dedicated `e2e-opencode` job.",
+    "claude_e2e: end-to-end tests that spawn a real `claude` (Claude Code) subprocess via the Claude Agent SDK against a scripted mock Anthropic server. Opt in with `-m claude_e2e`; needs a resolvable `claude` binary (the claude-agent-sdk wheel bundles one).",
+    "billing_e2e: full-stack money-path tests running the model-gateway as a real uvicorn server over TCP (real streaming + disconnect), with a mocked upstream + seeded Postgres. Needs Postgres (like the rest of the suite); no bun, so runs in the default suite.",
+    "real_llm: integration test that hits a live OpenCode server and a real LLM provider. Skipped unless ALKERA_REAL_LLM=1 in the environment. Costs API tokens.",
+    "live_provider: tests that hit REAL LLM providers (Anthropic/OpenAI/Bedrock) through the gateway using credentials from the environment. Skipped unless the relevant keys are set; opt in via `make e2e-live` (incurs minimal real API usage). Excluded from the default suite.",
+    "live: live UNIT tests that touch a real external data system (e.g. a real Snowflake account via SNOWFLAKE_PAT) rather than a mock. Slower + flakier than the default unit suite; skip gracefully when the credential is unset. Opt in with `-m live`. Excluded from the default suite. (Distinct from the harness e2e markers — this is unit-level, not a subprocess pipeline.)",
+    "slow_live: a `live` test whose real external system is pathologically slow — minutes, not seconds — for reasons outside our control (a serverless endpoint that cold-starts, say). Excluded from `make live` so one endpoint's latency cannot hold up a deploy, and run on demand with `make live-slow`. This is a LATENCY quarantine, not a correctness one: anything marked here still has to pass, so if a test is failing rather than crawling it does NOT belong here.",
+    "context_embed_eval: context-layer retrieval/tool-search quality tests that load the REAL local embedding model (bge-small via FastEmbed/ONNX). Downloads the model on first run, so excluded from the free deterministic default suite (which uses a fake embedder). Opt in with `-m context_embed_eval`.",
+    "perf_wallclock: the wall-clock half of a Files performance budget — a p95 over repeated real requests. Load-sensitive, so it is excluded from the default suite (a shared box makes it a flake, not a proof) and selected with `-m perf_wallclock` by the nightly perf job on a quiet runner. The statement-count half of the same rows stays in the default suite.",
+    "bench: a load benchmark that measures and reports (many simulated users against real server processes) rather than asserting a budget. Minutes long and machine-dependent, so excluded from the default suite and from CI; run by hand with `-m bench` plus the benchmark's own opt-in variable (CRDT_BENCH=1 for the Loro lane's).",
+    "temporal: tests that run workflows through a real Worker against a local Temporal dev server (the `temporal` CLI, resolved from ALKERA_TEMPORAL_BIN, then PATH, else auto-downloaded — `ops/scripts/ensure-temporal-cli.sh` pins the version). Free and deterministic, so it runs in the default suite.",
+    "compute_rows: this module's tests bring live `ComputeAllocation` rows onto the compute plane but run no FLEET-WIDE pass (`meter_and_cutoff` / `reconcile_pods` / `sweep_reachability`). It buys the backend conftest's `retired_compute_rows` cleanup — every allocation the test made goes off the plane when it ends — and nothing else: the module keeps the default one-module-one-worker group and is handed out in parallel. A module that RUNS such a pass names the shared `compute-fleet` xdist group instead.",
+    "marimo_compat: notebook format compatibility checks against older stock marimo releases, each installed into a throwaway environment. Slow and needs the package index, so excluded from the default suite; opt in with `-m marimo_compat`.",
+    "spread: this module's tests share nothing — no module- or class-scoped fixture, no database rows read across tests — so `--dist loadgroup` may hand them to different workers instead of keeping the module whole on one (see the root conftest's pytest_collection_modifyitems).",
+    "sweep: the in-process route sweep: every documented operation sent hostile, oversized and duplicated input through the real app, asserting no 5xx and one effect per key. Free and deterministic, so it runs in the default suite; `make test-sweep` runs it alone.",
+    "races: in-process race scenarios: concurrent writes to one object through the real app, each asserting exactly one winner and a final state equal to the winner's. Runs in the default suite.",
+    "stress: the live stress tier: load, a Postgres restart, a backend kill, big uploads, sockets and the full nine-case route sweep against a running stack. Needs `make dev-all` (or `make stress`, which starts one) and skips when no stack answers. Excluded from the default suite; run nightly by stress-nightly.yml.",
+    "real_temporal_client: opts out of the root conftest's `_no_test_reaches_a_real_temporal_server` guard, which otherwise hands every nudge a recorder and refuses `connect_client`. For the few tests that ARE the client seam — they assert on the production provider itself, or call `connect_client` with `Client.connect` faked. A test that merely wants a dev-server client behind the nudges does NOT need this: it sets `temporal_client_provider` itself and wins over the autouse guard.",
+]
+testpaths = [
+    "apps/backend/tests",
+    "apps/cli/tests",
+    "apps/worker/tests",
+    "apps/model-gateway/tests",
+    "packages/api-core/tests",
+    "packages/py-sdk/tests",
+    "packages/alkera-py/tests",
+    "packages/alkera-kernel/tests",
+    "packages/alkera-notebook/tests",
+    # The Files exit drill: the copy is idempotent
+    # and the dry-run plan is what a human reads before a real migration.
+    "ops/scripts/tests",
+    # The open repository's own tooling (the licence audit of what it ships).
+    "scripts/tests",
+]

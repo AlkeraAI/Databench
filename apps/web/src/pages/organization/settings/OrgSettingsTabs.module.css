@@ -1,0 +1,12 @@
+/* The org-settings tab strip — the one band between the masthead and whichever tab's document is
+   mounted. Padded to the document columns' own page padding so the rule lines up with the plates
+   below it. */
+.strip {
+  padding: 10px 16px 0;
+}
+
+@media (max-width: 560px) {
+  .strip {
+    padding: 8px 0 0;
+  }
+}

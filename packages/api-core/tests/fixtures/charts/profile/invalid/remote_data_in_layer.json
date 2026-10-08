@@ -1,0 +1,22 @@
+{
+  "path": "layer[0].data",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "layer": [
+      {
+        "data": {
+          "url": "https://evil.example/rows.json"
+        },
+        "mark": "point"
+      }
+    ]
+  },
+  "unsafe": true
+}

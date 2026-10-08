@@ -1,0 +1,99 @@
+/* Switch — component styles for @alkera/ui. Every value is a role token (tokens.css). */
+
+.alk-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  cursor: pointer;
+  user-select: none;
+  /* Size ladder — the track / thumb dimensions inherit down to __track + __thumb. md is the default
+     (a toggle isn't a control-row member, so it keeps its own natural size). The on-travel is one
+     formula: trackWidth − 2×(2px padding + 1px border) − thumb. */
+  --alk-switch-w: 34px;
+  --alk-switch-h: 20px;
+  --alk-switch-thumb: 14px;
+}
+.alk-switch:where([data-size="sm"]) {
+  --alk-switch-w: 28px;
+  --alk-switch-h: 16px;
+  --alk-switch-thumb: 10px;
+}
+.alk-switch:where([data-size="lg"]) {
+  --alk-switch-w: 42px;
+  --alk-switch-h: 24px;
+  --alk-switch-thumb: 18px;
+}
+
+.alk-switch:where([data-disabled]) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.alk-switch__input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.alk-switch__track {
+  display: inline-flex;
+  align-items: center;
+  width: var(--alk-switch-w);
+  height: var(--alk-switch-h);
+  padding: 2px;
+  border-radius: var(--alkRadiusFull);
+  /* OFF: a neutral track with a host-aware boundary; ON: a brand track. The border stays present
+     but transparent when checked, so the geometry never changes between states. */
+  background: var(--alkCatNeutralSoft);
+  border: 1px solid var(--alkBorderStrong);
+  transition:
+    background-color var(--alkDurationNormal) var(--alkEaseStandard),
+    border-color var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+.alk-switch__thumb {
+  width: var(--alk-switch-thumb);
+  height: var(--alk-switch-thumb);
+  border: 1px solid var(--alkBorderStrong);
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkPrimaryText);
+  box-shadow: var(--alkShadowSm);
+  transition:
+    transform var(--alkDurationNormal) var(--alkEaseStandard),
+    background-color var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+.alk-switch__input:focus-visible + .alk-switch__track {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 2px;
+}
+
+.alk-switch__input:checked + .alk-switch__track {
+  background: var(--alkBrand);
+  border-color: transparent;
+}
+
+.alk-switch__input:checked + .alk-switch__track .alk-switch__thumb {
+  background: var(--alkOnAccentText);
+  transform: translateX(
+    calc(var(--alk-switch-w) - 6px - var(--alk-switch-thumb))
+  );
+}
+
+.alk-switch__label {
+  font-size: var(--alkTextMd);
+  color: var(--alkPrimaryText);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-switch__track,
+  .alk-switch__thumb {
+    transition: none;
+  }
+}

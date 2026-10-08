@@ -1,0 +1,20 @@
+{
+  "adopted_chat_id": null,
+  "binding_authority": "workspace",
+  "kind": "project",
+  "layout": "native",
+  "machine_id": "6a2c1b4d-3e1f-4b3c-8e6d-82b4d0a1c222",
+  "machine_status": "ready",
+  "metadata": {},
+  "mirror_state": "awake",
+  "sandbox_memory_mb": 4096,
+  "sandbox_memory_used_mb": null,
+  "sandbox_reported_at": null,
+  "sandbox_state": null,
+  "sandbox_vcpu": 2,
+  "schema_version": "1.1.0",
+  "spare": false,
+  "spare_active_at": null,
+  "wake_requested_at": null,
+  "writable": true
+}

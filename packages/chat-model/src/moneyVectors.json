@@ -1,0 +1,70 @@
+{
+  "comment": "How an amount of money reads to a person. Read by the TypeScript formatter's test (packages/chat-model/src/money.test.ts) and the Python formatter's test (packages/api-core/tests/test_money_display.py), so the two surfaces can never round the same amount two ways.",
+  "nanos": [
+    { "id": "staging-pool-available", "nanos": "2999339950000", "reads": "$2,999.34" },
+    { "id": "staging-pool-used", "nanos": "660050000", "reads": "$0.66" },
+    { "id": "staging-member-remaining", "nanos": "999339950000", "reads": "$999.34" },
+    { "id": "zero", "nanos": "0", "reads": "$0.00" },
+    { "id": "whole-dollars", "nanos": "50000000000", "reads": "$50.00" },
+    { "id": "exact-cent", "nanos": "10000000", "reads": "$0.01" },
+    { "id": "half-cent-rounds-up", "nanos": "5000000", "reads": "$0.01" },
+    { "id": "just-under-half-a-cent", "nanos": "4999999", "reads": "<$0.01" },
+    { "id": "one-nano", "nanos": "1", "reads": "<$0.01" },
+    { "id": "tie-rounds-away-from-zero", "nanos": "1005000000", "reads": "$1.01" },
+    { "id": "below-a-tie-rounds-down", "nanos": "1004999999", "reads": "$1.00" },
+    { "id": "rounds-into-the-next-dollar", "nanos": "999995000", "reads": "$1.00" },
+    { "id": "millions-grouped", "nanos": "1234567891000000", "reads": "$1,234,567.89" },
+    { "id": "negative", "nanos": "-1230000000", "reads": "-$1.23" },
+    { "id": "negative-tie-away-from-zero", "nanos": "-5000000", "reads": "-$0.01" },
+    { "id": "negative-below-a-cent", "nanos": "-1", "reads": "-<$0.01" }
+  ],
+  "usd": [
+    { "id": "wire-decimal-string", "usd": "2999.339950", "reads": "$2,999.34" },
+    { "id": "float-tie-reads-its-decimal-not-its-binary", "usd": 1.005, "reads": "$1.01" },
+    { "id": "float-quarter-cent-tie", "usd": 0.425, "reads": "$0.43" },
+    { "id": "float-sub-cent", "usd": 0.0012, "reads": "<$0.01" },
+    { "id": "float-exponent", "usd": 1e-7, "reads": "<$0.01" },
+    { "id": "integer", "usd": 20, "reads": "$20.00" },
+    { "id": "zero-string", "usd": "0.000000", "reads": "$0.00" },
+    { "id": "negative-zero", "usd": -0.0, "reads": "$0.00" },
+    { "id": "negative-float", "usd": -12.345, "reads": "-$12.35" },
+    { "id": "not-a-number", "usd": "abc", "reads": "\u2014" }
+  ],
+  "ledger_nanos": [
+    {
+      "id": "staging-pool-line",
+      "granted": "3000000000000",
+      "used": "660050000",
+      "remaining": "2999339950000",
+      "reads": { "granted": "$3,000.00", "used": "$0.66", "remaining": "$2,999.34" }
+    },
+    {
+      "id": "rounding-apart-by-a-cent-used-carries-it",
+      "granted": "1004000000",
+      "used": "5000000",
+      "remaining": "999000000",
+      "reads": { "granted": "$1.00", "used": "<$0.01", "remaining": "$1.00" }
+    },
+    {
+      "id": "used-takes-the-cent-the-other-two-leave",
+      "granted": "1006000000",
+      "used": "4000000",
+      "remaining": "1002000000",
+      "reads": { "granted": "$1.01", "used": "$0.01", "remaining": "$1.00" }
+    },
+    {
+      "id": "sub-cent-use-still-shows",
+      "granted": "3000000000000",
+      "used": "3000000",
+      "remaining": "2999997000000",
+      "reads": { "granted": "$3,000.00", "used": "<$0.01", "remaining": "$3,000.00" }
+    },
+    {
+      "id": "unbalanced-line-rounds-each-figure",
+      "granted": "1004000000",
+      "used": "5000000",
+      "remaining": "0",
+      "reads": { "granted": "$1.00", "used": "$0.01", "remaining": "$0.00" }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "path": "transform[0].calculate",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "mark": "point",
+    "transform": [
+      {
+        "as": "b",
+        "calculate": "data('elsewhere')"
+      }
+    ]
+  },
+  "unsafe": true
+}

@@ -1,0 +1,23 @@
+[importlinter]
+root_package = backend
+
+[importlinter:contract:backend-layers]
+name = The app sits on the HTTP layer, which sits on authz, which sits on the services
+type = layers
+layers =
+    backend.extensions
+    backend.app_factory : backend.content_app
+    backend.api
+    backend.authz
+    backend.services
+# Today's violations. The list may only shrink.
+ignore_imports =
+    backend.api.csrf -> backend.content_app
+    backend.api.routes.files.archive_serve -> backend.content_app
+    backend.api.routes.files.content -> backend.content_app
+    backend.services.chats.spares -> backend.authz
+    backend.services.chats.spares -> backend.authz.enforce
+    backend.services.chats.spares -> backend.auth.dependencies
+    backend.services.files.decided -> backend.authz
+    backend.services.realtime.docsync -> backend.authz
+    backend.services.realtime.session -> backend.auth.dependencies

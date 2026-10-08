@@ -1,0 +1,149 @@
+/* SidePanel — edge drawer. The slide rides the panel itself so it animates BOTH ways; the panel
+   goes visibility:hidden when closed so an off-screen panel is unreachable by tab + AT.
+
+   Two axes:
+   - anchor: viewport = fixed over the whole screen (portaled to document.body);
+             belowTopbar = absolute inside the relative body container the caller wraps it in.
+   - mode:   modal = scrim + focus trap + aria-modal; inline = no scrim, role=region.
+
+   The panel slide is a one-off 240ms — a touch slower than the slowest shared motion token (180ms)
+   so the larger travel reads as deliberate rather than abrupt. */
+
+.alk-sidepanel-scrim {
+  background: var(--alkScrim);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 240ms var(--alkEaseStandard);
+}
+.alk-sidepanel-scrim[data-anchor="viewport"] {
+  position: fixed;
+  inset: 0;
+  z-index: var(--alkZOverlay);
+}
+.alk-sidepanel-scrim[data-anchor="belowTopbar"] {
+  position: absolute;
+  inset: 0;
+  z-index: var(--alkZBelowTopbar);
+}
+.alk-sidepanel-scrim[data-state="open"] {
+  opacity: 1;
+}
+
+.alk-sidepanel {
+  --alk-sidepanel-w: 480px;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--alk-sidepanel-w), 92vw);
+  background: var(--alkCardBg);
+  /* Closed: slid off its edge AND hidden (so it's out of the tab order during the exit window).
+     The visibility flip waits out the slide on close, and is immediate on open. */
+  visibility: hidden;
+  transition:
+    transform 240ms var(--alkEaseStandard),
+    visibility 0s linear 240ms;
+}
+.alk-sidepanel[data-state="open"] {
+  visibility: visible;
+  transition: transform 240ms var(--alkEaseStandard);
+}
+
+/* Anchor: viewport = fixed over the whole screen; belowTopbar = absolute inside the relative
+   body container the caller wraps it in (so the topbar/chrome above stay live). */
+.alk-sidepanel[data-anchor="viewport"] {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  height: 100dvh;
+  z-index: calc(var(--alkZOverlay) + 1);
+}
+.alk-sidepanel[data-anchor="belowTopbar"] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: var(--alkZBelowTopbar);
+}
+
+/* Side: which edge it docks to + the direction it slides from. */
+.alk-sidepanel[data-side="right"] {
+  right: 0;
+  border-left: 1px solid var(--alkBorder);
+  box-shadow: var(--alkShadowLg);
+  transform: translateX(101%);
+}
+.alk-sidepanel[data-side="left"] {
+  left: 0;
+  border-right: 1px solid var(--alkBorder);
+  box-shadow: var(--alkShadowLg);
+  transform: translateX(-101%);
+}
+.alk-sidepanel[data-side="right"][data-state="open"],
+.alk-sidepanel[data-side="left"][data-state="open"] {
+  transform: translateX(0);
+}
+
+/* head (pinned) / body (scroll) / foot (pinned) */
+.alk-sidepanel__head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--alkSpace5);
+  padding: var(--alkSpace7);
+  border-bottom: 1px solid var(--alkBorder);
+}
+.alk-sidepanel__id {
+  min-width: 0;
+}
+.alk-sidepanel__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  margin-bottom: var(--alkSpace2);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--alkSecondaryText);
+}
+.alk-sidepanel__title {
+  margin: 0;
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alkText2xl);
+  font-weight: var(--alkWeightMedium);
+  line-height: var(--alkLeadingHeading);
+  color: var(--alkPrimaryText);
+}
+.alk-sidepanel__headactions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+}
+/* The close button is a ghost icon-only Button (size md) — see SidePanel.tsx; no panel-local chrome. */
+.alk-sidepanel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--alkSpace7);
+}
+.alk-sidepanel__foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace5) var(--alkSpace7);
+  border-top: 1px solid var(--alkBorder);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No slide for motion-sensitive users — the panel snaps (usePresence already zeroes the exit).
+     Both selectors are overridden because the open-state rule sets its own transform transition. */
+  .alk-sidepanel,
+  .alk-sidepanel[data-state="open"] {
+    transition: none;
+  }
+  .alk-sidepanel-scrim {
+    transition: opacity var(--alkDurationNormal) var(--alkEaseStandard);
+  }
+}

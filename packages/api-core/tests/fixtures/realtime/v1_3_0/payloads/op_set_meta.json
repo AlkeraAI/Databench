@@ -1,0 +1,11 @@
+{
+  "events": [],
+  "fields": {},
+  "intent": "set_meta",
+  "meta": {
+    "title": "Renamed"
+  },
+  "metadata": {},
+  "op_id": "op-meta-1",
+  "schema_version": "1.0.0"
+}

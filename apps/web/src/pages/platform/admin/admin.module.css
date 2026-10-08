@@ -1,0 +1,70 @@
+/* Shared admin-registry styling used across 2+ registers: the table-cell reading voice, the detail
+   back link, and the modal field-row fold. Layout (row action clusters, the detail header, the
+   multi-card column, modal forms) is composed from the @alkera/ui Stack/Inline primitives in the
+   TSX. The label→value ledger is the @alkera/ui DescList; single-owner rules live in each
+   component's own colocated module. Global text roles (alk-num, alk-caption, alk-strong, …) come
+   from @alkera/ui + styles/concept-tokens.css. */
+
+/* ── cell readings ───────────────────────────────────────────────────────────── */
+/* The mono/tabular/tracking reading voice is the shared alk-num (applied in the TSX beside this
+   class). What stays here is admin-local: the reading ink, the 14px size for a reading that renders
+   in a portalled modal (outside the product surface), and the no-wrap so a narrow column scrolls
+   rather than stacking one reading across lines. */
+.reading {
+  font-size: var(--alkTextMd);
+  color: var(--alkPrimaryText);
+  white-space: nowrap;
+}
+/* Right-sets a numeric column's content — the readings AND the header cell that sits over them.
+   (The muted reading voice is the global alk-faint, applied in the TSX.) */
+.readingEnd {
+  display: block;
+  text-align: right;
+}
+
+/* When a table stacks to record cards (@alkera/ui sets [data-stacked]): a right-set numeric field
+   value left-aligns to the card's value column instead of ragging off the right edge. */
+:global(.alk-table-block[data-stacked]) .readingEnd {
+  display: inline;
+  text-align: left;
+}
+/* A card's value content wraps rather than run off the edge -- the no-wrap above would otherwise
+   hold a reading's min-content width in a card (a long email, id, timestamp) and force a horizontal
+   scrollbar on the smallest phones. Only the admin-local .reading needs this rule: the shared
+   truncated voices (alk-truncate) un-truncate in card mode inside the Table primitive itself, and
+   everything else inherits the card's wrapping from the cell. */
+:global(.alk-table-block[data-stacked]) .reading {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+/* ── detail-page header ──────────────────────────────────────────────────────── */
+/* KEEP: the detail-page back link — the secondary ink overrides the base link colour, and
+   width: fit-content keeps the hitbox on the words inside the stretched header Stack. */
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  color: var(--alkSecondaryText);
+  width: fit-content;
+}
+
+/* KEEP: a modal row's fields share the line and fold to one column at 12rem — a per-child basis no
+   primitive prop carries (the row itself is an Inline in the TSX). */
+.formRow > * {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+/* ── a banned account ────────────────────────────────────────────────────────── */
+/* A banned account stays in the register and stays clickable — an operator has to be
+   able to open it — but every reading in the row withdraws to the tertiary ink so the
+   ban reads at a glance down the column, with the Banned pill carrying the actual
+   state (colour is never the only signal). The `.reading` rule is needed because the
+   cell voice above sets the primary ink explicitly. */
+.bannedRow,
+.bannedRow .reading,
+.bannedRow :global(.alk-link),
+.bannedRow :global(.alk-caption) {
+  color: var(--alkTertiaryText);
+}

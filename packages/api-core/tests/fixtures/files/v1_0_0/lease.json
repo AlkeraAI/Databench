@@ -1,0 +1,22 @@
+{
+  "$model": "alkera_core.schemas.files.lease.Lease",
+  "acquired_at": "2026-01-01T12:00:00Z",
+  "epoch": 8589934609,
+  "expires_at": "2026-01-01T12:01:30Z",
+  "grantable_after": "2026-01-01T12:02:30Z",
+  "heartbeat_at": "2026-01-01T12:00:30Z",
+  "holder": {
+    "id": "6b1f0b1e-0000-4000-8000-000000000002",
+    "kind": "user",
+    "metadata": {},
+    "schema_version": "1.0.0"
+  },
+  "instance_id": "instance-a",
+  "last_sync_at": "2026-01-01T12:00:18Z",
+  "machine_id": "machine-a",
+  "metadata": {},
+  "node_id": null,
+  "purpose": "mount",
+  "schema_version": "1.0.0",
+  "stale": false
+}

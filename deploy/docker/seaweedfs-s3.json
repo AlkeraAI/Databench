@@ -1,0 +1,20 @@
+{
+  "identities": [
+    {
+      "name": "alkera-dev",
+      "credentials": [
+        {
+          "accessKey": "alkera",
+          "secretKey": "alkera-dev-secret"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "Write",
+        "List",
+        "Tagging"
+      ]
+    }
+  ]
+}

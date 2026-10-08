@@ -1,0 +1,29 @@
+name: Dev Build
+
+on:
+  pull_request:
+    paths:
+      - 'Makefile'
+      - 'pyproject.toml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: prefix-dev/setup-pixi@82d477f15f3a381dbcc8adc1206ce643fe110fb7 # v0.9.3
+        with:
+          pixi-version: v0.62.2
+          locked: false
+          frozen: false
+          cache: false
+      - run: pixi run make check-prereqs
+      - run: pixi run make fe
+      - run: pixi run make py

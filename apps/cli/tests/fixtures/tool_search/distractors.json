@@ -1,0 +1,1118 @@
+{
+  "_comment": "Synthetic distractor tool catalog for the tool-search recall@k eval (TOOL_SCALING \u00a73.3). Modeled on real data-app surfaces so BM25 ranking is stressed at the ~100-tool scale the design targets (RAG-MCP methodology). Names must never collide with real registered tools; apps deliberately differ from the real built-in namespaces (sql/context/lineage/skill/agent). Several entries are near-neighbors of real tools (atlan.lineage_graph, metabase.native_query) on purpose.",
+  "tools": [
+    {
+      "name": "fivetran.list_connectors",
+      "title": "List Fivetran connectors",
+      "description": "List every connector configured in the Fivetran account with its source type, destination schema, and paused state.",
+      "app": "fivetran",
+      "params": {
+        "group_id": {
+          "type": "string",
+          "description": "Fivetran destination group id."
+        }
+      }
+    },
+    {
+      "name": "fivetran.connector_status",
+      "title": "Connector sync status",
+      "description": "Check whether a connector's most recent sync succeeded, failed, or is still running, including synced row counts and the completion timestamp.",
+      "app": "fivetran",
+      "params": {
+        "connector_id": {
+          "type": "string",
+          "description": "The connector to inspect."
+        }
+      }
+    },
+    {
+      "name": "fivetran.trigger_sync",
+      "title": "Trigger connector sync",
+      "description": "Kick off an on-demand sync for a Fivetran connector instead of waiting for its schedule.",
+      "app": "fivetran",
+      "params": {
+        "connector_id": {
+          "type": "string",
+          "description": "The connector to sync."
+        },
+        "force": {
+          "type": "boolean",
+          "description": "Cancel a running sync and restart."
+        }
+      }
+    },
+    {
+      "name": "fivetran.sync_history",
+      "title": "Connector sync history",
+      "description": "Page through the historical sync runs of a connector with durations, row volumes, and failure reasons.",
+      "app": "fivetran",
+      "params": {
+        "connector_id": {
+          "type": "string",
+          "description": "The connector to inspect."
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Max runs to return."
+        }
+      }
+    },
+    {
+      "name": "airbyte.list_connections",
+      "title": "List Airbyte connections",
+      "description": "List the Airbyte source-to-destination connections in a workspace with their schedules and enabled streams.",
+      "app": "airbyte",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Airbyte workspace id."
+        }
+      }
+    },
+    {
+      "name": "airbyte.trigger_job",
+      "title": "Trigger Airbyte job",
+      "description": "Start a manual sync or reset job for an Airbyte connection.",
+      "app": "airbyte",
+      "params": {
+        "connection_id": {
+          "type": "string",
+          "description": "The connection to run."
+        },
+        "job_type": {
+          "type": "string",
+          "enum": [
+            "sync",
+            "reset"
+          ],
+          "description": "Kind of job to start."
+        }
+      }
+    },
+    {
+      "name": "airbyte.job_logs",
+      "title": "Airbyte job logs",
+      "description": "Tail the log output of an Airbyte job attempt to diagnose a failing sync.",
+      "app": "airbyte",
+      "params": {
+        "job_id": {
+          "type": "integer",
+          "description": "The job whose logs to fetch."
+        }
+      }
+    },
+    {
+      "name": "looker.list_dashboards",
+      "title": "List Looker dashboards",
+      "description": "List the dashboards in a Looker folder or across the instance, with owners and last-viewed times.",
+      "app": "looker",
+      "params": {
+        "folder_id": {
+          "type": "string",
+          "description": "Restrict to one folder."
+        }
+      }
+    },
+    {
+      "name": "looker.run_look",
+      "title": "Run a Look",
+      "description": "Execute a saved Look and return its result rows in the requested format.",
+      "app": "looker",
+      "params": {
+        "look_id": {
+          "type": "integer",
+          "description": "The saved Look to execute."
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "csv"
+          ],
+          "description": "Result format."
+        }
+      }
+    },
+    {
+      "name": "looker.run_inline_query",
+      "title": "Run inline Looker query",
+      "description": "Run an ad-hoc Looker explore query built from a model, view, fields, and filters without saving it.",
+      "app": "looker",
+      "params": {
+        "model": {
+          "type": "string",
+          "description": "LookML model name."
+        },
+        "view": {
+          "type": "string",
+          "description": "Explore/view name."
+        },
+        "fields": {
+          "type": "string",
+          "description": "Comma-separated field list."
+        }
+      }
+    },
+    {
+      "name": "looker.dashboard_tiles",
+      "title": "Dashboard tile inventory",
+      "description": "List the tiles on a Looker dashboard with the query or Look each tile is backed by.",
+      "app": "looker",
+      "params": {
+        "dashboard_id": {
+          "type": "string",
+          "description": "The dashboard to inspect."
+        }
+      }
+    },
+    {
+      "name": "metabase.list_cards",
+      "title": "List Metabase questions",
+      "description": "List saved Metabase questions (cards) in a collection with their display types.",
+      "app": "metabase",
+      "params": {
+        "collection_id": {
+          "type": "integer",
+          "description": "Restrict to one collection."
+        }
+      }
+    },
+    {
+      "name": "metabase.run_card",
+      "title": "Run Metabase question",
+      "description": "Execute a saved Metabase question and return its result rows.",
+      "app": "metabase",
+      "params": {
+        "card_id": {
+          "type": "integer",
+          "description": "The question to run."
+        }
+      }
+    },
+    {
+      "name": "metabase.native_query",
+      "title": "Run native Metabase query",
+      "description": "Run a native SQL question against a Metabase database connection and return the rows.",
+      "app": "metabase",
+      "params": {
+        "database_id": {
+          "type": "integer",
+          "description": "Metabase database id."
+        },
+        "query": {
+          "type": "string",
+          "description": "The native SQL text."
+        }
+      }
+    },
+    {
+      "name": "powerbi.list_reports",
+      "title": "List Power BI reports",
+      "description": "List the reports in a Power BI workspace with their datasets and web URLs.",
+      "app": "powerbi",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Power BI workspace id."
+        }
+      }
+    },
+    {
+      "name": "powerbi.refresh_dataset",
+      "title": "Refresh Power BI dataset",
+      "description": "Trigger an asynchronous refresh of a Power BI dataset so its reports show current data.",
+      "app": "powerbi",
+      "params": {
+        "dataset_id": {
+          "type": "string",
+          "description": "The dataset to refresh."
+        }
+      }
+    },
+    {
+      "name": "powerbi.dataset_status",
+      "title": "Power BI refresh status",
+      "description": "Check the progress and outcome of the latest Power BI dataset refresh operations.",
+      "app": "powerbi",
+      "params": {
+        "dataset_id": {
+          "type": "string",
+          "description": "The dataset to inspect."
+        }
+      }
+    },
+    {
+      "name": "dbt_cloud.list_jobs",
+      "title": "List dbt Cloud jobs",
+      "description": "List the scheduled jobs in a dbt Cloud project with their environments and cron schedules.",
+      "app": "dbt_cloud",
+      "params": {
+        "project_id": {
+          "type": "integer",
+          "description": "dbt Cloud project id."
+        }
+      }
+    },
+    {
+      "name": "dbt_cloud.trigger_job",
+      "title": "Trigger dbt Cloud job",
+      "description": "Queue a run of a dbt Cloud job, optionally overriding the git branch or schema.",
+      "app": "dbt_cloud",
+      "params": {
+        "job_id": {
+          "type": "integer",
+          "description": "The job to run."
+        },
+        "git_branch": {
+          "type": "string",
+          "description": "Override branch."
+        },
+        "cause": {
+          "type": "string",
+          "description": "Audit note for why the run was triggered."
+        }
+      }
+    },
+    {
+      "name": "dbt_cloud.run_status",
+      "title": "dbt Cloud run status",
+      "description": "Check the live status of a dbt Cloud run: queued, running, success, error, or cancelled, with step timings.",
+      "app": "dbt_cloud",
+      "params": {
+        "run_id": {
+          "type": "integer",
+          "description": "The run to inspect."
+        }
+      }
+    },
+    {
+      "name": "dbt_cloud.get_run_artifact",
+      "title": "Download run artifact",
+      "description": "Download an artifact produced by a dbt Cloud run, such as manifest.json, catalog.json, or run_results.json.",
+      "app": "dbt_cloud",
+      "params": {
+        "run_id": {
+          "type": "integer",
+          "description": "The run to download from."
+        },
+        "path": {
+          "type": "string",
+          "description": "Artifact path, e.g. manifest.json."
+        }
+      }
+    },
+    {
+      "name": "databricks.list_clusters",
+      "title": "List Databricks clusters",
+      "description": "List the clusters in a Databricks workspace with node types, autoscaling ranges, and states.",
+      "app": "databricks",
+      "params": {}
+    },
+    {
+      "name": "databricks.cluster_status",
+      "title": "Databricks cluster status",
+      "description": "Check whether a Databricks cluster is up, terminated, or resizing, including its current worker count.",
+      "app": "databricks",
+      "params": {
+        "cluster_id": {
+          "type": "string",
+          "description": "The cluster to inspect."
+        }
+      }
+    },
+    {
+      "name": "databricks.run_notebook",
+      "title": "Run Databricks notebook",
+      "description": "Start a one-time Databricks notebook run on a cluster and return the run id for polling.",
+      "app": "databricks",
+      "params": {
+        "notebook_path": {
+          "type": "string",
+          "description": "Workspace path of the notebook."
+        },
+        "cluster_id": {
+          "type": "string",
+          "description": "Cluster to run on."
+        }
+      }
+    },
+    {
+      "name": "databricks.submit_sql_statement",
+      "title": "Submit Databricks SQL",
+      "description": "Submit a SQL statement to a Databricks SQL warehouse and poll for the result chunk URLs.",
+      "app": "databricks",
+      "params": {
+        "warehouse_id": {
+          "type": "string",
+          "description": "SQL warehouse id."
+        },
+        "statement": {
+          "type": "string",
+          "description": "The SQL text."
+        }
+      }
+    },
+    {
+      "name": "kafka.list_topics",
+      "title": "List Kafka topics",
+      "description": "List the topics in the Kafka cluster with partition counts and replication factors.",
+      "app": "kafka",
+      "params": {}
+    },
+    {
+      "name": "kafka.describe_topic",
+      "title": "Describe Kafka topic",
+      "description": "Show a Kafka topic's configuration overrides, partition leaders, and in-sync replicas.",
+      "app": "kafka",
+      "params": {
+        "topic": {
+          "type": "string",
+          "description": "Topic name."
+        }
+      }
+    },
+    {
+      "name": "kafka.consumer_lag",
+      "title": "Consumer group lag",
+      "description": "Report how far behind a Kafka consumer group is per partition, in messages and seconds.",
+      "app": "kafka",
+      "params": {
+        "group_id": {
+          "type": "string",
+          "description": "Consumer group id."
+        }
+      }
+    },
+    {
+      "name": "kafka.list_consumer_groups",
+      "title": "List consumer groups",
+      "description": "List the consumer groups known to the Kafka cluster with their states and member counts.",
+      "app": "kafka",
+      "params": {}
+    },
+    {
+      "name": "s3.list_objects",
+      "title": "List S3 objects",
+      "description": "List the files under an S3 bucket prefix with sizes and last-modified timestamps.",
+      "app": "s3",
+      "params": {
+        "bucket": {
+          "type": "string",
+          "description": "Bucket name."
+        },
+        "prefix": {
+          "type": "string",
+          "description": "Key prefix to list under."
+        }
+      }
+    },
+    {
+      "name": "s3.object_metadata",
+      "title": "S3 object metadata",
+      "description": "Fetch an S3 object's content type, size, ETag, and user metadata without downloading the body.",
+      "app": "s3",
+      "params": {
+        "bucket": {
+          "type": "string",
+          "description": "Bucket name."
+        },
+        "key": {
+          "type": "string",
+          "description": "Object key."
+        }
+      }
+    },
+    {
+      "name": "s3.presign_url",
+      "title": "Presign S3 URL",
+      "description": "Generate a time-limited presigned download URL for an S3 object so it can be shared without credentials.",
+      "app": "s3",
+      "params": {
+        "bucket": {
+          "type": "string",
+          "description": "Bucket name."
+        },
+        "key": {
+          "type": "string",
+          "description": "Object key."
+        },
+        "expires_seconds": {
+          "type": "integer",
+          "description": "URL lifetime."
+        }
+      }
+    },
+    {
+      "name": "s3.bucket_size",
+      "title": "S3 bucket size",
+      "description": "Estimate the total stored bytes and object count of an S3 bucket from storage metrics.",
+      "app": "s3",
+      "params": {
+        "bucket": {
+          "type": "string",
+          "description": "Bucket name."
+        }
+      }
+    },
+    {
+      "name": "gcs.list_blobs",
+      "title": "List GCS blobs",
+      "description": "List the blobs under a Google Cloud Storage bucket prefix with sizes and storage classes.",
+      "app": "gcs",
+      "params": {
+        "bucket": {
+          "type": "string",
+          "description": "Bucket name."
+        },
+        "prefix": {
+          "type": "string",
+          "description": "Name prefix to list under."
+        }
+      }
+    },
+    {
+      "name": "gcs.blob_metadata",
+      "title": "GCS blob metadata",
+      "description": "Fetch a Google Cloud Storage blob's generation, content type, and custom metadata.",
+      "app": "gcs",
+      "params": {
+        "bucket": {
+          "type": "string",
+          "description": "Bucket name."
+        },
+        "blob": {
+          "type": "string",
+          "description": "Blob name."
+        }
+      }
+    },
+    {
+      "name": "postgres.explain_plan",
+      "title": "Explain Postgres plan",
+      "description": "Run EXPLAIN ANALYZE on a Postgres statement and return the execution plan with cost and timing per node.",
+      "app": "postgres",
+      "params": {
+        "statement": {
+          "type": "string",
+          "description": "The SQL to explain."
+        }
+      }
+    },
+    {
+      "name": "postgres.list_indexes",
+      "title": "List Postgres indexes",
+      "description": "List the indexes on a Postgres table with their definitions, sizes, and scan counts.",
+      "app": "postgres",
+      "params": {
+        "table": {
+          "type": "string",
+          "description": "Qualified table name."
+        }
+      }
+    },
+    {
+      "name": "postgres.table_bloat",
+      "title": "Postgres table bloat",
+      "description": "Estimate dead-tuple bloat for Postgres tables to find candidates for VACUUM FULL or reindexing.",
+      "app": "postgres",
+      "params": {
+        "schema_name": {
+          "type": "string",
+          "description": "Restrict to one schema."
+        }
+      }
+    },
+    {
+      "name": "postgres.active_queries",
+      "title": "Active Postgres queries",
+      "description": "Show the statements currently executing in Postgres from pg_stat_activity, with runtimes and wait events.",
+      "app": "postgres",
+      "params": {
+        "min_duration_seconds": {
+          "type": "integer",
+          "description": "Only show queries running longer than this."
+        }
+      }
+    },
+    {
+      "name": "postgres.kill_query",
+      "title": "Terminate Postgres query",
+      "description": "Cancel or terminate a long-running Postgres backend by pid.",
+      "app": "postgres",
+      "params": {
+        "pid": {
+          "type": "integer",
+          "description": "Backend process id."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "cancel",
+            "terminate"
+          ],
+          "description": "Soft cancel vs hard terminate."
+        }
+      }
+    },
+    {
+      "name": "redshift.table_skew",
+      "title": "Redshift table skew",
+      "description": "Report row distribution skew across Redshift slices per table to find bad distribution keys.",
+      "app": "redshift",
+      "params": {
+        "schema_name": {
+          "type": "string",
+          "description": "Restrict to one schema."
+        }
+      }
+    },
+    {
+      "name": "redshift.vacuum_status",
+      "title": "Redshift vacuum status",
+      "description": "Show the progress of running VACUUM operations on Redshift and which tables still need one.",
+      "app": "redshift",
+      "params": {}
+    },
+    {
+      "name": "redshift.wlm_queue",
+      "title": "Redshift WLM queues",
+      "description": "Show Redshift workload-management queue depth and queued vs executing query counts.",
+      "app": "redshift",
+      "params": {}
+    },
+    {
+      "name": "clickhouse.merge_status",
+      "title": "ClickHouse merge backlog",
+      "description": "Show the running and queued background merges on a ClickHouse server with progress per part.",
+      "app": "clickhouse",
+      "params": {
+        "table": {
+          "type": "string",
+          "description": "Restrict to one table."
+        }
+      }
+    },
+    {
+      "name": "clickhouse.parts_info",
+      "title": "ClickHouse parts info",
+      "description": "List the data parts of a ClickHouse MergeTree table with rows, bytes on disk, and partition ids.",
+      "app": "clickhouse",
+      "params": {
+        "table": {
+          "type": "string",
+          "description": "Qualified table name."
+        }
+      }
+    },
+    {
+      "name": "clickhouse.system_metrics",
+      "title": "ClickHouse system metrics",
+      "description": "Read current ClickHouse system metrics and async metrics, such as memory usage and replica delay.",
+      "app": "clickhouse",
+      "params": {}
+    },
+    {
+      "name": "salesforce.soql_query",
+      "title": "Run SOQL query",
+      "description": "Run a SOQL query against Salesforce objects and return the matching records.",
+      "app": "salesforce",
+      "params": {
+        "soql": {
+          "type": "string",
+          "description": "The SOQL text."
+        }
+      }
+    },
+    {
+      "name": "salesforce.describe_sobject",
+      "title": "Describe Salesforce object",
+      "description": "Describe a Salesforce sObject: its fields, types, picklist values, and relationships.",
+      "app": "salesforce",
+      "params": {
+        "sobject": {
+          "type": "string",
+          "description": "API name, e.g. Account."
+        }
+      }
+    },
+    {
+      "name": "salesforce.list_reports",
+      "title": "List Salesforce reports",
+      "description": "List the Salesforce reports in a folder with their formats and last-run dates.",
+      "app": "salesforce",
+      "params": {
+        "folder": {
+          "type": "string",
+          "description": "Report folder name."
+        }
+      }
+    },
+    {
+      "name": "hubspot.search_contacts",
+      "title": "Search HubSpot contacts",
+      "description": "Search the HubSpot CRM for contacts matching a filter on properties like email, company, or lifecycle stage.",
+      "app": "hubspot",
+      "params": {
+        "query": {
+          "type": "string",
+          "description": "Search text or filter expression."
+        }
+      }
+    },
+    {
+      "name": "hubspot.deal_pipeline",
+      "title": "HubSpot deal pipeline",
+      "description": "Show the deals in a HubSpot pipeline grouped by stage with amounts and close dates.",
+      "app": "hubspot",
+      "params": {
+        "pipeline_id": {
+          "type": "string",
+          "description": "The pipeline to inspect."
+        }
+      }
+    },
+    {
+      "name": "stripe.list_charges",
+      "title": "List Stripe charges",
+      "description": "List recent Stripe charges with amounts, currencies, statuses, and customer ids.",
+      "app": "stripe",
+      "params": {
+        "created_after": {
+          "type": "string",
+          "description": "ISO date lower bound."
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Max charges to return."
+        }
+      }
+    },
+    {
+      "name": "stripe.payout_report",
+      "title": "Stripe payout report",
+      "description": "Reconcile a Stripe payout against its component balance transactions and fees.",
+      "app": "stripe",
+      "params": {
+        "payout_id": {
+          "type": "string",
+          "description": "The payout to reconcile."
+        }
+      }
+    },
+    {
+      "name": "stripe.balance",
+      "title": "Stripe balance",
+      "description": "Show the current available and pending Stripe balance per currency.",
+      "app": "stripe",
+      "params": {}
+    },
+    {
+      "name": "github.list_pull_requests",
+      "title": "List pull requests",
+      "description": "List the open pull requests in a GitHub repository with authors, labels, and review states.",
+      "app": "github",
+      "params": {
+        "repo": {
+          "type": "string",
+          "description": "owner/name."
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "open",
+            "closed",
+            "all"
+          ],
+          "description": "PR state filter."
+        }
+      }
+    },
+    {
+      "name": "github.pull_request_diff",
+      "title": "Pull request diff",
+      "description": "Fetch the unified diff of a GitHub pull request to review its changes.",
+      "app": "github",
+      "params": {
+        "repo": {
+          "type": "string",
+          "description": "owner/name."
+        },
+        "number": {
+          "type": "integer",
+          "description": "PR number."
+        }
+      }
+    },
+    {
+      "name": "github.workflow_runs",
+      "title": "Workflow run history",
+      "description": "List recent GitHub Actions workflow runs for a repository with conclusions and durations.",
+      "app": "github",
+      "params": {
+        "repo": {
+          "type": "string",
+          "description": "owner/name."
+        },
+        "workflow": {
+          "type": "string",
+          "description": "Workflow file name."
+        }
+      }
+    },
+    {
+      "name": "github.code_search",
+      "title": "Search code on GitHub",
+      "description": "Search source code across GitHub repositories for a string or qualifier expression.",
+      "app": "github",
+      "params": {
+        "query": {
+          "type": "string",
+          "description": "Code search expression."
+        }
+      }
+    },
+    {
+      "name": "jira.search_issues",
+      "title": "Search Jira issues",
+      "description": "Find Jira issues matching a JQL filter and return their keys, summaries, and statuses.",
+      "app": "jira",
+      "params": {
+        "jql": {
+          "type": "string",
+          "description": "The JQL filter."
+        }
+      }
+    },
+    {
+      "name": "jira.issue_detail",
+      "title": "Jira issue detail",
+      "description": "Fetch one Jira issue's full fields, comments, and change history.",
+      "app": "jira",
+      "params": {
+        "key": {
+          "type": "string",
+          "description": "Issue key, e.g. DATA-123."
+        }
+      }
+    },
+    {
+      "name": "jira.transition_issue",
+      "title": "Transition Jira issue",
+      "description": "Move a Jira issue to another workflow status, such as In Progress or Done.",
+      "app": "jira",
+      "params": {
+        "key": {
+          "type": "string",
+          "description": "Issue key."
+        },
+        "transition": {
+          "type": "string",
+          "description": "Target transition name."
+        }
+      }
+    },
+    {
+      "name": "slack.search_messages",
+      "title": "Search Slack messages",
+      "description": "Search Slack messages across channels for a keyword or phrase and return matching permalinks.",
+      "app": "slack",
+      "params": {
+        "query": {
+          "type": "string",
+          "description": "Search text."
+        }
+      }
+    },
+    {
+      "name": "slack.channel_history",
+      "title": "Slack channel history",
+      "description": "Fetch the recent message history of one Slack channel in chronological order.",
+      "app": "slack",
+      "params": {
+        "channel": {
+          "type": "string",
+          "description": "Channel id or name."
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Max messages."
+        }
+      }
+    },
+    {
+      "name": "slack.post_message",
+      "title": "Post Slack message",
+      "description": "Post a message to a Slack channel as the integration bot.",
+      "app": "slack",
+      "params": {
+        "channel": {
+          "type": "string",
+          "description": "Channel id or name."
+        },
+        "text": {
+          "type": "string",
+          "description": "Message body."
+        }
+      }
+    },
+    {
+      "name": "notion.search_pages",
+      "title": "Search Notion pages",
+      "description": "Search the Notion workspace for pages whose titles match a query.",
+      "app": "notion",
+      "params": {
+        "query": {
+          "type": "string",
+          "description": "Title search text."
+        }
+      }
+    },
+    {
+      "name": "notion.page_content",
+      "title": "Notion page content",
+      "description": "Fetch a Notion page's block content as markdown for reading or summarizing.",
+      "app": "notion",
+      "params": {
+        "page_id": {
+          "type": "string",
+          "description": "The page to fetch."
+        }
+      }
+    },
+    {
+      "name": "notion.database_rows",
+      "title": "Notion database rows",
+      "description": "Fetch the rows of a Notion database with their property values, optionally filtered.",
+      "app": "notion",
+      "params": {
+        "database_id": {
+          "type": "string",
+          "description": "The database to read."
+        },
+        "filter": {
+          "type": "string",
+          "description": "Property filter expression."
+        }
+      }
+    },
+    {
+      "name": "great_expectations.run_checkpoint",
+      "title": "Run GE checkpoint",
+      "description": "Run a Great Expectations checkpoint to validate data quality against its expectation suites.",
+      "app": "great_expectations",
+      "params": {
+        "checkpoint": {
+          "type": "string",
+          "description": "Checkpoint name."
+        }
+      }
+    },
+    {
+      "name": "great_expectations.validation_results",
+      "title": "GE validation results",
+      "description": "Fetch the results of past Great Expectations validations: which expectations passed or failed per batch.",
+      "app": "great_expectations",
+      "params": {
+        "suite": {
+          "type": "string",
+          "description": "Restrict to one expectation suite."
+        }
+      }
+    },
+    {
+      "name": "monte_carlo.list_incidents",
+      "title": "List data incidents",
+      "description": "List open Monte Carlo data observability incidents such as freshness, volume, and schema anomalies.",
+      "app": "monte_carlo",
+      "params": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "open",
+            "acknowledged",
+            "resolved"
+          ],
+          "description": "Incident status filter."
+        }
+      }
+    },
+    {
+      "name": "monte_carlo.incident_detail",
+      "title": "Incident detail",
+      "description": "Fetch one Monte Carlo incident with the affected tables and the anomaly measurements behind it.",
+      "app": "monte_carlo",
+      "params": {
+        "incident_id": {
+          "type": "string",
+          "description": "The incident to inspect."
+        }
+      }
+    },
+    {
+      "name": "atlan.asset_search",
+      "title": "Search Atlan assets",
+      "description": "Search the Atlan catalog for data assets by name, owner, or classification tag.",
+      "app": "atlan",
+      "params": {
+        "query": {
+          "type": "string",
+          "description": "Asset search text."
+        }
+      }
+    },
+    {
+      "name": "atlan.lineage_graph",
+      "title": "Atlan lineage graph",
+      "description": "Browse the Atlan catalog's lineage view for an asset across configured integrations.",
+      "app": "atlan",
+      "params": {
+        "asset_guid": {
+          "type": "string",
+          "description": "The catalog asset guid."
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "upstream",
+            "downstream",
+            "both"
+          ],
+          "description": "Traversal direction."
+        }
+      }
+    },
+    {
+      "name": "pagerduty.oncall_schedule",
+      "title": "Who is on call",
+      "description": "Show who is currently on call in PagerDuty for a schedule or escalation policy.",
+      "app": "pagerduty",
+      "params": {
+        "schedule_id": {
+          "type": "string",
+          "description": "The schedule to read."
+        }
+      }
+    },
+    {
+      "name": "pagerduty.trigger_incident",
+      "title": "Trigger PagerDuty incident",
+      "description": "Open a new PagerDuty incident against a service to page the on-call responder.",
+      "app": "pagerduty",
+      "params": {
+        "service_id": {
+          "type": "string",
+          "description": "The service to page."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Incident summary line."
+        }
+      }
+    },
+    {
+      "name": "airtable.list_records",
+      "title": "List Airtable records",
+      "description": "List the records of an Airtable table with their field values, optionally filtered by formula.",
+      "app": "airtable",
+      "params": {
+        "base_id": {
+          "type": "string",
+          "description": "Airtable base id."
+        },
+        "table": {
+          "type": "string",
+          "description": "Table name."
+        },
+        "formula": {
+          "type": "string",
+          "description": "filterByFormula expression."
+        }
+      }
+    },
+    {
+      "name": "airtable.record_detail",
+      "title": "Airtable record detail",
+      "description": "Fetch one Airtable record by id with all of its fields.",
+      "app": "airtable",
+      "params": {
+        "base_id": {
+          "type": "string",
+          "description": "Airtable base id."
+        },
+        "record_id": {
+          "type": "string",
+          "description": "The record to fetch."
+        }
+      }
+    },
+    {
+      "name": "duckdb_cloud.upload_extension",
+      "title": "Install DuckDB extension",
+      "description": "Install or update a DuckDB extension in the managed cloud catalog.",
+      "app": "duckdb_cloud",
+      "params": {
+        "extension": {
+          "type": "string",
+          "description": "Extension name."
+        }
+      }
+    },
+    {
+      "name": "sftp.list_dir",
+      "title": "List SFTP directory",
+      "description": "List the files in a remote SFTP directory with sizes and modification times.",
+      "app": "sftp",
+      "params": {
+        "path": {
+          "type": "string",
+          "description": "Remote directory path."
+        }
+      }
+    },
+    {
+      "name": "sftp.download_file",
+      "title": "Download SFTP file",
+      "description": "Download a file from the remote SFTP server to the local staging area.",
+      "app": "sftp",
+      "params": {
+        "path": {
+          "type": "string",
+          "description": "Remote file path."
+        }
+      }
+    },
+    {
+      "name": "openlineage.emit_event",
+      "title": "Emit OpenLineage event",
+      "description": "Emit a run event to an OpenLineage endpoint for an external job start or completion.",
+      "app": "openlineage",
+      "params": {
+        "job": {
+          "type": "string",
+          "description": "Job name."
+        },
+        "event_type": {
+          "type": "string",
+          "enum": [
+            "START",
+            "COMPLETE",
+            "FAIL"
+          ],
+          "description": "Run state."
+        }
+      }
+    },
+    {
+      "name": "openlineage.list_runs",
+      "title": "List OpenLineage runs",
+      "description": "List the recorded OpenLineage runs of a job with their states and input/output datasets.",
+      "app": "openlineage",
+      "params": {
+        "job": {
+          "type": "string",
+          "description": "Job name."
+        }
+      }
+    }
+  ]
+}

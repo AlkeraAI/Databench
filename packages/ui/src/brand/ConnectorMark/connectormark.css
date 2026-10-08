@@ -1,0 +1,22 @@
+/* A distinct dark drawing renders beside the light drawing, and scheme display tokens pick one.
+   A single drawing renders unclassed in both schemes. The svgs scale to the wrapper box. */
+.alk-connmark {
+  display: inline-flex;
+  flex: none;
+}
+/* The plug fallback IS the svg, so it wears the class directly and keeps its own box: its
+   width/height attributes size it, and the shared flex:none above is what stops a long label
+   beside it from squeezing the mark down to a sliver. */
+svg.alk-connmark {
+  display: inline-block;
+}
+.alk-connmark > svg {
+  width: 100%;
+  height: 100%;
+}
+.alk-connmark__light {
+  display: var(--alkLightOnly, none);
+}
+.alk-connmark__dark {
+  display: var(--alkDarkOnly, block);
+}

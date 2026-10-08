@@ -1,0 +1,276 @@
+/* The upload tray: what a drop is doing. Its own sheet, loaded by the tray itself,
+ * so it is styled wherever it is mounted — the Files page and a chat's Files tab —
+ * rather than only after the Files page happened to load its sheet. */
+
+/* The tray sits over the listing's foot: dense one-line rows, never a card per
+ * file — a hundred-file drop must stay one readable block. */
+.alk-files-tray {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  margin-top: auto;
+  background: var(--alkCardBg);
+}
+
+.alk-files-tray:empty {
+  display: none;
+}
+
+/* The scroll cap is the section's and only the section's: a descendant selector
+   also caught the question block inside it, which is a flex child that may shrink
+   to nothing once it scrolls — so the tray showed one line of the question and
+   hid the three choices below it. */
+.alk-files-tray > .alk-files-uploads {
+  max-height: 14rem;
+  overflow-y: auto;
+  /* Set in from the browser's edge like the rows above it. */
+  padding: var(--alkSpace3) var(--alkSpace4);
+  border-top: 1px solid var(--alkDivider);
+  /* The section is a Stack, which starts its children at the left edge at their
+     own width; the head and every row span the tray so the fixed tracks sit where
+     the tray's width says, not where the longest name happens to end. */
+  align-items: stretch;
+}
+
+/* The tray is the container its rows fold against. */
+.alk-files-uploads {
+  container: alk-uploads / inline-size;
+}
+
+.alk-files-uploads__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace3);
+  min-block-size: 1.5rem;
+}
+
+/* The drop's one line and the controls that follow it share the head's right
+   side, so the tray opens with a single line instead of a heading over a
+   paragraph. */
+.alk-files-uploads__head-side {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  min-width: 0;
+}
+
+.alk-files-uploads__batch {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.alk-files-tray .alk-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: var(--alkSpace3);
+  padding: 2px var(--alkSpace4);
+  font-size: var(--alkTextXs);
+}
+
+.alk-files-tray .alk-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-files-tray .alk-code {
+  font-family: var(--alkFontMono);
+}
+
+/* Each row is a named grid, not the generic inline utility: that utility right-aligns its
+ * children, so every row started halfway across the panel behind a wide empty gutter with the
+ * bar and the label crowded at the far edge. */
+.alk-files-uploads__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Every row is set in the tray's small size, name included: the name inherits the
+   page's body size otherwise and reads as a heading over its own progress bar. */
+.alk-files-uploads__row {
+  display: grid;
+  /* Every track is fixed but the name's: the bar, the word and the actions cell never
+     move. With `auto` tracks for the buttons the bar slid left while a row still had
+     Pause and Cancel and jumped right the moment it finished, and with no row height
+     the whole tray reflowed when the buttons went. The word's track holds the longest
+     word the row says ("Waiting for your answer") on one line. */
+  grid-template-columns: minmax(0, 1fr) 8rem 10rem 9rem;
+  align-items: center;
+  column-gap: var(--alkSpace3);
+  row-gap: var(--alkSpace1);
+  min-block-size: 1.75rem;
+  font-size: var(--alkTextSm);
+}
+
+.alk-files-uploads__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--alkSpace1);
+  min-inline-size: 0;
+}
+
+/* The word stays on one line: a status wrapped over two lines beside a bar read as two
+   rows. In the narrow fold below it gets a column of its own instead. */
+.alk-files-uploads__status {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: end;
+}
+
+.alk-files-uploads__why {
+  grid-column: 1 / -1;
+  color: var(--alkDangerText);
+  font-size: var(--alkTextXs);
+}
+
+/* The name wraps rather than truncates. Three fixed tracks sit beside it, so in a
+   narrow listing the name's track is squeezed to a few glyphs — and a nowrap
+   ellipsis there renders every row in a batch as "q…", which is the one thing a
+   person needs to attribute a failure to a file. Wrapping grows the row instead. */
+.alk-files-uploads__row > .alk-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+/* The question a taken name raises, under the row it is about (or above the list
+   when its row is not shown): the sentence, what Replace does, and the three
+   choices in one row — all at the tray's own size, never the page's. */
+.alk-files-uploads__conflict {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--alkSpace1);
+  padding-block: 0 var(--alkSpace2);
+  font-size: var(--alkTextSm);
+}
+
+.alk-files-uploads__conflict > p {
+  margin: 0;
+}
+
+.alk-files-uploads__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace1);
+}
+
+/* The bar. Unstyled, a `<progress>` paints the browser's default — which in Chromium is RED, the
+ * product's colour for failure, behind six rows that all read "Uploaded". Every state names its
+ * own token: brand while it runs, success when it lands, danger only when it actually failed. */
+.alk-files-uploads__bar {
+  appearance: none;
+  -webkit-appearance: none;
+  inline-size: 100%;
+  block-size: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--alkInsetBg);
+  color: var(--alkBrand);
+}
+
+.alk-files-uploads__bar::-webkit-progress-bar {
+  border-radius: 999px;
+  background: var(--alkInsetBg);
+}
+
+.alk-files-uploads__bar::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--alkBrand);
+}
+
+.alk-files-uploads__bar::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--alkBrand);
+}
+
+.alk-files-uploads__bar[data-state="done"] {
+  color: var(--alkSuccess);
+}
+
+.alk-files-uploads__bar[data-state="done"]::-webkit-progress-value {
+  background: var(--alkSuccess);
+}
+
+.alk-files-uploads__bar[data-state="done"]::-moz-progress-bar {
+  background: var(--alkSuccess);
+}
+
+.alk-files-uploads__bar[data-state="failed"],
+.alk-files-uploads__bar[data-state="cancelled"] {
+  color: var(--alkDanger);
+}
+
+.alk-files-uploads__bar[data-state="failed"]::-webkit-progress-value,
+.alk-files-uploads__bar[data-state="cancelled"]::-webkit-progress-value {
+  background: var(--alkDanger);
+}
+
+.alk-files-uploads__bar[data-state="failed"]::-moz-progress-bar,
+.alk-files-uploads__bar[data-state="cancelled"]::-moz-progress-bar {
+  background: var(--alkDanger);
+}
+
+.alk-files-uploads__bar[data-state="paused"] {
+  color: var(--alkWarning);
+}
+
+.alk-files-uploads__bar[data-state="paused"]::-webkit-progress-value {
+  background: var(--alkWarning);
+}
+
+.alk-files-uploads__bar[data-state="paused"]::-moz-progress-bar {
+  background: var(--alkWarning);
+}
+
+/* A narrow tray cannot fit the four tracks beside a name. Keyed to the tray's own
+   width, not the viewport's: the tray sits in a Files listing beside a details pane
+   and in a chat's side pane, both far narrower than the window, and a viewport rule
+   left the fixed tracks wider than the tray there, so the word and the actions ran
+   past its edge. In the fold a row is three lines: the name with the word at its
+   right, the bar across the row, then the actions when the row has any. */
+@container alk-uploads (max-width: 36rem) {
+  .alk-files-uploads__row {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+
+  .alk-files-uploads__row > .alk-name {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .alk-files-uploads__status {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .alk-files-uploads__bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .alk-files-uploads__actions {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-content: flex-start;
+  }
+
+  .alk-files-uploads__actions:empty {
+    display: none;
+  }
+}
+
+.alk-files-uploads__batch[data-stopped="true"] {
+  color: var(--alkDangerText);
+}

@@ -1,0 +1,22 @@
+/* Inline — a horizontal flex cluster (see Inline.tsx): a gapped, wrapping, vertically-centred row.
+   `display: inline-flex` so it sits in a line of content like the cluster it is; the `gap` prop drives
+   --alk-inline-gap (default 8px). align/justify/wrap are set inline by the component. */
+.alk-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--alk-inline-gap, var(--alkSpace3));
+  /* Cap at the container even inside a non-stretching parent (a Stack column is flex-start): a
+     nowrap cluster otherwise sizes to max-content and runs out of its column instead of letting its
+     truncating children clamp — the knowledge-row overlap class of bug. */
+  max-width: 100%;
+}
+/* grow — fill the remaining space in the parent flex container (a cluster taking the leftover row). */
+.alk-inline:where([data-grow]) {
+  flex: 1;
+}
+/* block — a full-width flex row for use directly inside a block container (a Card body's settings
+   row), where the inline-flex default would shrink-fit or share a line. */
+.alk-inline:where([data-block]) {
+  display: flex;
+}

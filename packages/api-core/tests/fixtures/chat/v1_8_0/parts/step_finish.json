@@ -1,0 +1,16 @@
+{
+  "cost": 0.01,
+  "message_id": "m1",
+  "metadata": {},
+  "part_id": "p1",
+  "provider_metadata": {},
+  "reason": "stop",
+  "schema_version": "1.0.0",
+  "snapshot": null,
+  "time": "2026-05-26T00:00:00Z",
+  "tokens": {
+    "input": 100,
+    "output": 50
+  },
+  "type": "step_finish"
+}

@@ -1,0 +1,50 @@
+{
+  "$model": "alkera_core.schemas.files.acl.AclBody",
+  "entries": [
+    {
+      "conditions": null,
+      "expires_at": null,
+      "metadata": {},
+      "origin": {
+        "kind": "direct",
+        "metadata": {},
+        "schema_version": "1.0.0"
+      },
+      "principal_id": "e7c0f4a4-1f8e-4a6e-9b06-1f3d1e1a0001",
+      "principal_kind": "user",
+      "role": "owner",
+      "schema_version": "1.0.0"
+    },
+    {
+      "conditions": null,
+      "expires_at": null,
+      "metadata": {},
+      "origin": {
+        "ancestor_node_id": "1a2b3c4d-5e6f-4071-8293-a4b5c6d7e8f9",
+        "kind": "inherited",
+        "metadata": {},
+        "schema_version": "1.0.0"
+      },
+      "principal_id": "6f1d2a3b-0c4e-4d5f-8a91-2b3c4d5e6f70",
+      "principal_kind": "team",
+      "role": "writer",
+      "schema_version": "1.0.0"
+    },
+    {
+      "conditions": null,
+      "expires_at": null,
+      "metadata": {},
+      "origin": {
+        "kind": "drive_default",
+        "metadata": {},
+        "schema_version": "1.0.0"
+      },
+      "principal_id": "9c8b7a65-4321-4fed-8cba-098765432100",
+      "principal_kind": "org",
+      "role": "reader",
+      "schema_version": "1.0.0"
+    }
+  ],
+  "metadata": {},
+  "schema_version": "1.0.0"
+}

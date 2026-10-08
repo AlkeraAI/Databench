@@ -1,0 +1,22 @@
+{#
+  Shared call-to-action: an olive button plus a copy-pasteable raw link, because email
+  clients can mangle or strip buttons and the link is the whole point of the message.
+  Jinja2 escapes `url`/`label`; the macro's own markup is emitted safe.
+#}
+{% macro cta(url, label) -%}
+<mj-button
+  href="{{ url }}"
+  background-color="{{ tokens.CTA_BG }}"
+  color="{{ tokens.CTA_TEXT }}"
+  border-radius="{{ tokens.RADIUS }}"
+  font-size="15px"
+  font-weight="600"
+  inner-padding="12px 28px"
+  padding="8px 0 4px"
+  align="center"
+>{{ label }}</mj-button>
+<mj-text font-size="12px" line-height="1.5" color="{{ tokens.MUTED }}">
+  Or paste this link into your browser:<br />
+  <a href="{{ url }}" style="color: {{ tokens.CTA_BG }}; word-break: break-all;">{{ url }}</a>
+</mj-text>
+{%- endmacro %}

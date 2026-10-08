@@ -1,0 +1,549 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "0000000001": {
+        "defs": [
+          "alkera",
+          "pl"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000011": {
+        "defs": [
+          "df"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000011",
+              "0000000012",
+              "0000000014",
+              "0000000015",
+              "0000000016",
+              "0000000017",
+              "0000000018",
+              "0000000021"
+            ],
+            "code": "multiple_definitions",
+            "name": "df"
+          }
+        ],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": []
+      },
+      "0000000012": {
+        "defs": [
+          "df"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000011",
+              "0000000012",
+              "0000000014",
+              "0000000015",
+              "0000000016",
+              "0000000017",
+              "0000000018",
+              "0000000021"
+            ],
+            "code": "multiple_definitions",
+            "name": "df"
+          }
+        ],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": [
+          "analytics.orders"
+        ]
+      },
+      "0000000013": {
+        "defs": [
+          "t"
+        ],
+        "errors": [],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": []
+      },
+      "0000000014": {
+        "defs": [
+          "df"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000011",
+              "0000000012",
+              "0000000014",
+              "0000000015",
+              "0000000016",
+              "0000000017",
+              "0000000018",
+              "0000000021"
+            ],
+            "code": "multiple_definitions",
+            "name": "df"
+          }
+        ],
+        "refs": [
+          "alkera",
+          "df",
+          "limit"
+        ],
+        "sql_tables": [
+          "df"
+        ]
+      },
+      "0000000015": {
+        "defs": [
+          "df"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000011",
+              "0000000012",
+              "0000000014",
+              "0000000015",
+              "0000000016",
+              "0000000017",
+              "0000000018",
+              "0000000021"
+            ],
+            "code": "multiple_definitions",
+            "name": "df"
+          }
+        ],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": []
+      },
+      "0000000016": {
+        "defs": [
+          "df"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000011",
+              "0000000012",
+              "0000000014",
+              "0000000015",
+              "0000000016",
+              "0000000017",
+              "0000000018",
+              "0000000021"
+            ],
+            "code": "multiple_definitions",
+            "name": "df"
+          }
+        ],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": [
+          "people"
+        ]
+      },
+      "0000000017": {
+        "defs": [
+          "df"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000011",
+              "0000000012",
+              "0000000014",
+              "0000000015",
+              "0000000016",
+              "0000000017",
+              "0000000018",
+              "0000000021"
+            ],
+            "code": "multiple_definitions",
+            "name": "df"
+          }
+        ],
+        "refs": [
+          "alkera",
+          "t"
+        ],
+        "sql_tables": [
+          "t"
+        ]
+      },
+      "0000000018": {
+        "defs": [
+          "df"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000011",
+              "0000000012",
+              "0000000014",
+              "0000000015",
+              "0000000016",
+              "0000000017",
+              "0000000018",
+              "0000000021"
+            ],
+            "code": "multiple_definitions",
+            "name": "df"
+          }
+        ],
+        "refs": [
+          "alkera",
+          "t"
+        ],
+        "sql_tables": [
+          "t"
+        ]
+      },
+      "0000000019": {
+        "defs": [
+          "quoted"
+        ],
+        "errors": [],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": []
+      },
+      "0000000020": {
+        "defs": [
+          "empty"
+        ],
+        "errors": [],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": []
+      },
+      "0000000021": {
+        "defs": [
+          "df"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000011",
+              "0000000012",
+              "0000000014",
+              "0000000015",
+              "0000000016",
+              "0000000017",
+              "0000000018",
+              "0000000021"
+            ],
+            "code": "multiple_definitions",
+            "name": "df"
+          }
+        ],
+        "refs": [
+          "alkera",
+          "t"
+        ],
+        "sql_tables": [
+          "t"
+        ]
+      }
+    },
+    "edges": [
+      [
+        "0000000001",
+        "0000000011"
+      ],
+      [
+        "0000000001",
+        "0000000012"
+      ],
+      [
+        "0000000001",
+        "0000000013"
+      ],
+      [
+        "0000000001",
+        "0000000014"
+      ],
+      [
+        "0000000001",
+        "0000000015"
+      ],
+      [
+        "0000000001",
+        "0000000016"
+      ],
+      [
+        "0000000001",
+        "0000000017"
+      ],
+      [
+        "0000000001",
+        "0000000018"
+      ],
+      [
+        "0000000001",
+        "0000000019"
+      ],
+      [
+        "0000000001",
+        "0000000020"
+      ],
+      [
+        "0000000001",
+        "0000000021"
+      ],
+      [
+        "0000000011",
+        "0000000014"
+      ],
+      [
+        "0000000012",
+        "0000000014"
+      ],
+      [
+        "0000000013",
+        "0000000017"
+      ],
+      [
+        "0000000013",
+        "0000000018"
+      ],
+      [
+        "0000000013",
+        "0000000021"
+      ],
+      [
+        "0000000015",
+        "0000000014"
+      ],
+      [
+        "0000000016",
+        "0000000014"
+      ],
+      [
+        "0000000017",
+        "0000000014"
+      ],
+      [
+        "0000000018",
+        "0000000014"
+      ],
+      [
+        "0000000021",
+        "0000000014"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "import alkera\nimport polars as pl",
+        "config": {},
+        "extra": {},
+        "id": "0000000001",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "keyword",
+        "source": "import alkera\nimport polars as pl"
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT 1 AS one\n    \"\"\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000011",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "df",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT 1 AS one"
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT order_id\n    FROM analytics.orders\n    \"\"\",\n    connection=\"Warehouse\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000012",
+        "kind": "sql",
+        "meta": {
+          "connection": "Warehouse",
+          "engine": null,
+          "output_var": "df",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT order_id\nFROM analytics.orders"
+      },
+      {
+        "code": "_t = alkera.sql(\n    rf\"\"\"\n    CREATE TABLE t AS SELECT 1\n    \"\"\",\n    output=False,\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000013",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "_t",
+          "show_output": false
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "CREATE TABLE t AS SELECT 1"
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT * FROM df LIMIT {limit}\n    \"\"\",\n    connection=\"Lake\",\n    output=False,\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000014",
+        "kind": "sql",
+        "meta": {
+          "connection": "Lake",
+          "engine": null,
+          "output_var": "df",
+          "show_output": false
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT * FROM df LIMIT {limit}"
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT '{{\"a\": 1}}'::JSON AS j\n    \"\"\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000015",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "df",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT '{{\"a\": 1}}'::JSON AS j"
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT regexp_matches(name, '\\d+\\s*$') FROM people\n    \"\"\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000016",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "df",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT regexp_matches(name, '\\d+\\s*$') FROM people"
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT * FROM t WHERE name = 'O''Brien'\n    \"\"\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000017",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "df",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT * FROM t WHERE name = 'O''Brien'"
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT * FROM t WHERE name = \"x\"\n    \"\"\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000018",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "df",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT * FROM t WHERE name = \"x\""
+      },
+      {
+        "code": "quoted = alkera.sql('SELECT \"\"\"x\"\"\" AS q')",
+        "config": {},
+        "extra": {},
+        "id": "0000000019",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "quoted = alkera.sql('SELECT \"\"\"x\"\"\" AS q')"
+      },
+      {
+        "code": "empty = alkera.sql(\n    rf\"\"\"\n\n    \"\"\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000020",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "empty",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": ""
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n\n      -- indented comment\n    FROM t\n    \"\"\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000021",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "df",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT 1\n\n  -- indented comment\nFROM t"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

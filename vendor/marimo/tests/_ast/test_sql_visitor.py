@@ -1,0 +1,1113 @@
+from __future__ import annotations
+
+import ast
+from textwrap import dedent
+
+import pytest
+
+from marimo._ast.sql_visitor import (
+    SQLDefs,
+    SQLRef,
+    SQLVisitor,
+    find_sql_defs,
+    find_sql_refs,
+)
+from marimo._dependencies.dependencies import DependencyManager
+
+HAS_DUCKDB = DependencyManager.duckdb.has()
+HAS_SQLGLOT = DependencyManager.sqlglot.has()
+
+
+def test_execute_with_string_literal() -> None:
+    source_code = "db.execute('SELECT * FROM users')"
+    tree = ast.parse(source_code)
+    visitor = SQLVisitor()
+    visitor.visit(tree)
+    assert visitor.get_sqls() == ["SELECT * FROM users"]
+
+
+def test_sql_with_string_literal() -> None:
+    source_code = "db.sql('UPDATE users SET name = \\'Alice\\' WHERE id = 1')"
+    tree = ast.parse(source_code)
+    visitor = SQLVisitor()
+    visitor.visit(tree)
+    assert visitor.get_sqls() == [
+        "UPDATE users SET name = 'Alice' WHERE id = 1"
+    ]
+
+
+def test_execute_with_f_string() -> None:
+    source_code = 'db.execute(f"SELECT * FROM users WHERE name = {name}")'
+    tree = ast.parse(source_code)
+    visitor = SQLVisitor()
+    visitor.visit(tree)
+    assert visitor.get_sqls() == ["SELECT * FROM users WHERE name = 1"]
+
+
+def test_no_sql_calls() -> None:
+    source_code = "print('Hello, world!')"
+    tree = ast.parse(source_code)
+    visitor = SQLVisitor()
+    visitor.visit(tree)
+    assert visitor.get_sqls() == []
+
+
+def test_sql_with_multiple_arguments() -> None:
+    source_code = (
+        "db.sql('SELECT * FROM users', 'This should not be captured')"
+    )
+    tree = ast.parse(source_code)
+    visitor = SQLVisitor()
+    visitor.visit(tree)
+    assert visitor.get_sqls() == ["SELECT * FROM users"]
+
+
+def test_multiple_sql_calls() -> None:
+    source_code = dedent(
+        """
+        a = db.sql('SELECT * FROM users', 'This should not be captured')
+        b = db.sql('ALTER TABLE users ADD COLUMN name TEXT')
+        c = db.sql('UPDATE users SET name = \\'Alice\\' WHERE id = 1')
+        """
+    )
+    tree = ast.parse(source_code)
+    visitor = SQLVisitor()
+    visitor.visit(tree)
+    assert visitor.get_sqls() == [
+        "SELECT * FROM users",
+        "ALTER TABLE users ADD COLUMN name TEXT",
+        "UPDATE users SET name = 'Alice' WHERE id = 1",
+    ]
+
+
+def test_sql_with_variable() -> None:
+    source_code = dedent(
+        """
+      var = f"SELECT * FROM users WHERE name = {name}"
+      db.sql(var)
+    """
+    )
+    tree = ast.parse(source_code)
+    visitor = SQLVisitor()
+    visitor.visit(tree)
+    assert visitor.get_sqls() == []
+
+
+@pytest.mark.skipif(not HAS_DUCKDB, reason="Missing DuckDB")
+class TestFindSQLDefs:
+    @staticmethod
+    def test_find_sql_defs_simple() -> None:
+        sql = "CREATE TABLE test_table (id INT, name VARCHAR(255));"
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="test_table")]
+        )
+
+        sql = "CREATE VIEW test_view (id INT, name VARCHAR(255));"
+        assert find_sql_defs(sql) == SQLDefs(views=[SQLRef(table="test_view")])
+
+    @staticmethod
+    def test_find_sql_defs_multiple() -> None:
+        sql = """
+        CREATE TABLE table1 (id INT);
+        CREATE TABLE table2 (name VARCHAR(255));
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[
+                SQLRef(table="table1"),
+                SQLRef(table="table2"),
+            ],
+        )
+
+        sql = """
+        CREATE VIEW table1 (id INT);
+        CREATE VIEW table2 (name VARCHAR(255));
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            views=[
+                SQLRef(table="table1"),
+                SQLRef(table="table2"),
+            ],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_with_comments() -> None:
+        sql = """
+        CREATE TABLE
+        -- This is a comment
+        IF NOT EXISTS
+        -- This is another comment
+        table1 (id INT);
+        -- This is a comment
+        CREATE TABLE table2 (name VARCHAR(255));
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[
+                SQLRef(table="table1"),
+                SQLRef(table="table2"),
+            ],
+        )
+
+        sql = """
+        CREATE VIEW
+        -- This is a comment
+        IF NOT EXISTS
+        -- This is another comment
+        table1 (id INT);
+        -- This is a comment
+        CREATE VIEW table2 (name VARCHAR(255));
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            views=[
+                SQLRef(table="table1"),
+                SQLRef(table="table2"),
+            ],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_with_or_replace() -> None:
+        sql = "CREATE OR REPLACE TABLE test_table (id INT);"
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="test_table")]
+        )
+
+        sql = "CREATE OR REPLACE VIEW test_view (id INT);"
+        assert find_sql_defs(sql) == SQLDefs(views=[SQLRef(table="test_view")])
+
+    @staticmethod
+    def test_find_sql_defs_temporary() -> None:
+        sql = "CREATE TEMPORARY TABLE temp_table (id INT);"
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="temp_table")],
+        )
+
+        sql = "CREATE TEMPORARY VIEW temp_table (id INT);"
+        assert find_sql_defs(sql) == SQLDefs(
+            views=[SQLRef(table="temp_table")],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_if_not_exists() -> None:
+        sql = "CREATE TABLE IF NOT EXISTS new_table (id INT);"
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="new_table")],
+        )
+
+        sql = "CREATE VIEW IF NOT EXISTS new_table (id INT);"
+        assert find_sql_defs(sql) == SQLDefs(views=[SQLRef(table="new_table")])
+
+    @staticmethod
+    def test_find_sql_defs_complex() -> None:
+        sql = """
+        CREATE TABLE table1 (id INT);
+        CREATE OR REPLACE TEMPORARY TABLE IF NOT EXISTS table2 (name VARCHAR(255));
+        CREATE TABLE table3 (date DATE);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[
+                SQLRef(table="table1"),
+                SQLRef(table="table2"),
+                SQLRef(table="table3"),
+            ],
+        )
+
+        sql = """
+        CREATE VIEW table1 (id INT);
+        CREATE OR REPLACE TEMPORARY VIEW IF NOT EXISTS table2 (name VARCHAR(255));
+        CREATE VIEW table3 (date DATE);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            views=[
+                SQLRef(table="table1"),
+                SQLRef(table="table2"),
+                SQLRef(table="table3"),
+            ],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_no_create() -> None:
+        sql = "SELECT * FROM existing_table;"
+        assert find_sql_defs(sql) == SQLDefs()
+
+    @staticmethod
+    def test_find_sql_defs_case_insensitive() -> None:
+        sql = "create TABLE Test_Table (id INT);"
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="test_table")],
+        )
+
+        sql = "create VIEW Test_Table (id INT);"
+        assert find_sql_defs(sql) == SQLDefs(
+            views=[SQLRef(table="test_table")]
+        )
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "",
+            "   ",
+            ";",
+        ],
+    )
+    def test_find_sql_defs_empty_input(
+        query: str,
+    ) -> None:
+        assert find_sql_defs(query) == SQLDefs()
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "query",
+        [
+            """
+            -- This is a comment
+            CREATE TABLE my_table (
+                my_column INT, -- Inline comment
+                my_other_column INT
+            )
+            """,
+            """
+            /* Multi-line
+            comment */
+            CREATE OR REPLACE TABLE my_table (
+                my_column INT,
+                my_other_column INT
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS my_table
+            -- Comment before AS
+            AS
+            /* Comment
+            before SELECT */
+            SELECT * FROM read_csv()
+            """,
+            """
+            CREATE TEMPORARY TABLE my_table AS
+            -- Comment in the middle
+            SELECT * FROM existing_table
+            """,
+            """
+            -- Comment at the start
+            CREATE OR REPLACE TEMP TABLE IF NOT EXISTS my_table (
+                id INT, -- Comment after column
+                name VARCHAR
+            ) -- Comment at the end
+            """,
+        ],
+    )
+    def test_find_sql_defs_many_comments(
+        query: str,
+    ) -> None:
+        assert find_sql_defs(query) == SQLDefs(
+            tables=[SQLRef(table="my_table")],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_weird_names() -> None:
+        sql = r"""
+        CREATE TABLE "my--table" (
+            "column/*with*/comment" INT,
+            "another--column" VARCHAR
+        );
+
+        CREATE TABLE my_table_with_select AS
+        SELECT *
+        FROM (
+            VALUES
+            ('a', 1),
+            ('b', 2)
+        ) AS t("col--1", "col--2");
+
+        CREATE TABLE "my/*weird*/table" (id INT);
+
+        CREATE TABLE "with a space" (id INT);
+
+        CREATE TABLE 'single-quotes' (id INT);
+        CREATE TABLE e'escaped\ntable' (id INT);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[
+                SQLRef(table="my--table"),
+                SQLRef(table="my_table_with_select"),
+                SQLRef(table="my/*weird*/table"),
+                SQLRef(table="with a space"),
+                SQLRef(table="single-quotes"),
+                SQLRef(table=r"escaped\ntable"),
+            ],
+        )
+
+    @staticmethod
+    def test_find_created_database() -> None:
+        sql = "ATTACH 'Chinook.sqlite';"
+        assert find_sql_defs(sql) == SQLDefs(
+            catalogs=["Chinook"],
+        )
+
+        sql = "ATTACH 'Chinook.sqlite' AS my_db;"
+        assert find_sql_defs(sql) == SQLDefs(
+            catalogs=["my_db"],
+        )
+        sql = "ATTACH DATABASE 'Chinook.sqlite';"
+        assert find_sql_defs(sql) == SQLDefs(
+            catalogs=["Chinook"],
+        )
+
+        sql = "ATTACH DATABASE IF NOT EXISTS 'Chinook.sqlite';"
+        assert find_sql_defs(sql) == SQLDefs(
+            catalogs=["Chinook"],
+        )
+
+        sql = "ATTACH DATABASE IF NOT EXISTS 'Chinook.sqlite' AS my_db;"
+        assert find_sql_defs(sql) == SQLDefs(
+            catalogs=["my_db"],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_attach_with_colon() -> None:
+        sql = "ATTACH 'md:my_db'"
+        assert find_sql_defs(sql) == SQLDefs(
+            catalogs=["my_db"],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_with_catalog() -> None:
+        sql = """
+        CREATE TABLE my_catalog.my_table (id INT);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="my_table", schema="my_catalog")],
+            reffed_catalogs=["my_catalog"],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_create_or_replace_with_catalog() -> None:
+        sql = """
+        CREATE OR REPLACE TABLE my_db.my_table as (SELECT 42);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="my_table", schema="my_db")],
+            reffed_catalogs=["my_db"],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_with_catalog_and_schema() -> None:
+        sql = """
+        CREATE TABLE my_catalog.my_schema.my_table (id INT);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[
+                SQLRef(
+                    table="my_table", catalog="my_catalog", schema="my_schema"
+                )
+            ],
+            reffed_catalogs=["my_catalog"],
+            reffed_schemas=["my_schema"],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_with_catalog_and_main() -> None:
+        sql = """
+        CREATE TABLE my_catalog.main.my_table (id INT);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[
+                SQLRef(table="my_table", catalog="my_catalog", schema="main")
+            ],
+            reffed_catalogs=["my_catalog"],
+            reffed_schemas=[],  # main not included, since that is the default
+        )
+
+    @staticmethod
+    def test_find_sql_defs_create_schema() -> None:
+        sql = """
+        CREATE SCHEMA my_catalog.my_schema;
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            schemas=["my_schema"],
+            reffed_catalogs=["my_catalog"],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_with_in_memory_catalog_and_schema() -> None:
+        sql = """
+        CREATE TABLE memory.main.my_table (id INT);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="my_table", catalog="memory", schema="main")],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_with_in_memory_catalog() -> None:
+        sql = """
+        CREATE TABLE memory.my_table (id INT);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="my_table", schema="memory")],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_with_temp_table() -> None:
+        sql = """
+        CREATE TEMP TABLE my_temp_table (id INT);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="my_temp_table")],
+        )
+
+    @staticmethod
+    def test_find_sql_defs_with_if_not_exists() -> None:
+        sql = """
+        CREATE TABLE IF NOT EXISTS my_table (id INT);
+        """
+        assert find_sql_defs(sql) == SQLDefs(
+            tables=[SQLRef(table="my_table")],
+        )
+
+
+@pytest.mark.skipif(
+    HAS_DUCKDB, reason="Test requires DuckDB to be unavailable"
+)
+def test_find_sql_defs_duckdb_not_available() -> None:
+    assert find_sql_defs("CREATE TABLE test (id INT);") == SQLDefs()
+
+
+class TestSQLRefsConvertName:
+    def test_simple(self) -> None:
+        ref = SQLRef(table="test_table")
+        assert ref.qualified_name == "test_table"
+
+    def test_with_catalog(self) -> None:
+        ref = SQLRef(table="test_table", catalog="test_catalog")
+        assert ref.qualified_name == "test_catalog.test_table"
+
+    def test_with_schema(self) -> None:
+        ref = SQLRef(table="test_table", schema="test_schema")
+        assert ref.qualified_name == "test_schema.test_table"
+
+    def test_with_catalog_and_schema(self) -> None:
+        ref = SQLRef(
+            table="test_table", catalog="test_catalog", schema="test_schema"
+        )
+        assert ref.qualified_name == "test_catalog.test_schema.test_table"
+
+    def test_with_catalog_and_table(self) -> None:
+        ref = SQLRef(table="test_table", catalog="test_catalog")
+        assert ref.qualified_name == "test_catalog.test_table"
+
+
+@pytest.mark.skipif(not HAS_SQLGLOT, reason="Missing sqlglot")
+class TestFindSQLRefs:
+    def test_simple(self) -> None:
+        sql = "SELECT * FROM test_table;"
+        assert find_sql_refs(sql) == {SQLRef(table="test_table")}
+
+    def test_multiple(self) -> None:
+        sql = """
+        SELECT * FROM table1;
+        SELECT * FROM table2;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+        }
+
+    def test_without_duplicates(self) -> None:
+        sql = """
+        SELECT * FROM table1;
+        SELECT * FROM table2;
+        SELECT * FROM table1;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+        }
+
+    def test_with_function(self) -> None:
+        sql = """
+        SELECT *, embedding(text) as text_embedding
+        FROM prompts;
+        """
+        assert find_sql_refs(sql) == {SQLRef(table="prompts")}
+
+    def test_with_schema(self) -> None:
+        sql = "SELECT * FROM schema1.table1;"
+        assert find_sql_refs(sql) == {SQLRef(table="table1", schema="schema1")}
+
+    def test_with_catalog(self) -> None:
+        sql = "SELECT * FROM catalog1.schema1.table1;"
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1", schema="schema1", catalog="catalog1")
+        }
+
+    def test_memory_catalog(self) -> None:
+        sql = "SELECT * FROM memory.main.table1;"
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1", schema="main", catalog="memory")
+        }
+
+    def test_with_multiple_tables(self) -> None:
+        sql = "SELECT * FROM table1 JOIN table2 ON table1.id = table2.id;"
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+        }
+
+    def test_with_join_schema(self) -> None:
+        sql = "SELECT * FROM schema1.table1 JOIN schema2.table2 ON table1.id = table2.id;"
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1", schema="schema1"),
+            SQLRef(table="table2", schema="schema2"),
+        }
+
+    def test_with_subquery(self) -> None:
+        sql = "SELECT * FROM table1 WHERE id IN (SELECT id FROM table2);"
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table2"),
+            SQLRef(table="table1"),
+        }
+
+    def test_with_subquery_2(self) -> None:
+        sql = """
+        SELECT * FROM (
+            SELECT * FROM inner_table
+        ) t;
+        """
+        assert find_sql_refs(sql) == {SQLRef(table="inner_table")}
+
+    def test_with_cte(self) -> None:
+        sql = """
+        WITH cte AS (
+            SELECT * FROM source_table
+        )
+        SELECT * FROM cte;
+        """
+        assert find_sql_refs(sql) == {SQLRef(table="source_table")}
+
+    def test_with_union(self) -> None:
+        sql = """
+        SELECT * FROM table1
+        UNION
+        SELECT * FROM table2;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+        }
+
+    def test_with_quoted_names(self) -> None:
+        sql = """
+        SELECT * FROM "My Table"
+        JOIN "Weird.Name" ON "My Table".id = "Weird.Name".id;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="My Table"),
+            SQLRef(table="Weird.Name"),
+        }
+
+    def test_with_multiple_ctes(self) -> None:
+        sql = """
+        WITH
+            cte1 AS (SELECT * FROM table1),
+            cte2 AS (SELECT * FROM table2),
+            cte3 AS (SELECT * FROM cte1 JOIN cte2)
+        SELECT * FROM cte3;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+        }
+
+    def test_with_nested_joins(self) -> None:
+        sql = """
+        SELECT * FROM t1
+        JOIN (t2 JOIN t3 ON t2.id = t3.id)
+        ON t1.id = t2.id;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="t1"),
+            SQLRef(table="t2"),
+            SQLRef(table="t3"),
+        }
+
+    def test_with_lateral_join(self) -> None:
+        sql = """
+        SELECT * FROM employees,
+        LATERAL (SELECT * FROM departments WHERE departments.id = employees.dept_id) dept;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="departments"),
+            SQLRef(table="employees"),
+        }
+
+    def test_with_schema_switching(self) -> None:
+        sql = """
+        SELECT * FROM schema1.table1
+        JOIN schema2.table2 ON schema1.table1.id = schema2.table2.id;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1", schema="schema1"),
+            SQLRef(table="table2", schema="schema2"),
+        }
+
+    def test_with_complex_subqueries(self) -> None:
+        sql = """
+        SELECT * FROM (
+            SELECT * FROM (
+                SELECT * FROM deeply.nested.table
+            ) t1
+            JOIN another_table
+        ) t2;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table", schema="nested", catalog="deeply"),
+            SQLRef(table="another_table"),
+        }
+
+    def test_nested_intersect(self) -> None:
+        sql = """
+        SELECT * FROM table1
+        WHERE id IN (
+            SELECT id FROM table2
+            UNION
+            SELECT id FROM table3
+            INTERSECT
+            SELECT id FROM table4
+        );
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table2"),
+            SQLRef(table="table3"),
+            SQLRef(table="table4"),
+            SQLRef(table="table1"),
+        }
+
+    def test_with_alias(self) -> None:
+        sql = "SELECT * FROM employees AS e;"
+        assert find_sql_refs(sql) == {SQLRef(table="employees")}
+
+    def test_comment(self) -> None:
+        sql = """
+        -- comment
+        SELECT * FROM table1;
+        -- comment
+        """
+        assert find_sql_refs(sql) == {SQLRef(table="table1")}
+
+    def test_ddl(self) -> None:
+        # we are not referencing any table hence no refs
+        sql = "CREATE TABLE t1 (id int);"
+        assert find_sql_refs(sql) == set()
+
+    def test_ddl_with_reference(self) -> None:
+        sql = """
+        CREATE TABLE table2 AS
+        WITH x AS (
+            SELECT * from table1
+        )
+        SELECT * FROM x;
+        """
+        assert find_sql_refs(sql) == {SQLRef(table="table1")}
+
+    def test_update(self) -> None:
+        sql = "UPDATE my_schema.table1 SET id = 1"
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1", schema="my_schema")
+        }
+
+    def test_insert(self) -> None:
+        sql = "INSERT INTO my_schema.table1 (id INT) VALUES (1,2);"
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1", schema="my_schema")
+        }
+
+    def test_delete(self) -> None:
+        sql = "DELETE FROM my_schema.table1 WHERE true;"
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1", schema="my_schema")
+        }
+
+    def test_multi_dml(self) -> None:
+        sql = """
+        INSERT INTO table1 (id INT) VALUES (1,2);
+        DELETE FROM table2 WHERE true;
+        UPDATE table3 SET id = 1;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+            SQLRef(table="table3"),
+        }
+
+    def test_multiple_selects_in_update(self) -> None:
+        sql = """
+        UPDATE schema1.table1
+        SET table1.column1 = (
+            SELECT table2.column2 FROM schema2.table2
+        ),
+        table1.column3 = (
+            SELECT table3.column3 FROM table3
+        )
+        WHERE EXISTS (
+            SELECT 1 FROM table2
+        )
+        AND table1.column4 IN (
+            SELECT table4.column4 FROM table4
+        );
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1", schema="schema1"),
+            SQLRef(table="table2", schema="schema2"),
+            SQLRef(table="table3"),
+            SQLRef(table="table2"),  # Table2 comes from main schema
+            SQLRef(table="table4"),
+        }
+
+    def test_select_in_insert(self) -> None:
+        sql = """
+        INSERT INTO table1 (column1, column2)
+        SELECT column1, column2 FROM table2
+        WHERE column3 = 'value';
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+        }
+
+    def test_select_in_delete(self) -> None:
+        sql = """
+        DELETE FROM table1
+        WHERE column1 IN (
+            SELECT column1 FROM table2
+            WHERE column2 = 'value'
+        );
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+        }
+
+    def test_invalid_sql(self) -> None:
+        sql = "SELECT * FROM"
+        assert find_sql_refs(sql) == set()
+
+    def test_dml_with_subquery(self) -> None:
+        # first
+        sql = """
+        insert into table1 (column1) select distinct column1 from table2 order by random();
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+        }
+
+        # second
+        sql = """
+        update table3 set column1=(select column2 from table1 t where t.column1=table3.column1);
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table3"),
+            SQLRef(table="table1"),
+        }
+
+        # combined
+        sql = """
+        insert into table1 (column1) select distinct column1 from table2 order by random();
+        update table3 set column1=(select column2 from table1 t where t.column1=table3.column1);
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+            SQLRef(table="table3"),
+        }
+
+    def test_with_regex(self) -> None:
+        # regex and replacement
+        sql = """
+        SELECT name, REGEXP_REPLACE(name, '^.*/', '') regex_name
+        FROM pdb.database
+        LIMIT 10;
+        """
+        assert find_sql_refs(sql) == {SQLRef(table="database", schema="pdb")}
+
+    def test_read_file_and_urls(self) -> None:
+        sql = "SELECT * FROM 'file.csv'"
+        assert find_sql_refs(sql) == set()
+
+        sql = "SELECT * FROM 'https://example.com/file.csv'"
+        assert find_sql_refs(sql) == set()
+
+        sql = "SELECT * FROM read_csv('/dev/stdin')"
+        assert find_sql_refs(sql) == set()
+
+    def test_describe_table(self) -> None:
+        sql = "DESCRIBE test_duck;"
+        assert find_sql_refs(sql) == {SQLRef(table="test_duck")}
+
+    def test_summarize_table(self) -> None:
+        sql = "SUMMARIZE test_duck;"
+        assert find_sql_refs(sql) == {SQLRef(table="test_duck")}
+
+    def test_pivot_table(self) -> None:
+        sql = "PIVOT test_duck ON column_name USING sum(value);"
+        assert find_sql_refs(sql) == {SQLRef(table="test_duck")}
+
+    def test_unpivot_table(self) -> None:
+        sql = "UNPIVOT test_duck ON (col1, col2) INTO NAME column_name VALUE column_value;"
+        assert find_sql_refs(sql) == {SQLRef(table="test_duck")}
+
+    def test_describe_with_schema(self) -> None:
+        sql = "DESCRIBE my_schema.test_table;"
+        assert find_sql_refs(sql) == {
+            SQLRef(table="test_table", schema="my_schema")
+        }
+
+    def test_summarize_with_catalog_schema(self) -> None:
+        sql = "SUMMARIZE my_catalog.my_schema.test_table;"
+        assert find_sql_refs(sql) == {
+            SQLRef(
+                table="test_table", schema="my_schema", catalog="my_catalog"
+            )
+        }
+
+    def test_analyze_table(self) -> None:
+        sql = "ANALYZE test_table;"
+        assert find_sql_refs(sql) == {SQLRef(table="test_table")}
+
+    def test_drop_table(self) -> None:
+        sql = "DROP TABLE test_table;"
+        assert find_sql_refs(sql) == {SQLRef(table="test_table")}
+
+    def test_truncate_table(self) -> None:
+        sql = "TRUNCATE test_table;"
+        assert find_sql_refs(sql) == {SQLRef(table="test_table")}
+
+    def test_copy_table_to_file(self) -> None:
+        sql = "COPY test_table TO 'output.csv';"
+        assert find_sql_refs(sql) == {SQLRef(table="test_table")}
+
+    def test_copy_table_from_file(self) -> None:
+        sql = "COPY test_table FROM 'input.csv';"
+        assert find_sql_refs(sql) == {SQLRef(table="test_table")}
+
+    def test_analyze_with_schema(self) -> None:
+        sql = "ANALYZE my_schema.test_table;"
+        assert find_sql_refs(sql) == {
+            SQLRef(table="test_table", schema="my_schema")
+        }
+
+    def test_unnest_with_json_access(self) -> None:
+        # Regression test for issue #8080
+        # sqlglot's build_scope raises OptimizeError for unnest with JSON access
+        # because it generates duplicate empty aliases internally
+        sql = "SELECT unnest([1,2,3])->>'$' FROM (SELECT 1)"
+        # Should not raise OptimizeError; falls back to direct table extraction
+        assert find_sql_refs(sql) == set()
+
+    def test_duplicate_alias_in_subqueries(self) -> None:
+        # sqlglot's build_scope raises OptimizeError for duplicate aliases
+        # in cross-joined subqueries which is valid DuckDB syntax
+        sql = "SELECT * FROM (SELECT 1 as x), (SELECT 2 as x)"
+        # Should not raise OptimizeError; falls back to direct table extraction
+        assert find_sql_refs(sql) == set()
+
+    def test_duplicate_alias_with_table_refs(self) -> None:
+        # Test that table refs are still extracted when OptimizeError occurs
+        sql = """
+        SELECT * FROM (SELECT * FROM table1),
+        (SELECT * FROM table2 as x),
+        (SELECT * FROM table3 as x)
+        """
+        # Should not raise OptimizeError and should extract table refs
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+            SQLRef(table="table3"),
+        }
+
+    def test_cte_with_duplicate_join_aliases(self) -> None:
+        # Regression test for issue #9168
+        # When two JOIN-ed tables share the same alias and one of them
+        # is a CTE, build_scope raises OptimizeError ("Alias already used").
+        # The fallback path must still filter out CTE names.
+        sql = """
+        WITH
+            num_exams AS (
+                SELECT
+                    student_id,
+                    exam_type_id,
+                    COUNT(*) AS num_exams
+                FROM
+                    exam_records
+                GROUP BY
+                    student_id,
+                    exam_type_id
+            )
+        SELECT
+            student_id,
+            student_name,
+            exam_type_id,
+            c.class_name,
+            COALESCE(c.num_exams, 0) AS num_exams
+        FROM
+            students
+            LEFT JOIN num_exams c USING (student_id)
+            JOIN classes c USING (class_id)
+        """
+        # num_exams is a CTE and should NOT appear as a dependency
+        assert find_sql_refs(sql) == {
+            SQLRef(table="exam_records"),
+            SQLRef(table="students"),
+            SQLRef(table="classes"),
+        }
+
+    def test_cte_with_duplicate_join_aliases_mixed_case(self) -> None:
+        # CTE defined as "Num_Exams" but referenced as "num_exams".
+        # SQL identifiers are case-insensitive, so these must match.
+        sql = """
+        WITH
+            Num_Exams AS (
+                SELECT student_id, exam_type_id, COUNT(*) AS num_exams
+                FROM exam_records
+                GROUP BY student_id, exam_type_id
+            )
+        SELECT
+            student_id, student_name, exam_type_id,
+            c.class_name, COALESCE(c.num_exams, 0) AS num_exams
+        FROM students
+            LEFT JOIN num_exams c USING (student_id)
+            JOIN classes c USING (class_id)
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="exam_records"),
+            SQLRef(table="students"),
+            SQLRef(table="classes"),
+        }
+
+    def test_cte_with_duplicate_join_aliases_different_aliases(self) -> None:
+        # Same query as above but with distinct aliases — should work
+        # both before and after the fix (build_scope succeeds here).
+        sql = """
+        WITH
+            num_exams AS (
+                SELECT
+                    student_id,
+                    exam_type_id,
+                    COUNT(*) AS num_exams
+                FROM
+                    exam_records
+                GROUP BY
+                    student_id,
+                    exam_type_id
+            )
+        SELECT
+            student_id,
+            student_name,
+            exam_type_id,
+            cl.class_name,
+            COALESCE(ne.num_exams, 0) AS num_exams
+        FROM
+            students
+            LEFT JOIN num_exams ne USING (student_id)
+            JOIN classes cl USING (class_id)
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="exam_records"),
+            SQLRef(table="students"),
+            SQLRef(table="classes"),
+        }
+
+    def test_multiple_ctes_with_duplicate_aliases(self) -> None:
+        # Multiple CTEs referenced with the same alias in joins
+        sql = """
+        WITH
+            cte1 AS (SELECT id, val FROM table1),
+            cte2 AS (SELECT id, val FROM table2)
+        SELECT *
+        FROM table3
+            JOIN cte1 x ON table3.id = x.id
+            JOIN cte2 x ON table3.id = x.id
+        """
+        # Neither cte1 nor cte2 should appear as dependencies
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+            SQLRef(table="table3"),
+        }
+
+    def test_cte_name_matches_real_table_with_duplicate_alias(self) -> None:
+        # Edge case: CTE name shadows a real table used elsewhere.
+        # The CTE itself still shouldn't be a dependency — only the
+        # tables referenced inside and outside it should be.
+        sql = """
+        WITH
+            shared_name AS (SELECT id FROM source_table)
+        SELECT *
+        FROM base_table
+            JOIN shared_name a ON base_table.id = a.id
+            JOIN other_table a ON base_table.id = a.id
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="source_table"),
+            SQLRef(table="base_table"),
+            SQLRef(table="other_table"),
+        }
+
+    def test_schema_qualified_table_same_name_as_cte(self) -> None:
+        # A schema-qualified table reference should never be filtered,
+        # even if its base name matches a CTE in the same query.
+        sql = """
+        WITH foo AS (SELECT id FROM source)
+        SELECT *
+        FROM schema1.foo
+            JOIN foo a ON schema1.foo.id = a.id
+            JOIN bar a ON schema1.foo.id = a.id
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="source"),
+            SQLRef(table="foo", schema="schema1"),
+            SQLRef(table="bar"),
+        }
+
+    def test_nested_subquery_cte_does_not_mask_outer_table(self) -> None:
+        # A CTE defined inside a subquery is scoped to that subquery.
+        # It must not mask a real table with the same name in the outer
+        # query. Duplicate aliases force the OptimizeError fallback.
+        sql = """
+        SELECT *
+        FROM my_table
+            JOIN (
+                WITH my_table AS (SELECT 1 AS id)
+                SELECT * FROM my_table
+            ) a ON my_table.id = a.id
+            JOIN other_table a ON my_table.id = a.id
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="my_table"),
+            SQLRef(table="other_table"),
+        }
+
+    def test_dml_with_cte(self) -> None:
+        # CTE names should be filtered in DML statements too.
+        sql = """
+        WITH cte AS (SELECT * FROM source_table)
+        INSERT INTO target_table SELECT * FROM cte;
+        """
+        assert find_sql_refs(sql) == {
+            SQLRef(table="source_table"),
+            SQLRef(table="target_table"),
+        }
+
+    def test_multiple_statements_with_optimize_error(self) -> None:
+        # Verify that OptimizeError in one statement doesn't affect others.
+        # The try/except is inside the loop, so each statement is independent.
+        sql = """
+        SELECT * FROM table1;
+        SELECT * FROM (SELECT 1 as x), (SELECT 2 as x);
+        SELECT * FROM table2;
+        """
+        # table1 and table2 should be extracted normally via build_scope;
+        # the middle statement falls back but has no table refs
+        assert find_sql_refs(sql) == {
+            SQLRef(table="table1"),
+            SQLRef(table="table2"),
+        }

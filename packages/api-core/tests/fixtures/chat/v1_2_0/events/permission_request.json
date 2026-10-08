@@ -1,0 +1,47 @@
+{
+  "canonical_kind": "edit",
+  "event_id": "01H_permission_request",
+  "event_type": "permission.request",
+  "metadata": {},
+  "options": [
+    {
+      "metadata": {},
+      "name": "Allow once",
+      "option_id": "allow_once",
+      "provider_metadata": {},
+      "schema_version": "1.0.0"
+    },
+    {
+      "metadata": {},
+      "name": "Always allow",
+      "option_id": "allow_always",
+      "provider_metadata": {},
+      "schema_version": "1.0.0"
+    },
+    {
+      "metadata": {},
+      "name": "Reject once",
+      "option_id": "reject_once",
+      "provider_metadata": {},
+      "schema_version": "1.0.0"
+    },
+    {
+      "metadata": {},
+      "name": "Always reject",
+      "option_id": "reject_always",
+      "provider_metadata": {},
+      "schema_version": "1.0.0"
+    }
+  ],
+  "patterns": [
+    "read /etc/hosts"
+  ],
+  "permission_kind": "edit",
+  "provider_metadata": {},
+  "request_id": "r1",
+  "schema_version": "1.2.0",
+  "session_id": "s1",
+  "subject": null,
+  "time": "2026-05-26T00:00:00Z",
+  "tool_call_id": "tc1"
+}

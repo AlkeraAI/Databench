@@ -1,0 +1,24 @@
+{
+  "chunk": null,
+  "data_b64": "bG9yby11cGRhdGU=",
+  "doc_schema": 1,
+  "limits": {
+    "chunk_bytes": 32768,
+    "max_doc_bytes": 2097152,
+    "max_text_bytes": 16384,
+    "max_update_bytes": 524288,
+    "metadata": {},
+    "schema_version": "1.0.0"
+  },
+  "loro_peer": 4503599627370517,
+  "metadata": {},
+  "mode": "snapshot",
+  "saving": {
+    "metadata": {},
+    "reason": "files.frozen",
+    "schema_version": "1.0.0",
+    "state": "paused"
+  },
+  "schema_version": "1.1.0",
+  "vv_b64": "AZWDgICAgIAIAg=="
+}

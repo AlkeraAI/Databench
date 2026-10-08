@@ -1,0 +1,16 @@
+{% extends "base.mjml" %}
+{% from "_macros.mjml" import cta %}
+{% block title %}Verify your {{ product_name }} email{% endblock %}
+{% block preview %}Confirm your email address to finish setting up {{ product_name }}.{% endblock %}
+{% block content %}
+<mj-text font-family="{{ tokens.FONT_DISPLAY }}" font-size="18px" font-weight="600" padding-bottom="8px">
+  {% if name %}Welcome, {{ name }}{% else %}Welcome to {{ product_name }}{% endif %}
+</mj-text>
+<mj-text>
+  Please confirm this email address to finish setting up your {{ product_name }} account.
+</mj-text>
+{{ cta(verify_url, "Verify email") }}
+<mj-text font-size="13px" color="{{ tokens.MUTED }}" padding-top="8px">
+  If you didn't create a {{ product_name }} account, you can safely ignore this message.
+</mj-text>
+{% endblock %}

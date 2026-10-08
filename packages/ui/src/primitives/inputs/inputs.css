@@ -1,0 +1,308 @@
+/* Inputs (input / textarea / field scaffold / affixes / collapsible search) — component styles
+   for @alkera/ui. Every value is a role token (tokens.css). */
+
+.alk-input {
+  display: block;
+  width: 100%;
+  /* Size ladder — height + horizontal padding scale on the shared control tokens. lg is the default,
+     so an input lines up with a button / search / segmented / select of the same size in a row. */
+  --alk-input-h: var(--alkControlLg);
+  --alk-input-px: var(--alkFieldPadLg);
+  min-height: var(--alk-input-h);
+  padding: 0 var(--alk-input-px);
+  background: var(--alkControlBg);
+  color: var(--alkPrimaryText);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  font-family: var(--alkFontUi);
+  /* Font stays at the body size across the ladder — a sub-16px input still avoids the iOS zoom only
+     at lg/the default; the box shrinks, the text doesn't, so a sm filter stays legible. */
+  font-size: var(--alkTextMd);
+  transition: border-color var(--alkDurationNormal) var(--alkEaseStandard),
+    box-shadow var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+.alk-input:where([data-size="md"]) {
+  --alk-input-h: var(--alkControlMd);
+  --alk-input-px: var(--alkFieldPadMd);
+}
+.alk-input:where([data-size="sm"]) {
+  --alk-input-h: var(--alkControlSm);
+  --alk-input-px: var(--alkFieldPadSm);
+}
+
+.alk-input::placeholder {
+  color: var(--alkPlaceholderText);
+}
+
+/* type="search" shows a native cancel ✕ in WebKit — hide it so only the designed clear button shows. */
+.alk-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+.alk-input:focus-visible {
+  /* A visible ring, not a tint: 32%-alpha brand composited to ~1.4:1 against the field —
+     a keyboard user filling a credentials form couldn't see which field had focus. The
+     focus-ring token is the same solid ink every other control's ring uses (and it host-adapts
+     to --vscode-focusBorder in the webview). */
+  outline: none;
+  border-color: var(--alkBrand);
+  box-shadow: 0 0 0 2px var(--alkFocusRing);
+}
+
+.alk-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Select is now a custom floating listbox (base/Select/) — its trigger reuses .alk-input via
+   .alk-select__trigger, so no native <select> caret styling lives here. */
+
+.alk-textarea {
+  /* Multi-line: height is rows-driven, so the size ladder only scales the horizontal padding (via
+     the shared --alk-input-px) and keeps the vertical rhythm constant. */
+  min-height: calc(var(--alkControlMd) * 2);
+  padding: var(--alkSpace3) var(--alk-input-px);
+  line-height: var(--alkLeadingNormal);
+  resize: none;
+}
+
+.alk-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+}
+
+.alk-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightMedium);
+  color: var(--alkPrimaryText);
+}
+
+/* Label row — only rendered when a control passes `labelAccessory` (a status mark / small action
+ * beside the label). The label keeps its left edge; the accessory trails it. */
+.alk-field__labelrow {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+}
+.alk-field__label-accessory {
+  display: inline-flex;
+  align-items: center;
+}
+
+.alk-field__req {
+  color: var(--alkDangerText);
+  font-weight: var(--alkWeightSemibold);
+}
+
+.alk-field__desc {
+  margin: 0;
+  font-size: var(--alkTextSm);
+  line-height: var(--alkLeadingNormal);
+  color: var(--alkTertiaryText);
+}
+
+.alk-field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--alkSpace2);
+  margin: 0;
+  font-size: var(--alkTextSm);
+  line-height: var(--alkLeadingNormal);
+  color: var(--alkDangerText);
+}
+
+.alk-field__error-icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+/* Error state for any control built on .alk-input */
+.alk-input[aria-invalid="true"] {
+  border-color: var(--alkDanger);
+}
+
+.alk-input[aria-invalid="true"]:focus-visible {
+  border-color: var(--alkDanger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--alkDanger) 32%, transparent);
+}
+
+/* ── TextInput affixes (leading icon · reveal / clear button) ─────────────────
+ * A relative wrapper holds the input plus an absolute leading glyph and/or an absolute trailing
+ * button (the search magnifier, the password reveal, the search clear ✕). A visible trailing button
+ * floats over matching right padding, so an absent clear action leaves no dead slot over the
+ * placeholder or text cursor. */
+
+.alk-input-affix {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+/* A search field is a FIXED-width toolbar control by default — it does NOT fill its column like a
+   form field, so a toolbar search never sprawls and callers don't have to claw the width back. The
+   one dial is --alk-search-w; a caller widens or flex-fills via rootClassName (width / flex). */
+.alk-input-affix:where([data-search]) {
+  width: var(--alk-search-w, 15rem);
+  max-width: 100%;
+}
+
+/* The input reserves side room only where an affix can appear. 34px = the ~28px control the affix
+   button sits in plus breathing room; the glyph itself is centred in it. */
+.alk-input:where([data-lead]) {
+  padding-left: 34px;
+}
+.alk-input:where([data-trail]) {
+  padding-right: 34px;
+}
+.alk-input:where([data-trail="2"]) {
+  padding-right: 68px;
+}
+
+/* The trailing rank: the field's own affordance (clear ✕ / password reveal) first, then whatever
+   the caller rode in, so a caller's control takes the outer edge and the built-in never moves. */
+.alk-input__trail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  padding-right: var(--alk-input-trail-inset, 0px);
+}
+
+.alk-input__lead {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--alkSecondaryText);
+  pointer-events: none;
+}
+
+/* The trailing button — reveal (always, for password) or clear (only while there's a value). */
+.alk-input__affix-btn {
+  height: 100%;
+  width: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+  border-radius: var(--alkRadiusMd);
+  transition: color var(--alkDurationNormal) var(--alkEaseStandard);
+}
+.alk-input__affix-btn:hover {
+  color: var(--alkPrimaryText);
+}
+.alk-input__affix-btn:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ── Collapsible search (type="search" collapsible) ──────────────────────────
+ * A magnifier tap-target stands in while narrow + folded; the field expands from the right on open.
+ * The field itself is the affix above; here only the collapse chrome + the fold/expand geometry. */
+.alk-input-collapse {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  /* Content-width (hugs the fixed field or the folded magnifier) so a right-aligning host — the
+     masthead's justify-content:flex-end — anchors it to the right edge; a full-width container would
+     float the folded magnifier at the LEFT. When expanded-narrow the host makes it span the row. */
+  width: auto;
+}
+/* While narrow the wrapper never gives up the toggle's slot: the toggle unmounts once expanded and
+   the field is an absolute overlay, so without this floor the wrapper would collapse to 0×0 — the
+   row-mates would shift and the overlay (anchored to the wrapper) would lose its position. */
+.alk-input-collapse:where([data-narrow]) {
+  min-width: var(--alkControlLg);
+  min-height: var(--alkControlLg);
+}
+.alk-input-collapse__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--alkControlLg);
+  height: var(--alkControlLg);
+  appearance: none;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkControlBg);
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+  transition: background-color var(--alkDurationNormal) var(--alkEaseStandard);
+}
+.alk-input-collapse__toggle:hover {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+.alk-input-collapse__toggle:focus-visible {
+  outline-offset: 1px;
+}
+/* Narrow: the field is an absolute overlay anchored to the wrapper's right edge in BOTH states, so
+   folding/unfolding never reflows the row-mates. Motion is opacity-only (the motion rule: animate
+   transform/opacity, never width) — the reveal is a fade at final size, not a width sweep.
+   max-width/z-index live here (not on the expanded state) so the close-time fade keeps the field's
+   full size and stacking to its end — if they fell back with [data-expanded], the fixed-search
+   max-width:100% would clamp the fading field to the wrapper's 38px stub mid-exit. */
+.alk-input-collapse:where([data-narrow]) .alk-input-affix {
+  position: absolute;
+  right: 0;
+  max-width: none;
+  z-index: 30;
+  transition: opacity var(--alkDurationSlow) var(--alkEaseStandard);
+}
+/* Narrow + folded: the field is genuinely hidden — visibility takes it out of the tab order and the
+   a11y tree (a width-0 opacity-0 input would still catch Tab), the toggle stands in. width and
+   visibility are never ANIMATED: on close they step to their folded values only after the fade-out
+   ends (the 0s + delay transitions), so the exit is a pure fade at full size; opening flips them
+   instantly (the shared transition above carries only opacity), so the expand-time focus() lands on
+   a full-size, already-visible input — never a mid-animation sliver the browser scrolls into view,
+   which would drag the whole masthead sideways. */
+.alk-input-collapse:where([data-narrow]:not([data-expanded])) .alk-input-affix {
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--alkDurationSlow) var(--alkEaseStandard),
+    width 0s var(--alkDurationSlow),
+    visibility 0s var(--alkDurationSlow);
+}
+/* Narrow + expanded: the field overlays the row from the right edge. 100% covers the row when the
+   host stretches the wrapper; the 20rem floor keeps a comfortable field when the wrapper only hugs
+   the toggle's slot (a toolbar magnifier), overriding the fixed-search max-width (100% of that slot
+   would pin the overlay to the toggle's width). Hosts override `width` for a wider sweep; the jump
+   to that width is instant (only opacity transitions), so no frame ever lays out mid-width. */
+.alk-input-collapse:where([data-narrow][data-expanded]) .alk-input-affix {
+  width: max(100%, 20rem);
+}
+@media (prefers-reduced-motion: reduce) {
+  .alk-input-collapse:where([data-narrow]) .alk-input-affix,
+  .alk-input-collapse:where([data-narrow]:not([data-expanded])) .alk-input-affix {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-input,
+  .alk-input__affix-btn {
+    transition: none;
+  }
+}

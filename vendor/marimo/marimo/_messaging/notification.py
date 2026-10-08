@@ -1,0 +1,1146 @@
+# Copyright 2026 Marimo. All rights reserved.
+"""Notification message types for kernel-to-frontend communication."""
+
+from __future__ import annotations
+
+import re
+import time
+from typing import (
+    Any,
+    ClassVar,
+    Literal,
+)
+from urllib.parse import urlsplit
+
+import msgspec
+
+from marimo import _loggers as loggers
+from marimo._ast.app_config import _AppConfig
+from marimo._ast.cell import CellConfig, RuntimeStateType
+from marimo._data._external_storage.models import (
+    StorageEntry,
+    StorageNamespace,
+)
+from marimo._data.data_source_discovery import DetectedDataSource
+from marimo._data.models import (
+    ColumnStats,
+    DataSourceConnection,
+    DataTable,
+    DataTableSource,
+    Schema,
+)
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._messaging.cell_output import CellOutput
+from marimo._messaging.completion_option import CompletionOption
+from marimo._messaging.context import RUN_ID_CTX, RunId_t
+from marimo._messaging.notebook.changes import Transaction
+from marimo._plugins.core.web_component import JSONType
+from marimo._runtime.layout.layout import LayoutConfig
+from marimo._secrets.models import SecretKeysWithProvider
+from marimo._session.model import StartupPhase
+from marimo._sql.parse import SqlCatalogCheckResult, SqlParseResult
+from marimo._types.ids import (
+    CellId_t,
+    RequestId,
+    UIElementId,
+    VariableName,
+    WidgetModelId,
+)
+from marimo._utils.msgspec_basestruct import BaseStruct
+from marimo._utils.platform import is_pyodide, is_windows
+
+LOGGER = loggers.marimo_logger()
+
+_VIRTUAL_FILE_URL_RE = re.compile(r"^(?:\.?/)?@file/[^?#]+$")
+_JAVASCRIPT_DATA_URL_RE = re.compile(
+    r"^data:(?:text|application)/javascript(?:;[^,]*)?,[^\r\n]*$"
+)
+
+
+def _normalize_esm_url(value: str) -> str | None:
+    if _VIRTUAL_FILE_URL_RE.fullmatch(value) is not None:
+        return value
+    if _JAVASCRIPT_DATA_URL_RE.fullmatch(value) is not None:
+        return value
+    if any(character.isspace() for character in value):
+        return None
+
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return None
+    if parsed.scheme in ("http", "https") and parsed.netloc:
+        return parsed.geturl()
+    return None
+
+
+class Notification(msgspec.Struct, tag_field="op"):
+    """Base class for all kernel-to-frontend notifications.
+
+    Uses msgspec's tagged union with "op" field as discriminator.
+    Subclasses must define both tag="..." and name: ClassVar[str].
+    """
+
+    name: ClassVar[str]
+
+
+class CellNotification(Notification, tag="cell-op"):
+    """Updates a cell's state in the frontend.
+
+    This is a partial update: each field carries its own "unchanged" semantics,
+    documented per field below. Most fields treat None as "unchanged"; fields
+    that need to distinguish "unchanged" from "clear" use msgspec.UNSET for the
+    former and None for the latter.
+
+    Attributes:
+        cell_id: Unique identifier of the cell being updated.
+        output: Cell's output. Use CellOutput.empty() to clear.
+        console: Console messages. Single/list appends, [] clears, None unchanged.
+        status: Execution status (idle/running/stale/queued/disabled-transitively).
+        stale_inputs: Whether cell has stale inputs from changed dependencies.
+        run_id: Execution run ID for tracing. Auto-set from context.
+        serialization: Top-level reusability hint. UNSET unchanged, None clears, str sets.
+        timestamp: Creation timestamp, auto-set.
+    """
+
+    name: ClassVar[str] = "cell-op"
+    cell_id: CellId_t
+    output: CellOutput | None = None
+    console: CellOutput | list[CellOutput] | None = None
+    status: RuntimeStateType | None = None
+    stale_inputs: bool | None = None
+    run_id: RunId_t | None = None
+    # Tri-state partial update: UNSET (omitted on the wire) leaves the cell's
+    # serialization hint unchanged; None explicitly clears it (cell is no
+    # longer a top-level definition); a string sets it.
+    serialization: str | msgspec.UnsetType | None = msgspec.UNSET
+    timestamp: float = msgspec.field(default_factory=lambda: time.time())
+
+    def __post_init__(self) -> None:
+        if self.run_id is not None:
+            return
+
+        # We currently don't support tracing for replayed cell ops (previous session runs)
+        if self.status == "idle":
+            self.run_id = None
+            return
+
+        try:
+            self.run_id = RUN_ID_CTX.get()
+        except LookupError:
+            # Be specific about the exception we're catching
+            # The context variable hasn't been set yet
+            self.run_id = None
+        except Exception as e:
+            LOGGER.error("Error getting run id: %s", e)
+            self.run_id = None
+
+
+class HumanReadableStatus(msgspec.Struct):
+    """Human-readable status for operation results.
+
+    Attributes:
+        code: Status code ("ok" or "error").
+        title: Optional short title.
+        message: Optional detailed description.
+    """
+
+    code: Literal["ok", "error"]
+    title: str | None = None
+    message: str | None = None
+
+
+class FunctionCallResultNotification(Notification, tag="function-call-result"):
+    """Result of a frontend-initiated function call.
+
+    Attributes:
+        function_call_id: ID matching the original request.
+        return_value: Function return value as JSON.
+        status: Human-readable success/failure status.
+        found: Whether the requested function was located in the registry.
+            False signals a transient registry desync, so the request is safe
+            to retry. True means no retry will help: a non-ok status then
+            reflects a failure unrelated to lookup, such as the function
+            raising during execution or not being associated with a cell.
+    """
+
+    name: ClassVar[str] = "function-call-result"
+
+    function_call_id: RequestId
+    return_value: JSONType
+    status: HumanReadableStatus
+    found: bool
+
+
+class RemoveUIElementsNotification(Notification, tag="remove-ui-elements"):
+    """Removes UI elements associated with a cell.
+
+    Sent when cell is re-executed or deleted.
+
+    Attributes:
+        cell_id: Cell whose UI elements should be removed.
+    """
+
+    name: ClassVar[str] = "remove-ui-elements"
+    cell_id: CellId_t
+
+
+class UIElementMessageNotification(
+    Notification, tag="send-ui-element-message"
+):
+    """Sends a message to a UI element/widget.
+
+    Attributes:
+        ui_element: UI element identifier.
+        message: Message payload as dictionary.
+        buffers: Optional binary buffers for large data.
+    """
+
+    name: ClassVar[str] = "send-ui-element-message"
+    ui_element: UIElementId
+    message: dict[str, Any]
+    buffers: list[bytes] | None = None
+
+
+class EsmSpec(msgspec.Struct):
+    """Where the frontend imports a widget's ESM from, and which version.
+
+    Specs travel only on kernel-authored notifications, never in model
+    state: state is client-writable and echoed to peers, so executing
+    code from it would let one client run code on another.
+
+    Attributes:
+        url: URL to import the ESM from. A virtual file for inline
+            source; an external URL when `_esm` is itself a URL.
+        hash: Hash of the `_esm` string. Keys the frontend module cache
+            and signals code changes (hot reload).
+    """
+
+    url: str
+    hash: str
+
+    @staticmethod
+    def from_esm(esm: str) -> EsmSpec:
+        """Mint a spec for an `_esm` trait value."""
+        # Imported lazily: this module is low-level messaging, and
+        # mo_data pulls in the runtime/output machinery.
+        import marimo._output.data.data as mo_data
+        from marimo._utils.code import hash_code
+
+        url = _normalize_esm_url(esm)
+        if url is None:
+            url = mo_data.any_data(esm.encode("utf-8"), ext="js").url
+        return EsmSpec(url=url, hash=hash_code(esm))
+
+
+class ModelOpen(msgspec.Struct, tag="open", tag_field="method"):
+    """Initial widget state on creation.
+
+    For anywidgets, the widget's ESM does not travel in `state`: the
+    comm strips `_esm` and sends an `EsmSpec` instead. `None` for
+    models with no ESM (e.g. traditional ipywidgets).
+
+    Attributes:
+        state: Initial trait values, minus `_esm`.
+        buffer_paths: Paths into `state` whose binary values were
+            extracted into `buffers`.
+        buffers: Binary payloads, parallel to `buffer_paths`.
+        esm_spec: Where to import this widget's ESM from.
+    """
+
+    state: dict[str, Any]
+    buffer_paths: list[list[str | int]]
+    buffers: list[bytes]
+    esm_spec: EsmSpec | None = None
+
+
+class ModelUpdate(msgspec.Struct, tag="update", tag_field="method"):
+    """State sync - changed traits only.
+
+    Attributes:
+        state: Changed trait values, minus `_esm` (see `ModelOpen`).
+        buffer_paths: Paths into `state` whose binary values were
+            extracted into `buffers`.
+        buffers: Binary payloads, parallel to `buffer_paths`.
+        esm_spec: Present only when the widget's `_esm` changed on a
+            live model (hot reload, edit mode only). A spec whose
+            `hash` differs from the current one tells the frontend the
+            widget's code changed and views must be rebuilt.
+    """
+
+    state: dict[str, Any]
+    buffer_paths: list[list[str | int]]
+    buffers: list[bytes]
+    esm_spec: EsmSpec | None = None
+
+
+class ModelCustom(msgspec.Struct, tag="custom", tag_field="method"):
+    """Custom application message."""
+
+    content: Any
+    buffers: list[bytes]
+
+
+class ModelClose(msgspec.Struct, tag="close", tag_field="method"):
+    """Widget destruction."""
+
+
+ModelMessage = ModelOpen | ModelUpdate | ModelCustom | ModelClose
+
+
+class ModelLifecycleNotification(Notification, tag="model-lifecycle"):
+    """Widget model lifecycle message.
+
+    Mirrors the Jupyter widget comm protocol with open/update/custom/close.
+
+    Attributes:
+        model_id: Widget model identifier.
+        message: The lifecycle message (open/update/custom/close).
+    """
+
+    name: ClassVar[str] = "model-lifecycle"
+    model_id: WidgetModelId
+    message: ModelMessage
+
+    def to_json_serializable(self) -> dict[str, Any]:
+        """Convert to a plain dict that json.dumps can serialize.
+
+        Used by static HTML export to embed model notifications in a
+        <script> tag via json_script().  We use msgspec.to_builtins for
+        the struct conversion, then base64-encode any bytes buffers
+        since raw bytes are not JSON-serializable.
+        """
+        import base64
+
+        d: dict[str, Any] = msgspec.to_builtins(self)
+        msg = d.get("message", {})
+        if "buffers" in msg:
+            msg["buffers"] = [
+                b
+                if isinstance(b, str)
+                else base64.b64encode(b).decode("ascii")
+                for b in msg["buffers"]
+            ]
+        return d
+
+
+class InterruptedNotification(Notification, tag="interrupted"):
+    """Kernel was interrupted by user (SIGINT/Ctrl+C)."""
+
+    name: ClassVar[str] = "interrupted"
+
+
+class CompletedRunNotification(Notification, tag="completed-run"):
+    """Run of submitted cells and descendants completed.
+
+    Attributes:
+        run_id: Correlation ID echoed from the command that triggered
+            this completion. `None` for handlers that don't take a
+            `run_id` (everything except `handle_execute_scratchpad`
+            today). Consumers that want to wait for a specific command's
+            completion filter on this field.
+    """
+
+    name: ClassVar[str] = "completed-run"
+    run_id: str | None = None
+
+
+class KernelCapabilitiesNotification(msgspec.Struct):
+    """Kernel capabilities detected at startup.
+
+    All fields auto-detected in __post_init__.
+
+    Attributes:
+        terminal: Terminal access (unavailable on Windows/Pyodide).
+        pylsp: Python Language Server Protocol installed.
+        ty: ty type checker installed.
+        basedpyright: basedpyright type checker installed.
+    """
+
+    terminal: bool = False
+    pylsp: bool = False
+    ty: bool = False
+    basedpyright: bool = False
+    pyrefly: bool = False
+
+    def __post_init__(self) -> None:
+        # Only available in mac/linux
+        self.terminal = not is_windows() and not is_pyodide()
+        self.pylsp = DependencyManager.pylsp.has()
+        self.basedpyright = DependencyManager.basedpyright.has()
+        self.ty = DependencyManager.ty.has()
+        self.pyrefly = DependencyManager.pyrefly.has()
+
+
+class ConsumerCapabilities(msgspec.Struct, frozen=True):
+    """Per-consumer access capabilities for a session connection.
+
+    - editor: `{edit: True, interact: True}`
+    - interactor: `{edit: False, interact: True}` (default for a secondary
+      connection: drives UI state but cannot edit the notebook)
+    - read-only viewer: `{edit: False, interact: False}` (opt-in, set by a
+      deployment's capability provider)
+
+    The server enforces these: control requests are gated against the issuing
+    consumer's stored capabilities at the control-request chokepoint (the
+    authority) and mirrored as an advisory HTTP 403 at the request handlers.
+    Commands classified as `read` in `marimo._session.capabilities` (such as
+    completions and previews) are always permitted.
+    """
+
+    edit: bool
+    interact: bool
+
+    # Canonical role presets. Declared here and assigned below the class
+    # because each value is an instance of the class itself, which does not
+    # exist yet inside the body (cf. `datetime.min`/`datetime.max`).
+    EDITOR: ClassVar[ConsumerCapabilities]
+    INTERACTOR: ClassVar[ConsumerCapabilities]
+    VIEWER: ClassVar[ConsumerCapabilities]
+
+
+ConsumerCapabilities.EDITOR = ConsumerCapabilities(edit=True, interact=True)
+ConsumerCapabilities.INTERACTOR = ConsumerCapabilities(
+    edit=False, interact=True
+)
+ConsumerCapabilities.VIEWER = ConsumerCapabilities(edit=False, interact=False)
+
+
+class ConsumerCapabilitiesNotification(
+    Notification, tag="consumer-capabilities"
+):
+    """
+    Notification of the frontend consumer's capabilities.
+    """
+
+    name: ClassVar[str] = "consumer-capabilities"
+    consumer_capabilities: ConsumerCapabilities
+
+
+class KernelReadyNotification(Notification, tag="kernel-ready"):
+    """Kernel ready for execution. First notification sent at startup.
+
+    Attributes:
+        cell_ids: Cell IDs in order.
+        codes: Source code for each cell.
+        names: Cell names/titles.
+        layout: Notebook layout config.
+        configs: Per-cell configuration.
+        resumed: Whether resumed from previous session.
+        ui_values: Previous UI element values if resumed.
+        last_executed_code: Last executed code per cell if resumed.
+        last_execution_time: Last execution time per cell if resumed.
+        app_config: Application configuration.
+        kiosk: Whether running in kiosk mode.
+        capabilities: Available kernel capabilities.
+        auto_instantiated: Whether cells already executed (run mode).
+    """
+
+    name: ClassVar[str] = "kernel-ready"
+    cell_ids: tuple[CellId_t, ...]
+    codes: tuple[str, ...]
+    names: tuple[str, ...]
+    layout: LayoutConfig | None
+    configs: tuple[CellConfig, ...]
+    resumed: bool
+    ui_values: dict[str, JSONType] | None
+    last_executed_code: dict[CellId_t, str] | None
+    last_execution_time: dict[CellId_t, float] | None
+    app_config: _AppConfig
+    kiosk: bool
+    capabilities: KernelCapabilitiesNotification
+    consumer_capabilities: ConsumerCapabilities
+    auto_instantiated: bool = False
+
+
+class CompletionResultNotification(Notification, tag="completion-result"):
+    """Code completion result from language server.
+
+    Attributes:
+        completion_id: Request ID this responds to.
+        prefix_length: Length of prefix to replace.
+        options: Completion options to display.
+    """
+
+    name: ClassVar[str] = "completion-result"
+    completion_id: RequestId
+    prefix_length: int
+    options: list[CompletionOption]
+
+
+class AlertNotification(Notification, tag="alert"):
+    """User-facing alert message.
+
+    Attributes:
+        title: Alert title.
+        description: Alert body (may contain HTML).
+        variant: Visual variant (e.g., "danger").
+    """
+
+    name: ClassVar[str] = "alert"
+    title: str
+    description: str
+    variant: Literal["danger"] | None = None
+
+
+class MissingPackageAlertNotification(
+    Notification, tag="missing-package-alert"
+):
+    """Alert for missing packages with install option.
+
+    Attributes:
+        packages: Missing package names.
+        isolated: Whether auto-install is possible in this environment.
+        source: Which Python environment to install into. "kernel" (default)
+                installs in the kernel's venv; "server" installs in the
+                server's own Python env (e.g. for formatter tools like ruff).
+    """
+
+    name: ClassVar[str] = "missing-package-alert"
+    packages: list[str]
+    isolated: bool
+    source: Literal["kernel", "server"] = "kernel"
+
+
+# Package name => progress within the current operation
+PackageStatusType = dict[
+    str,
+    Literal["queued", "running", "succeeded", "failed", "restart-required"],
+]
+
+
+class _EnvironmentOperationStatus(
+    msgspec.Struct,
+    tag_field="kind",
+    frozen=True,
+    forbid_unknown_fields=True,
+):
+    pass
+
+
+class OperationRunning(
+    _EnvironmentOperationStatus, tag="running", frozen=True
+):
+    pass
+
+
+class OperationSucceeded(
+    _EnvironmentOperationStatus, tag="succeeded", frozen=True
+):
+    pass
+
+
+class OperationRestartRequired(
+    _EnvironmentOperationStatus, tag="restart-required", frozen=True
+):
+    reason: str
+
+
+class OperationFailed(_EnvironmentOperationStatus, tag="failed", frozen=True):
+    error: str
+
+
+class OperationCancelled(
+    _EnvironmentOperationStatus, tag="cancelled", frozen=True
+):
+    pass
+
+
+EnvironmentOperationStatus = (
+    OperationRunning
+    | OperationSucceeded
+    | OperationRestartRequired
+    | OperationFailed
+    | OperationCancelled
+)
+
+
+EnvironmentAction = Literal["prepare", "install", "remove", "sync"]
+
+
+class EnvironmentOperation(msgspec.Struct, frozen=True):
+    """Current progress and logs for one execution of environment work."""
+
+    operation_id: str
+    action: EnvironmentAction
+    status: EnvironmentOperationStatus
+    packages: PackageStatusType
+    logs: dict[str, str]
+    source: Literal["kernel", "server"]
+
+
+class EnvironmentState(msgspec.Struct, frozen=True):
+    """Preparation, active operations, the latest mutation, and restarts."""
+
+    restart_required: bool
+    operations: list[EnvironmentOperation]
+
+
+class EnvironmentStateNotification(Notification, tag="environment-state"):
+    """Replace the current state for one environment on connection."""
+
+    name: ClassVar[str] = "environment-state"
+    source: Literal["kernel", "server"]
+    state: EnvironmentState
+
+
+class EnvironmentOperationNotification(
+    Notification, tag="environment-operation"
+):
+    """Current operation progress and changes to its named log streams.
+
+    Package statuses replace the previous map. Log chunks append to a stream,
+    or replace it when `log_mode` is `replace`. The operation status determines
+    completion independently of its packages and output streams.
+    """
+
+    name: ClassVar[str] = "environment-operation"
+    operation_id: str
+    action: EnvironmentAction
+    status: EnvironmentOperationStatus
+    source: Literal["kernel", "server"]
+    packages: PackageStatusType
+    logs: dict[str, str]
+    log_mode: Literal["append", "replace"]
+
+
+class ReconnectedNotification(Notification, tag="reconnected"):
+    """WebSocket reconnection confirmed."""
+
+    name: ClassVar[str] = "reconnected"
+
+
+class StartupLogsNotification(Notification, tag="startup-logs"):
+    """Streaming kernel startup logs.
+
+    Attributes:
+        content: Log content to display.
+        status: Stream status (start/append/done).
+    """
+
+    name: ClassVar[str] = "startup-logs"
+    content: str
+    status: Literal["append", "start", "done"]
+
+
+class BannerNotification(Notification, tag="banner"):
+    """Persistent banner message at top of notebook.
+
+    Attributes:
+        title: Banner title.
+        description: Banner body (may contain HTML).
+        variant: Visual variant (e.g., "danger").
+        action: Optional user action (e.g., "restart").
+    """
+
+    name: ClassVar[str] = "banner"
+    title: str
+    description: str
+    variant: Literal["danger"] | None = None
+    action: Literal["restart"] | None = None
+
+
+class StartupProgressNotification(Notification, tag="startup-progress"):
+    """Current startup phase and its output before the kernel is ready.
+
+    Output appends within a phase. Snapshots replace it, and changing phases
+    starts a new stream. Environment preparation logs belong to its operation.
+    """
+
+    name: ClassVar[str] = "startup-progress"
+    phase: StartupPhase
+    logs: str
+    log_mode: Literal["append", "replace"]
+
+
+class KernelStartupErrorNotification(Notification, tag="kernel-startup-error"):
+    """Kernel failed to start.
+
+    Attributes:
+        error: Error message describing failure.
+    """
+
+    name: ClassVar[str] = "kernel-startup-error"
+    error: str
+
+
+class ReloadNotification(Notification, tag="reload"):
+    """Instructs frontend to reload the page."""
+
+    name: ClassVar[str] = "reload"
+
+
+class VariableDeclarationNotification(msgspec.Struct):
+    """Variable declaration and usage for dataflow graph.
+
+    Attributes:
+        name: Variable name.
+        declared_by: Cell IDs that define this variable.
+        used_by: Cell IDs that use this variable.
+    """
+
+    name: VariableName
+    declared_by: list[CellId_t]
+    used_by: list[CellId_t]
+
+
+class VariableValue(BaseStruct):
+    """Variable value and type for variables panel.
+
+    Attributes:
+        name: Variable name.
+        value: String representation of value.
+        datatype: Data type as string.
+    """
+
+    name: str
+    value: str | None
+    datatype: str | None
+
+
+class VariablesNotification(Notification, tag="variables"):
+    """Variable dataflow graph.
+
+    Attributes:
+        variables: Variable declarations and usage.
+    """
+
+    name: ClassVar[str] = "variables"
+    variables: list[VariableDeclarationNotification]
+
+
+class VariableValuesNotification(Notification, tag="variable-values"):
+    """Current variable values.
+
+    Attributes:
+        variables: Variables with current values and types.
+    """
+
+    name: ClassVar[str] = "variable-values"
+    variables: list[VariableValue]
+
+
+class DatasetsNotification(Notification, tag="datasets"):
+    """Available datasets for data explorer.
+
+    Attributes:
+        tables: Available data tables/datasets.
+        clear_channel: If set, clears tables from this channel first.
+    """
+
+    name: ClassVar[str] = "datasets"
+    tables: list[DataTable]
+    clear_channel: DataTableSource | None = None
+
+
+class SQLDatabaseMetadata(msgspec.Struct):
+    """SQL database metadata.
+
+    Attributes:
+        connection: Connection identifier.
+        database: Database name.
+        schema_path: Parent schema path the schemas belong under. Empty for
+            the database's top level.
+    """
+
+    connection: str
+    database: str
+    schema_path: list[str] = msgspec.field(default_factory=list)
+
+
+class SQLMetadata(msgspec.Struct, tag="sql-metadata"):
+    """SQL database and schema metadata.
+
+    Attributes:
+        connection: Connection identifier.
+        database: Database name.
+        schema: Schema name.
+        schema_path: Path of nested schemas (relative to `database`). Empty
+            for the top level.
+    """
+
+    connection: str
+    database: str
+    schema: str
+    schema_path: list[str] = msgspec.field(default_factory=list)
+
+
+class SQLTablePreviewNotification(Notification, tag="sql-table-preview"):
+    """SQL table preview.
+
+    Attributes:
+        request_id: Request ID this responds to.
+        metadata: Database and schema metadata.
+        table: Table data (None if error).
+        error: Error message if failed.
+    """
+
+    name: ClassVar[str] = "sql-table-preview"
+    request_id: RequestId
+    metadata: SQLMetadata
+    table: DataTable | None
+    error: str | None = None
+
+
+class SQLTableListPreviewNotification(
+    Notification, tag="sql-table-list-preview"
+):
+    """List of SQL tables in a schema.
+
+    Attributes:
+        request_id: Request ID this responds to.
+        metadata: Database and schema metadata.
+        tables: Tables in schema.
+        error: Error message if failed.
+    """
+
+    name: ClassVar[str] = "sql-table-list-preview"
+    request_id: RequestId
+    metadata: SQLMetadata
+    tables: list[DataTable] = msgspec.field(default_factory=list)
+    error: str | None = None
+
+
+class ColumnPreview(msgspec.Struct):
+    """Column preview with stats and visualization.
+
+    Attributes:
+        chart_spec: Vega-Lite chart spec.
+        chart_code: Python code to generate chart.
+        error: Error message if failed.
+        missing_packages: Required but not installed packages.
+        stats: Statistical summary.
+    """
+
+    chart_spec: str | None = None
+    chart_code: str | None = None
+    error: str | None = None
+    missing_packages: list[str] | None = None
+    stats: ColumnStats | None = None
+
+
+class DataColumnPreviewNotification(
+    Notification, ColumnPreview, kw_only=True, tag="data-column-preview"
+):
+    """Data column preview with stats and visualization.
+
+    Inherits all ColumnPreview attributes.
+
+    Attributes:
+        table_name: Table containing the column.
+        column_name: Column being previewed.
+    """
+
+    name: ClassVar[str] = "data-column-preview"
+    table_name: str
+    column_name: str
+
+
+class SQLSchemaListPreviewNotification(
+    Notification, tag="sql-schema-list-preview"
+):
+    """List of SQL schemas in a database.
+
+    Attributes:
+        request_id: Request ID this responds to.
+        metadata: Database and schema metadata.
+        schemas: Schemas in database.
+        error: Error message if failed.
+    """
+
+    name: ClassVar[str] = "sql-schema-list-preview"
+    request_id: RequestId
+    metadata: SQLDatabaseMetadata
+    schemas: list[Schema] = msgspec.field(default_factory=list)
+    error: str | None = None
+
+
+class DataSourceConnectionsNotification(
+    Notification, tag="data-source-connections"
+):
+    """Available data source connections for SQL cells.
+
+    Attributes:
+        connections: Available data source connections.
+    """
+
+    name: ClassVar[str] = "data-source-connections"
+    connections: list[DataSourceConnection]
+
+
+class DataSourceDiscoveryResultNotification(
+    Notification, tag="data-source-discovery-result"
+):
+    """High-confidence datasource connections discovered by the kernel.
+
+    Attributes:
+        request_id: Request ID this responds to.
+        sources: Detected datasource connection configurations.
+    """
+
+    name: ClassVar[str] = "data-source-discovery-result"
+    request_id: RequestId
+    sources: list[DetectedDataSource]
+
+
+class StorageNamespacesNotification(Notification, tag="storage-namespaces"):
+    """Available storage namespaces for storage inspector.
+
+    Attributes:
+        namespaces: Available storage namespaces.
+    """
+
+    name: ClassVar[str] = "storage-namespaces"
+    namespaces: list[StorageNamespace]
+
+
+class StorageEntriesNotification(Notification, tag="storage-entries"):
+    """Result of a storage operation that returns entries.
+
+    Attributes:
+        request_id: Request ID this responds to.
+        entries: Storage entries returned by the operation.
+        namespace: Variable name of the storage backend.
+        prefix: The prefix that was listed (set by list_entries).
+        query: The search query that was used (set by search).
+        next_page_token: Token for fetching the next page of entries.
+        error: Error message if the operation failed.
+    """
+
+    name: ClassVar[str] = "storage-entries"
+    request_id: RequestId
+    entries: list[StorageEntry]
+    namespace: str
+    prefix: str | None = None
+    query: str | None = None
+    next_page_token: str | None = None
+    error: str | None = None
+
+
+class StorageDownloadReadyNotification(
+    Notification, tag="storage-download-ready"
+):
+    """Signals that a storage file download is ready.
+
+    The url may be a signed cloud URL (preferred) or a virtual file URL
+    (fallback for backends that don't support signing).
+
+    Attributes:
+        request_id: Request ID this responds to.
+        url: Signed or virtual-file URL to download from.
+        filename: Suggested filename for the download.
+        error: Error message if the download failed.
+    """
+
+    name: ClassVar[str] = "storage-download-ready"
+    request_id: RequestId
+    url: str | None = None
+    filename: str | None = None
+    error: str | None = None
+
+
+class ValidateSQLResultNotification(Notification, tag="validate-sql-result"):
+    """SQL query validation result.
+
+    Attributes:
+        request_id: Request ID this responds to.
+        parse_result: SQL parsing result.
+        validate_result: Catalog validation result.
+        error: Error message if failed.
+    """
+
+    name: ClassVar[str] = "validate-sql-result"
+    request_id: RequestId
+    parse_result: SqlParseResult | None = None
+    validate_result: SqlCatalogCheckResult | None = None
+    error: str | None = None
+
+
+class QueryParamsSetNotification(Notification, tag="query-params-set"):
+    """Sets URL query parameter, replacing existing values.
+
+    Attributes:
+        key: Query parameter key.
+        value: Value(s) to set.
+    """
+
+    name: ClassVar[str] = "query-params-set"
+    key: str
+    value: str | list[str]
+
+
+class QueryParamsAppendNotification(Notification, tag="query-params-append"):
+    """Appends value to URL query parameter.
+
+    Attributes:
+        key: Query parameter key.
+        value: Value to append.
+    """
+
+    name: ClassVar[str] = "query-params-append"
+    key: str
+    value: str
+
+
+class QueryParamsDeleteNotification(Notification, tag="query-params-delete"):
+    """Deletes URL query parameter values.
+
+    Attributes:
+        key: Query parameter key.
+        value: Specific value to delete. If None, deletes all values for key.
+    """
+
+    name: ClassVar[str] = "query-params-delete"
+    key: str
+    value: str | None
+
+
+class QueryParamsClearNotification(Notification, tag="query-params-clear"):
+    """Clears all URL query parameters."""
+
+    name: ClassVar[str] = "query-params-clear"
+
+
+class FocusCellNotification(Notification, tag="focus-cell"):
+    """Focuses a cell (kiosk mode).
+
+    Attributes:
+        cell_id: Cell to focus.
+    """
+
+    name: ClassVar[str] = "focus-cell"
+    cell_id: CellId_t
+
+
+class ActiveLineNotification(Notification, tag="active-line"):
+    """Reports the line a cell's frame watcher is currently executing.
+
+    Emitted on a timed heartbeat while a cell runs (only when the line
+    changed), so the editor can highlight the live line. A `None` line
+    clears the highlight (e.g. when the cell finishes).
+
+    Attributes:
+        cell_id: Cell whose frame is being watched.
+        line: 1-based line within the cell, or `None` to clear.
+    """
+
+    name: ClassVar[str] = "active-line"
+    cell_id: CellId_t
+    line: int | None = None
+
+
+class SecretKeysResultNotification(Notification, tag="secret-keys-result"):
+    """Available secret keys from secret providers.
+
+    Attributes:
+        request_id: Request ID this responds to.
+        secrets: Secret keys with provider info.
+    """
+
+    request_id: RequestId
+    name: ClassVar[str] = "secret-keys-result"
+    secrets: list[SecretKeysWithProvider]
+
+
+class CacheClearedNotification(Notification, tag="cache-cleared"):
+    """Execution cache cleared result.
+
+    Attributes:
+        bytes_freed: Bytes freed by clearing cache.
+    """
+
+    name: ClassVar[str] = "cache-cleared"
+    bytes_freed: int
+
+
+class CacheInfoNotification(Notification, tag="cache-info"):
+    """Execution cache statistics.
+
+    Attributes:
+        hits: Cache hits.
+        misses: Cache misses.
+        time: Time spent on cache operations (seconds).
+        disk_to_free: Disk space that could be freed (bytes).
+        disk_total: Total disk space used (bytes).
+    """
+
+    name: ClassVar[str] = "cache-info"
+    hits: int
+    misses: int
+    time: float
+    disk_to_free: int
+    disk_total: int
+
+
+class NotebookDocumentTransactionNotification(
+    Notification, tag="notebook-document-transaction"
+):
+    """Broadcasts an applied transaction to the frontend.
+
+    Sent by the session when the document changes (from any source).
+    The frontend applies the ops to update its local state.
+    """
+
+    name: ClassVar[str] = "notebook-document-transaction"
+    transaction: Transaction
+
+
+NotificationMessage = (
+    # Cell operations
+    CellNotification
+    | FunctionCallResultNotification
+    | UIElementMessageNotification
+    | ModelLifecycleNotification
+    | RemoveUIElementsNotification
+    # Notebook lifecycle
+    | ReloadNotification
+    | ReconnectedNotification
+    | InterruptedNotification
+    | CompletedRunNotification
+    | KernelReadyNotification
+    # Editor
+    | CompletionResultNotification
+    # Alerts
+    | AlertNotification
+    | BannerNotification
+    | MissingPackageAlertNotification
+    | EnvironmentOperationNotification
+    | EnvironmentStateNotification
+    | StartupLogsNotification
+    | StartupProgressNotification
+    | KernelStartupErrorNotification
+    # Variables
+    | VariablesNotification
+    | VariableValuesNotification
+    # Query params
+    | QueryParamsSetNotification
+    | QueryParamsAppendNotification
+    | QueryParamsDeleteNotification
+    | QueryParamsClearNotification
+    # Data/SQL
+    | DatasetsNotification
+    | DataColumnPreviewNotification
+    | SQLTablePreviewNotification
+    | SQLTableListPreviewNotification
+    | SQLSchemaListPreviewNotification
+    | DataSourceConnectionsNotification
+    | DataSourceDiscoveryResultNotification
+    | ValidateSQLResultNotification
+    # Storage
+    | StorageNamespacesNotification
+    | StorageEntriesNotification
+    | StorageDownloadReadyNotification
+    # Secrets
+    | SecretKeysResultNotification
+    # Cache
+    | CacheClearedNotification
+    | CacheInfoNotification
+    # Kiosk
+    | FocusCellNotification
+    # Debugger
+    | ActiveLineNotification
+    # Document
+    | NotebookDocumentTransactionNotification
+    # Consumer
+    | ConsumerCapabilitiesNotification
+)

@@ -1,0 +1,12 @@
+{
+  "adopted_chat_id": null,
+  "binding_authority": "workspace",
+  "kind": "project",
+  "layout": "native",
+  "machine_id": "6a2c1b4d-3e1f-4b3c-8e6d-82b4d0a1c222",
+  "metadata": {},
+  "sandbox_memory_used_mb": 1536,
+  "sandbox_reported_at": "2026-09-07T12:00:00+00:00",
+  "sandbox_state": "awake",
+  "schema_version": "1.1.0"
+}

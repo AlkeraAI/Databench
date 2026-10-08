@@ -1,0 +1,12 @@
+{
+  "$model": "alkera_core.schemas.files.item.LeaseFacet",
+  "expires_at": "2026-01-01T12:01:00Z",
+  "holder": "6b1f0b1e-0000-4000-8000-000000000002",
+  "last_sync_at": "2026-01-01T12:00:48Z",
+  "machine": "machine-a",
+  "metadata": {},
+  "mine": true,
+  "purpose": "mount",
+  "schema_version": "1.0.0",
+  "since": "2026-01-01T12:00:00Z"
+}

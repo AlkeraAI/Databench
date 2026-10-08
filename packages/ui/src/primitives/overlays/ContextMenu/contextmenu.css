@@ -1,0 +1,104 @@
+/* ── ContextMenu (alk-ctxmenu) ────────────────────────────────────────────────
+ * The right-click menu. It wears the shared .alk-floating-surface (border, overlay ground, shadow,
+ * enter animation, reduced-motion) and adds only what a menu of dense action rows needs: the fixed
+ * positioning the component sets inline (left/top in viewport coordinates), the row grid, and the
+ * disabled state that still reads its reason. Colors come from the product tokens, so light and dark
+ * follow the scheme with no separate rules here. */
+
+.alk-ctxmenu {
+  position: fixed;
+  z-index: var(--alkZOverlay);
+  /* Restated from the shared surface rather than inherited: the menu is portaled, so it is the
+     one overlay that can land outside the element whose rules set its ground. Naming the tokens
+     here means whatever ancestor it lands in resolves them, and no literal can ever creep in. */
+  background: var(--alkOverlayBg);
+  color: var(--alkPrimaryText);
+  border: 1px solid var(--alkBorder);
+  min-width: 200px;
+  max-width: 320px;
+  padding: 4px;
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextMd);
+}
+
+.alk-ctxmenu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--alkRadiusSm);
+  color: var(--alkPrimaryText);
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.alk-ctxmenu__item:hover,
+.alk-ctxmenu__item:focus {
+  background: var(--alkHoverBg);
+  outline: none;
+}
+
+/* A visible ring, not just the hover ground, so keyboard focus is unambiguous. */
+.alk-ctxmenu__item:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}
+
+.alk-ctxmenu__icon,
+.alk-ctxmenu__chev {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+}
+
+.alk-ctxmenu__label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.alk-ctxmenu__shortcut {
+  flex: 0 0 auto;
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+  color: var(--alkTertiaryText);
+}
+
+/* A row that destroys something carries the danger ink at rest, and approaching it brings the
+   ground along — the cost is readable before the pointer arrives. A refused row is exempt: it
+   already reads as disabled, and colouring it twice says two things at once. */
+.alk-ctxmenu__item[data-tone="destructive"]:not([data-disabled]),
+.alk-ctxmenu__item[data-tone="destructive"]:not([data-disabled]) .alk-ctxmenu__icon {
+  color: var(--alkDangerText);
+}
+
+.alk-ctxmenu__item[data-tone="destructive"]:not([data-disabled]):hover,
+.alk-ctxmenu__item[data-tone="destructive"]:not([data-disabled]):focus {
+  background: var(--alkDangerSoft);
+}
+
+/* Disabled rows stay focusable so a keyboard user can reach the reason; only selection is refused. */
+.alk-ctxmenu__item[data-disabled] {
+  color: var(--alkDisabledText);
+}
+.alk-ctxmenu__item[data-disabled] .alk-ctxmenu__icon,
+.alk-ctxmenu__item[data-disabled] .alk-ctxmenu__shortcut,
+.alk-ctxmenu__item[data-disabled] .alk-ctxmenu__chev {
+  color: var(--alkDisabledText);
+}
+.alk-ctxmenu__item[data-disabled]:hover {
+  background: transparent;
+}
+
+/* The reason is the row's accessible description; `title` shows the same text as a tooltip. */
+.alk-ctxmenu__reason {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

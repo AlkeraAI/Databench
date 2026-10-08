@@ -1,0 +1,67 @@
+/* The versions dialog's own sheet. It opens from the files browser and from a
+   chat's file tab and files tab — different lazy chunks — so it brings its
+   styles with it rather than borrowing the browser page's.
+
+   A file's history, newest at the top. The version the file is at is marked
+   rather than offered: restoring what you are already looking at writes a row
+   and changes nothing. Controls come from the UI library; this sheet places
+   them. */
+
+.alk-files-versions__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+  min-width: 0;
+}
+
+/* The refusal banner is the library's Callout; this wrapper only names the
+   server's code for it. */
+.alk-files-versions__error {
+  min-width: 0;
+}
+
+.alk-files-versions__rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alk-files-versions__row {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  min-width: 0;
+  padding-block: var(--alkSpace2);
+}
+
+.alk-files-versions__row + .alk-files-versions__row {
+  border-top: 1px solid var(--alkDivider);
+}
+
+.alk-files-versions__who {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.alk-files-versions__name {
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightMedium);
+}
+
+.alk-files-versions__meta {
+  min-width: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+  overflow-wrap: anywhere;
+}
+
+.alk-files-versions__note {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}

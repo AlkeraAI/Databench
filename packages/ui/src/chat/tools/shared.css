@@ -1,0 +1,634 @@
+@import "./tokens.css";
+
+/* The atoms every tool body shares. A body is the interior a tool hands to the
+   group's well, so the frame's four properties are the ones no rule here or in
+   a per-tool sheet may set: no ground, no edge, no radius, no outer padding.
+   Type: 12px below the group's own head; locating text at ink-3, well content
+   at ink. Every color name resolves in tokens.css. */
+
+.chat-root [data-tool] {
+  container: chat-toolwell / inline-size;
+  width: 100%;
+  min-width: 0;
+  font-family: var(--chat-sans);
+  font-size: var(--chat-fs-text);
+  color: var(--chat-ink);
+}
+
+/* Mono is set one notch under the sans beside it so the two read at the same
+   size. MEASURED at 14px: the two x-heights match (7.22 against 7.14), but a
+   mono character advances 8.40 against the sans's 7.71 -- 9% wider, which is
+   what made a card's mono look larger than the prose above it. At 13px the
+   advance is 7.80, within 1% of the sans. */
+/* The well and the step also host interior atoms OUTSIDE a tool's own scope:
+   the harness failure line renders under the step's head, so the mono and fail
+   rules match there as well as under a tool root. */
+.chat-root :is([data-tool], .chat-activity-well, .chat-activity-step) .chat-tool-mono {
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  font-feature-settings: "liga" 0;
+}
+
+/* A shared icon arrives wrapped in its own span, which would otherwise be the
+   flex item that squeezes while the glyph inside it compresses. */
+.chat-root [data-tool] .alk-language-icon {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+/* The input band: the call's full input, above its output, in every well. */
+.chat-root [data-tool] .chat-tool-band {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  border-bottom: 1px solid var(--chat-tool-id-line);
+  background: var(--chat-tool-id-wash);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+}
+
+.chat-root [data-tool] .chat-tool-band__icon {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  height: 18px;
+  color: var(--chat-tool-id);
+}
+
+.chat-root [data-tool] .chat-tool-band__text {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A band whose subject must hold one line (a URN, a query) clips instead. */
+.chat-root [data-tool] .chat-tool-band__text--one {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The file band. As a button it keeps the band's own face; the hover states
+   the door without repainting the row. */
+.chat-root [data-tool] button.chat-tool-band {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--chat-tool-id-line);
+  background: var(--chat-tool-id-wash);
+  font: inherit;
+  /* `font: inherit` clears the UA button face but re-inherits the body size;
+     the band's own metric must win or its mono reads a step above the well. */
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The underline rides along at rest, drawn in no ink, so approach only has to
+   raise its color: the door eases in instead of snapping. */
+.chat-root [data-tool] button.chat-tool-band .chat-tool-leaf {
+  text-decoration: underline transparent;
+  text-underline-offset: 2px;
+}
+
+.chat-root
+  [data-tool]
+  button.chat-tool-band
+  :is(.chat-tool-dir, .chat-tool-leaf) {
+  transition:
+    color 140ms ease,
+    text-decoration-color 140ms ease;
+}
+
+.chat-root [data-tool] button.chat-tool-band:hover .chat-tool-leaf,
+.chat-root [data-tool] button.chat-tool-band:focus-visible .chat-tool-leaf {
+  text-decoration-color: currentcolor;
+}
+
+/* The whole band reads as the door on approach: the path takes the card's
+   identity ink so it looks like the link it is. The dir/leaf spans carry
+   their own inks at rest, so the hover names them directly. */
+.chat-root
+  [data-tool]
+  button.chat-tool-band:hover
+  :is(.chat-tool-dir, .chat-tool-leaf),
+.chat-root
+  [data-tool]
+  button.chat-tool-band:focus-visible
+  :is(.chat-tool-dir, .chat-tool-leaf) {
+  color: var(--chat-tool-id);
+}
+
+.chat-root [data-tool] button.chat-tool-band:focus-visible {
+  outline: 1.5px solid var(--chat-focus);
+  outline-offset: -1.5px;
+}
+
+/* A band's trailing parameter is metadata: it holds one line and clips. */
+.chat-root [data-tool] .chat-tool-band__param {
+  flex: none;
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Only the first parameter claims the free space; the next sits beside it. */
+.chat-root [data-tool] .chat-tool-band__param + .chat-tool-band__param {
+  margin-left: 0;
+}
+
+/* The empty line, where a card's results would have been. It carries no tint
+   and no rule: an empty answer is a correct one, so it sits in the locating ink
+   the rest of the well uses for what it cannot act on. */
+.chat-root [data-tool] .chat-tool-empty {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+/* The failure line: sans, above the machine register, so the cause reads first.
+   It renders under a step's head, outside the well, so the step scope lays it
+   out too; without it the mark stood alone on a line above the words. */
+.chat-root :is([data-tool], .chat-activity-well, .chat-activity-step) .chat-tool-fail {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  border-bottom: 1px solid var(--chat-tool-bad-line);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-tool-bad);
+}
+
+/* The stopped line: the failure line's shape in the quiet ink. A call the
+   turn's Stop cut off did not fail, so it wears no danger. */
+.chat-root .chat-activity-step .chat-tool-stop {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+/* The cause can wrap; the mark centers against the FIRST line, not the block. */
+.chat-root
+  :is([data-tool], .chat-activity-well, .chat-activity-step)
+  :is(.chat-tool-fail, .chat-tool-stop)
+  > span[aria-hidden] {
+  display: inline-flex;
+  flex: none;
+  margin-top: calc((var(--chat-lh-record) - 13px) / 2);
+}
+
+.chat-root
+  :is([data-tool], .chat-activity-well, .chat-activity-step)
+  :is(.chat-tool-break, .chat-tool-fail__text, .chat-tool-stop__text) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A cause that spans lines keeps its breaks and sets in the machine register: a database
+   error's caret sits under the character it points at only in a fixed pitch. */
+.chat-root :is([data-tool], .chat-activity-well, .chat-activity-step) .chat-tool-fail__text--lines {
+  white-space: pre-wrap;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+}
+
+/* The shouted code a harness reason leads with, split by FailLine wherever it
+   renders: the code in the machine register, the sentence after it plain. */
+.chat-root :is([data-tool], .chat-activity-well, .chat-activity-step) .chat-spec-code {
+  margin-right: var(--chat-sp-1);
+}
+
+.chat-root :is([data-tool], .chat-activity-well) .chat-spec-fail__text {
+  font-weight: var(--chat-w-regular);
+}
+
+/* A leaf reads one tier brighter than the trail that locates it. */
+.chat-root [data-tool] :is(.chat-tool-quiet, .chat-tool-dir) {
+  color: var(--chat-tool-ink-3);
+}
+
+.chat-root [data-tool] .chat-tool-leaf {
+  color: var(--chat-ink-2);
+}
+
+/* The numbered source listing (read's window, write's authored file): the
+   file's numerals in a right-aligned gutter, code wrapping beside them. */
+.chat-root [data-tool] .chat-tool-src {
+  padding: var(--chat-sp-2) 0;
+  max-height: 260px;
+  overflow: auto;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+.chat-root [data-tool] .chat-tool-src__line {
+  display: flex;
+  gap: var(--chat-sp-3);
+  padding: 0 var(--chat-tool-pad-x);
+}
+
+.chat-root [data-tool] .chat-tool-src__n {
+  flex: none;
+  min-width: 2ch;
+  text-align: right;
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.chat-root [data-tool] .chat-tool-src__code {
+  min-width: 0;
+  color: var(--chat-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A markdown document inside a well (a fetched page, hover docs, a loaded
+   skill): one seat for all of them, with extra bottom air for prose and
+   nothing else. */
+.chat-root [data-tool] .chat-tool-doc {
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-4);
+}
+
+/* A note the backend attached to the result, under the payload it qualifies. */
+.chat-root [data-tool] .chat-tool-note {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  border-top: 1px solid var(--chat-hairline);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+/* With no payload between them, the note's own rule would double the band's. */
+.chat-root [data-tool] .chat-tool-band + .chat-tool-note {
+  border-top: 0;
+}
+
+/* The utilities: one job per class, composed by stacking tokens. A plain
+   per-card rule TIES a utility at (0,3,0) -- [data-tool="x"] adds nothing over
+   [data-tool] -- and wins only because every card module imports shared.css
+   before its own sheet, so the card's sheet lands later in the bundle. A
+   per-card STATE override ([data-dtype], [data-env]) wins outright on its
+   extra attribute. `chat-tool-quiet` (the locating ink) and `chat-tool-break`
+   live above, merged into the atoms that already carry their declaration. */
+
+/* A row of items on one line: a mark, the name it labels, then whatever
+   qualifies it. The row owns the gap and the shrink; its own seat stays with
+   the card, because how far a listing sits from the well's edge is a decision
+   about that listing. */
+.chat-root [data-tool] .chat-tool-line {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  min-width: 0;
+}
+
+/* The same row where every item is a word rather than a box, so they sit on the
+   type's own baseline instead of the box's center. */
+.chat-root [data-tool] .chat-tool-line--base {
+  align-items: baseline;
+}
+
+/* A lane's head: the name of a group of entries, held to one line above them. */
+.chat-root [data-tool] .chat-tool-lane-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  letter-spacing: var(--chat-track-record);
+  white-space: nowrap;
+  color: var(--chat-tool-ink-3);
+}
+
+/* A chip: one fact outlined so it reads as a token rather than as running text.
+   A card that paints its own edge or seat says so through the two properties
+   below, which resolve at use and so never fight this rule in the cascade. */
+.chat-root [data-tool] .chat-tool-chip {
+  padding: var(--chat-tool-chip-pad, 0 var(--chat-sp-1));
+  border: 1px solid var(--chat-tool-chip-line, var(--chat-hairline));
+  border-radius: var(--chat-tool-radius-chip);
+}
+
+/* The scroll caps. A well hands the transcript a bounded block, so a listing
+   that outgrows its budget scrolls inside the card instead of pushing the
+   conversation down. The number IS the budget -- each one was settled against
+   the content it holds, so the scale enumerates them rather than rounding them
+   together. A cap used by one card only stays in that card's sheet. */
+.chat-root [data-tool] [data-cap] {
+  overflow: auto;
+}
+
+/* Scroll-edge shadows, on every capped body unless it opts out: covers in the
+   well's own ground ride WITH the content (attachment local) and hide the
+   fixed shadows at either end of the scroll, so the shadow appears only where
+   content continues past the fold. */
+.chat-root [data-tool] [data-cap]:not([data-cue="off"]) {
+  background:
+    linear-gradient(var(--chat-paper-inset) 30%, transparent) top / 100% 24px,
+    linear-gradient(transparent, var(--chat-paper-inset) 70%) bottom / 100% 24px,
+    radial-gradient(farthest-side at 50% 0, var(--chat-cap-shadow), transparent)
+      top / 100% 8px,
+    radial-gradient(
+        farthest-side at 50% 100%,
+        var(--chat-cap-shadow),
+        transparent
+      )
+      bottom / 100% 8px;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.chat-root [data-tool] [data-cap="260"] {
+  max-height: 260px;
+}
+
+.chat-root [data-tool] [data-cap="280"] {
+  max-height: 280px;
+}
+
+.chat-root [data-tool] [data-cap="300"] {
+  max-height: 300px;
+}
+
+.chat-root [data-tool] [data-cap="340"] {
+  max-height: 340px;
+}
+
+.chat-root [data-tool] [data-cap="360"] {
+  max-height: 360px;
+}
+
+/* One line, clipped. */
+.chat-root [data-tool] .chat-tool-clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* An icon's span: the flex item must not squeeze while the glyph compresses. */
+.chat-root [data-tool] .chat-tool-glyph {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--chat-tool-ink-3);
+}
+
+/* A row wrapper that dissolves so its cells sit in the parent grid. */
+.chat-root [data-tool] :is(.chat-tool-row, .chat-tool-grid__r) {
+  display: contents;
+}
+
+.chat-root [data-tool] .chat-tool-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pushed to the row's end. */
+.chat-root [data-tool] .chat-tool-end {
+  flex: none;
+  margin-left: auto;
+}
+
+/* A flex item that keeps its size. */
+.chat-root [data-tool] .chat-tool-pin {
+  flex: none;
+}
+
+/* The hairline divider: on the element itself, or between every pair of a
+   container's children. The ruled form expects homogeneous children -- a
+   header sibling inside the container would gain the divider too. */
+.chat-root [data-tool] .chat-tool-rule,
+.chat-root [data-tool] .chat-tool-ruled > * + * {
+  border-top: 1px solid var(--chat-hairline);
+}
+
+/* The record grid (a query's answer): sticky heads over hairline-ruled rows,
+   an optional ordinal gutter, the wrap owning the scroll. The band around it
+   goes block-and-padless so the grid rules the full width. */
+.chat-root [data-tool] .chat-tool-band--block {
+  display: block;
+  padding: 0;
+}
+
+/* The head names the source. Its margin is zeroed: the block band has no
+   padding, so a default paragraph margin would collapse through it and drop
+   the whole well. */
+.chat-root [data-tool] .chat-tool-grid-head {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-tool-ink-3);
+}
+
+.chat-root [data-tool] .chat-tool-gridwrap {
+  max-height: 232px;
+  overflow: auto;
+}
+
+.chat-root [data-tool] .chat-tool-grid {
+  display: grid;
+  min-width: max-content;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+/* Column heads name the columns once and stay put on scroll. */
+/* A grid head IS the column's identifier, so it keeps the identifier's own
+   letters and register: mono at the cells' size, never a transformed caption.
+   Uppercasing rewrote `placed_at` as PLACED_AT, a name the warehouse does not
+   have. Rank comes from weight, the ink, and the 2px rule. */
+.chat-root [data-tool] .chat-tool-grid__h {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1) 0;
+  background: var(--chat-paper-inset);
+  border-bottom: 2px solid var(--chat-hairline);
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  font-feature-settings: "liga" 0;
+  font-weight: var(--chat-w-medium);
+  white-space: nowrap;
+  color: var(--chat-tool-ink-3);
+}
+
+.chat-root [data-tool] .chat-tool-grid__d {
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1) 0;
+  border-bottom: 1px solid var(--chat-hairline);
+  white-space: nowrap;
+  color: var(--chat-ink);
+}
+
+.chat-root [data-tool] .chat-tool-grid__r:last-child .chat-tool-grid__d {
+  border-bottom: 0;
+}
+
+.chat-root [data-tool] :is(.chat-tool-grid__h, .chat-tool-grid__d)[data-num] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The ordinal gutter: which row, without counting down the column. Declared
+   after __h/__d because it shares their specificity and must override their
+   padding and ink on the same cell. */
+.chat-root
+  [data-tool]
+  :is(.chat-tool-grid__h, .chat-tool-grid__d).chat-tool-grid__n {
+  padding-left: var(--chat-tool-pad-x);
+  padding-right: var(--chat-sp-3);
+  text-align: right;
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+/* The statement the grid answers, echoed above it. */
+.chat-root [data-tool] .chat-tool-echo {
+  margin: 0;
+  padding: 0 var(--chat-tool-pad-x) var(--chat-sp-2);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+}
+
+/* A mono echo is code, and code keeps the mono step wherever it appears; this
+   sits after the echo rule because the two share one element and specificity. */
+.chat-root [data-tool] .chat-tool-mono.chat-tool-echo {
+  font-size: var(--chat-fs-mono, inherit);
+}
+
+/* A warning under the grid carries its own ground. */
+.chat-root [data-tool] .chat-tool-grid-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  border-top: 1px solid var(--chat-tool-warn-line);
+  background: var(--chat-tool-warn-wash);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-warn);
+}
+
+/* A warning can wrap; the mark centers against the FIRST line, not the block. */
+.chat-root [data-tool] .chat-tool-grid-warn > svg {
+  flex: none;
+  margin-top: calc((var(--chat-lh-record) - 14px) / 2);
+}
+
+/* The diff line: a one-character sign gutter, then code; tone paints the
+   line's ground and inks. */
+.chat-root [data-tool] .chat-tool-diff__line {
+  display: flex;
+  gap: var(--chat-sp-2);
+  padding: 0 var(--chat-tool-pad-x);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-root [data-tool] .chat-tool-diff__line[data-tone="add"] {
+  background: var(--chat-tool-diff-add-bg);
+}
+
+.chat-root [data-tool] .chat-tool-diff__line[data-tone="del"] {
+  background: var(--chat-tool-diff-del-bg);
+}
+
+.chat-root [data-tool] .chat-tool-diff__sign {
+  flex: none;
+  width: 1ch;
+  text-align: center;
+  color: var(--chat-ink-4);
+}
+
+.chat-root
+  [data-tool]
+  .chat-tool-diff__line[data-tone="add"]
+  .chat-tool-diff__sign {
+  color: var(--chat-tool-good);
+  font-weight: var(--chat-w-medium);
+}
+
+.chat-root
+  [data-tool]
+  .chat-tool-diff__line[data-tone="del"]
+  .chat-tool-diff__sign {
+  color: var(--chat-tool-bad);
+  font-weight: var(--chat-w-medium);
+}
+
+.chat-root [data-tool] .chat-tool-diff__code {
+  min-width: 0;
+  color: var(--chat-ink);
+}
+
+/* Context recedes so the change owns the block. */
+.chat-root
+  [data-tool]
+  .chat-tool-diff__line[data-tone="ctx"]
+  .chat-tool-diff__code {
+  color: var(--chat-tool-ink-3);
+}
+
+/* A band with one control at its right end: the row wears the band's face,
+   and the band inside it gives its face up so the two read as one bar. */
+.chat-root [data-tool] .chat-tool-band-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--chat-tool-id-line);
+  background: var(--chat-tool-id-wash);
+}
+
+.chat-root [data-tool] .chat-tool-band-row > .chat-tool-band {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.chat-root [data-tool] .chat-tool-band__action {
+  flex: none;
+  margin: 0 var(--chat-tool-pad-x) 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  white-space: nowrap;
+  color: var(--chat-ink-3);
+  cursor: pointer;
+  transition: var(--chat-control-transition);
+}
+
+.chat-root [data-tool] .chat-tool-band__action:hover,
+.chat-root [data-tool] .chat-tool-band__action:focus-visible {
+  color: var(--chat-ink-2);
+}

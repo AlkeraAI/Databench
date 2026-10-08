@@ -1,0 +1,184 @@
+{
+  "config": {
+    "arc": {
+      "stroke": "#25231e",
+      "strokeWidth": 2
+    },
+    "area": {
+      "opacity": 0.85
+    },
+    "axis": {
+      "domainColor": "rgba(231, 226, 216, 0.2)",
+      "gridColor": "rgba(231, 226, 216, 0.11)",
+      "labelColor": "#a39d92",
+      "labelFont": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif",
+      "labelFontSize": 11,
+      "labelPadding": 4,
+      "tickColor": "rgba(231, 226, 216, 0.2)",
+      "titleColor": "#ece9e2",
+      "titleFont": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif",
+      "titleFontSize": 11,
+      "titleFontWeight": 600,
+      "titlePadding": 8
+    },
+    "axisBand": {
+      "grid": false
+    },
+    "background": "#25231e",
+    "bar": {
+      "binSpacing": 2,
+      "cornerRadiusEnd": 2
+    },
+    "circle": {
+      "size": 64
+    },
+    "font": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif",
+    "header": {
+      "labelColor": "#a39d92",
+      "labelFont": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif",
+      "labelFontSize": 11,
+      "titleColor": "#ece9e2",
+      "titleFont": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif",
+      "titleFontSize": 11,
+      "titleFontWeight": 600
+    },
+    "legend": {
+      "labelColor": "#a39d92",
+      "labelFont": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif",
+      "labelFontSize": 11,
+      "symbolSize": 64,
+      "symbolType": "circle",
+      "titleColor": "#ece9e2",
+      "titleFont": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif",
+      "titleFontSize": 11,
+      "titleFontWeight": 600
+    },
+    "line": {
+      "strokeWidth": 2
+    },
+    "mark": {
+      "color": "#3987e5"
+    },
+    "padding": 8,
+    "point": {
+      "filled": true,
+      "size": 64
+    },
+    "range": {
+      "category": [
+        "#3987e5",
+        "#d95926",
+        "#199e70",
+        "#c98500",
+        "#d55181",
+        "#008300",
+        "#9085e9",
+        "#e66767"
+      ],
+      "diverging": [
+        "#9ec5f4",
+        "#3987e5",
+        "#1c5cab",
+        "#383835",
+        "#a3272a",
+        "#e66767",
+        "#f2aca9"
+      ],
+      "heatmap": [
+        "#0d366b",
+        "#184f95",
+        "#256abf",
+        "#3987e5",
+        "#6da7ec",
+        "#9ec5f4",
+        "#cde2fb"
+      ],
+      "ordinal": [
+        "#184f95",
+        "#256abf",
+        "#3987e5",
+        "#6da7ec",
+        "#9ec5f4",
+        "#cde2fb"
+      ],
+      "ramp": [
+        "#0d366b",
+        "#184f95",
+        "#256abf",
+        "#3987e5",
+        "#6da7ec",
+        "#9ec5f4",
+        "#cde2fb"
+      ]
+    },
+    "rect": {
+      "binSpacing": 2
+    },
+    "rule": {
+      "color": "#a39d92"
+    },
+    "square": {
+      "size": 64
+    },
+    "text": {
+      "color": "#ece9e2",
+      "font": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif",
+      "fontSize": 11
+    },
+    "tick": {
+      "thickness": 2
+    },
+    "title": {
+      "anchor": "start",
+      "color": "#ece9e2",
+      "font": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif",
+      "fontSize": 14,
+      "fontWeight": 600,
+      "offset": 8,
+      "subtitleColor": "#a39d92",
+      "subtitleFont": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif"
+    },
+    "trail": {
+      "size": 2
+    },
+    "view": {
+      "stroke": null
+    }
+  },
+  "tokens": {
+    "background": "#25231e",
+    "category": [
+      "#3987e5",
+      "#d95926",
+      "#199e70",
+      "#c98500",
+      "#d55181",
+      "#008300",
+      "#9085e9",
+      "#e66767"
+    ],
+    "diverging": [
+      "#9ec5f4",
+      "#3987e5",
+      "#1c5cab",
+      "#383835",
+      "#a3272a",
+      "#e66767",
+      "#f2aca9"
+    ],
+    "domain": "rgba(231, 226, 216, 0.2)",
+    "font": "\"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif",
+    "grid": "rgba(231, 226, 216, 0.11)",
+    "muted": "#a39d92",
+    "ramp": [
+      "#0d366b",
+      "#184f95",
+      "#256abf",
+      "#3987e5",
+      "#6da7ec",
+      "#9ec5f4",
+      "#cde2fb"
+    ],
+    "text": "#ece9e2"
+  }
+}

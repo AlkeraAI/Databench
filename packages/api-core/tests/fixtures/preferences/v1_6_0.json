@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.6.0",
+  "theme": "alkera-slate",
+  "show_thinking": false,
+  "show_banner": true,
+  "reduce_motion": false,
+  "tool_card_border": false,
+  "default_permission_mode": "default",
+  "tool_card_load_policy": "use_finished_default",
+  "tool_card_disclosure": {
+    "read": {
+      "metadata": {},
+      "on_finish": true,
+      "on_spawn": true,
+      "schema_version": "1.0.0"
+    },
+    "write": {
+      "metadata": {},
+      "on_finish": false,
+      "on_spawn": true,
+      "schema_version": "1.0.0"
+    }
+  },
+  "model_efforts": {
+    "claude-opus-4.5": "high",
+    "gpt-5": "medium"
+  },
+  "telemetry_enabled": false,
+  "default_chat_model": "claude-opus-4.5",
+  "default_chat_effort": "high",
+  "sql_statement_timeout_seconds": 1800,
+  "metadata": {}
+}

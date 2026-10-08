@@ -1,0 +1,42 @@
+@import "./tokens.css";
+
+/* The statement over the grid it returned. */
+
+:global(.chat-root) [data-tool="sql_query"] .sqlQueryConn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  flex: none;
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink-2);
+}
+
+:global(.chat-root) [data-tool="sql_query"] .sqlQueryResult {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:global(.chat-root) [data-tool="sql_query"] .sqlQueryLine {
+  display: flex;
+  gap: var(--chat-sp-2);
+  margin: 0;
+}
+
+/* The statement's line numbers locate a warning or an error, so they are
+   readable ink at ink-3 and never take a syntax hue. */
+:global(.chat-root) [data-tool="sql_query"] .sqlQueryNo {
+  flex: none;
+  width: 2ch;
+  text-align: right;
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+/* The engine and the role ride inside the source, quieter than the handle:
+   one connection read under two roles must not read identically. */
+:global(.chat-root) [data-tool="sql_query"] .sqlQuerySource {
+  font-weight: var(--chat-w-regular);
+  color: var(--chat-tool-ink-3);
+}

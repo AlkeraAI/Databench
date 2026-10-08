@@ -1,0 +1,7 @@
+{
+  "$model": "alkera_core.schemas.files.item.SymlinkFacet",
+  "kind": "internal",
+  "metadata": {},
+  "schema_version": "1.0.0",
+  "target": "../sibling"
+}

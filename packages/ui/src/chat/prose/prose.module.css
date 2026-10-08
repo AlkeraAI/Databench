@@ -1,0 +1,308 @@
+/* Agent prose: the reading column's type, lists, quotes, tables, math, inline
+   code, and fences. Every reading surface breaks a word rather than pushing the
+   column past the panel; it is what holds the transcript together at the
+   narrowest panel a host can hand us. */
+
+/* Prose fills whatever it is given. Its width is the transcript block's to
+   decide (ticket.css sets the agent's share of the panel), so the same renderer
+   also reads right nested inside a well, a report, or a plan sheet, where a
+   measure of its own would strand it in the middle of a narrower host. */
+:global(.chat-root) .prose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-2);
+}
+
+/* The first block sits flush at the prose top so the gutter dot's static offset
+   lands on its first line (a leading heading margin would shift it). */
+:global(.chat-root) .prose > :first-child {
+  margin-top: 0;
+}
+
+/* An h1 shares the h2 treatment: the heading size is the ladder's top, and a
+   transcript heading never shouts past it. */
+:global(.chat-root) .heading:is([data-level="1"], [data-level="2"]) {
+  margin: var(--chat-sp-1) 0 0;
+  font-size: var(--chat-fs-display);
+  font-weight: var(--chat-w-semi);
+  line-height: var(--chat-lh-display);
+  color: var(--chat-ink);
+  overflow-wrap: anywhere;
+}
+
+:global(.chat-root) .heading[data-level="3"] {
+  margin: var(--chat-sp-1) 0 0;
+  font-size: var(--chat-fs-text);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink);
+  overflow-wrap: anywhere;
+}
+
+:global(.chat-root) .p {
+  margin: 0;
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink);
+  overflow-wrap: anywhere;
+}
+
+:global(.chat-root) .list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-1);
+}
+
+:global(.chat-root) .list li {
+  position: relative;
+  padding-left: var(--chat-sp-4);
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  overflow-wrap: anywhere;
+}
+
+/* A list nested in an item sits a line below the item's own words. */
+:global(.chat-root) .list .list {
+  margin-top: var(--chat-sp-1);
+}
+
+:global(.chat-root) .list li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0.66em;
+  width: 4px;
+  height: 4px;
+  background: var(--chat-ink-4);
+  border-radius: var(--chat-radius-micro);
+}
+
+/* Ordered items carry mono counters in place of the square dot, the design's
+   numbering voice (numerals align). The counter's line box matches the item's
+   first-line box so the two center together. */
+:global(.chat-root) .listOrdered li {
+  padding-left: var(--chat-sp-5);
+  counter-increment: r-item;
+}
+
+:global(.chat-root) .listOrdered {
+  counter-reset: r-item;
+}
+
+:global(.chat-root) .listOrdered li::before {
+  content: counter(r-item) ".";
+  left: 0;
+  top: 0;
+  width: auto;
+  height: auto;
+  background: none;
+  border-radius: 0;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink-3);
+}
+
+/* Inline code joins the code system: the fence's warm code fill + hairline + code
+   ink, sized to sit inline in prose. The shipped inline renderer emits bare
+   `code` elements (`:not(pre) >` keeps the fence's own code out), and a blob
+   reference that cannot open anywhere wears the same inert inline-code cloth. */
+:global(.chat-root) .prose :is(:not(pre) > code, .alkMarkdownBlobref) {
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  /* Record, on the ladder: mono at 12 sits optically with 14 sans prose. */
+  font-size: var(--chat-fs-record);
+  /* Inline optical padding must fit the prose line; the 4px layout rung makes a 24px chip. */
+  padding: 1px 5px;
+  /* This face sets a 2.8px word space at 14px, and a bordered box eats it
+     optically -- the chip reads as touching the word it follows even where the
+     author typed a space. 0.22em buys back what the border spends, measured at
+     5.4px of clear paper either side, and it also keeps trailing punctuation
+     off the edge where no space was typed at all. */
+  margin: 0 0.22em;
+  border: 1px solid var(--chat-code-edge);
+  border-radius: var(--chat-radius-micro);
+  background: var(--chat-code-bg);
+  color: var(--chat-code-ink);
+  /* An identifier longer than a narrow column breaks rather than pushing the
+     paragraph past the panel; nothing else in prose ever reaches this. */
+  overflow-wrap: anywhere;
+}
+
+/* A bold run takes the ladder's label weight, never the browser's 700. At Text
+   that step is what carries rank, and 600 is reserved for the sizes and roles
+   with no step left above them. */
+:global(.chat-root) .prose strong {
+  font-weight: var(--chat-w-medium);
+}
+
+/* Inline links stay in the ink: the underline is the only mark, sharpening on
+   hover. The base reset already stripped the button chrome. */
+:global(.chat-root) .prose .alkMarkdownLink {
+  color: var(--chat-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--chat-hairline-strong);
+  text-underline-offset: 2px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  transition: text-decoration-color var(--chat-dur-fast) ease;
+}
+
+:global(.chat-root) .prose .alkMarkdownLink:hover {
+  text-decoration-color: currentcolor;
+}
+
+:global(.chat-root) .quote {
+  margin: 0;
+  padding: var(--chat-sp-1) 0 var(--chat-sp-1) var(--chat-sp-3);
+  border-left: 2px solid var(--chat-hairline-strong);
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink-2);
+  overflow-wrap: anywhere;
+}
+
+/* Tables read as ruled paper: hairline rows inside one rounded frame, mono
+   uppercase headers in the ticket's labeling voice. The wrap scrolls so a wide
+   table never pushes the column past the panel. */
+:global(.chat-root) .tableWrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-control);
+}
+
+:global(.chat-root) .table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+}
+
+:global(.chat-root) .table :is(th, td) {
+  padding: var(--chat-sp-2) var(--chat-sp-3);
+  border-bottom: 1px solid var(--chat-hairline);
+  text-align: left;
+  vertical-align: top;
+}
+
+:global(.chat-root) .table th {
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--chat-track-caps);
+  color: var(--chat-ink-2);
+}
+
+:global(.chat-root) .table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+:global(.chat-root) .table td {
+  overflow-wrap: anywhere;
+}
+
+/* Display math: KaTeX output on the prose column's own rhythm (its default
+   vertical margins would fight the column gap), scrolling before it overflows. */
+:global(.chat-root) .math {
+  overflow-x: auto;
+  color: var(--chat-ink);
+}
+
+:global(.chat-root) .math .katexDisplay {
+  margin: 0;
+}
+
+:global(.chat-root) .fence {
+  margin: 0;
+  border: 1px solid var(--chat-fence-edge);
+  border-radius: var(--chat-radius-control);
+  overflow: hidden;
+  background: var(--chat-fence-ground);
+}
+
+:global(.chat-root) .fenceCap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Extra right/top room so the copy button's hover wash never meets the card
+     edge; the wash is inset like every other fill. */
+  padding: var(--chat-sp-1) var(--chat-sp-2) var(--chat-sp-1) var(--chat-sp-3);
+  background: var(--chat-fence-cap);
+  border-bottom: 1px solid var(--chat-fence-edge);
+}
+
+:global(.chat-root) .fenceFile {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+}
+
+/* The file-type glyph (the shared LanguageIcon) inherits the fence accent via color. */
+:global(.chat-root) .fenceIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--chat-fence-accent);
+}
+
+:global(.chat-root) .fenceLang {
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  text-transform: uppercase;
+  letter-spacing: var(--chat-track-caps);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-fence-accent);
+}
+
+/* Always-visible icon control; the library glyph (IconCopy) flips to IconCheck for
+   a beat after a copy. The square box + flex-centering keeps the symmetric glyph
+   dead centered. */
+:global(.chat-root) .fenceCopy {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: var(--chat-sp-1);
+  border-radius: var(--chat-radius-micro);
+  color: var(--chat-ink-3);
+  cursor: pointer;
+  transition:
+    color var(--chat-dur-fast) ease,
+    background-color var(--chat-dur-fast) ease;
+}
+
+:global(.chat-root) .fenceCopy:hover {
+  color: var(--chat-ink);
+  background: var(--chat-wash);
+}
+
+:global(.chat-root) .fenceCopy[data-copied] {
+  color: var(--chat-forest);
+}
+
+:global(.chat-root) .fenceCopyicon {
+  display: block;
+}
+
+:global(.chat-root) .fenceCode {
+  margin: 0;
+  padding: var(--chat-sp-3);
+  overflow-x: auto;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  /* Record, like inline code: mono at 12 sits optically with 14 sans prose, so
+     a fenced block never reads larger than the paragraph around it. */
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+}

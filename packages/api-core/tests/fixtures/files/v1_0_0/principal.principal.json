@@ -1,0 +1,7 @@
+{
+  "$model": "alkera_core.schemas.files.principal.Principal",
+  "id": "6f1d2a3b-0c4e-4d5f-8a91-2b3c4d5e6f70",
+  "kind": "team",
+  "metadata": {},
+  "schema_version": "1.0.0"
+}

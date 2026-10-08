@@ -1,0 +1,10 @@
+/* Masthead: at the tightest panes the primary action degrades to icon-only. */
+@container ptmdetail (max-width: 420px) {
+  .primary :global(.alk-btn__label) {
+    display: none;
+  }
+  .primary {
+    width: 36px;
+    padding: 0;
+  }
+}

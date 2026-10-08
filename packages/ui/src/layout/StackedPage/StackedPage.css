@@ -1,0 +1,91 @@
+/* StackedPage — the in-document detail-page scaffold every stacked chat surface
+ * uses (activity, plan, compaction, blobs): a top-bar-height chrome row over a
+ * scrolling body. Surface-neutral ui tokens throughout. */
+
+.alk-stacked-page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  /* Same ground as the chat surface, so a detail page reads as part of the
+     chat, not a separate editor body. */
+  background: var(--alkPageBg);
+  color: var(--alkPrimaryText);
+  /* Inline inset that aligns stacked-page body content with the header TITLE
+     (not the page edge). Opt-in per body content (e.g. the plan panel) rather
+     than forced on every stacked page, since some bodies (compaction) own
+     their own padding. */
+  --alkStackedPageTitleInset: var(--alkSpace4);
+}
+
+/* With a back button ahead of the header text, the title starts after the
+   button (sm control) and the gap that follows it. Derived from the shared
+   tokens so it tracks any change to the back-button size or gap. */
+.alk-stacked-page[data-back] {
+  --alkStackedPageTitleInset: calc(var(--alkSpace4) + var(--alkControlSm) + var(--alkSpace2));
+}
+
+.alk-stacked-page__nav {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.alk-stacked-page__chrome {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  /* Fixed height (not min-height) matching the editor top bar (EditorTopBar.css)
+     exactly: the back button + block padding would push a min-height bar past
+     44px, reading as a taller header. */
+  height: 44px;
+  padding: var(--alkSpace3) var(--alkSpace4);
+  /* Same surface as the chat top bar, no bottom border — the chrome reads as
+     part of the page, not a separated header. */
+  background: var(--alkPageBg);
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.alk-stacked-page__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.alk-stacked-page__title {
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightSemibold);
+  line-height: var(--alkLeadingHeading);
+  flex: 0 1 auto;
+}
+
+.alk-stacked-page__subtitle {
+  color: var(--alkSecondaryText);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  line-height: 1.25;
+  flex: 0 1 auto;
+}
+
+.alk-stacked-page__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+  flex: 0 0 auto;
+}
+
+.alk-stacked-page__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}

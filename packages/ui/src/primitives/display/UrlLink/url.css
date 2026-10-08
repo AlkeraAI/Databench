@@ -1,0 +1,29 @@
+/* URLs — a pastel link hue (oil-pastel blue), deliberately distinct from the
+   brand green so links never compete with result counts. */
+[data-alkera-tool-cards] {
+  --alkUrl: var(--alkInfoText);
+}
+
+[data-alkera-tool-cards] .alk-url {
+  color: var(--alkUrl);
+  text-decoration: none;
+  cursor: pointer;
+  word-break: break-all;
+}
+
+[data-alkera-tool-cards] .alk-url:hover,
+[data-alkera-tool-cards] .alk-url:focus-visible {
+  text-decoration: underline;
+}
+
+/* A URL that may not become a navigation. It keeps the break behaviour so a
+   long string still wraps, and loses every cue that says it can be opened. */
+[data-alkera-tool-cards] .alk-url[data-inert] {
+  color: inherit;
+  cursor: text;
+}
+
+[data-alkera-tool-cards] .alk-url[data-inert]:hover,
+[data-alkera-tool-cards] .alk-url[data-inert]:focus-visible {
+  text-decoration: none;
+}

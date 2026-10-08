@@ -1,0 +1,887 @@
+# Copyright 2025 Marimo. All rights reserved.
+from __future__ import annotations
+
+from dataclasses import dataclass
+from unittest.mock import AsyncMock, call
+
+import pytest
+
+pytest.importorskip("pydantic_ai", reason="pydantic_ai not installed")
+
+from marimo._ai._pydantic_ai_utils import (
+    convert_to_pydantic_messages,
+    create_simple_prompt,
+    form_toolsets,
+    generate_id,
+    profile_get,
+    repair_incomplete_tool_call,
+    sanitize_part,
+)
+from marimo._server.ai.tools.types import ToolDefinition
+
+
+class TestProfileGet:
+    @dataclass
+    class _Profile:
+        supports_thinking: bool = True
+
+    def test_reads_dataclass_profile(self) -> None:
+        profile = self._Profile()
+        assert profile_get(profile, "supports_thinking", False) is True
+        assert profile_get(profile, "absent", False) is False
+
+    def test_reads_dict_profile(self) -> None:
+        profile = {"supports_thinking": True}
+        assert profile_get(profile, "supports_thinking", False) is True
+        assert profile_get(profile, "missing_field", False) is False
+
+
+class TestGenerateId:
+    def test_generate_id_with_prefix(self):
+        result = generate_id("test")
+        assert result.startswith("test_")
+        # UUID hex is 32 characters
+        assert len(result) == len("test_") + 32
+
+    def test_generate_id_returns_unique_values(self):
+        ids = [generate_id("prefix") for _ in range(100)]
+        assert len(set(ids)) == 100
+
+    def test_generate_id_with_empty_prefix(self):
+        result = generate_id("")
+        assert result.startswith("_")
+
+
+class TestFormToolsets:
+    def test_form_toolsets_empty_list(self):
+        tool_invoker = AsyncMock()
+        toolset, deferred = form_toolsets([], tool_invoker)
+        assert deferred is False
+        assert toolset is not None
+
+    def test_form_toolsets_with_backend_tool(self):
+        tool_invoker = AsyncMock()
+        tool = ToolDefinition(
+            name="test_tool",
+            description="A test tool",
+            parameters={"type": "object", "properties": {}},
+            source="backend",
+            mode=["manual"],
+        )
+        toolset, deferred = form_toolsets([tool], tool_invoker)
+        assert toolset is not None
+        assert deferred is False
+
+    def test_form_toolsets_with_frontend_tool(self):
+        tool_invoker = AsyncMock()
+        tool = ToolDefinition(
+            name="frontend_tool",
+            description="A frontend tool",
+            parameters={"type": "object", "properties": {}},
+            source="frontend",
+            mode=["manual"],
+        )
+        toolset, deferred = form_toolsets([tool], tool_invoker)
+        assert toolset is not None
+        assert deferred is True
+
+    def test_form_toolsets_with_multiple_tools(self):
+        tool_invoker = AsyncMock()
+        tools = [
+            ToolDefinition(
+                name="backend_tool",
+                description="A backend tool",
+                parameters={"type": "object", "properties": {}},
+                source="backend",
+                mode=["manual"],
+            ),
+            ToolDefinition(
+                name="frontend_tool",
+                description="A frontend tool",
+                parameters={"type": "object", "properties": {}},
+                source="frontend",
+                mode=["manual"],
+            ),
+            ToolDefinition(
+                name="mcp_tool",
+                description="An MCP tool",
+                parameters={"type": "object", "properties": {}},
+                source="mcp",
+                mode=["manual"],
+            ),
+        ]
+        toolset, deferred = form_toolsets(tools, tool_invoker)
+        assert toolset is not None
+        assert deferred is True  # has frontend tool
+
+    async def test_tools_dispatch_by_registered_name(self):
+        @dataclass
+        class MockResult:
+            value: str
+
+        tool_invoker = AsyncMock(
+            side_effect=[MockResult("backend"), MockResult("mcp")]
+        )
+        tools = [
+            ToolDefinition(
+                name="backend_tool",
+                description="A backend tool",
+                parameters={"type": "object", "properties": {}},
+                source="backend",
+                mode=["manual"],
+            ),
+            ToolDefinition(
+                name="mcp_tool",
+                description="An MCP tool",
+                parameters={"type": "object", "properties": {}},
+                source="mcp",
+                mode=["manual"],
+            ),
+        ]
+        toolset, deferred = form_toolsets(tools, tool_invoker)
+        pydantic_tools = toolset.tools
+        tools[0].name = "mutated_tool"
+        tools[0].source = "frontend"
+
+        backend_result = await pydantic_tools["backend_tool"].function(
+            _tool_name="mcp_tool"
+        )
+        mcp_result = await pydantic_tools["mcp_tool"].function()
+
+        assert deferred is False
+        assert backend_result == {"value": "backend"}
+        assert mcp_result == {"value": "mcp"}
+        assert tool_invoker.await_args_list == [
+            call("backend_tool", {"_tool_name": "mcp_tool"}),
+            call("mcp_tool", {}),
+        ]
+
+    async def test_backend_tool_invokes_tool_invoker(self):
+        @dataclass
+        class MockResult:
+            value: str
+
+        tool_invoker = AsyncMock(return_value=MockResult(value="result"))
+        tool = ToolDefinition(
+            name="backend_tool",
+            description="A backend tool",
+            parameters={"type": "object", "properties": {}},
+            source="backend",
+            mode=["manual"],
+        )
+        toolset, deferred = form_toolsets([tool], tool_invoker)
+        assert deferred is False
+
+        tools = toolset.tools
+        assert len(tools) == 1
+        assert "backend_tool" in tools
+        backend_tool = tools["backend_tool"]
+        assert backend_tool.name == "backend_tool"
+        assert backend_tool.description == "A backend tool"
+
+        result = await backend_tool.function(arg1="test", arg2=123)
+
+        # Verify tool_invoker was called with correct arguments
+        tool_invoker.assert_called_once_with(
+            "backend_tool", {"arg1": "test", "arg2": 123}
+        )
+        # Verify result is converted to dict via asdict
+        assert result == {"value": "result"}
+
+    async def test_frontend_tool_raises_call_deferred(self):
+        from pydantic_ai import CallDeferred
+
+        tool_invoker = AsyncMock()
+        tool = ToolDefinition(
+            name="frontend_tool",
+            description="A frontend tool",
+            parameters={"type": "object", "properties": {}},
+            source="frontend",
+            mode=["manual"],
+        )
+        toolset, deferred = form_toolsets([tool], tool_invoker)
+        assert deferred is True
+
+        tools = toolset.tools
+        assert len(tools) == 1
+        assert "frontend_tool" in tools
+        frontend_tool = tools["frontend_tool"]
+        assert frontend_tool.name == "frontend_tool"
+        assert frontend_tool.description == "A frontend tool"
+
+        with pytest.raises(CallDeferred) as exc_info:
+            await frontend_tool.function(arg="value")
+
+        # Verify CallDeferred has correct metadata
+        assert exc_info.value.metadata == {
+            "source": "frontend",
+            "tool_name": "frontend_tool",
+            "kwargs": {"arg": "value"},
+        }
+        # Verify tool_invoker was NOT called for frontend tools
+        tool_invoker.assert_not_called()
+
+    def test_form_toolsets_uses_tool_schema(self):
+        tool_invoker = AsyncMock()
+        schema = {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query"},
+                "max_results": {"type": "integer"},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        }
+        tool = ToolDefinition(
+            name="search_docs",
+            description="Search documentation",
+            parameters=schema,
+            source="mcp",
+            mode=["manual"],
+        )
+        toolset, _ = form_toolsets([tool], tool_invoker)
+
+        pydantic_tool = toolset.tools["search_docs"]
+        assert pydantic_tool.tool_def.parameters_json_schema == schema
+
+
+class TestConvertToPydanticMessages:
+    def test_convert_empty_messages(self):
+        result = convert_to_pydantic_messages([])
+        assert result == []
+
+    def test_convert_message_with_message_id(self):
+        from pydantic_ai.ui.vercel_ai.request_types import TextUIPart
+
+        messages = [
+            {
+                "messageId": "msg_123",
+                "role": "user",
+                "parts": [{"type": "text", "text": "Hello"}],
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert len(result) == 1
+        assert result[0].id == "msg_123"
+        assert result[0].role == "user"
+        assert result[0].parts == [
+            TextUIPart(
+                type="text", text="Hello", state=None, provider_metadata=None
+            )
+        ]
+
+    def test_convert_message_with_id(self):
+        messages = [
+            {
+                "id": "id_456",
+                "role": "assistant",
+                "parts": [{"type": "text", "text": "Hi there"}],
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert len(result) == 1
+        assert result[0].id == "id_456"
+        assert result[0].role == "assistant"
+
+    def test_convert_message_generates_id_when_missing(self):
+        messages = [
+            {
+                "role": "user",
+                "parts": [{"type": "text", "text": "Hello"}],
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert len(result) == 1
+        assert result[0].id.startswith("message_")
+
+    def test_convert_message_prefers_message_id_over_id(self):
+        messages = [
+            {
+                "messageId": "message_id_value",
+                "id": "id_value",
+                "role": "user",
+                "parts": [],
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert result[0].id == "message_id_value"
+
+    def test_convert_message_defaults_role_to_assistant(self):
+        messages = [
+            {
+                "id": "test_id",
+                "parts": [],
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert result[0].role == "assistant"
+
+    def test_convert_message_defaults_parts_to_empty_list(self):
+        messages = [
+            {
+                "id": "test_id",
+                "role": "user",
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert result[0].parts == []
+
+    def test_convert_message_with_metadata(self):
+        messages = [
+            {
+                "id": "test_id",
+                "role": "user",
+                "parts": [],
+                "metadata": {"key": "value"},
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert result[0].metadata == {"key": "value"}
+
+    def test_convert_message_without_metadata(self):
+        messages = [
+            {
+                "id": "test_id",
+                "role": "user",
+                "parts": [],
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert result[0].metadata is None
+
+    def test_convert_expands_marimo_context_part(self):
+        from pydantic_ai.ui.vercel_ai.request_types import TextUIPart
+
+        messages = [
+            {
+                "id": "msg_ctx",
+                "role": "user",
+                "parts": [
+                    {"type": "text", "text": "What does df look like?"},
+                    {
+                        "type": "data-marimo-context",
+                        "data": {
+                            "plainText": "<variable name='df'>...</variable>",
+                            "contextIds": ["variable://df"],
+                        },
+                    },
+                ],
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        # The data part is lowered to a text part placed below the user text.
+        assert result[0].parts == [
+            TextUIPart(type="text", text="What does df look like?"),
+            TextUIPart(
+                type="text",
+                text="<context>\n<variable name='df'>...</variable>\n</context>",
+            ),
+        ]
+
+    def test_convert_drops_empty_marimo_context_part(self):
+        from pydantic_ai.ui.vercel_ai.request_types import TextUIPart
+
+        messages = [
+            {
+                "id": "msg_ctx",
+                "role": "user",
+                "parts": [
+                    {"type": "text", "text": "Hello"},
+                    {
+                        "type": "data-marimo-context",
+                        "data": {"plainText": "   ", "contextIds": []},
+                    },
+                ],
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert result[0].parts == [TextUIPart(type="text", text="Hello")]
+
+    def test_convert_drops_malformed_marimo_context_part(self):
+        from pydantic_ai.ui.vercel_ai.request_types import TextUIPart
+
+        # A malformed `data` payload (not an object) must not crash.
+        messages = [
+            {
+                "id": "msg_ctx",
+                "role": "user",
+                "parts": [
+                    {"type": "text", "text": "Hello"},
+                    {"type": "data-marimo-context", "data": "oops"},
+                ],
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert result[0].parts == [TextUIPart(type="text", text="Hello")]
+
+    def test_convert_multiple_messages(self):
+        messages = [
+            {
+                "messageId": "msg_1",
+                "role": "user",
+                "parts": [{"type": "text", "text": "Hello"}],
+            },
+            {
+                "id": "msg_2",
+                "role": "assistant",
+                "parts": [{"type": "text", "text": "Hi!"}],
+            },
+            {
+                "role": "user",
+                "parts": [{"type": "text", "text": "How are you?"}],
+            },
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert len(result) == 3
+        assert result[0].id == "msg_1"
+        assert result[1].id == "msg_2"
+        assert result[2].id.startswith("message_")
+
+    def test_convert_with_part_processor(self):
+        """Test that part_processor is called on each part."""
+        from pydantic_ai.ui.vercel_ai.request_types import (
+            TextUIPart,
+            UIMessage,
+        )
+
+        call_count = 0
+
+        def processor(part):
+            nonlocal call_count
+            call_count += 1
+            # Modify the text
+            if isinstance(part, TextUIPart):
+                return TextUIPart(
+                    type="text",
+                    text=f"processed: {part.text}",
+                    state=part.state,
+                    provider_metadata=part.provider_metadata,
+                )
+            return part
+
+        messages = [
+            {
+                "id": "msg_1",
+                "role": "user",
+                "parts": [
+                    {"type": "text", "text": "Hello"},
+                    {"type": "text", "text": "World"},
+                ],
+            }
+        ]
+        result = convert_to_pydantic_messages(
+            messages, part_processor=processor
+        )
+
+        assert call_count == 2
+        assert result == [
+            UIMessage(
+                id="msg_1",
+                role="user",
+                metadata=None,
+                parts=[
+                    TextUIPart(
+                        type="text",
+                        text="processed: Hello",
+                        state=None,
+                        provider_metadata=None,
+                    ),
+                    TextUIPart(
+                        type="text",
+                        text="processed: World",
+                        state=None,
+                        provider_metadata=None,
+                    ),
+                ],
+            )
+        ]
+
+    def test_convert_with_part_processor_error_returns_original(self):
+        """Test that part_processor errors are caught and original part is returned."""
+        from pydantic_ai.ui.vercel_ai.request_types import (
+            TextUIPart,
+            UIMessage,
+        )
+
+        def failing_processor(_part):
+            raise ValueError("Processing failed!")
+
+        messages = [
+            {
+                "id": "msg_1",
+                "role": "user",
+                "parts": [{"type": "text", "text": "Hello"}],
+            }
+        ]
+        result = convert_to_pydantic_messages(
+            messages, part_processor=failing_processor
+        )
+
+        # Should return original part when processor fails
+        assert result == [
+            UIMessage(
+                id="msg_1",
+                role="user",
+                metadata=None,
+                parts=[
+                    TextUIPart(
+                        type="text",
+                        text="Hello",
+                        state=None,
+                        provider_metadata=None,
+                    )
+                ],
+            )
+        ]
+
+    def test_convert_with_part_processor_empty_parts(self):
+        """Test that part_processor is not called when parts is empty."""
+        call_count = 0
+
+        def processor(_part):
+            nonlocal call_count
+            call_count += 1
+            return _part
+
+        messages = [
+            {
+                "id": "msg_1",
+                "role": "user",
+                "parts": [],
+            }
+        ]
+        result = convert_to_pydantic_messages(
+            messages, part_processor=processor
+        )
+
+        assert call_count == 0
+        assert len(result) == 1
+        assert result[0].parts == []
+
+    def test_convert_with_part_processor_multiple_messages(self):
+        """Test that part_processor is applied to all messages."""
+        from pydantic_ai.ui.vercel_ai.request_types import TextUIPart
+
+        processed_parts = []
+
+        def processor(part):
+            if isinstance(part, TextUIPart):
+                processed_parts.append(part.text)
+            return part
+
+        messages = [
+            {
+                "id": "msg_1",
+                "role": "user",
+                "parts": [{"type": "text", "text": "First"}],
+            },
+            {
+                "id": "msg_2",
+                "role": "assistant",
+                "parts": [{"type": "text", "text": "Second"}],
+            },
+        ]
+        convert_to_pydantic_messages(messages, part_processor=processor)
+
+        assert processed_parts == ["First", "Second"]
+
+
+class TestCreateSimplePrompt:
+    def test_create_simple_prompt(self):
+        from pydantic_ai.ui.vercel_ai.request_types import TextUIPart
+
+        result = create_simple_prompt("Hello, world!")
+        assert result.id.startswith("message_")
+        assert result.role == "user"
+        assert result.parts == [TextUIPart(type="text", text="Hello, world!")]
+
+    def test_create_simple_prompt_with_empty_text(self):
+        result = create_simple_prompt("")
+        assert result.id.startswith("message_")
+        assert result.role == "user"
+        assert result.parts == []
+
+
+class TestSanitizePart:
+    """Tests for the per-state field stripper for tool parts.
+
+    The AI SDK's `addToolApprovalResponse` spreads the previous part during
+    state transitions, which can leak stale fields like `output` or
+    `errorText`. pydantic-ai's `extra='forbid'` schema rejects those. The
+    sanitizer keeps only fields declared on the matching pydantic-ai model.
+    """
+
+    def test_strips_stale_fields_on_approval_responded(self):
+        """Reproduces the original 92-validation-errors bug.
+
+        Confirms both that stale fields are dropped and that the cleaned
+        part round-trips through pydantic-ai's strict schema.
+        """
+        from pydantic_ai.ui.vercel_ai.request_types import (
+            ToolApprovalRespondedPart,
+            UIMessage,
+        )
+
+        stale = {
+            "type": "tool-request_user_blessing",
+            "toolCallId": "call_abc",
+            "state": "approval-responded",
+            "input": {},
+            "approval": {"id": "call_abc", "approved": True},
+            "output": "Invalid arguments for tool request_user_blessing",
+            "errorText": "boom",
+        }
+        clean = sanitize_part(stale)
+        assert "output" not in clean
+        assert "errorText" not in clean
+        assert clean["approval"] == {"id": "call_abc", "approved": True}
+
+        msg = UIMessage(id="m1", role="assistant", parts=[clean])
+        assert isinstance(msg.parts[0], ToolApprovalRespondedPart)
+
+    def test_preserves_real_fields_on_output_available(self):
+        part = {
+            "type": "tool-foo",
+            "toolCallId": "c1",
+            "state": "output-available",
+            "input": {"x": 1},
+            "output": {"ok": True},
+            "preliminary": False,
+        }
+        clean = sanitize_part(part)
+        assert clean["output"] == {"ok": True}
+        assert clean["preliminary"] is False
+
+    def test_preserves_real_fields_on_output_error(self):
+        part = {
+            "type": "tool-foo",
+            "toolCallId": "c1",
+            "state": "output-error",
+            "input": {"x": 1},
+            "rawInput": {"x": 1},
+            "errorText": "boom",
+        }
+        clean = sanitize_part(part)
+        assert clean["errorText"] == "boom"
+        assert clean["rawInput"] == {"x": 1}
+
+    def test_dynamic_tool_preserves_tool_name(self):
+        stale = {
+            "type": "dynamic-tool",
+            "toolName": "my_tool",
+            "toolCallId": "c1",
+            "state": "approval-responded",
+            "input": {"x": 1},
+            "approval": {"id": "c1", "approved": True},
+            "output": "stale",
+        }
+        clean = sanitize_part(stale)
+        assert "output" not in clean
+        assert clean["toolName"] == "my_tool"
+
+    @pytest.mark.parametrize(
+        "part",
+        [
+            {"type": "text", "text": "hello"},
+            {"type": "reasoning", "text": "thinking..."},
+            {
+                "type": "source-url",
+                "sourceId": "s1",
+                "url": "https://example.com",
+            },
+            {"type": "step-start"},
+            {"type": "data-custom", "data": {"k": "v"}},
+        ],
+    )
+    def test_non_tool_parts_pass_through_unchanged(self, part):
+        assert sanitize_part(part) is part
+
+    @pytest.mark.parametrize(
+        "part",
+        [
+            None,
+            "not a part",
+            42,
+            # missing type
+            {"state": "approval-responded", "output": "stale"},
+            # missing state
+            {"type": "tool-foo", "toolCallId": "c1"},
+            # unknown future state
+            {
+                "type": "tool-foo",
+                "toolCallId": "c1",
+                "state": "future-state",
+                "output": "stale",
+            },
+        ],
+    )
+    def test_malformed_parts_pass_through_unchanged(self, part):
+        assert sanitize_part(part) == part
+
+
+class TestConvertToPydanticMessagesSanitizes:
+    def test_stale_output_on_approval_responded_part_validates(self):
+        """Regression: server raised 92 errors when AI SDK leaked `output` onto an `approval-responded` part."""
+        from pydantic_ai.ui.vercel_ai.request_types import (
+            ToolApprovalRespondedPart,
+        )
+
+        messages = [
+            {
+                "id": "msg_1",
+                "role": "assistant",
+                "parts": [
+                    {
+                        "type": "tool-request_user_blessing",
+                        "toolCallId": "call_abc",
+                        "state": "approval-responded",
+                        "input": {},
+                        "approval": {"id": "call_abc", "approved": True},
+                        "output": "Invalid arguments for tool ...",
+                    }
+                ],
+            }
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert len(result) == 1
+        assert isinstance(result[0].parts[0], ToolApprovalRespondedPart)
+
+
+class TestRepairIncompleteToolCall:
+    """Tests for repairing tool calls interrupted before producing a result.
+
+    Stopping a stream mid tool-call leaves the part in `input-streaming` or
+    `input-available`. Anthropic rejects a `tool_use` without a following
+    `tool_result`, so we rewrite the part to a terminal `output-error` part.
+    """
+
+    def test_static_tool_incomplete_state_becomes_output_error(self):
+        from pydantic_ai.ui.vercel_ai.request_types import (
+            ToolInputAvailablePart,
+            ToolInputStreamingPart,
+            ToolOutputErrorPart,
+        )
+
+        for part_cls in (ToolInputStreamingPart, ToolInputAvailablePart):
+            part = part_cls(
+                type="tool-execute_code",
+                tool_call_id="toolu_01S47YeQUgc4ydHC15aVk5yq",
+                input={"code": "print(1)"},
+            )
+            repaired = repair_incomplete_tool_call(part)
+            assert repaired == ToolOutputErrorPart(
+                type="tool-execute_code",
+                tool_call_id="toolu_01S47YeQUgc4ydHC15aVk5yq",
+                input={"code": "print(1)"},
+                error_text="Tool call was interrupted and did not complete.",
+            )
+
+    def test_dynamic_tool_input_streaming_without_input(self):
+        from pydantic_ai.ui.vercel_ai.request_types import (
+            DynamicToolInputStreamingPart,
+            DynamicToolOutputErrorPart,
+        )
+
+        part = DynamicToolInputStreamingPart(
+            tool_name="mcp_search",
+            tool_call_id="c1",
+        )
+        repaired = repair_incomplete_tool_call(part)
+        # `input` is preserved as-is; a streaming part without input stays None.
+        assert repaired == DynamicToolOutputErrorPart(
+            type="dynamic-tool",
+            tool_name="mcp_search",
+            tool_call_id="c1",
+            title=None,
+            state="output-error",
+            input=None,
+            error_text="Tool call was interrupted and did not complete.",
+            provider_executed=None,
+            call_provider_metadata=None,
+            approval=None,
+        )
+
+    def test_terminal_approval_and_non_tool_parts_pass_through_unchanged(
+        self,
+    ):
+        from pydantic_ai.ui.vercel_ai.request_types import (
+            ReasoningUIPart,
+            TextUIPart,
+            ToolApprovalResponded,
+            ToolApprovalRespondedPart,
+            ToolOutputAvailablePart,
+            ToolOutputErrorPart,
+        )
+
+        parts = [
+            ToolOutputAvailablePart(
+                type="tool-foo", tool_call_id="c1", input={}, output="ok"
+            ),
+            ToolOutputErrorPart(
+                type="tool-foo",
+                tool_call_id="c1",
+                input={},
+                error_text="boom",
+            ),
+            ToolApprovalRespondedPart(
+                type="tool-foo",
+                tool_call_id="c1",
+                input={},
+                approval=ToolApprovalResponded(id="c1", approved=True),
+            ),
+            TextUIPart(text="hello"),
+            ReasoningUIPart(text="thinking..."),
+        ]
+        for part in parts:
+            assert repair_incomplete_tool_call(part) is part
+
+    def test_convert_repairs_orphaned_tool_call_from_stopped_stream(self):
+        """Regression for the Anthropic 400 after stopping a stream mid tool-call.
+
+        Mirrors the observed history: assistant emits a tool call that never
+        completed, followed by a user `continue`. Without repair, pydantic-ai
+        sends a `tool_use` with no `tool_result` and Anthropic rejects it.
+        """
+        from pydantic_ai.ui.vercel_ai.request_types import (
+            ToolOutputErrorPart,
+        )
+
+        messages = [
+            {
+                "id": "msg_user",
+                "role": "user",
+                "parts": [{"type": "text", "text": "edit akshay's cell"}],
+            },
+            {
+                "id": "msg_assistant",
+                "role": "assistant",
+                "parts": [
+                    {"type": "reasoning", "text": "I'll edit the cell"},
+                    {
+                        "type": "tool-execute_code",
+                        "toolCallId": "toolu_01S47YeQUgc4ydHC15aVk5yq",
+                        "state": "input-available",
+                        "input": {"code": "..."},
+                    },
+                ],
+            },
+            {
+                "id": "msg_continue",
+                "role": "user",
+                "parts": [{"type": "text", "text": "continue"}],
+            },
+        ]
+        result = convert_to_pydantic_messages(messages)
+        assert len(result) == 3
+        tool_part = result[1].parts[1]
+        # The original tool input is preserved; only a terminal error result
+        # is added so the `tool_use` stays paired with a `tool_result`.
+        assert tool_part == ToolOutputErrorPart(
+            type="tool-execute_code",
+            tool_call_id="toolu_01S47YeQUgc4ydHC15aVk5yq",
+            input={"code": "..."},
+            error_text="Tool call was interrupted and did not complete.",
+            provider_executed=None,
+            call_provider_metadata=None,
+            approval=None,
+        )

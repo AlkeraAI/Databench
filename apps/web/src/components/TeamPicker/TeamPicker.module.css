@@ -1,0 +1,28 @@
+/* The picker's own two measurements. The tree inside is the shared primitive,
+   so everything about a row — connectors, twist, selection wash — is its. */
+
+/* A bounded, scrolling body: an org with forty teams must not push a dialog's
+   Save button off the screen. The border makes the list read as one control
+   beside the form fields above it rather than as loose page furniture. */
+.picker {
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkInsetBg);
+  padding: var(--alkSpace2);
+  overflow-y: auto;
+}
+.picker[data-size="sm"] {
+  max-height: 180px;
+}
+.picker[data-size="md"] {
+  max-height: 320px;
+}
+
+/* The trailing reading on a row: why it cannot be picked, or who a personal row
+   reaches. It sits where a team tree prints its member count, in the tertiary
+   ink that column already uses. */
+.reason {
+  color: var(--alkTertiaryText);
+  font-size: var(--alkTextSm);
+  white-space: nowrap;
+}

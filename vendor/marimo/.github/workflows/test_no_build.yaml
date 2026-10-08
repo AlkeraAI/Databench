@@ -1,0 +1,43 @@
+name: Test Pre-built Wheel
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test_no_build.yaml
+      - pyproject.toml
+      - marimo/_cli/**
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test_no_build.yaml
+      - pyproject.toml
+      - marimo/_cli/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  UV_EXCLUDE_NEWER: "7 days"
+
+jobs:
+  Test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+      - run: |
+          uv build --wheel
+          WHEEL=$(ls dist/*.whl)
+          uv tool run --no-build --python=${{ matrix.python-version }} --from "$WHEEL" marimo --version

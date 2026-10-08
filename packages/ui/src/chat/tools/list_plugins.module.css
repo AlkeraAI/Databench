@@ -1,0 +1,115 @@
+@import "./tokens.css";
+
+/* The data register, shared with the query and lineage cards: what this card
+   enumerates is the warehouse and BI stack those two run against. */
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsLane + .pluginsLane .pluginsLaneHead {
+  border-top: 1px solid var(--chat-hairline);
+}
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsPlugin {
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-2);
+}
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsPlugin + .pluginsPlugin {
+  border-top: 1px solid var(--chat-hairline);
+  padding-top: var(--chat-sp-2);
+}
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsPluginHead {
+  margin: 0;
+}
+
+/* The head's own items sit on the baseline; the mark is a box, so it centers
+   against the name instead. */
+:global(.chat-root) [data-tool="list_plugins"] .pluginsPluginMark {
+  flex: none;
+  align-self: center;
+  color: var(--chat-tool-id);
+}
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsPluginName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+}
+
+/* A plugin the user switched off is discovered but silent, which no other state
+   in the list says. */
+:global(.chat-root) [data-tool="list_plugins"] .pluginsPluginOff {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-tool-warn);
+}
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsPluginDesc {
+  margin: 1px 0 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsRun {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--chat-sp-1) var(--chat-sp-2);
+  margin: var(--chat-sp-1) 0 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsRunLabel {
+  flex: none;
+  min-width: 62px;
+  color: var(--chat-tool-ink-3);
+}
+
+/* A live connection is the one thing in the list the agent can use right now, so
+   it is the one that carries ink; a detected one is an offer and stays outlined. */
+:global(.chat-root) [data-tool="list_plugins"] .pluginsConn {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--chat-sp-1);
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsConn[data-live] {
+  border-color: var(--chat-tool-good-line);
+  background: var(--chat-tool-good-wash);
+  color: var(--chat-tool-good);
+}
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsConnEnv {
+  color: var(--chat-ink-3);
+}
+
+:global(.chat-root) [data-tool="list_plugins"] .pluginsConn[data-live] .pluginsConnEnv {
+  color: color-mix(in srgb, var(--chat-tool-good) 75%, transparent);
+}
+
+/* How this plugin's assets are addressed: the shape a URN in any other card
+   will take. */
+:global(.chat-root) [data-tool="list_plugins"] .pluginsPluginUrn {
+  margin: var(--chat-sp-1) 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--chat-fs-mono, inherit);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-3);
+}

@@ -1,0 +1,11 @@
+.alk-planview {
+  height: 100%;
+  overflow: auto;
+  /* Inline inset aligns the content's left edge with the page header title (the
+     stacked-page exposes the value; falls back to space-4 outside one). Block
+     padding is intentionally smaller than the inline inset: the header already
+     bounds the top, and the first heading carries its own margin, so matching
+     46px there would read as a heavy, doubled gap. */
+  padding-block: 24px;
+  padding-inline: var(--alkStackedPageTitleInset, var(--alkSpace4));
+}

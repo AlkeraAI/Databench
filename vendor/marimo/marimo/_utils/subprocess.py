@@ -1,0 +1,498 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import asyncio
+import os
+import signal
+import subprocess
+from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from typing import (
+    IO,
+    Any,
+    Literal,
+    overload,
+)
+
+from marimo import _loggers
+from marimo._session.queue import ProcessLike, QueueType
+from marimo._utils.platform import is_windows
+
+LOGGER = _loggers.marimo_logger()
+
+# Type aliases matching typeshed's subprocess stubs
+_CMD = str | bytes | Sequence[str | bytes]
+_ENV = Mapping[str, str] | Mapping[bytes, bytes]
+_FILE = int | IO[Any] | None
+
+
+@overload
+def safe_popen(
+    args: _CMD,
+    bufsize: int = ...,
+    executable: str | bytes | None = ...,
+    stdin: _FILE = ...,
+    stdout: _FILE = ...,
+    stderr: _FILE = ...,
+    preexec_fn: Callable[[], Any] | None = ...,
+    close_fds: bool = ...,
+    shell: bool = ...,
+    cwd: str | bytes | None = ...,
+    env: _ENV | None = ...,
+    universal_newlines: bool = ...,
+    startupinfo: Any = ...,
+    creationflags: int = ...,
+    restore_signals: bool = ...,
+    start_new_session: bool = ...,
+    pass_fds: Sequence[int] = ...,
+    *,
+    encoding: str,
+    errors: str | None = ...,
+    text: bool | None = ...,
+    user: str | int | None = ...,
+    group: str | int | None = ...,
+    extra_groups: Sequence[str | int] | None = ...,
+    umask: int = ...,
+    pipesize: int = ...,
+) -> subprocess.Popen[str] | None: ...
+
+
+@overload
+def safe_popen(
+    args: _CMD,
+    bufsize: int = ...,
+    executable: str | bytes | None = ...,
+    stdin: _FILE = ...,
+    stdout: _FILE = ...,
+    stderr: _FILE = ...,
+    preexec_fn: Callable[[], Any] | None = ...,
+    close_fds: bool = ...,
+    shell: bool = ...,
+    cwd: str | bytes | None = ...,
+    env: _ENV | None = ...,
+    universal_newlines: bool = ...,
+    startupinfo: Any = ...,
+    creationflags: int = ...,
+    restore_signals: bool = ...,
+    start_new_session: bool = ...,
+    pass_fds: Sequence[int] = ...,
+    *,
+    encoding: str | None = ...,
+    errors: str,
+    text: bool | None = ...,
+    user: str | int | None = ...,
+    group: str | int | None = ...,
+    extra_groups: Sequence[str | int] | None = ...,
+    umask: int = ...,
+    pipesize: int = ...,
+) -> subprocess.Popen[str] | None: ...
+
+
+@overload
+def safe_popen(
+    args: _CMD,
+    bufsize: int = ...,
+    executable: str | bytes | None = ...,
+    stdin: _FILE = ...,
+    stdout: _FILE = ...,
+    stderr: _FILE = ...,
+    preexec_fn: Callable[[], Any] | None = ...,
+    close_fds: bool = ...,
+    shell: bool = ...,
+    cwd: str | bytes | None = ...,
+    env: _ENV | None = ...,
+    *,
+    universal_newlines: Literal[True],
+    startupinfo: Any = ...,
+    creationflags: int = ...,
+    restore_signals: bool = ...,
+    start_new_session: bool = ...,
+    pass_fds: Sequence[int] = ...,
+    encoding: str | None = ...,
+    errors: str | None = ...,
+    text: bool | None = ...,
+    user: str | int | None = ...,
+    group: str | int | None = ...,
+    extra_groups: Sequence[str | int] | None = ...,
+    umask: int = ...,
+    pipesize: int = ...,
+) -> subprocess.Popen[str] | None: ...
+
+
+@overload
+def safe_popen(
+    args: _CMD,
+    bufsize: int = ...,
+    executable: str | bytes | None = ...,
+    stdin: _FILE = ...,
+    stdout: _FILE = ...,
+    stderr: _FILE = ...,
+    preexec_fn: Callable[[], Any] | None = ...,
+    close_fds: bool = ...,
+    shell: bool = ...,
+    cwd: str | bytes | None = ...,
+    env: _ENV | None = ...,
+    universal_newlines: bool = ...,
+    startupinfo: Any = ...,
+    creationflags: int = ...,
+    restore_signals: bool = ...,
+    start_new_session: bool = ...,
+    pass_fds: Sequence[int] = ...,
+    *,
+    text: Literal[True],
+    encoding: str | None = ...,
+    errors: str | None = ...,
+    user: str | int | None = ...,
+    group: str | int | None = ...,
+    extra_groups: Sequence[str | int] | None = ...,
+    umask: int = ...,
+    pipesize: int = ...,
+) -> subprocess.Popen[str] | None: ...
+
+
+@overload
+def safe_popen(
+    args: _CMD,
+    bufsize: int = ...,
+    executable: str | bytes | None = ...,
+    stdin: _FILE = ...,
+    stdout: _FILE = ...,
+    stderr: _FILE = ...,
+    preexec_fn: Callable[[], Any] | None = ...,
+    close_fds: bool = ...,
+    shell: bool = ...,
+    cwd: str | bytes | None = ...,
+    env: _ENV | None = ...,
+    universal_newlines: Literal[False] = ...,
+    startupinfo: Any = ...,
+    creationflags: int = ...,
+    restore_signals: bool = ...,
+    start_new_session: bool = ...,
+    pass_fds: Sequence[int] = ...,
+    *,
+    text: Literal[False] | None = ...,
+    encoding: None = ...,
+    errors: None = ...,
+    user: str | int | None = ...,
+    group: str | int | None = ...,
+    extra_groups: Sequence[str | int] | None = ...,
+    umask: int = ...,
+    pipesize: int = ...,
+) -> subprocess.Popen[bytes] | None: ...
+
+
+@overload
+def safe_popen(
+    args: _CMD,
+    bufsize: int = ...,
+    executable: str | bytes | None = ...,
+    stdin: _FILE = ...,
+    stdout: _FILE = ...,
+    stderr: _FILE = ...,
+    preexec_fn: Callable[[], Any] | None = ...,
+    close_fds: bool = ...,
+    shell: bool = ...,
+    cwd: str | bytes | None = ...,
+    env: _ENV | None = ...,
+    universal_newlines: bool = ...,
+    startupinfo: Any = ...,
+    creationflags: int = ...,
+    restore_signals: bool = ...,
+    start_new_session: bool = ...,
+    pass_fds: Sequence[int] = ...,
+    *,
+    text: bool | None = ...,
+    encoding: str | None = ...,
+    errors: str | None = ...,
+    user: str | int | None = ...,
+    group: str | int | None = ...,
+    extra_groups: Sequence[str | int] | None = ...,
+    umask: int = ...,
+    pipesize: int = ...,
+) -> subprocess.Popen[Any] | None: ...
+
+
+def safe_popen(
+    args: _CMD,
+    bufsize: int = -1,
+    executable: str | bytes | None = None,
+    stdin: _FILE = None,
+    stdout: _FILE = None,
+    stderr: _FILE = None,
+    preexec_fn: Callable[[], Any] | None = None,
+    close_fds: bool = True,
+    shell: bool = False,
+    cwd: str | bytes | None = None,
+    env: _ENV | None = None,
+    universal_newlines: bool = False,
+    startupinfo: Any = None,
+    creationflags: int = 0,
+    restore_signals: bool = True,
+    start_new_session: bool = False,
+    pass_fds: Sequence[int] = (),
+    *,
+    text: bool | None = None,
+    encoding: str | None = None,
+    errors: str | None = None,
+    user: str | int | None = None,
+    group: str | int | None = None,
+    extra_groups: Sequence[str | int] | None = None,
+    umask: int = -1,
+    pipesize: int = -1,
+    # Note: process_group is omitted because it was added in Python 3.11
+) -> subprocess.Popen[Any] | None:
+    """Wrapper around subprocess.Popen that never raises.
+
+    Returns None and logs the error if the subprocess cannot be created
+    (e.g. FileNotFoundError, PermissionError, OSError).
+    """
+    try:
+        return subprocess.Popen(
+            args,
+            bufsize=bufsize,
+            executable=executable,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            # Mirror Popen's signature for compatibility; current callers
+            # retain the safe default of None.
+            preexec_fn=preexec_fn,  # noqa: PLW1509
+            close_fds=close_fds,
+            shell=shell,
+            cwd=cwd,
+            env=env,
+            universal_newlines=universal_newlines,
+            startupinfo=startupinfo,
+            creationflags=creationflags,
+            restore_signals=restore_signals,
+            start_new_session=start_new_session,
+            pass_fds=pass_fds,
+            text=text,
+            encoding=encoding,
+            errors=errors,
+            user=user,
+            group=group,
+            extra_groups=extra_groups,
+            umask=umask,
+            pipesize=pipesize,
+        )
+    except Exception as e:
+        LOGGER.error("Failed to create subprocess for command %s: %s", args, e)
+        return None
+
+
+_REAP_TASKS: set[asyncio.Task[None]] = set()
+
+
+def _process_finished(process: ProcessLike) -> bool:
+    """Return whether the process has finished without blocking."""
+    # NB: It is not safe to call os.waitpid() directly because
+    # apparently Popen.poll() and multiprcoessing.Process.is_alive()
+    # assume that they are the ones that reap zombie processes.
+    poll = getattr(process, "poll", None)
+    if poll is not None:
+        return poll() is not None
+    return not process.is_alive()
+
+
+async def cancel_pending_reaps() -> None:
+    """Cancel and await any in-flight reap tasks.
+
+    Call from a server shutdown hook so asyncio doesn't emit
+    "Task was destroyed but it is pending" when the loop closes.
+    """
+    tasks = list(_REAP_TASKS)
+    for t in tasks:
+        t.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def _reap_process_unix(process: ProcessLike, pgid: int | None) -> None:
+    pid = process.pid
+    await asyncio.sleep(5.0)
+    if _process_finished(process):
+        return
+
+    LOGGER.warning(
+        "Process %s did not respond to SIGTERM. Force killing.", pid
+    )
+    try:
+        if pgid is not None:
+            os.killpg(pgid, signal.SIGKILL)
+        elif pid is not None:
+            os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+
+    wait_for_s = 10
+    waited_s = 0
+    while (
+        not (process_finished := _process_finished(process))
+        and waited_s < wait_for_s
+    ):
+        await asyncio.sleep(1.0)
+        waited_s += 1
+
+    if not process_finished:
+        LOGGER.warning(
+            "Waited for 10s, but process %s has still not quit ...", pid
+        )
+        return
+
+
+def interrupt_kernel_process(
+    pid: int, win32_interrupt_queue: QueueType[bool] | None
+) -> None:
+    """Interrupt the kernel process with this pid.
+
+    On Windows, interrupts are delivered to the kernel through a queue.
+    Elsewhere, send SIGINT to the process group led by the kernel: the
+    kernel becomes a group leader at startup, so this interrupts both the
+    kernel and any subprocesses spawned by user code, without touching
+    the server. Falls back to signaling the kernel alone if it leads no
+    group.
+    """
+    if is_windows():
+        if win32_interrupt_queue is not None:
+            LOGGER.debug("Queueing interrupt request for kernel.")
+            win32_interrupt_queue.put_nowait(True)
+        return
+    LOGGER.debug("Sending SIGINT to kernel process group")
+    try:
+        os.killpg(pid, signal.SIGINT)
+        return
+    except ProcessLookupError:
+        pass
+    except PermissionError:
+        # The pid no longer names our kernel (e.g. recycled after death);
+        # don't widen the signal to whatever owns it now.
+        return
+    try:
+        os.kill(pid, signal.SIGINT)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
+def try_kill_process_and_group(process: ProcessLike) -> None:
+    """Attempt to kill the process group to which process belongs.
+
+    Refuses to kill the group if it the current process belongs to it.
+
+    Regardless, tries to kill the process.
+
+    If running in an event loop, starts a task to reap the process on Unix-like
+    systems. If not running in an event loop, it is the caller's responsibility
+    to reap the process.
+    """
+    pid = process.pid
+    if pid is None or _process_finished(process):
+        return
+
+    if is_windows():
+        # A launcher such as uv may sit between us and the kernel; kill
+        # the whole tree rooted at the direct child.
+        import subprocess as _subprocess
+
+        try:
+            completed = _subprocess.run(
+                ["taskkill", "/T", "/F", "/PID", str(pid)],
+                capture_output=True,
+            )
+            if completed.returncode != 0:
+                process.terminate()
+        except Exception:
+            process.terminate()
+        return
+
+    pgid = os.getpgid(pid)
+    target_pgid: int | None
+    if pgid == os.getpgrp():
+        # This should never happen ... the kernel process makes sure to
+        # call setsid and become the group leader
+        LOGGER.warning("The target's pgid matches the server's (%d)", pgid)
+        target_pgid = None
+        process.terminate()
+    else:
+        target_pgid = pgid
+        os.killpg(pgid, signal.SIGTERM)
+
+    if _process_finished(process):
+        return
+
+    try:
+        loop = asyncio.get_running_loop()
+        task = loop.create_task(_reap_process_unix(process, target_pgid))
+        _REAP_TASKS.add(task)
+        task.add_done_callback(_REAP_TASKS.discard)
+    except RuntimeError:
+        pass
+
+
+def kill_subprocess(
+    process: subprocess.Popen[Any], *, start_new_session: bool
+) -> None:
+    """Kill and reap a cancelled synchronous command and its launch group.
+
+    Use SIGKILL for an isolated group so a descendant ignoring SIGTERM
+    cannot keep captured pipes open after the launcher exits.
+    """
+    # A launcher may have exited while its descendants still hold the pipes.
+    if process.poll() is not None and (is_windows() or not start_new_session):
+        return
+    if is_windows():
+        try:
+            subprocess.run(
+                ["taskkill", "/T", "/F", "/PID", str(process.pid)],
+                capture_output=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        process.kill()
+    else:
+        try:
+            if start_new_session or os.getpgid(process.pid) == process.pid:
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+        except ProcessLookupError:
+            pass
+    process.wait()
+
+
+async def stop_subprocess(
+    process: subprocess.Popen[Any],
+    *,
+    start_new_session: bool,
+    drain: asyncio.Future[Any] | None = None,
+) -> None:
+    """Finish failed-command cleanup before the caller re-raises its error.
+
+    Killing and reaping run off the event loop. Further cancellation cannot
+    abandon the process or the pipe readers supplied by its owner.
+    """
+
+    async def cleanup() -> None:
+        # Pipe readers can fill the default executor while waiting for this
+        # kill. Cleanup must be able to run independently of those readers.
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            await asyncio.get_running_loop().run_in_executor(
+                executor,
+                partial(
+                    kill_subprocess,
+                    process,
+                    start_new_session=start_new_session,
+                ),
+            )
+        if drain is not None:
+            await asyncio.gather(drain, return_exceptions=True)
+
+    task = asyncio.create_task(cleanup())
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            continue
+    task.result()

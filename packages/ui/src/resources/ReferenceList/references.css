@@ -1,0 +1,188 @@
+/* Reference chips (inline, in the transcript + tool-card attachment bands) and
+   the artifact rows of the Results page. Surface-neutral: base --alk* tokens
+   only, with in-var() literal fallbacks inside every color-mix() on a
+   non-inherited property (a host-remapped token with no --vscode-* value is
+   guaranteed-invalid and would drop the declaration). */
+
+.alk-refstore-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace1);
+  margin-top: var(--alkSpace2);
+}
+
+/* Inside a tool card (the attachment band) or an own-line markdown blob: no top
+   margin — the band's own padding owns the spacing. */
+.alk-refstore-list.is-card {
+  margin-top: 0;
+}
+
+/* The chip + its trailing export share a positioning context; centering keeps
+   the (taller) export control balanced against the compact chip. */
+.alk-refstore-chip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.alk-refstore-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+  max-width: 22rem;
+  padding: 1px var(--alkSpace2);
+  border: 1px solid color-mix(in srgb, var(--alkPrimaryText, #ece9e2) 14%, transparent);
+  border-radius: var(--alkRadiusMd);
+  background: color-mix(in srgb, var(--alkPrimaryText, #ece9e2) 5%, transparent);
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextMd);
+  line-height: 1.7;
+  cursor: pointer;
+}
+
+.alk-refstore-chip:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--alkBrand, #5e7748) 50%, transparent);
+  background: color-mix(in srgb, var(--alkBrand, #5e7748) 10%, transparent);
+}
+
+.alk-refstore-chip:disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.alk-refstore-chip__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+}
+
+.alk-refstore-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-refstore-chip__open {
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+}
+
+/* Download affordance, beside the chip. Hidden until the wrap is hovered/focused
+   so the result chip reads clean at rest; the button chrome itself is the base
+   ghost icon Button. */
+.alk-refstore-chip__export {
+  margin-left: calc(-1 * var(--alkSpace1));
+  opacity: 0;
+}
+
+.alk-refstore-chip-wrap:hover .alk-refstore-chip__export,
+.alk-refstore-chip-wrap:focus-within .alk-refstore-chip__export {
+  opacity: 1;
+}
+
+/* The hover/focus preview rides the base Popover in hover mode (anchored,
+   dismissable, animated, portaled — so it can't clip or run off-screen). This
+   variant widens the panel and stacks the head + table body; the compound
+   selector out-weighs the base .alk-popover bounds deterministically. */
+.alk-popover.alk-refstore-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace1);
+  min-width: 0;
+  max-width: min(34rem, 80vw);
+  font-size: var(--alkTextXs);
+}
+
+.alk-refstore-preview__meta {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+}
+
+.alk-refstore-preview__body {
+  max-height: 14rem;
+  overflow: hidden;
+}
+
+/* ── Artifact rows (the Results page list) ────────────────────────────── */
+
+.alk-refstore-rows {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--alkSpace4);
+}
+
+.alk-refstore-row {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+  min-width: 0;
+}
+
+/* The clickable name + summary; opens the full blob. The popover trigger wrap
+   between the row and this button must keep filling the row. */
+.alk-refstore-row .alk-popover-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.alk-refstore-row__main {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border: 0;
+  border-radius: var(--alkRadiusMd);
+  background: transparent;
+  color: var(--alkPrimaryText);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.alk-refstore-row__main:hover:not(:disabled) {
+  background: var(--alkHoverBg);
+}
+
+.alk-refstore-row__main:disabled {
+  cursor: default;
+}
+
+.alk-refstore-row__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+}
+
+.alk-refstore-row__text {
+  display: flex;
+  align-items: baseline;
+  gap: var(--alkSpace3);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.alk-refstore-row__name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--alkTextMd);
+}
+
+.alk-refstore-row__detail {
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+}
+
+.alk-refstore-row__open {
+  flex: 0 0 auto;
+  color: var(--alkTertiaryText);
+}

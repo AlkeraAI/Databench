@@ -1,0 +1,1357 @@
+from __future__ import annotations
+
+import os
+import sys
+from typing import TYPE_CHECKING
+
+import pytest
+
+from marimo import __version__
+from marimo._ast.app import App, InternalApp
+from marimo._ast.cell import CellConfig
+from marimo._server.app_defaults import AppDefaults
+from marimo._server.models.models import SaveNotebookRequest
+from marimo._session.notebook import AppFileManager
+from marimo._types.ids import CellId_t
+from marimo._utils.cell_matching import similarity_score
+from marimo._utils.http import HTTPException, HTTPStatus
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from pathlib import Path
+
+save_request = SaveNotebookRequest(
+    cell_ids=["1"],
+    filename="save_existing.py",
+    codes=["import marimo as mo"],
+    names=["my_cell"],
+    configs=[CellConfig(hide_code=True)],
+)
+
+
+@pytest.fixture
+def app_file_manager(tmp_path: Path) -> Generator[AppFileManager, None, None]:
+    """
+    Creates an AppFileManager instance with a temporary file.
+    """
+    # Create a temporary file
+    temp_file = tmp_path / "test_app.py"
+
+    temp_file.write_text(
+        """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App()
+
+@app.cell
+def __():
+    import marimo as mo
+    return mo,
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    # Instantiate AppFileManager with the temporary file and a mock app
+    manager = AppFileManager(filename=str(temp_file))
+    return manager
+
+    # No manual cleanup needed - pytest handles it automatically
+
+
+def test_rename_same_filename(app_file_manager: AppFileManager) -> None:
+    initial_filename = app_file_manager.filename or ""
+    app_file_manager.rename(initial_filename)
+    assert app_file_manager.filename == initial_filename
+
+
+def test_rename_to_existing_filename(app_file_manager: AppFileManager) -> None:
+    existing_filename = "existing_file.py"
+    with open(existing_filename, "w") as f:
+        f.write("This is a test file.")
+    try:
+        with pytest.raises(HTTPException) as e:
+            app_file_manager.rename(existing_filename)
+        assert e.value.status_code == HTTPStatus.BAD_REQUEST
+    finally:
+        os.remove(existing_filename)
+
+
+def test_successful_rename(app_file_manager: AppFileManager) -> None:
+    existing_filename = os.path.abspath(str(app_file_manager.filename or ""))
+    new_filename = os.path.join(
+        os.path.dirname(existing_filename), "new_file.py"
+    )
+    if os.path.exists(new_filename):
+        os.remove(new_filename)
+    try:
+        app_file_manager.rename(new_filename)
+        assert str(app_file_manager.filename) == new_filename
+    finally:
+        os.remove(new_filename)
+
+
+def test_rename_exception(app_file_manager: AppFileManager) -> None:
+    new_filename = "/invalid/path/new_filename.py"
+    with pytest.raises(HTTPException) as e:
+        app_file_manager.rename(new_filename)
+    assert e.value.status_code == HTTPStatus.SERVER_ERROR
+
+
+def test_rename_create_new_file(app_file_manager: AppFileManager) -> None:
+    app_file_manager.filename = None
+    new_filename = "new_file.py"
+    if os.path.exists(new_filename):
+        os.remove(new_filename)
+    try:
+        app_file_manager.rename(new_filename)
+        assert os.path.exists(new_filename)
+    finally:
+        os.remove(new_filename)
+
+
+def test_rename_create_new_directory_file(
+    app_file_manager: AppFileManager,
+) -> None:
+    app_file_manager.filename = None
+    new_directory = "new_directory"
+    new_filename = os.path.join(new_directory, "new_file.py")
+    if os.path.exists(new_filename):
+        os.remove(new_filename)
+    if os.path.exists(new_directory):
+        os.rmdir(new_directory)
+    try:
+        app_file_manager.rename(new_filename)
+        assert os.path.exists(new_filename)
+    finally:
+        os.remove(new_filename)
+        os.rmdir(new_directory)
+
+
+def test_rename_different_filetype(app_file_manager: AppFileManager) -> None:
+    initial_filename = app_file_manager.filename
+    assert initial_filename
+    assert initial_filename.endswith(".py")
+    with open(initial_filename) as f:
+        contents = f.read()
+        assert "app = marimo.App()" in contents
+        assert "marimo-version" not in contents
+    app_file_manager.rename(str(initial_filename)[:-3] + ".md")
+    next_filename = app_file_manager.filename
+    assert next_filename
+    assert next_filename.endswith(".md")
+    with open(next_filename) as f:
+        contents = f.read()
+        assert "marimo-version" in contents
+        assert "app = marimo.App()" not in contents
+
+
+def test_rename_to_qmd(app_file_manager: AppFileManager) -> None:
+    initial_filename = app_file_manager.filename
+    assert initial_filename
+    assert initial_filename.endswith(".py")
+    with open(initial_filename) as f:
+        contents = f.read()
+        assert "app = marimo.App()" in contents
+        assert "marimo-version" not in contents
+    app_file_manager.rename(str(initial_filename)[:-3] + ".qmd")
+    next_filename = app_file_manager.filename
+    assert next_filename
+    assert next_filename.endswith(".qmd")
+    with open(next_filename) as f:
+        contents = f.read()
+        assert "marimo-version" in contents
+        assert "```{marimo .python}" in contents
+        assert "app = marimo.App()" not in contents
+
+
+def test_save_mystmd_preserves_frontmatter_and_marimo_config(
+    tmp_path: Path,
+) -> None:
+    temp_file = tmp_path / "notebook.myst.md"
+    temp_file.write_text(
+        "---\n"
+        "title: My Title\n"
+        "author: Marimo Team\n"
+        "---\n"
+        "\n"
+        "```{marimo-config}\n"
+        "---\n"
+        "header: |-\n"
+        "  import os\n"
+        "pyproject: |-\n"
+        '  dependencies = ["polars"]\n'
+        "width: full\n"
+        "---\n"
+        "```\n"
+        "\n"
+        "```{marimo} python\n"
+        "x = 1\n"
+        "```",
+        encoding="utf-8",
+    )
+    manager = AppFileManager(filename=str(temp_file))
+
+    assert manager.app.config.app_title == "My Title"
+    assert manager.app.config.width == "full"
+    assert manager.app.to_ir().header is not None
+    assert "import os" in manager.app.to_ir().header.value
+    assert 'dependencies = ["polars"]' in manager.app.to_ir().header.value
+
+    cells = list(manager.app.cell_manager.cell_data())
+    manager.save(
+        SaveNotebookRequest(
+            cell_ids=[cell.cell_id for cell in cells],
+            filename=str(temp_file),
+            codes=[cell.code for cell in cells],
+            names=[cell.name for cell in cells],
+            configs=[cell.config for cell in cells],
+            persist=True,
+        )
+    )
+
+    contents = temp_file.read_text(encoding="utf-8")
+    assert "title: My Title" in contents
+    assert "author: Marimo Team" in contents
+    assert "```{marimo-config}" in contents
+    assert "import os" in contents
+    assert 'dependencies = ["polars"]' in contents
+    assert "width: full" in contents
+
+    reloaded = AppFileManager(filename=str(temp_file))
+    assert reloaded.app.config.app_title == "My Title"
+    assert reloaded.app.config.width == "full"
+    assert reloaded.app.to_ir().header is not None
+    assert "import os" in reloaded.app.to_ir().header.value
+    assert 'dependencies = ["polars"]' in reloaded.app.to_ir().header.value
+
+
+def test_save_app_config_valid(app_file_manager: AppFileManager) -> None:
+    app_file_manager.filename = "app_config.py"
+    try:
+        app_file_manager.save_app_config({})
+        with open(app_file_manager.filename, encoding="utf-8") as f:
+            contents = f.read()
+        assert "app = marimo.App" in contents
+    finally:
+        os.remove(app_file_manager.filename)
+
+
+@pytest.mark.skipif(
+    condition=sys.platform == "win32",
+    reason="filename is not invalid on Windows",
+)
+def test_save_app_config_exception(app_file_manager: AppFileManager) -> None:
+    app_file_manager.filename = "/invalid/path/app_config.py"
+    with pytest.raises(HTTPException) as e:
+        app_file_manager.save_app_config({})
+    assert e.value.status_code == HTTPStatus.SERVER_ERROR
+
+
+def test_save_filename_change_not_allowed(
+    app_file_manager: AppFileManager,
+) -> None:
+    app_file_manager.filename = "original.py"
+    save_request.filename = "new.py"
+    with pytest.raises(HTTPException) as e:
+        app_file_manager.save(save_request)
+    assert e.value.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_save_existing_filename(app_file_manager: AppFileManager) -> None:
+    existing_filename = "existing_file.py"
+    with open(existing_filename, "w") as f:
+        f.write("This is a test file.")
+    save_request.filename = existing_filename
+    try:
+        with pytest.raises(HTTPException) as e:
+            app_file_manager.save(save_request)
+        assert e.value.status_code == HTTPStatus.BAD_REQUEST
+    finally:
+        os.remove(existing_filename)
+
+
+def test_save_successful(app_file_manager: AppFileManager) -> None:
+    save_request.filename = app_file_manager.filename or ""
+    try:
+        app_file_manager.save(save_request)
+        assert os.path.exists(save_request.filename)
+    finally:
+        os.remove(save_request.filename)
+
+
+def test_save_cannot_rename(app_file_manager: AppFileManager) -> None:
+    save_request.filename = "/invalid/path/save_exception.py"
+    with pytest.raises(HTTPException) as e:
+        app_file_manager.save(save_request)
+    assert e.value.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_save_from_cells_persists_cells(
+    app_file_manager: AppFileManager,
+) -> None:
+    """`save_from_cells` should round-trip cells through the serializer."""
+    from marimo._messaging.notebook.document import NotebookCell
+
+    app_file_manager.save_from_cells(
+        [
+            NotebookCell(
+                id=CellId_t("first"),
+                code="z = 99",
+                name="first",
+                config=CellConfig(),
+            ),
+        ]
+    )
+    assert app_file_manager.filename is not None
+    with open(app_file_manager.filename, encoding="utf-8") as f:
+        contents = f.read()
+    assert "z = 99" in contents
+    assert "def first" in contents
+
+
+def test_save_from_cells_empty_name_normalizes(
+    app_file_manager: AppFileManager,
+) -> None:
+    """Empty cell names must serialize as the default `_` rather than
+    falling back to the unparsable-cell path."""
+    from marimo._messaging.notebook.document import NotebookCell
+
+    app_file_manager.save_from_cells(
+        [
+            NotebookCell(
+                id=CellId_t("c"),
+                code="greeting = 42",
+                name="",
+                config=CellConfig(),
+            ),
+        ]
+    )
+    assert app_file_manager.filename is not None
+    with open(app_file_manager.filename, encoding="utf-8") as f:
+        contents = f.read()
+    assert "greeting = 42" in contents
+    assert "_unparsable_cell" not in contents
+
+
+def test_save_from_cells_unnamed_raises(
+    app_file_manager: AppFileManager,
+) -> None:
+    """Unnamed notebooks cannot be persisted from a cell snapshot."""
+    app_file_manager.filename = None
+    with pytest.raises(HTTPException) as e:
+        app_file_manager.save_from_cells([])
+    assert e.value.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_save_from_cells_preserves_layout_file(
+    app_file_manager: AppFileManager,
+) -> None:
+    """`save_from_cells` must keep `layout_file` in app config."""
+    from marimo._messaging.notebook.document import NotebookCell
+
+    app_file_manager.app.update_config({"layout_file": "layouts/x.grid.json"})
+    app_file_manager.save_from_cells(
+        [
+            NotebookCell(
+                id=CellId_t("c"),
+                code="x = 1",
+                name="",
+                config=CellConfig(),
+            ),
+        ]
+    )
+    assert app_file_manager.app.config.layout_file == "layouts/x.grid.json"
+
+
+def test_save_and_save_from_cells_serialize_under_lock(
+    app_file_manager: AppFileManager,
+) -> None:
+    """Concurrent `save` + `save_from_cells` on the same manager must
+    produce a valid (non-torn) file. Also regression-tests that the
+    reentrant lock covers both entry points."""
+    import threading
+
+    from marimo._messaging.notebook.document import NotebookCell
+
+    assert app_file_manager.filename is not None
+    save_request.filename = app_file_manager.filename
+    errors: list[Exception] = []
+
+    def _frontend_save() -> None:
+        try:
+            for _ in range(20):
+                app_file_manager.save(save_request)
+        except Exception as e:  # pragma: no cover — should never happen
+            errors.append(e)
+
+    def _autosave() -> None:
+        cells = [
+            NotebookCell(
+                id=CellId_t("auto"),
+                code="auto = 1",
+                name="",
+                config=CellConfig(),
+            )
+        ]
+        try:
+            for _ in range(20):
+                app_file_manager.save_from_cells(cells)
+        except Exception as e:  # pragma: no cover
+            errors.append(e)
+
+    try:
+        t1 = threading.Thread(target=_frontend_save)
+        t2 = threading.Thread(target=_autosave)
+        t1.start()
+        t2.start()
+        t1.join(timeout=10)
+        t2.join(timeout=10)
+
+        assert not t1.is_alive(), (
+            "frontend save thread did not terminate within 10s "
+            "(likely deadlock in AppFileManager write lock)"
+        )
+        assert not t2.is_alive(), (
+            "autosave thread did not terminate within 10s "
+            "(likely deadlock in AppFileManager write lock)"
+        )
+        assert not errors, f"unexpected errors: {errors}"
+        # File ends in a parseable state — the serializer's codegen would
+        # raise on a torn write, and the final content must be one of the
+        # two write paths, never a mix.
+        with open(save_request.filename, encoding="utf-8") as f:
+            contents = f.read()
+        assert "import marimo" in contents
+        assert "app = marimo.App" in contents
+    finally:
+        if os.path.exists(save_request.filename):
+            os.remove(save_request.filename)
+
+
+def test_save_with_header(
+    app_file_manager: AppFileManager, tmp_path: Path
+) -> None:
+    file = tmp_path / "test_save_with_header.py"
+    file.write_text("""
+# This is a header
+
+import marimo
+app = marimo.App()
+
+@app.cell
+def _():
+    print(1)
+    return
+""")
+    app_file_manager.filename = str(file)
+    assert app_file_manager.path is not None
+    app_file_manager.save(
+        SaveNotebookRequest(
+            cell_ids=[CellId_t("1")],
+            filename=str(file),
+            codes=["print(2)"],
+            names=["_"],
+            configs=[CellConfig(hide_code=True)],
+        )
+    )
+    new_contents = file.read_text()
+    assert "# This is a header" in new_contents
+    assert "print(2)" in new_contents
+    assert "print(1)" not in new_contents
+
+
+def test_read_valid_filename(app_file_manager: AppFileManager) -> None:
+    expected_content = "This is a test read."
+    app_file_manager.filename = "test_read.py"
+    try:
+        with open(app_file_manager.filename, "w", encoding="utf-8") as f:
+            f.write(expected_content)
+        content = app_file_manager.read_file()
+        assert content == expected_content
+    finally:
+        os.remove(app_file_manager.filename)
+
+
+def test_read_unnamed_notebook(app_file_manager: AppFileManager) -> None:
+    app_file_manager.filename = None
+    with pytest.raises(HTTPException) as e:
+        app_file_manager.read_file()
+    assert e.value.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_read_layout(app_file_manager: AppFileManager) -> None:
+    layout = app_file_manager.read_layout_config()
+    assert layout is None
+
+
+def test_to_code(app_file_manager: AppFileManager) -> None:
+    code = app_file_manager.to_code()
+    assert code == "\n".join(
+        [
+            "import marimo",
+            "",
+            f'__generated_with = "{__version__}"',
+            "app = marimo.App()",
+            "",
+            "",
+            "@app.cell",
+            "def _():",
+            "    import marimo as mo",
+            "",
+            "    return",
+            "",
+            "",
+            'if __name__ == "__main__":',
+            "    app.run()",
+            "",
+        ]
+    )
+
+
+def test_reload_reorders_cells(tmp_path: Path) -> None:
+    """Test that reload() reorders cell IDs based on similarity to previous cells."""
+    # Create a temporary file with initial content
+    temp_file = tmp_path / "test_reload.py"
+    initial_content = """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+@app.cell
+def cell2():
+    y = 2
+    return y
+
+if __name__ == "__main__":
+    app.run()
+"""
+    temp_file.write_text(initial_content)
+
+    # Initialize AppFileManager with the temp file
+    manager = AppFileManager(filename=str(temp_file))
+    original_cell_ids = list(manager.app.cell_manager.cell_ids())
+    assert original_cell_ids == ["Hbol", "MJUe"]
+
+    # Modify the file content - swap the cells but keep similar content
+    modified_content = """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App()
+
+@app.cell
+def cell2():
+    y = 2
+    return y
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    temp_file.write_text(modified_content)
+
+    # Reload the file
+    _, changed_cell_ids = manager.reload()
+
+    # The cell IDs should be reordered to match the original code
+    reloaded_cell_ids = list(manager.app.cell_manager.cell_ids())
+    assert len(reloaded_cell_ids) == len(original_cell_ids)
+    assert reloaded_cell_ids == ["MJUe", "Hbol"]
+    assert changed_cell_ids == set()
+
+
+def test_reload_updates_content(tmp_path: Path) -> None:
+    """Test that reload() updates the file contents correctly."""
+    # Create a temporary file with initial content
+    temp_file = tmp_path / "test_reload_content.py"
+    initial_content = """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    temp_file.write_text(initial_content)
+
+    # Initialize AppFileManager with the temp file
+    manager = AppFileManager(filename=str(temp_file))
+    original_code = next(iter(manager.app.cell_manager.codes()))
+    assert "x = 1" in original_code
+
+    # Modify the file content
+    modified_content = """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 42  # Changed value
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    temp_file.write_text(modified_content)
+
+    # Reload the file
+    _, changed_cell_ids = manager.reload()
+
+    # Check that the code was updated
+    reloaded_code = next(iter(manager.app.cell_manager.codes()))
+    assert "x = 42" in reloaded_code
+    assert "x = 1" not in reloaded_code
+    assert changed_cell_ids == {"Hbol"}
+
+
+def test_reload_updates_new_cell(tmp_path: Path) -> None:
+    """Test that reload() updates the file contents correctly."""
+
+    # Create a temp file with initial content
+    temp_file = tmp_path / "test_reload_new_cell.py"
+    initial_content = """
+import marimo
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    temp_file.write_text(initial_content)
+
+    # Initialize AppFileManager with the temp file
+    manager = AppFileManager(filename=str(temp_file))
+    assert len(list(manager.app.cell_manager.codes())) == 1
+    original_cell_ids = list(manager.app.cell_manager.cell_ids())
+    assert original_cell_ids == ["Hbol"]
+
+    # Modify the file content to add a new cell
+    modified_content = """
+import marimo
+app = marimo.App()
+
+@app.cell
+def cell2():
+    y = 2
+    return y
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    temp_file.write_text(modified_content)
+
+    # Reload the file
+    _, changed_cell_ids = manager.reload()
+
+    # Check that the new cell was added
+    codes = list(manager.app.cell_manager.codes())
+    assert len(codes) == 2
+    assert "y = 2" in codes[0]
+    assert "x = 1" in codes[1]
+    next_cell_ids = list(manager.app.cell_manager.cell_ids())
+    assert next_cell_ids == ["MJUe", "Hbol"]
+    assert changed_cell_ids == {"MJUe"}
+
+
+def test_rename_with_special_chars(
+    app_file_manager: AppFileManager, tmp_path: Path
+) -> None:
+    """Test that renaming files with special characters works."""
+    # Create a temporary file
+    initial_path = tmp_path / "test.py"
+    initial_path.write_text("import marimo")
+    app_file_manager.filename = str(initial_path)
+
+    # Try to rename to path with special characters
+    new_path = tmp_path / "test & space.py"
+    app_file_manager.rename(str(new_path))
+    assert str(app_file_manager.filename) == str(new_path)
+    assert new_path.exists()
+
+
+def test_reload_reinitializes_graph(tmp_path: Path) -> None:
+    """Test that reload() properly reinitializes the graph with new cells."""
+    # Create a temporary file
+    tmp_file = tmp_path / "test.py"
+
+    # Initial content with one cell
+    tmp_file.write_text(
+        """
+import marimo
+
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    cell_one = "Hbol"
+    cell_two = "MJUe"
+
+    # Create the file manager and load the app
+    manager = AppFileManager(tmp_file)
+
+    # Force initialization to create the graph
+    assert manager.app._app._initialized is False
+    assert manager.app.graph is not None
+    assert manager.app._app._initialized is True
+
+    # Check initial graph state
+    cell_ids = set(manager.app.cell_manager.cell_ids())
+    assert len(cell_ids) == 1
+    assert cell_ids == {cell_one}
+
+    # Check the graph has the correct cells
+    assert manager.app.graph.cells.keys() == {cell_one}
+    assert manager.app.graph.get_defining_cells("x") == {cell_one}
+
+    # Modify file with an additional cell
+    tmp_file.write_text(
+        """
+import marimo
+
+app = marimo.App()
+
+@app.cell
+def cell2():
+    y = x + 1
+    return y
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    # Reload the app
+    _, changed_cell_ids = manager.reload()
+    assert changed_cell_ids == {cell_two}
+
+    # Check that the graph was updated
+    assert manager.app._app._initialized is False
+    assert manager.app.graph is not None
+    assert manager.app._app._initialized is True
+
+    # Verify graph has both cells
+    assert len(list(manager.app.graph.cells)) == 2
+
+    # Verify edge exists between cell1 and cell2 (dependency)
+    cell_ids = list(manager.app.cell_manager.cell_ids())
+    assert cell_ids == [cell_two, cell_one]
+    assert manager.app.cell_manager.get_cell_code(cell_one) == "x = 1"
+    assert manager.app.cell_manager.get_cell_code(cell_two) == "y = x + 1"
+
+    # Check that cell2 depends on cell1 in the graph
+    assert manager.app.graph.get_defining_cells("x") == {cell_one}
+    assert manager.app.graph.get_defining_cells("y") == {cell_two}
+
+    # Modify the file to remove the dependency
+    tmp_file.write_text(
+        """
+import marimo
+
+app = marimo.App()
+
+@app.cell
+def cell2():
+    y = 2 + 1
+    return y
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    # The result is that cell1 is removed since similarity_score is closer to
+    # cell2
+    # NB. Lower is better for similarity_score
+    new_code = "y = 2 + 1"
+    assert similarity_score(
+        manager.app.cell_manager.get_cell_code(cell_one), new_code
+    ) > similarity_score(
+        manager.app.cell_manager.get_cell_code(cell_two), new_code
+    )
+
+    # Reload the app
+    _, changed_cell_ids = manager.reload()
+    # Technically cell 1 did change since it was deleted.
+    assert changed_cell_ids == {cell_one, cell_two}
+
+    # Verify cell_manager has only one cell
+    cell_ids = list(manager.app.cell_manager.cell_ids())
+    assert cell_ids == [cell_two]
+
+    # Verify graph has only one cell
+    graph_ids = list(manager.app.graph.cells)
+    assert graph_ids == [cell_two]
+
+    # Check that the graph was updated
+    assert manager.app.graph.get_defining_cells("y") == {cell_two}
+
+    # Check the contents of the cell
+    assert manager.app.cell_manager.get_cell_code(cell_two) == new_code
+
+
+def test_default_app_settings(tmp_path: Path) -> None:
+    """Test that default_sql_output and default_width are properly applied."""
+    # Test with custom defaults
+    manager = AppFileManager(
+        filename=None,
+        defaults=AppDefaults(
+            width="full",
+            sql_output="polars",
+        ),
+    )
+    assert manager.app.config.width == "full"
+    assert manager.app.config.sql_output == "polars"
+
+    # Test with None defaults (should use system defaults)
+    manager = AppFileManager(filename=None)
+
+    assert manager.app.config.width == "compact"
+    assert manager.app.config.sql_output == "auto"
+
+    # Existing file does not get overwritten
+    tmp_file = tmp_path / "test.py"
+    tmp_file.write_text(
+        """
+import marimo
+app = marimo.App(sql_output="lazy-polars", width="columns")
+"""
+    )
+    manager = AppFileManager(
+        filename=tmp_file,
+        defaults=AppDefaults(
+            width="full",
+            sql_output="polars",
+        ),
+    )
+    assert manager.app.config.width == "columns"
+    assert manager.app.config.sql_output == "lazy-polars"
+
+
+def test_overload_app_settings() -> None:
+    """Test that private env can overload app settings."""
+    # Test with defaults
+    manager = AppFileManager(
+        filename=None,
+    )
+    assert manager.app.config.auto_download == []
+    assert manager.app.config.sql_output == "auto"
+
+    # Test with env set
+    try:
+        os.environ["_MARIMO_APP_OVERLOAD_SQL_OUTPUT"] = "polars"
+        os.environ["_MARIMO_APP_OVERLOAD_AUTO_DOWNLOAD"] = "[html,ipynb]"
+        manager = AppFileManager(filename=None)
+
+        assert manager.app.config.auto_download == ["html", "ipynb"]
+        assert manager.app.config.sql_output == "polars"
+    finally:
+        os.environ.pop("_MARIMO_APP_OVERLOAD_SQL_OUTPUT", None)
+        os.environ.pop("_MARIMO_APP_OVERLOAD_AUTO_DOWNLOAD", None)
+
+
+def test_overload_app_settings_existing_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Env overloads should override values set on an existing App(...)."""
+    temp_file = tmp_path / "existing_app.py"
+    temp_file.write_text(
+        """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App(
+    css_file="custom.css",
+    html_head_file="custom.html",
+    app_title="Custom Title",
+)
+
+@app.cell
+def __():
+    import marimo as mo
+    return mo,
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    # Sanity: without env, the App(...) kwargs are preserved.
+    manager = AppFileManager(filename=str(temp_file))
+    assert manager.app.config.css_file == "custom.css"
+    assert manager.app.config.html_head_file == "custom.html"
+    assert manager.app.config.app_title == "Custom Title"
+
+    # Non-empty overrides replace the existing values.
+    monkeypatch.setenv("_MARIMO_APP_OVERLOAD_CSS_FILE", "override.css")
+    monkeypatch.setenv("_MARIMO_APP_OVERLOAD_HTML_HEAD_FILE", "override.html")
+    monkeypatch.setenv("_MARIMO_APP_OVERLOAD_APP_TITLE", "Override Title")
+    manager = AppFileManager(filename=str(temp_file))
+    assert manager.app.config.css_file == "override.css"
+    assert manager.app.config.html_head_file == "override.html"
+    assert manager.app.config.app_title == "Override Title"
+
+    # Empty-string overrides also replace the existing values.
+    monkeypatch.setenv("_MARIMO_APP_OVERLOAD_CSS_FILE", "")
+    monkeypatch.setenv("_MARIMO_APP_OVERLOAD_HTML_HEAD_FILE", "")
+    monkeypatch.setenv("_MARIMO_APP_OVERLOAD_APP_TITLE", "")
+    manager = AppFileManager(filename=str(temp_file))
+    assert manager.app.config.css_file == ""
+    assert manager.app.config.html_head_file == ""
+    assert manager.app.config.app_title == ""
+
+
+def test_reload_detects_deleted_cells(tmp_path: Path) -> None:
+    """Test that reload() correctly detects deleted cells."""
+    # Create a temporary file with two cells
+    temp_file = tmp_path / "test_reload_deleted.py"
+    initial_content = """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+@app.cell
+def cell2():
+    y = 2
+    return y
+
+if __name__ == "__main__":
+    app.run()
+"""
+    temp_file.write_text(initial_content)
+
+    # Initialize AppFileManager with the temp file
+    manager = AppFileManager(filename=str(temp_file))
+    original_cell_ids = list(manager.app.cell_manager.cell_ids())
+    assert len(original_cell_ids) == 2
+
+    # Modify the file content - remove one cell
+    modified_content = """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    temp_file.write_text(modified_content)
+
+    # Reload the file
+    _, changed_cell_ids = manager.reload()
+
+    # The deleted cell should be included in changed_cell_ids
+    reloaded_cell_ids = list(manager.app.cell_manager.cell_ids())
+    assert len(reloaded_cell_ids) == 1
+    deleted_cell_ids = set(original_cell_ids) - set(reloaded_cell_ids)
+    assert len(deleted_cell_ids) == 1
+    assert deleted_cell_ids.issubset(changed_cell_ids)
+
+
+def test_reload_detects_multiple_deleted_cells(tmp_path: Path) -> None:
+    """Test that reload() correctly detects multiple deleted cells."""
+    # Create a temporary file with three cells
+    temp_file = tmp_path / "test_reload_multiple_deleted.py"
+    initial_content = """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+@app.cell
+def cell2():
+    y = 2
+    return y
+
+@app.cell
+def cell3():
+    z = 3
+    return z
+
+if __name__ == "__main__":
+    app.run()
+"""
+    temp_file.write_text(initial_content)
+
+    # Initialize AppFileManager with the temp file
+    manager = AppFileManager(filename=str(temp_file))
+    original_cell_ids = list(manager.app.cell_manager.cell_ids())
+    assert len(original_cell_ids) == 3
+
+    # Modify the file content - keep only one cell
+    modified_content = """
+import marimo
+__generated_with = "0.0.1"
+app = marimo.App()
+
+@app.cell
+def cell2():
+    y = 2
+    return y
+
+if __name__ == "__main__":
+    app.run()
+"""
+    temp_file.write_text(modified_content)
+
+    # Reload the file
+    _, changed_cell_ids = manager.reload()
+
+    # Two cells should be deleted and included in changed_cell_ids
+    reloaded_cell_ids = list(manager.app.cell_manager.cell_ids())
+    assert len(reloaded_cell_ids) == 1
+    deleted_cell_ids = set(original_cell_ids) - set(reloaded_cell_ids)
+    assert len(deleted_cell_ids) == 2
+    assert deleted_cell_ids.issubset(changed_cell_ids)
+
+
+def test_file_content_matches_last_save(tmp_path: Path) -> None:
+    """Test that file_content_matches_last_save correctly identifies own writes."""
+    # Create a temporary file
+    temp_file = tmp_path / "test_match_save.py"
+    temp_file.write_text(
+        """
+import marimo
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    # Initialize AppFileManager
+    manager = AppFileManager(filename=str(temp_file))
+
+    # Initially, no save has been made by the manager
+    assert manager.file_content_matches_last_save() is False
+
+    # Save the file
+    manager.save(
+        SaveNotebookRequest(
+            cell_ids=[CellId_t("1")],
+            filename=str(temp_file),
+            codes=["x = 1"],
+            names=["cell1"],
+            configs=[CellConfig()],
+            persist=True,
+        )
+    )
+
+    # Now the file should match the last save
+    assert manager.file_content_matches_last_save() is True
+
+    # Externally modify the file
+    temp_file.write_text(
+        """
+import marimo
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 2  # Changed
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    # Now the file should not match the last save
+    assert manager.file_content_matches_last_save() is False
+
+
+def test_file_content_matches_last_save_no_filename() -> None:
+    """Test file_content_matches_last_save returns False when filename is None."""
+    # Create an unnamed manager (in-memory notebook)
+    manager = AppFileManager.from_app(InternalApp(App()))
+
+    # Should return False when there's no filename
+    assert manager.file_content_matches_last_save() is False
+
+
+def test_file_content_matches_last_save_no_previous_save(
+    tmp_path: Path,
+) -> None:
+    """Test file_content_matches_last_save returns False when no save has been made."""
+    temp_file = tmp_path / "test_no_save.py"
+    temp_file.write_text(
+        """
+import marimo
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    manager = AppFileManager(filename=str(temp_file))
+
+    # Should return False when _last_saved_content is None
+    assert manager._last_saved_content is None
+    assert manager.file_content_matches_last_save() is False
+
+
+def test_file_content_matches_last_save_file_deleted(tmp_path: Path) -> None:
+    """Test file_content_matches_last_save handles deleted files gracefully."""
+    temp_file = tmp_path / "test_deleted.py"
+    temp_file.write_text(
+        """
+import marimo
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    manager = AppFileManager(filename=str(temp_file))
+
+    # Save the file
+    manager.save(
+        SaveNotebookRequest(
+            cell_ids=[CellId_t("1")],
+            filename=str(temp_file),
+            codes=["x = 1"],
+            names=["cell1"],
+            configs=[CellConfig()],
+            persist=True,
+        )
+    )
+
+    # Verify it matches
+    assert manager.file_content_matches_last_save() is True
+
+    # Delete the file
+    temp_file.unlink()
+
+    # Should return False (and not crash) when file doesn't exist
+    assert manager.file_content_matches_last_save() is False
+
+
+def test_file_content_matches_last_save_whitespace_handling(
+    tmp_path: Path,
+) -> None:
+    """Test that file_content_matches_last_save handles whitespace correctly."""
+    temp_file = tmp_path / "test_whitespace.py"
+    temp_file.write_text(
+        """
+import marimo
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    manager = AppFileManager(filename=str(temp_file))
+
+    # Save the file
+    manager.save(
+        SaveNotebookRequest(
+            cell_ids=[CellId_t("1")],
+            filename=str(temp_file),
+            codes=["x = 1"],
+            names=["cell1"],
+            configs=[CellConfig()],
+            persist=True,
+        )
+    )
+
+    # Should match (content is the same)
+    assert manager.file_content_matches_last_save() is True
+
+    # Read the saved content and add trailing whitespace
+    content = temp_file.read_text()
+    temp_file.write_text(content + "   \n\n")
+
+    # Should still match because we strip whitespace when comparing
+    assert manager.file_content_matches_last_save() is True
+
+    # Now add a meaningful change
+    temp_file.write_text(content + "\n# comment\n")
+
+    # Should NOT match because we added actual content
+    assert manager.file_content_matches_last_save() is False
+
+
+def test_file_content_matches_last_save_ignores_generated_with_version(
+    tmp_path: Path,
+) -> None:
+    temp_file = tmp_path / "test_generated_with.py"
+    temp_file.write_text(
+        """
+import marimo
+__generated_with = "0.0.0"
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    manager = AppFileManager(filename=str(temp_file))
+    manager.save(
+        SaveNotebookRequest(
+            cell_ids=[CellId_t("1")],
+            filename=str(temp_file),
+            codes=["x = 1"],
+            names=["cell1"],
+            configs=[CellConfig()],
+            persist=True,
+        )
+    )
+
+    temp_file.write_text(
+        temp_file.read_text().replace(
+            f'__generated_with = "{__version__}"',
+            '__generated_with = "0.0.0"',
+        )
+    )
+
+    assert manager.file_content_matches_last_save() is True
+
+
+def test_file_content_matches_last_save_multiple_saves(tmp_path: Path) -> None:
+    """Test that file_content_matches_last_save tracks the most recent save."""
+    temp_file = tmp_path / "test_multiple_saves.py"
+    temp_file.write_text(
+        """
+import marimo
+app = marimo.App()
+
+@app.cell
+def cell1():
+    x = 1
+    return x
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    manager = AppFileManager(filename=str(temp_file))
+
+    # First save
+    manager.save(
+        SaveNotebookRequest(
+            cell_ids=[CellId_t("1")],
+            filename=str(temp_file),
+            codes=["x = 1"],
+            names=["cell1"],
+            configs=[CellConfig()],
+            persist=True,
+        )
+    )
+
+    assert manager.file_content_matches_last_save() is True
+
+    # Second save with different content
+    manager.save(
+        SaveNotebookRequest(
+            cell_ids=[CellId_t("1")],
+            filename=str(temp_file),
+            codes=["x = 2"],
+            names=["cell1"],
+            configs=[CellConfig()],
+            persist=True,
+        )
+    )
+
+    # Should still match after second save
+    assert manager.file_content_matches_last_save() is True
+
+    # Externally modify back to first save's content
+    temp_file.write_text(
+        """
+import marimo
+
+__generated_with = "0.0.0"
+app = marimo.App()
+
+
+@app.cell
+def cell1():
+    x = 1
+    return (x,)
+
+
+if __name__ == "__main__":
+    app.run()
+"""
+    )
+
+    # Should NOT match (content is from first save, not most recent)
+    assert manager.file_content_matches_last_save() is False

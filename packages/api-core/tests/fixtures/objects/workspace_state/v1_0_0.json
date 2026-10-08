@@ -1,0 +1,39 @@
+{
+  "active_tab_id": "tab-report",
+  "metadata": {},
+  "schema_version": "1.0.0",
+  "tabs": [
+    {
+      "id": "files",
+      "kind": "files",
+      "metadata": {},
+      "name": "Files",
+      "node_id": null,
+      "params": {
+        "folderId": "3d7b0c21-9f45-4e68-8a02-5c9d1e3f7b44"
+      },
+      "path": null,
+      "schema_version": "1.0.0"
+    },
+    {
+      "id": "tab-report",
+      "kind": "file",
+      "metadata": {},
+      "name": "report.html",
+      "node_id": "0f4a2f6e-7b1a-4c3d-9b5e-2a1f8c7d6e50",
+      "params": {},
+      "path": "scratch/report.html",
+      "schema_version": "1.0.0"
+    },
+    {
+      "id": "tab-chart",
+      "kind": "file",
+      "metadata": {},
+      "name": "revenue.png",
+      "node_id": "8c1d5b90-3e42-4a77-9f10-6b2c4d8e1a33",
+      "params": {},
+      "path": "scratch/figures/revenue.png",
+      "schema_version": "1.0.0"
+    }
+  ]
+}

@@ -1,0 +1,203 @@
+/* The panel shell: header, scrolling tape, dock. Reading rhythm is asymmetric
+   on a 4px base: 8 inside a block (paragraph gap), 4 between machine rows so a
+   run of digests packs like ledger lines, 12 where machinery follows prose and
+   16 where prose follows machinery (prose needs the extra air to read as a new
+   voice), 24 around prose and the user ticket (and on each side of the tear,
+   which centers the perforation in the turn break). */
+
+.chat-root .chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--chat-paper);
+  color: var(--chat-ink);
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+}
+
+.chat-root .chat-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The transcript column fills the panel the way the chrome does; prose keeps
+   its own line-length measure inside it (prose.css). */
+.chat-root .chat-tape {
+  padding: var(--chat-sp-4) var(--chat-sp-4) var(--chat-sp-5) var(--chat-sp-6);
+  display: flex;
+  flex-direction: column;
+}
+
+/* A block off screen skips layout and paint and keeps its last rendered size,
+   so a long window costs what is in view; find-in-page still reads it, and
+   the anchoring above measures the same boxes. The intrinsic size is a guess
+   only until a block has been rendered once. */
+.chat-root .chat-tape > .chat-block {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px;
+}
+
+/* The edge of the window: an empty row while there is more above, a quiet
+   spinner while the page is on its way. Height keeps the tape from jumping
+   when the spinner comes and goes. */
+.chat-root .chat-history {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 24px;
+  color: color-mix(in srgb, var(--chat-ink) 55%, transparent);
+}
+
+/* The page above did not come. The row sits where the sentinel was, so the
+   reader learns it at the edge they were reading towards. */
+.chat-root .chat-history-failed {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: var(--chat-sp-2);
+  min-height: 24px;
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  color: color-mix(in srgb, var(--chat-ink) 65%, transparent);
+}
+
+.chat-root .chat-history-failed__retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--chat-dialog-link);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* The way back to the live edge, floated over the tape's foot. The tape and
+   the button share a box so the button sits at the foot of what SCROLLS,
+   whatever height the composer below it has grown to. */
+.chat-root .chat-live {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-root .chat-jump {
+  position: absolute;
+  left: 50%;
+  bottom: var(--chat-sp-4);
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: var(--chat-sp-1) var(--chat-sp-3);
+  border: 1px solid color-mix(in srgb, var(--chat-ink) 14%, transparent);
+  border-radius: 999px;
+  background: var(--chat-paper-raised);
+  color: var(--chat-ink);
+  font: inherit;
+  font-size: var(--chat-fs-text);
+  line-height: 1.6;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--chat-ink) 12%, transparent);
+  cursor: pointer;
+}
+
+.chat-root .chat-jump[data-unseen]::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: var(--chat-sp-2);
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+}
+
+/* An empty chat is a landing state, not the first transcript block. Seat it in the available
+   scroll viewport while the chrome and composer keep their own fixed rows. */
+.chat-root .chat-tape[data-empty] {
+  box-sizing: border-box;
+  min-height: 100%;
+  justify-content: center;
+}
+
+/* Inter-block rhythm, owned by the tape so no block carries its own gap. The
+   default covers every child (prose, the ticket, the tear, the working tail);
+   the pair rules below narrow it where machinery meets machinery or prose. */
+.chat-root .chat-tape > * + * {
+  margin-top: var(--chat-sp-5);
+}
+
+.chat-root .chat-tape > [data-block="activity"] + [data-block="activity"] {
+  margin-top: var(--chat-sp-1);
+}
+
+.chat-root .chat-tape > [data-block="prose"] + [data-block="activity"] {
+  margin-top: var(--chat-sp-3);
+}
+
+/* Prose after machinery earns one step more than machinery after prose: the
+   agent's voice returning needs air the ledger rows do not. */
+.chat-root .chat-tape > [data-block="activity"] + [data-block="prose"] {
+  margin-top: var(--chat-sp-4);
+}
+
+/* An opening chat: the spinner holds the tape's place, centered in the
+   viewport, so the wait never reads as an empty transcript. */
+.chat-root .chat-loading {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--chat-ink-4);
+}
+
+/* The live turn's tail: present whenever work is in flight, gone at rest. */
+.chat-root .chat-turnwork {
+  margin: 0;
+  padding: var(--chat-sp-1) 0;
+  font-size: var(--chat-fs-record);
+  font-weight: var(--chat-w-medium);
+}
+
+/* The working tail is itself a machine row: it packs against the machinery it
+   trails and keeps the boundary gap after prose. Declared after the tail's
+   margin reset so these always outrank it. */
+.chat-root .chat-tape > * + .chat-turnwork {
+  margin-top: var(--chat-sp-3);
+}
+
+.chat-root .chat-tape > [data-block="activity"] + .chat-turnwork {
+  margin-top: var(--chat-sp-1);
+}
+
+/* No rule between transcript and composer: the ground carries through for a
+   seamless transition (the dashed marker stays on the header only). */
+.chat-root .chat-dock {
+  flex: none;
+  padding: var(--chat-sp-3) 0 var(--chat-sp-4);
+  background: var(--chat-paper);
+}
+
+/* The dock fills the panel like the chrome, minus its symmetric padding. */
+.chat-root .chat-dock__inner {
+  padding: 0 var(--chat-sp-4);
+}
+
+/* What stands where the composer does for a reader who may only follow the
+   chat: a quiet line, not a disabled field — a field that cannot be typed in
+   is an invitation the reader keeps trying to accept. */
+/* The connection note: quiet, above the composer, and gone the moment the
+   network is back. */
+.chat-root .chat-dock__reconnecting {
+  margin: 0 0 var(--chat-sp-2);
+  color: var(--chat-ink-3, var(--chat-ink-2));
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.chat-root .chat-dock__readonly {
+  margin: 0;
+  padding: var(--chat-sp-3) 0;
+  color: var(--chat-ink-3, var(--chat-ink-2));
+  font-size: 0.8125rem;
+  text-align: center;
+}

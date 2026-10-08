@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "session_id": "sess-fixture",
+  "algorithm": "sha256",
+  "files": {
+    "chat.jsonl": "dbbea0267efbbfd3788874c41718404fe9f65200e62c9e7016fd6a5fbd734a26",
+    "decisions.jsonl": "1419af132b8b1d5c824069737cd28bad498322b4bc691f5b774e6a211d4f6ba6"
+  },
+  "combined": "13f8f89184e560e570c6e4f5996adeede9ed9300f4d3ea06fec42fae62c683ed",
+  "created_at": "2026-07-19T00:00:00+00:00"
+}

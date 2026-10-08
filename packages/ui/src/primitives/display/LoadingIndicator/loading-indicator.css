@@ -1,0 +1,24 @@
+/* LoadingIndicator — component styles for @alkera/ui. Every value is a role token (tokens.css). */
+
+.alk-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--alkSpace3);
+  color: var(--alkSecondaryText);
+}
+
+/* A skeleton stands in for content, so it takes the content's width rather than centring. */
+.alk-loading[data-form="skeleton"],
+.alk-loading[data-form="meter"] {
+  align-self: stretch;
+  align-items: stretch;
+}
+
+.alk-loading__label {
+  margin: 0;
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+  text-align: center;
+}

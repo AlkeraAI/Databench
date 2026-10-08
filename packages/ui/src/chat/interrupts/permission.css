@@ -1,0 +1,634 @@
+/* The permission card. The shell arrives from dialog.css and the ramp from
+   theme/tokens.css; the base reset, icon sizing, and default focus come from
+   the package base. */
+
+/* ── The card: the one elevated performer ──────────────────────────────────── */
+
+/* The shell is the dock family's; the interior rhythm and the entrance are this
+   card's. */
+.chat-root .chat-permission-card {
+  gap: var(--chat-sp-4);
+  animation: chat-rise-6 var(--chat-dur-medium) var(--chat-ease-out);
+}
+
+/* ── Header: title + queue pill ────────────────────────────────────────────── */
+
+.chat-root .chat-permission-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-3);
+}
+
+.chat-root .chat-permission-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--chat-fs-text);
+  font-weight: var(--chat-w-semi);
+  /* The queue pill takes the title's own line box and both top-align, so the
+     pill's center meets the first line's center by construction -- and holds
+     when the title wraps. */
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink);
+  overflow-wrap: break-word;
+}
+
+.chat-root .chat-permission-queue {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  height: var(--chat-lh-text);
+  padding: 0 var(--chat-sp-2);
+  border-radius: 999px;
+  background: var(--chat-dialog-wash);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  font-variant-numeric: tabular-nums;
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-permission-queue__n {
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink-2);
+}
+
+.chat-root .chat-permission-queue__sep {
+  opacity: 0.6;
+}
+
+/* ── Subject: mono evidence, inset on all sides ────────────────────────────── */
+
+/* The highlighter's `chat-btok--*` spans read the theme's --chat-bash-* seam.
+   Command and flag keep the theme's inks; only the three the card measured
+   against its own inset are re-pointed here, the command word among them
+   because it carries no weight of its own on this surface. */
+.chat-root .chat-permission-cmd {
+  --chat-bash-cmd-weight: var(--chat-w-regular);
+  --chat-bash-string: var(--chat-dialog-tok-str);
+  --chat-bash-muted: var(--chat-dialog-tok-muted);
+  --chat-sql-string: var(--chat-dialog-tok-str);
+  --chat-sql-comment: var(--chat-dialog-tok-muted);
+
+  display: flex;
+  gap: var(--chat-sp-2);
+  padding: var(--chat-sp-3) var(--chat-sp-3);
+  /* The scrolling half of the card's height cap: the subject gives before
+     the action bar. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--chat-dialog-inset);
+  border: 1px solid var(--chat-dialog-hairline-2);
+  border-radius: var(--chat-radius-control);
+}
+
+.chat-root .chat-permission-cmd__prompt {
+  flex: none;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-3);
+  user-select: none;
+}
+
+.chat-root .chat-permission-cmd__text {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A path subject wears the package's trail/leaf treatment: the trail one tier
+   quieter than the leaf it locates, which inherits the inset's ink. */
+.chat-root .chat-permission-cmd .chat-tool-dir {
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-permission-cmd__l {
+  display: block;
+}
+
+/* A URL subject is a link. Underline on hover and focus only; the inset's
+   recess already frames it. */
+.chat-root .chat-permission-cmd__link {
+  color: var(--chat-dialog-link);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.chat-root .chat-permission-cmd__link:hover,
+.chat-root .chat-permission-cmd__link:focus-visible {
+  text-decoration: underline;
+}
+
+/* The approval shows the proposed change in the same diff surface used after
+   the edit lands. */
+.chat-root .chat-permission-preview {
+  --chat-paper-inset: var(--chat-dialog-inset);
+
+  display: flex;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--chat-dialog-inset);
+  border: 1px solid var(--chat-dialog-hairline-2);
+  border-radius: var(--chat-radius-control);
+}
+
+.chat-root .chat-permission-preview > * {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.chat-root .chat-permission-preview:empty {
+  display: none;
+}
+
+.chat-root .chat-permission-card[data-preview] .chat-permission-cmd {
+  flex: none;
+}
+
+/* The gated call's own input, for an ask that named nothing else: the tool's
+   name over its arguments, in the subject inset's register. */
+.chat-root .chat-permission-details {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--chat-sp-2);
+  min-height: 0;
+  padding: var(--chat-sp-3);
+  overflow-y: auto;
+  background: var(--chat-dialog-inset);
+  border: 1px solid var(--chat-dialog-hairline-2);
+  border-radius: var(--chat-radius-control);
+}
+
+.chat-root .chat-permission-details__tool {
+  margin: 0;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-permission-details__input {
+  margin: 0;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-root .chat-permission-facts {
+  display: flex;
+  flex: none;
+  gap: var(--chat-sp-3);
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-permission-facts__f {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chat-root .chat-permission-cmd__link:focus-visible {
+  outline: 2px solid var(--chat-forest-bright);
+  outline-offset: 2px;
+  border-radius: var(--chat-radius-micro);
+}
+
+/* ── Action bar: Deny (left), allow split button (right) ───────────────────── */
+
+/* The row metric is the dock family's. The bar is the containing block the
+   always-allow menu escapes from. With the mode chip on it the row is wider
+   than a narrow column, so it wraps rather than clipping the allow key and
+   the caret that opens "Always allow": the spacer has no width of its own, so
+   it never takes a line, and the allow group keeps the trailing edge on
+   whichever line it lands. */
+.chat-root .chat-permission-bar {
+  position: relative;
+  flex-wrap: wrap;
+  row-gap: var(--chat-sp-2);
+}
+
+.chat-root .chat-permission-bar__gap {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.chat-root .chat-permission-allow {
+  margin-left: auto;
+}
+
+/* Where the allow key would be when approving could not reach the agent. A
+   sentence, not a disabled key: a greyed-out Allow reads as "not yet", and the
+   truth is that this workspace will not run it at all. */
+.chat-root .chat-permission-refusal {
+  margin: 0;
+  align-self: center;
+  text-align: right;
+  color: var(--chat-ink-2);
+  font-size: var(--chat-fs-record, 12px);
+  line-height: var(--chat-lh-record, 16px);
+}
+
+/* The ask named no subject: prose in the inset's place, so it never reads as a
+   command rendered in the command's own register. */
+.chat-root .chat-permission-unnamed {
+  margin: 0;
+  padding: var(--chat-sp-3) var(--chat-sp-3);
+  color: var(--chat-ink-2);
+  background: var(--chat-dialog-inset);
+  border: 1px solid var(--chat-dialog-hairline-2);
+  border-radius: var(--chat-radius-control);
+  font-size: var(--chat-fs-record, 12px);
+  line-height: var(--chat-lh-record, 16px);
+}
+
+/* A subject that is a sentence -- a knowledge withdrawal, a control-plane
+   action -- in the inset's recess but in the reading face: the mono register
+   would ask the reader to approve a sentence as a command. */
+.chat-root .chat-permission-statement {
+  flex: none;
+  margin: 0;
+  padding: var(--chat-sp-3) var(--chat-sp-3);
+  color: var(--chat-ink);
+  background: var(--chat-dialog-inset);
+  border: 1px solid var(--chat-dialog-hairline-2);
+  border-radius: var(--chat-radius-control);
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  overflow-wrap: anywhere;
+}
+
+/* The knowledge item a share would send: its title as a heading and its body
+   as prose, in the recess the command inset uses, scrolling under the card's
+   height cap the way the inset does. */
+.chat-root .chat-permission-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-2);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--chat-sp-3) var(--chat-sp-3);
+  background: var(--chat-dialog-inset);
+  border: 1px solid var(--chat-dialog-hairline-2);
+  border-radius: var(--chat-radius-control);
+}
+
+.chat-root .chat-permission-item__title {
+  margin: 0;
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  font-weight: var(--chat-w-semi);
+  color: var(--chat-ink);
+  overflow-wrap: anywhere;
+}
+
+/* A note keeps the line breaks it was written with, and its markup. */
+.chat-root .chat-permission-item__body p {
+  white-space: pre-line;
+}
+
+.chat-root .chat-permission-item__body {
+  min-width: 0;
+  color: var(--chat-ink);
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+}
+
+/* Folded: eight lines, the last fading out so the cut reads as a fold and not
+   as the end of the note. */
+.chat-root .chat-permission-item[data-folded] .chat-permission-item__body {
+  max-height: calc(8 * var(--chat-lh-text));
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--chat-lh-text)),
+    transparent
+  );
+}
+
+.chat-root .chat-permission-item__more {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-dialog-link);
+  cursor: pointer;
+}
+
+.chat-root .chat-permission-item__more:hover,
+.chat-root .chat-permission-item__more:focus-visible {
+  text-decoration: underline;
+}
+
+.chat-root .chat-permission-item__cut {
+  margin: 0;
+  color: var(--chat-ink-3);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+/* A footnote under the action bar — why this ask carries no standing grant. */
+.chat-root .chat-permission-note {
+  margin: 0;
+  color: var(--chat-ink-2);
+  font-size: var(--chat-fs-record, 12px);
+  line-height: var(--chat-lh-record, 16px);
+}
+
+/* The subject has not landed yet: the inset's slot, in the inset's box, saying
+   so. The actions are disabled while it shows. */
+.chat-root .chat-permission-waiting {
+  margin: 0;
+  padding: var(--chat-sp-3) var(--chat-sp-3);
+  color: var(--chat-ink-3, var(--chat-ink-2));
+  font-style: italic;
+  background: var(--chat-dialog-inset);
+  border: 1px dashed var(--chat-dialog-hairline-2);
+  border-radius: var(--chat-radius-control);
+}
+
+/* The scope sentence again, inside the menu that opens over the one under
+   the command, so the rule is readable at the moment of choosing. */
+.chat-root .chat-permission-menu__note {
+  margin: var(--chat-sp-1) 0 0;
+  padding: var(--chat-sp-1) var(--chat-sp-2) var(--chat-sp-1);
+  border-top: 1px solid var(--chat-hairline);
+  color: var(--chat-ink-2);
+  font-size: var(--chat-fs-record, 12px);
+  line-height: var(--chat-lh-record, 16px);
+}
+
+/* The line itself is the family's (see dialog.css); this ask is the only one
+   that carries the way to send the same answer again. */
+.chat-root .chat-permission-failure__retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* While an answer is on its way every key is refused, so the bar says it is
+   waiting rather than looking the same as one that can still be pressed. */
+.chat-root .chat-permission-bar[data-busy] {
+  opacity: 0.6;
+}
+
+.chat-root .chat-permission-bar button:disabled {
+  cursor: default;
+}
+
+/* At the narrowest panel the queue figure gives the question back about 10px --
+   the difference between the ask reading whole and breaking. */
+@container chat-panel (max-width: 300px) {
+  .chat-root .chat-permission-head {
+    gap: var(--chat-sp-2);
+  }
+
+  .chat-root .chat-permission-queue {
+    padding: 0 var(--chat-sp-1);
+  }
+}
+
+/* The two keys measure 201px side by side, so below a 280px panel they stack:
+   the primary takes the top row full width, Deny under it. Neither label wraps. */
+@container chat-panel (max-width: 279px) {
+  .chat-root .chat-permission-bar {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: var(--chat-sp-2);
+  }
+
+  .chat-root .chat-permission-bar__gap {
+    display: none;
+  }
+
+  .chat-root .chat-permission-allow {
+    margin-left: 0;
+  }
+
+  .chat-root .chat-permission-allow__main {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .chat-root .chat-permission-deny {
+    justify-content: center;
+  }
+}
+
+/* The row metric is the dock family's; these three carry a keycap or a caret
+   inside it, and the split button's segments meet on a shared padding. */
+.chat-root .chat-permission-deny,
+.chat-root .chat-permission-allow__main,
+.chat-root .chat-permission-allow__caret {
+  gap: var(--chat-sp-2);
+  padding: 0 var(--chat-sp-3);
+  transition: var(--chat-control-transition);
+}
+
+/* Deny wears the family's danger face; only its own box is this card's. */
+.chat-root .chat-permission-deny {
+  padding-left: var(--chat-sp-3);
+  border-radius: var(--chat-radius-control);
+}
+
+/* The mode switch: a quiet chip at the leading edge, so it never reads as a
+   third answer. Its menu opens above it, anchored to the same edge. */
+.chat-root .chat-permission-mode {
+  position: relative;
+  display: inline-flex;
+}
+
+.chat-root .chat-permission-mode__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  min-height: 34px;
+  padding: 0 var(--chat-sp-2);
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-control);
+  background: transparent;
+  color: var(--chat-ink-2);
+  font-size: var(--chat-fs-record, 12px);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--chat-control-transition);
+}
+
+.chat-root .chat-permission-mode__trigger:hover:not(:disabled) {
+  background: var(--chat-dialog-wash);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-permission-mode__menu {
+  right: auto;
+  left: 0;
+}
+
+/* Allow: a split button. One shared outline on the grouped pill, an internal
+   divider between the primary and the caret segment. The corners split across
+   the segments (no overflow clip) so the menu can escape above the group. */
+.chat-root .chat-permission-allow {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: var(--chat-radius-control);
+  background: var(--chat-dialog-primary);
+}
+
+.chat-root .chat-permission-allow__main {
+  padding-left: var(--chat-sp-3);
+  border-radius: var(--chat-radius-control) 0 0 var(--chat-radius-control);
+  color: var(--chat-dialog-primary-ink);
+  font-weight: var(--chat-w-semi);
+}
+
+/* With no always disclosure the primary is the whole pill. */
+.chat-root .chat-permission-allow__main:last-child {
+  border-radius: var(--chat-radius-control);
+}
+
+.chat-root .chat-permission-allow__caret {
+  padding: 0 var(--chat-sp-2);
+  border-radius: 0 var(--chat-radius-control) var(--chat-radius-control) 0;
+  border-left: 1px solid var(--chat-dialog-key-edge);
+  color: var(--chat-dialog-primary-ink);
+}
+
+.chat-root .chat-permission-allow__main:hover,
+.chat-root .chat-permission-allow__caret:hover {
+  background: var(--chat-dialog-primary-hover);
+}
+
+/* The keycap shell is the dock family's; each button skins its own. */
+.chat-root .chat-permission-allow__main .chat-permission-key {
+  color: var(--chat-dialog-key-ink);
+  background: var(--chat-dialog-key-fill);
+  border: 1px solid var(--chat-dialog-key-edge);
+}
+
+.chat-root .chat-permission-deny .chat-permission-key {
+  color: var(--chat-dialog-danger);
+  background: var(--chat-paper-raised);
+  border: 1px solid var(--chat-dialog-danger-edge);
+}
+
+/* The always-allow name rides the caret segment for the screen reader only. */
+.chat-root .chat-permission-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── The always-allow menu: scope rows, opening up-and-left from the caret ─── */
+
+/* Anchored to the card's right edge and never wider than the panel it opens
+   inside, so a 300px IDE panel clips nothing. Rows ellipsize as they narrow. */
+.chat-root .chat-permission-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  min-width: min(288px, calc(100cqw - 64px));
+  max-width: min(320px, calc(100cqw - 64px));
+  padding: var(--chat-sp-1);
+  background: var(--chat-paper-raised);
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-control);
+  box-shadow: var(--chat-dialog-elev-menu);
+  z-index: 5;
+  animation: chat-rise-4 var(--chat-dur-fast) var(--chat-ease-out);
+}
+
+.chat-root .chat-permission-menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-root .chat-permission-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  width: 100%;
+  min-height: 34px;
+  padding: var(--chat-sp-2) var(--chat-sp-2);
+  border-radius: var(--chat-radius-micro);
+  transition: var(--chat-control-transition);
+  color: var(--chat-ink-2);
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  font-weight: var(--chat-w-medium);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The wash insets to the row radius, so it never touches the menu edge. */
+.chat-root .chat-permission-scope:hover,
+.chat-root .chat-permission-scope:focus-visible {
+  background: var(--chat-dialog-wash);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-permission-scope__icon {
+  flex: none;
+  display: inline-flex;
+  color: var(--chat-forest);
+}
+
+.chat-root .chat-permission-scope__glyph {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A menu row reads as a single line: overflow ellipsizes, never wraps. */
+.chat-root .chat-permission-scope__label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ── Reduced motion: swap every move for a fade ────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-permission-card,
+  .chat-root .chat-permission-menu {
+    animation-name: chat-fade-in;
+  }
+}

@@ -1,0 +1,479 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import json
+import os
+import time
+from contextlib import contextmanager
+from typing import TYPE_CHECKING
+
+import pytest
+
+from marimo._config.manager import UserConfigManager
+from marimo._messaging.notification import (
+    CellNotification,
+    EnvironmentOperation,
+    EnvironmentOperationNotification,
+    EnvironmentOperationStatus,
+    EnvironmentState,
+    EnvironmentStateNotification,
+    KernelReadyNotification,
+    OperationFailed,
+    OperationRunning,
+    OperationSucceeded,
+)
+from marimo._messaging.serde import serialize_kernel_message
+from marimo._server.api.endpoints.ws.ws_formatter import format_wire_message
+from marimo._server.workspace import DirectoryWorkspace
+from marimo._session import Session
+from marimo._types.ids import SessionId
+from marimo._utils.parse_dataclass import parse_raw
+from tests._server.api.endpoints.ws_helpers import (
+    assert_kernel_ready_response,
+    create_response,
+    headers,
+)
+from tests._server.mocks import get_session_manager, workspace_scope
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from starlette.testclient import TestClient
+
+
+def get_session(client: TestClient, session_id: SessionId) -> Session | None:
+    return get_session_manager(client).get_session(session_id)
+
+
+def _create_ws_url(session_id: str) -> str:
+    return f"/ws?session_id={session_id}&access_token=fake-token"
+
+
+def test_refresh_session(client: TestClient) -> None:
+    with client.websocket_connect(_create_ws_url("123")) as websocket:
+        data = websocket.receive_json()
+        print(data)
+        assert_kernel_ready_response(data, create_response({}))
+
+    # Check the session still exists after closing the websocket
+    session = get_session(client, SessionId("123"))
+    assert session
+    session_view = session.session_view
+
+    # Mimic cell execution time save
+    cell_notification = CellNotification("Hbol")
+    session_view.save_execution_time(cell_notification, "start")
+    time.sleep(0.123)
+    session_view.save_execution_time(cell_notification, "end")
+    last_exec_time = session_view.last_execution_time["Hbol"]
+
+    # New session with new ID (simulates refresh)
+    # We should resume the current session
+    with client.websocket_connect(_create_ws_url("456")) as websocket:
+        # First message is the kernel reconnected
+        data = websocket.receive_json()
+        assert data == {"op": "reconnected", "data": {"op": "reconnected"}}
+        # Resume the session
+        data = websocket.receive_json()
+        assert_kernel_ready_response(
+            data,
+            create_response(
+                {
+                    "resumed": True,
+                    "last_execution_time": {"Hbol": last_exec_time},
+                }
+            ),
+        )
+        # Send a value to the kernel
+        response = client.post(
+            "/api/kernel/set_ui_element_value",
+            headers=headers("456"),
+            json={
+                "objectIds": ["ui-element-1", "ui-element-2"],
+                "values": ["value1", "value2"],
+            },
+        )
+        assert response.status_code == 200, response.text
+
+    # Check the session switch IDs
+    assert not get_session(client, "123")
+    assert get_session(client, "456")
+
+    # New session again
+    # We should not resume the current session with the new values
+    with client.websocket_connect(_create_ws_url("789")) as websocket:
+        # First message is the kernel reconnected
+        data = websocket.receive_json()
+        assert data == {"op": "reconnected", "data": {"op": "reconnected"}}
+        # Resume the session
+        data = websocket.receive_json()
+        assert_kernel_ready_response(
+            data,
+            create_response(
+                {
+                    "ui_values": {
+                        "ui-element-1": "value1",
+                        "ui-element-2": "value2",
+                    },
+                    "resumed": True,
+                    "last_execution_time": {"Hbol": last_exec_time},
+                }
+            ),
+        )
+        assert response.status_code == 200, response.text
+
+    # Check the session switch IDs
+    assert not get_session(client, "456")
+    assert get_session(client, "789")
+
+
+def test_refresh_resumes_directory_workspace_session(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """Regression: directory workspaces serve workspace-relative file keys.
+
+    Refreshing the browser (a new connection with a new session id and the
+    same relative key) must resume the existing session; resolving the key
+    against the server CWD instead created a new kernel per refresh.
+    """
+    notebook = tmp_path / "notebooks" / "example.py"
+    notebook.parent.mkdir()
+    notebook.write_text(
+        "import marimo\n\napp = marimo.App()\n\n"
+        "@app.cell\ndef _():\n    x = 1\n    return (x,)\n"
+    )
+    workspace = DirectoryWorkspace(
+        str(notebook.parent), include_markdown=False
+    )
+    session_manager = get_session_manager(client)
+
+    with workspace_scope(client, workspace):
+        with client.websocket_connect(
+            "/ws?session_id=dir1&file=example.py&access_token=fake-token"
+        ) as websocket:
+            data = websocket.receive_json()
+            assert data["op"] == "kernel-ready"
+            assert data["data"]["resumed"] is False
+
+        # Simulated refresh: new session id, same workspace-relative key
+        with client.websocket_connect(
+            "/ws?session_id=dir2&file=example.py&access_token=fake-token"
+        ) as websocket:
+            data = websocket.receive_json()
+            assert data == {"op": "reconnected", "data": {"op": "reconnected"}}
+            data = websocket.receive_json()
+            assert data["op"] == "kernel-ready"
+            assert data["data"]["resumed"] is True
+
+        assert len(session_manager.sessions) == 1
+        assert get_session(client, SessionId("dir2"))
+        session_manager.close_session(SessionId("dir2"))
+
+
+def test_save_session(client: TestClient) -> None:
+    filename = (
+        get_session_manager(client)
+        .workspace.get_single_app_file_manager()
+        .filename
+    )
+    with client.websocket_connect(_create_ws_url("123")) as websocket:
+        data = websocket.receive_json()
+        assert_kernel_ready_response(data, create_response({}))
+        # Send save request
+        client.post(
+            "/api/kernel/save",
+            headers=headers("123"),
+            json={
+                "cellIds": ["2", "1"],
+                "filename": filename,
+                "codes": [
+                    "slider = mo.ui.slider(0, 100)",
+                    "import marimo as mo",
+                ],
+                "names": ["cell_0", "cell_1"],
+                "configs": [
+                    {
+                        "hideCode": True,
+                        "disabled": True,
+                    },
+                    {
+                        "hideCode": False,
+                        "disabled": False,
+                    },
+                ],
+            },
+        )
+
+    # Check the session still exists after closing the websocket
+    assert get_session(client, "123")
+
+    # New session with new ID (simulates refresh)
+    # We should resume the current session
+    with client.websocket_connect(_create_ws_url("456")) as websocket:
+        # First message is the kernel reconnected
+        data = websocket.receive_json()
+        assert data == {"op": "reconnected", "data": {"op": "reconnected"}}
+        # Resume the session
+        data = websocket.receive_json()
+        assert_kernel_ready_response(
+            data,
+            create_response(
+                {
+                    # The cell IDs that were saved should be the ones that are
+                    # resumed
+                    "cell_ids": ["2", "1"],
+                    "names": ["cell_0", "cell_1"],
+                    "codes": [
+                        "slider = mo.ui.slider(0, 100)",
+                        "import marimo as mo",
+                    ],
+                    "configs": [
+                        {
+                            "hideCode": True,
+                            "disabled": True,
+                        },
+                        {
+                            "hideCode": False,
+                            "disabled": False,
+                        },
+                    ],
+                    "resumed": True,
+                }
+            ),
+        )
+
+    # Check the session switch IDs
+    assert not get_session(client, "123")
+    assert get_session(client, "456")
+
+    # Shutdown the kernel
+
+
+def test_save_config(client: TestClient) -> None:
+    with client.websocket_connect(_create_ws_url("123")) as websocket:
+        data = websocket.receive_json()
+        assert_kernel_ready_response(data, create_response({}))
+        # Send save request
+        client.post(
+            "/api/kernel/save_app_config",
+            headers=headers("123"),
+            json={
+                "config": {"width": "full"},
+            },
+        )
+
+    # Check the session still exists after closing the websocket
+    session = get_session(client, "123")
+    assert session
+    assert session.app_file_manager.app.config.width == "full"
+
+    # Loading index page should have the new config
+    response = client.get("/")
+    assert response.status_code == 200
+    assert '"width": "full"' in response.text
+
+    # Shutdown the kernel
+
+
+def test_restart_session(client: TestClient) -> None:
+    with client.websocket_connect(_create_ws_url("123")) as websocket:
+        data = websocket.receive_json()
+        assert_kernel_ready_response(data, create_response({}))
+
+    # Restart the session
+    response = client.post(
+        "/api/kernel/restart_session",
+        headers=headers("123"),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {"success": True}
+
+    # Check the session still exists after closing the websocket
+    assert not get_session(client, "123")
+
+    # New session with new ID (simulates refresh)
+    # We start a new session
+    with client.websocket_connect(_create_ws_url("456")) as websocket:
+        # First message is the kernel reconnected
+        data = websocket.receive_json()
+        assert_kernel_ready_response(
+            data,
+            create_response({}),
+        )
+
+    # Shutdown the kernel
+
+
+def test_resume_session_after_file_change(client: TestClient) -> None:
+    session_manager = get_session_manager(client)
+    # Don't set session_manager.watch = True here; it would start a
+    # file-watcher thread whose async callbacks can race with the
+    # synchronous _handle_file_change_locked call below, reading the
+    # file while it is being written and producing a spurious
+    # "not a marimo notebook" error.  The test invokes the handler
+    # directly, so no watcher is needed.
+
+    with client.websocket_connect(_create_ws_url("123")) as websocket:
+        data = websocket.receive_json()
+        assert_kernel_ready_response(data, create_response({}))
+        for _ in range(2):
+            assert websocket.receive_json()["op"] == "environment-state"
+
+        session = get_session(client, SessionId("123"))
+        assert session
+
+        # Write to the notebook file to add a new cell
+        # we write it as the second to last cell
+        filename = session_manager.workspace.get_unique_file_key()
+        assert filename
+        with open(filename) as f:
+            content = f.read()
+        last_cell_pos = content.rindex("@app.cell")
+        new_content = (
+            content[:last_cell_pos]
+            + "\n@app.cell\ndef _(): x=10; x\n"
+            + content[last_cell_pos:]
+        )
+        with open(filename, "w") as f:
+            f.write(new_content)
+
+        # Directly trigger the file change handler (synchronous) instead
+        # of relying on the async file watcher, which is inherently racy.
+        result = session_manager._file_change_coordinator._handle_file_change_locked(
+            os.path.abspath(filename), session
+        )
+        assert result.handled
+
+        data = websocket.receive_json()
+        assert data["op"] == "notebook-document-transaction"
+        tx = data["data"]["transaction"]
+        # Transaction should contain the new cell and reorder.
+        op_types = [op["type"] for op in tx["changes"]]
+        assert "create-cell" in op_types
+        assert "reorder-cells" in op_types
+        assert tx["source"] == "file-watch"
+
+    # Resume session with new ID (simulates refresh)
+    with client.websocket_connect(_create_ws_url("456")) as websocket:
+        # First message is the kernel reconnected
+        data = websocket.receive_json()
+        assert data == {"op": "reconnected", "data": {"op": "reconnected"}}
+
+        # Check for KernelReady message
+        data = websocket.receive_json()
+        assert parse_raw(data["data"], KernelReadyNotification)
+
+        # Banner notification (session replay)
+        data = websocket.receive_json()
+        assert data["op"] == "banner"
+
+
+@contextmanager
+def without_autorun_on_save(config: UserConfigManager):
+    prev_config = config.get_config()
+    try:
+        config.save_config({"runtime": {"watcher_on_save": "lazy"}})
+        yield
+    finally:
+        config.save_config(prev_config)
+
+
+@pytest.mark.parametrize("connection_id", ["123", "456"])
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        OperationRunning(),
+        OperationSucceeded(),
+        OperationFailed(error="Offline"),
+    ],
+)
+def test_environment_restored_after_disconnect(
+    client: TestClient,
+    connection_id: str,
+    outcome: EnvironmentOperationStatus,
+) -> None:
+    with client:
+        with client.websocket_connect(_create_ws_url("123")) as websocket:
+            assert_kernel_ready_response(websocket.receive_json())
+            for source in ("kernel", "server"):
+                assert websocket.receive_json() == {
+                    "op": "environment-state",
+                    "data": {
+                        "op": "environment-state",
+                        "source": source,
+                        "state": {"restart_required": False, "operations": []},
+                    },
+                }
+            session = get_session(client, SessionId("123"))
+            assert session is not None
+            progress = EnvironmentOperationNotification(
+                action="install",
+                source="kernel",
+                operation_id="install",
+                status=OperationRunning(),
+                packages={"numpy": "running"},
+                logs={"numpy": "Downloading\n"},
+                log_mode="replace",
+            )
+            websocket.portal.call(
+                lambda: session.notify(progress, from_consumer_id=None)
+            )
+
+        # Work can finish while no consumer is attached.
+        assert client.portal is not None
+        client.portal.call(
+            session.notify,
+            EnvironmentOperationNotification(
+                action="install",
+                source="kernel",
+                operation_id="install",
+                status=outcome,
+                packages={
+                    "numpy": "succeeded"
+                    if isinstance(outcome, OperationSucceeded)
+                    else "running"
+                },
+                logs={"numpy": "Latest\n"},
+                log_mode="append",
+            ),
+            None,
+        )
+        expected = EnvironmentStateNotification(
+            source="kernel",
+            state=EnvironmentState(
+                restart_required=False,
+                operations=[
+                    EnvironmentOperation(
+                        action="install",
+                        operation_id="install",
+                        source="kernel",
+                        status=outcome,
+                        packages={
+                            "numpy": "succeeded"
+                            if isinstance(outcome, OperationSucceeded)
+                            else "running"
+                        },
+                        logs={"numpy": "Downloading\nLatest\n"},
+                    )
+                ],
+            ),
+        )
+        with client.websocket_connect(
+            _create_ws_url(connection_id)
+        ) as websocket:
+            assert websocket.receive_json()["op"] == "reconnected"
+            if connection_id != "123":
+                assert websocket.receive_json()["op"] == "kernel-ready"
+                assert websocket.receive_json()["op"] == "banner"
+            else:
+                assert websocket.receive_json()["op"] == "alert"
+            assert websocket.receive_json() == json.loads(
+                format_wire_message(
+                    expected.name, serialize_kernel_message(expected)
+                )
+            )
+            assert websocket.receive_json()["data"] == {
+                "op": "environment-state",
+                "source": "server",
+                "state": {"restart_required": False, "operations": []},
+            }

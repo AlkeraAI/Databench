@@ -1,0 +1,1730 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import tempfile
+from datetime import datetime, timedelta, timezone
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from dirty_equals import IsDatetime, IsPositiveFloat, IsStr
+from inline_snapshot import snapshot
+
+from marimo._data._external_storage.models import (
+    DownloadResult,
+    StorageEntry,
+    StorageListResult,
+)
+from marimo._data._external_storage.storage import (
+    FsspecFilesystem,
+    Obstore,
+    detect_protocol_from_url,
+    normalize_protocol,
+)
+from marimo._data._external_storage.utils import (
+    paginate_entries,
+    parse_page_offset,
+)
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._types.ids import VariableName
+
+HAS_OBSTORE = DependencyManager.obstore.has()
+HAS_FSSPEC = DependencyManager.fsspec.has()
+
+
+@pytest.mark.skipif(not HAS_OBSTORE, reason="obstore not installed")
+class TestObstore:
+    def _make_backend(self, store: Any, name: str = "my_store") -> Obstore:
+        return Obstore(store, VariableName(name))
+
+    def test_list_entries(self) -> None:
+        now = datetime.now(tz=timezone.utc)
+        mock_store = MagicMock()
+        mock_store.list_with_delimiter.return_value = {
+            "common_prefixes": ["subdir/"],
+            "objects": [
+                {
+                    "path": "file1.txt",
+                    "size": 100,
+                    "last_modified": now,
+                    "e_tag": "abc",
+                    "version": None,
+                },
+                {
+                    "path": "dir/file2.txt",
+                    "size": 200,
+                    "last_modified": now,
+                    "e_tag": None,
+                    "version": "v1",
+                },
+            ],
+        }
+
+        backend = self._make_backend(mock_store)
+        result = backend.list_entries(prefix="some/prefix", limit=10)
+
+        mock_store.list_with_delimiter.assert_called_once_with(
+            prefix="some/prefix",
+        )
+        assert result.entries == snapshot(
+            [
+                StorageEntry(
+                    path="subdir/",
+                    kind="directory",
+                    size=0,
+                    last_modified=None,
+                    metadata={},
+                    mime_type=None,
+                ),
+                StorageEntry(
+                    path="file1.txt",
+                    kind="object",
+                    size=100,
+                    last_modified=now.timestamp(),
+                    metadata={"e_tag": "abc"},
+                    mime_type="text/plain",
+                ),
+                StorageEntry(
+                    path="dir/file2.txt",
+                    kind="object",
+                    size=200,
+                    last_modified=now.timestamp(),
+                    metadata={"version": "v1"},
+                    mime_type="text/plain",
+                ),
+            ]
+        )
+
+    def test_list_entries_skips_zero_byte_folder_marker(self) -> None:
+        now = datetime.now(tz=timezone.utc)
+        mock_store = MagicMock()
+        mock_store.list_with_delimiter.return_value = {
+            "common_prefixes": [],
+            "objects": [
+                {
+                    "path": "folder",
+                    "size": 0,
+                    "last_modified": now,
+                    "e_tag": "abcde",
+                    "version": None,
+                },
+                {
+                    "path": "folder/order_details.csv",
+                    "size": 5426089,
+                    "last_modified": now,
+                    "e_tag": "fghij",
+                    "version": None,
+                },
+            ],
+        }
+
+        backend = self._make_backend(mock_store)
+        result = backend.list_entries(prefix="folder")
+
+        assert result.entries == [
+            StorageEntry(
+                path="folder/order_details.csv",
+                kind="object",
+                size=5426089,
+                last_modified=now.timestamp(),
+                metadata={"e_tag": "fghij"},
+                mime_type="text/csv",
+            ),
+        ]
+
+    def test_list_entries_empty(self) -> None:
+        mock_store = MagicMock()
+        mock_store.list_with_delimiter.return_value = {
+            "common_prefixes": [],
+            "objects": [],
+        }
+
+        backend = self._make_backend(mock_store)
+        result = backend.list_entries(prefix=None)
+        assert result.entries == []
+
+    def test_list_entries_returns_next_page_token(self) -> None:
+        now = datetime.now(tz=timezone.utc)
+        mock_store = MagicMock()
+        mock_store.list_with_delimiter.return_value = {
+            "common_prefixes": ["a/", "b/"],
+            "objects": [
+                {
+                    "path": "c.txt",
+                    "size": 1,
+                    "last_modified": now,
+                    "e_tag": None,
+                    "version": None,
+                },
+            ],
+        }
+
+        backend = self._make_backend(mock_store)
+
+        assert backend.list_entries(prefix=None, limit=2) == snapshot(
+            StorageListResult(
+                entries=[
+                    StorageEntry(
+                        path="a/",
+                        kind="directory",
+                        size=0,
+                        last_modified=None,
+                        metadata={},
+                        mime_type=None,
+                    ),
+                    StorageEntry(
+                        path="b/",
+                        kind="directory",
+                        size=0,
+                        last_modified=None,
+                        metadata={},
+                        mime_type=None,
+                    ),
+                ],
+                next_page_token="2",
+            )
+        )
+
+        assert backend.list_entries(
+            prefix=None, limit=2, page_token="2"
+        ) == snapshot(
+            StorageListResult(
+                entries=[
+                    StorageEntry(
+                        path="c.txt",
+                        kind="object",
+                        size=1,
+                        last_modified=now.timestamp(),
+                        metadata={},
+                        mime_type="text/plain",
+                    ),
+                ],
+                next_page_token=None,
+            )
+        )
+
+    def test_create_storage_entry_missing_fields(self) -> None:
+        mock_store = MagicMock()
+        backend = self._make_backend(mock_store)
+
+        entry = backend._create_storage_entry(
+            {  # pyright: ignore[reportArgumentType]
+                "path": None,
+                "size": None,
+                "last_modified": None,
+                "e_tag": None,
+                "version": None,
+            }
+        )
+        assert entry == snapshot(
+            StorageEntry(
+                path="",
+                kind="object",
+                size=0,
+                last_modified=None,
+                metadata={},
+                mime_type=None,
+            )
+        )
+
+    def test_create_storage_entry_with_all_metadata(self) -> None:
+        now = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        mock_store = MagicMock()
+        backend = self._make_backend(mock_store)
+
+        entry = backend._create_storage_entry(
+            {
+                "path": "test.csv",
+                "size": 500,
+                "last_modified": now,
+                "e_tag": "etag123",
+                "version": "v2",
+            }
+        )
+        assert entry == snapshot(
+            StorageEntry(
+                path="test.csv",
+                kind="object",
+                size=500,
+                last_modified=now.timestamp(),
+                metadata={"e_tag": "etag123", "version": "v2"},
+                mime_type="text/csv",
+            )
+        )
+
+    def test_create_storage_entry_with_toml(self) -> None:
+        backend = self._make_backend(MagicMock())
+
+        entry = backend._create_storage_entry(
+            {
+                "path": "pyproject.toml",
+                "size": 100,
+                "last_modified": None,
+                "e_tag": None,
+                "version": None,
+            }
+        )
+
+        assert entry.mime_type == "application/toml"
+
+    async def test_get_entry(self) -> None:
+        now = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        mock_store = MagicMock()
+        head_result = {
+            "path": "test.txt",
+            "size": 42,
+            "last_modified": now,
+            "e_tag": "e1",
+            "version": None,
+        }
+        mock_store.head_async = MagicMock(
+            return_value=_async_return(head_result)
+        )
+
+        backend = self._make_backend(mock_store)
+        result = await backend.get_entry("test.txt")
+        assert result == snapshot(
+            StorageEntry(
+                path="test.txt",
+                kind="object",
+                size=42,
+                last_modified=now.timestamp(),
+                metadata={"e_tag": "e1"},
+                mime_type="text/plain",
+            )
+        )
+        mock_store.head_async.assert_called_once_with("test.txt")
+
+    async def test_download(self) -> None:
+        mock_store = MagicMock()
+        mock_bytes_result = MagicMock()
+        mock_bytes_result.bytes_async = MagicMock(
+            return_value=_async_return(b"hello world")
+        )
+        mock_store.get_async = MagicMock(
+            return_value=_async_return(mock_bytes_result)
+        )
+
+        backend = self._make_backend(mock_store)
+        result = await backend.download("some/path.txt")
+        assert result == b"hello world"
+        mock_store.get_async.assert_called_once_with("some/path.txt")
+
+    async def test_download_file(self) -> None:
+        mock_store = MagicMock()
+        mock_bytes_result = MagicMock()
+        mock_bytes_result.bytes_async = MagicMock(
+            return_value=_async_return(b"file content")
+        )
+        mock_store.get_async = MagicMock(
+            return_value=_async_return(mock_bytes_result)
+        )
+
+        backend = self._make_backend(mock_store)
+        result = await backend.download_file("bucket/data/report.csv")
+
+        assert result == DownloadResult(
+            file_bytes=b"file content",
+            filename="report.csv",
+            ext="csv",
+        )
+
+    async def test_download_file_no_extension(self) -> None:
+        mock_store = MagicMock()
+        mock_bytes_result = MagicMock()
+        mock_bytes_result.bytes_async = MagicMock(
+            return_value=_async_return(b"data")
+        )
+        mock_store.get_async = MagicMock(
+            return_value=_async_return(mock_bytes_result)
+        )
+
+        backend = self._make_backend(mock_store)
+        result = await backend.download_file("bucket/noext")
+
+        assert result == DownloadResult(
+            file_bytes=b"data",
+            filename="noext",
+            ext="bin",
+        )
+
+    async def test_download_file_nested_path(self) -> None:
+        mock_store = MagicMock()
+        mock_bytes_result = MagicMock()
+        mock_bytes_result.bytes_async = MagicMock(
+            return_value=_async_return(b"nested")
+        )
+        mock_store.get_async = MagicMock(
+            return_value=_async_return(mock_bytes_result)
+        )
+
+        backend = self._make_backend(mock_store)
+        result = await backend.download_file("a/b/c/deep.tar.gz")
+
+        assert result == DownloadResult(
+            file_bytes=b"nested",
+            filename="deep.tar.gz",
+            ext="gz",
+        )
+
+    async def test_download_file_trailing_dot(self) -> None:
+        mock_store = MagicMock()
+        mock_bytes_result = MagicMock()
+        mock_bytes_result.bytes_async = MagicMock(
+            return_value=_async_return(b"data")
+        )
+        mock_store.get_async = MagicMock(
+            return_value=_async_return(mock_bytes_result)
+        )
+
+        backend = self._make_backend(mock_store)
+        result = await backend.download_file("bucket/file.")
+
+        assert result == DownloadResult(
+            file_bytes=b"data",
+            filename="file.",
+            ext="bin",
+        )
+
+    async def test_download_file_empty_path(self) -> None:
+        mock_store = MagicMock()
+        mock_bytes_result = MagicMock()
+        mock_bytes_result.bytes_async = MagicMock(
+            return_value=_async_return(b"data")
+        )
+        mock_store.get_async = MagicMock(
+            return_value=_async_return(mock_bytes_result)
+        )
+
+        backend = self._make_backend(mock_store)
+        result = await backend.download_file("")
+
+        assert result == DownloadResult(
+            file_bytes=b"data",
+            filename="download",
+            ext="bin",
+        )
+
+    async def test_read_range_full_file_delegates_to_download(self) -> None:
+        mock_store = MagicMock()
+        mock_bytes_result = MagicMock()
+        mock_bytes_result.bytes_async = MagicMock(
+            return_value=_async_return(b"full content")
+        )
+        mock_store.get_async = MagicMock(
+            return_value=_async_return(mock_bytes_result)
+        )
+
+        backend = self._make_backend(mock_store)
+        result = await backend.read_range("file.txt")
+        assert result == b"full content"
+        mock_store.get_async.assert_called_once_with("file.txt")
+
+    async def test_read_range_offset_without_length_slices_download(
+        self,
+    ) -> None:
+        mock_store = MagicMock()
+        mock_bytes_result = MagicMock()
+        mock_bytes_result.bytes_async = MagicMock(
+            return_value=_async_return(b"hello world")
+        )
+        mock_store.get_async = MagicMock(
+            return_value=_async_return(mock_bytes_result)
+        )
+
+        backend = self._make_backend(mock_store)
+        result = await backend.read_range("file.txt", offset=6)
+        assert result == b"world"
+        mock_store.get_async.assert_called_once_with("file.txt")
+
+    async def test_read_range_with_offset_and_length(self) -> None:
+        mock_store = MagicMock()
+        backend = self._make_backend(mock_store)
+
+        with patch(
+            "obstore.get_range_async",
+            new_callable=AsyncMock,
+            return_value=b"partial",
+        ) as mock_get_range:
+            result = await backend.read_range(
+                "file.txt", offset=10, length=100
+            )
+
+        assert result == b"partial"
+        mock_get_range.assert_called_once_with(
+            mock_store, "file.txt", start=10, length=100
+        )
+
+    async def test_read_range_with_length_only(self) -> None:
+        mock_store = MagicMock()
+        backend = self._make_backend(mock_store)
+
+        with patch(
+            "obstore.get_range_async",
+            new_callable=AsyncMock,
+            return_value=b"first bytes",
+        ) as mock_get_range:
+            result = await backend.read_range("file.txt", length=50)
+
+        assert result == b"first bytes"
+        mock_get_range.assert_called_once_with(
+            mock_store, "file.txt", start=0, length=50
+        )
+
+    def test_protocol_memory(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        backend = self._make_backend(store)
+        assert backend.protocol == "in-memory"
+
+    def test_protocol_local(self) -> None:
+        import tempfile
+
+        from obstore.store import LocalStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = LocalStore(tmpdir)
+            backend = self._make_backend(store)
+            assert backend.protocol == "file"
+
+    def test_backend_type(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        backend = self._make_backend(store)
+        assert backend.backend_type == "obstore"
+
+    def test_root_path_memory(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        backend = self._make_backend(store)
+        assert backend.root_path is None
+
+    def test_root_path_local(self) -> None:
+        import tempfile
+
+        from obstore.store import LocalStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = LocalStore(tmpdir)
+            backend = self._make_backend(store)
+            # LocalStore without a prefix should return None
+            root = backend.root_path
+            # This depends on whether there's a prefix; for a bare LocalStore it's None
+            assert root is None or isinstance(root, str)
+
+    def test_root_path_s3_with_prefix(self) -> None:
+        from obstore.store import S3Store
+
+        store = S3Store("test-bucket", prefix="my/prefix", skip_signature=True)
+        backend = self._make_backend(store)
+        root = backend.root_path
+        assert root is not None
+        assert "my/prefix" in str(root)
+
+    def test_root_path_s3_without_prefix(self) -> None:
+        from obstore.store import S3Store
+
+        store = S3Store("test-bucket", skip_signature=True)
+        backend = self._make_backend(store)
+        root = backend.root_path
+        assert root == "test-bucket"
+
+    def test_root_path_azure_uses_container_name(self) -> None:
+        from obstore.store import AzureStore
+
+        store = AzureStore(
+            "my-container", account_name="acct", account_key="YWJjZA=="
+        )
+        backend = self._make_backend(store)
+        assert backend.root_path == "my-container"
+
+    def test_is_compatible_with_obstore(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        assert Obstore.is_compatible(store) is True
+
+    def test_is_compatible_with_non_obstore(self) -> None:
+        assert Obstore.is_compatible("not a store") is False
+        assert Obstore.is_compatible(42) is False
+        assert Obstore.is_compatible(None) is False
+
+    async def test_sign_download_url_returns_none_for_non_cloud_store(
+        self,
+    ) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        backend = self._make_backend(store)
+        result = await backend.sign_download_url("some/path.txt")
+        assert result is None
+
+    async def test_sign_download_url_returns_none_for_local_store(
+        self,
+    ) -> None:
+        from obstore.store import LocalStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = LocalStore(tmpdir)
+            backend = self._make_backend(store)
+            result = await backend.sign_download_url("some/path.txt")
+            assert result is None
+
+    async def test_sign_download_url_calls_sign_async_for_s3(self) -> None:
+        from obstore.store import S3Store
+
+        store = S3Store("test-bucket", skip_signature=True)
+        backend = self._make_backend(store)
+
+        with patch(
+            "obstore.sign_async",
+            new_callable=AsyncMock,
+            return_value="https://signed.example.com/file",
+        ) as mock_sign:
+            result = await backend.sign_download_url(
+                "data/file.csv", expiration=600
+            )
+
+        assert result == "https://signed.example.com/file"
+        mock_sign.assert_called_once()
+        args, kwargs = mock_sign.call_args
+        assert args == (store, "GET", "data/file.csv")
+        assert kwargs["expires_in"] == timedelta(seconds=600)
+
+    async def test_sign_download_url_returns_none_on_exception(self) -> None:
+        from obstore.store import S3Store
+
+        store = S3Store("test-bucket", skip_signature=True)
+        backend = self._make_backend(store)
+
+        with patch(
+            "obstore.sign_async",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("signing failed"),
+        ):
+            result = await backend.sign_download_url("data/file.csv")
+
+        assert result is None
+
+    def test_display_name_known_protocol(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        backend = self._make_backend(store)
+        assert backend.display_name == "In-memory"
+
+    def test_protocol_falls_back_to_store_type_when_config_panics(
+        self,
+    ) -> None:
+        from obstore.store import S3Store
+
+        store = S3Store("bucket", skip_signature=True)
+        backend = self._make_backend(store)
+
+        with self._panicking_config(store):
+            assert backend.protocol == "s3"
+
+    def test_root_path_falls_back_to_repr_when_config_panics(self) -> None:
+        from obstore.store import S3Store
+
+        store = S3Store("bucket", skip_signature=True)
+        backend = self._make_backend(store)
+
+        with self._panicking_config(store):
+            assert backend.root_path == "bucket"
+
+    def test_config_is_only_read_once_when_it_panics(self) -> None:
+        from obstore.store import S3Store
+
+        store = S3Store("bucket", skip_signature=True)
+        backend = self._make_backend(store)
+        calls = 0
+
+        def _raise(_: Any) -> None:
+            nonlocal calls
+            calls += 1
+            raise BaseException("rust panic")  # noqa: TRY002
+
+        with patch.object(
+            type(store), "config", new_callable=lambda: property(_raise)
+        ):
+            assert backend.protocol == "s3"
+            assert backend.root_path == "bucket"
+
+        assert calls == 1
+
+    def test_container_credentials_store_is_readable(self) -> None:
+        """obstore panics on `store.config` for container-credential stores."""
+        from obstore.store import S3Store
+
+        store = S3Store(
+            "demo-bucket",
+            endpoint="https://demo-bucket.cwobject.com",
+            allow_http=True,
+            virtual_hosted_style_request=True,
+            container_credentials_full_uri="http://169.254.170.23/v1/creds",
+            container_authorization_token_file="/tmp/token",
+        )
+        backend = self._make_backend(store)
+
+        assert backend.root_path == "demo-bucket"
+        # `allow_http=True` makes the config (and so the endpoint) unreadable,
+        # so we can't detect "coreweave" from the endpoint and fall back to the
+        # store type.
+        assert backend.protocol == "s3"
+
+    @staticmethod
+    def _panicking_config(store: Any) -> Any:
+        def _raise(_: Any) -> None:
+            raise BaseException("rust panic")  # noqa: TRY002
+
+        return patch.object(
+            type(store), "config", new_callable=lambda: property(_raise)
+        )
+
+
+@pytest.mark.skipif(not HAS_FSSPEC, reason="fsspec not installed")
+class TestFsspecFilesystem:
+    def _make_backend(
+        self, store: Any, name: str = "my_fs"
+    ) -> FsspecFilesystem:
+        return FsspecFilesystem(store, VariableName(name))
+
+    def test_list_entries(self) -> None:
+        mock_store = MagicMock()
+        files = [
+            {
+                "name": "file1.txt",
+                "size": 100,
+                "type": "file",
+                "mtime": 1234567890.0,
+            },
+            {
+                "name": "subdir",
+                "size": 0,
+                "type": "directory",
+                "mtime": 1234567891.0,
+            },
+        ]
+        mock_store.ls.return_value = files
+
+        backend = self._make_backend(mock_store)
+        result = backend.list_entries(prefix="some/path")
+
+        mock_store.ls.assert_called_once_with(path="some/path", detail=True)
+        assert result.entries == snapshot(
+            [
+                StorageEntry(
+                    path="file1.txt",
+                    kind="file",
+                    size=100,
+                    last_modified=1234567890.0,
+                    metadata={},
+                    mime_type="text/plain",
+                ),
+                StorageEntry(
+                    path="subdir",
+                    kind="directory",
+                    size=0,
+                    last_modified=1234567891.0,
+                    metadata={},
+                    mime_type=None,
+                ),
+            ]
+        )
+
+    def test_list_entries_none_prefix_uses_empty_string(self) -> None:
+        mock_store = MagicMock()
+        mock_store.ls.return_value = []
+
+        backend = self._make_backend(mock_store)
+        backend.list_entries(prefix=None)
+
+        mock_store.ls.assert_called_once_with(path="", detail=True)
+
+    def test_list_entries_root_falls_back_to_cwd(self) -> None:
+        # SFTP filesystems can't list "" but can list "."
+        mock_store = MagicMock()
+        mock_store.ls.side_effect = [
+            FileNotFoundError(),
+            [{"name": "./a.txt", "size": 1, "type": "file"}],
+        ]
+
+        backend = self._make_backend(mock_store)
+        result = backend.list_entries(prefix=None)
+
+        assert mock_store.ls.call_args_list == [
+            ((), {"path": "", "detail": True}),
+            ((), {"path": ".", "detail": True}),
+        ]
+        assert [e.path for e in result.entries] == ["a.txt"]
+
+    def test_list_entries_not_found_below_root_raises(self) -> None:
+        mock_store = MagicMock()
+        mock_store.ls.side_effect = FileNotFoundError()
+
+        backend = self._make_backend(mock_store)
+        with pytest.raises(FileNotFoundError):
+            backend.list_entries(prefix="missing")
+        mock_store.ls.assert_called_once_with(path="missing", detail=True)
+
+    def test_list_entries_retries_when_self_entry_detected(self) -> None:
+        mock_store = MagicMock()
+        mock_store.protocol = "file"
+        mock_store.dircache = {"": [{"name": "folder"}], "folder": []}
+        mock_store._parent = lambda _path: ""
+        mock_store.ls.side_effect = [
+            [
+                {
+                    "name": "folder",
+                    "size": 0,
+                    "type": "directory",
+                    "mtime": None,
+                }
+            ],
+            [
+                {
+                    "name": "folder/file.txt",
+                    "size": 100,
+                    "type": "file",
+                    "mtime": 1234567890.0,
+                }
+            ],
+        ]
+
+        backend = self._make_backend(mock_store)
+        result = backend.list_entries(prefix="folder")
+
+        assert mock_store.ls.call_count == 2
+        assert "" not in mock_store.dircache
+        assert "folder" not in mock_store.dircache
+        assert result.entries == snapshot(
+            [
+                StorageEntry(
+                    path="folder/file.txt",
+                    kind="file",
+                    size=100,
+                    last_modified=1234567890.0,
+                    metadata={},
+                    mime_type="text/plain",
+                ),
+            ]
+        )
+
+    def test_list_entries_returns_multi_file_list_without_self_scan(
+        self,
+    ) -> None:
+        """Multi-entry listings skip self-entry handling (O(1) path); all rows pass through."""
+        mock_store = MagicMock()
+        mock_store.protocol = "file"
+        mock_store.ls.return_value = [
+            {
+                "name": "folder",
+                "size": 0,
+                "type": "directory",
+                "mtime": None,
+            },
+            {
+                "name": "folder/folder",
+                "size": 0,
+                "type": "directory",
+                "mtime": None,
+            },
+            {
+                "name": "folder/file.txt",
+                "size": 1,
+                "type": "file",
+                "mtime": None,
+            },
+        ]
+
+        backend = self._make_backend(mock_store)
+        result = backend.list_entries(prefix="folder")
+
+        mock_store.ls.assert_called_once_with(path="folder", detail=True)
+        assert result.entries == snapshot(
+            [
+                StorageEntry(
+                    path="folder",
+                    kind="directory",
+                    size=0,
+                    last_modified=None,
+                    metadata={},
+                    mime_type=None,
+                ),
+                StorageEntry(
+                    path="folder/folder",
+                    kind="directory",
+                    size=0,
+                    last_modified=None,
+                    metadata={},
+                    mime_type=None,
+                ),
+                StorageEntry(
+                    path="folder/file.txt",
+                    kind="file",
+                    size=1,
+                    last_modified=None,
+                    metadata={},
+                    mime_type="text/plain",
+                ),
+            ]
+        )
+
+    def test_list_entries_respects_limit(self) -> None:
+        mock_store = MagicMock()
+        files = [
+            {
+                "name": f"file{i}.txt",
+                "size": i * 10,
+                "type": "file",
+                "mtime": None,
+            }
+            for i in range(10)
+        ]
+        mock_store.ls.return_value = files
+
+        backend = self._make_backend(mock_store)
+        result = backend.list_entries(prefix="", limit=3)
+
+        assert result.entries == snapshot(
+            [
+                StorageEntry(
+                    path="file0.txt",
+                    kind="file",
+                    size=0,
+                    last_modified=None,
+                    metadata={},
+                    mime_type="text/plain",
+                ),
+                StorageEntry(
+                    path="file1.txt",
+                    kind="file",
+                    size=10,
+                    last_modified=None,
+                    metadata={},
+                    mime_type="text/plain",
+                ),
+                StorageEntry(
+                    path="file2.txt",
+                    kind="file",
+                    size=20,
+                    last_modified=None,
+                    metadata={},
+                    mime_type="text/plain",
+                ),
+            ]
+        )
+
+    def test_list_entries_returns_next_page_token(self) -> None:
+        mock_store = MagicMock()
+        files = [
+            {
+                "name": f"file{i}.txt",
+                "size": i,
+                "type": "file",
+                "mtime": None,
+            }
+            for i in range(3)
+        ]
+        mock_store.ls.return_value = files
+
+        backend = self._make_backend(mock_store)
+
+        assert backend.list_entries(prefix="", limit=2) == snapshot(
+            StorageListResult(
+                entries=[
+                    StorageEntry(
+                        path="file0.txt",
+                        kind="file",
+                        size=0,
+                        last_modified=None,
+                        metadata={},
+                        mime_type="text/plain",
+                    ),
+                    StorageEntry(
+                        path="file1.txt",
+                        kind="file",
+                        size=1,
+                        last_modified=None,
+                        metadata={},
+                        mime_type="text/plain",
+                    ),
+                ],
+                next_page_token="2",
+            )
+        )
+
+        assert backend.list_entries(
+            prefix="", limit=2, page_token="2"
+        ) == snapshot(
+            StorageListResult(
+                entries=[
+                    StorageEntry(
+                        path="file2.txt",
+                        kind="file",
+                        size=2,
+                        last_modified=None,
+                        metadata={},
+                        mime_type="text/plain",
+                    ),
+                ],
+                next_page_token=None,
+            )
+        )
+
+    def test_list_entries_raises_on_non_list(self) -> None:
+        mock_store = MagicMock()
+        mock_store.ls.return_value = "not_a_list"
+
+        backend = self._make_backend(mock_store)
+        with pytest.raises(ValueError, match="Files is not a list"):
+            backend.list_entries(prefix="")
+
+    def test_list_entries_skips_non_dict_entries(self) -> None:
+        mock_store = MagicMock()
+        mock_store.ls.return_value = [
+            {"name": "good.txt", "size": 10, "type": "file"},
+            "bad_entry",
+            {"name": "also_good.txt", "size": 20, "type": "file"},
+        ]
+
+        backend = self._make_backend(mock_store)
+        result = backend.list_entries(prefix="")
+
+        assert result.entries == snapshot(
+            [
+                StorageEntry(
+                    path="good.txt",
+                    kind="file",
+                    size=10,
+                    last_modified=None,
+                    metadata={},
+                    mime_type="text/plain",
+                ),
+                StorageEntry(
+                    path="also_good.txt",
+                    kind="file",
+                    size=20,
+                    last_modified=None,
+                    metadata={},
+                    mime_type="text/plain",
+                ),
+            ]
+        )
+
+    def test_identify_kind(self) -> None:
+        mock_store = MagicMock()
+        backend = self._make_backend(mock_store)
+
+        assert backend._identify_kind("file") == "file"
+        assert backend._identify_kind("FILE") == "file"
+        assert backend._identify_kind("  file  ") == "file"
+        assert backend._identify_kind("directory") == "directory"
+        assert backend._identify_kind("DIRECTORY") == "directory"
+        assert backend._identify_kind("  directory  ") == "directory"
+        # Unknown types default to "file"
+        assert backend._identify_kind("unknown") == "file"
+        assert backend._identify_kind("symlink") == "file"
+
+    def test_create_storage_entry_full(self) -> None:
+        mock_store = MagicMock()
+        backend = self._make_backend(mock_store)
+
+        entry = backend._create_storage_entry(
+            {
+                "name": "data.csv",
+                "size": 1024,
+                "type": "file",
+                "mtime": 1700000000.0,
+                "ETag": "abc123",
+                "islink": False,
+                "mode": 0o644,
+                "nlink": 1,
+                "created": 1699000000.0,
+            }
+        )
+        assert entry == snapshot(
+            StorageEntry(
+                path="data.csv",
+                kind="file",
+                size=1024,
+                last_modified=1700000000.0,
+                metadata={
+                    "e_tag": "abc123",
+                    "is_link": False,
+                    "mode": 420,
+                    "n_link": 1,
+                    "created": 1699000000.0,
+                },
+                mime_type="text/csv",
+            )
+        )
+
+    def test_create_storage_entry_with_toml(self) -> None:
+        backend = self._make_backend(MagicMock())
+
+        entry = backend._create_storage_entry(
+            {
+                "name": "pyproject.toml",
+                "size": 100,
+                "type": "file",
+            }
+        )
+
+        assert entry.mime_type == "application/toml"
+
+    def test_create_storage_entry_includes_id(self) -> None:
+        # Backends such as Google Drive allow duplicate paths, so the stable
+        # id must flow through to disambiguate entries on the client.
+        mock_store = MagicMock()
+        backend = self._make_backend(mock_store)
+
+        entry = backend._create_storage_entry(
+            {
+                "name": "File.pdf",
+                "size": 1024,
+                "type": "file",
+                "id": "drive-file-id-123",
+            }
+        )
+        assert entry == snapshot(
+            StorageEntry(
+                path="File.pdf",
+                kind="file",
+                size=1024,
+                last_modified=None,
+                metadata={"id": "drive-file-id-123"},
+                mime_type="application/pdf",
+            )
+        )
+
+    def test_create_storage_entry_missing_fields(self) -> None:
+        mock_store = MagicMock()
+        backend = self._make_backend(mock_store)
+
+        entry = backend._create_storage_entry(
+            {"name": None, "size": None, "type": None}
+        )
+        assert entry == snapshot(
+            StorageEntry(
+                path="",
+                kind="file",
+                size=0,
+                last_modified=None,
+                metadata={},
+                mime_type=None,
+            )
+        )
+
+    def test_create_storage_entry_directory(self) -> None:
+        mock_store = MagicMock()
+        backend = self._make_backend(mock_store)
+
+        entry = backend._create_storage_entry(
+            {"name": "my_dir/", "size": 0, "type": "directory", "mtime": None}
+        )
+        assert entry == snapshot(
+            StorageEntry(
+                path="my_dir/",
+                kind="directory",
+                size=0,
+                last_modified=None,
+                metadata={},
+                mime_type=None,
+            )
+        )
+
+    @pytest.mark.parametrize(
+        "mtime",
+        [
+            datetime(2024, 1, 1, tzinfo=timezone.utc),
+            datetime(2024, 1, 1),  # naive datetimes are treated as UTC
+        ],
+    )
+    def test_create_storage_entry_datetime_mtime(
+        self, mtime: datetime
+    ) -> None:
+        # e.g. sshfs returns mtime as a datetime rather than a float
+        backend = self._make_backend(MagicMock())
+
+        entry = backend._create_storage_entry(
+            {"name": "a.txt", "size": 1, "type": "file", "mtime": mtime}
+        )
+        assert entry.last_modified == 1704067200.0
+
+    async def test_get_entry(self) -> None:
+        mock_store = MagicMock()
+        mock_store.info.return_value = {
+            "name": "test.txt",
+            "size": 42,
+            "type": "file",
+            "mtime": 1700000000.0,
+        }
+
+        backend = self._make_backend(mock_store)
+        result = await backend.get_entry("test.txt")
+        assert result == snapshot(
+            StorageEntry(
+                path="test.txt",
+                kind="file",
+                size=42,
+                last_modified=1700000000.0,
+                metadata={},
+                mime_type="text/plain",
+            )
+        )
+
+    async def test_get_entry_raises_on_non_dict(self) -> None:
+        mock_store = MagicMock()
+        mock_store.info.return_value = "not_a_dict"
+
+        backend = self._make_backend(mock_store)
+        with pytest.raises(ValueError, match="is not a dictionary"):
+            await backend.get_entry("test.txt")
+
+    async def test_download_bytes(self) -> None:
+        mock_store = MagicMock()
+        mock_file = MagicMock()
+        mock_file.read.return_value = b"binary content"
+        mock_store.open.return_value = mock_file
+
+        backend = self._make_backend(mock_store)
+        result = await backend.download("path/to/file.bin")
+        assert result == b"binary content"
+        mock_store.open.assert_called_once_with("path/to/file.bin")
+
+    async def test_download_string_encoded_to_bytes(self) -> None:
+        mock_store = MagicMock()
+        mock_file = MagicMock()
+        mock_file.read.return_value = "text content"
+        mock_store.open.return_value = mock_file
+
+        backend = self._make_backend(mock_store)
+        result = await backend.download("path/to/file.txt")
+        assert result == b"text content"
+
+    async def test_download_file(self) -> None:
+        mock_store = MagicMock()
+        mock_file = MagicMock()
+        mock_file.read.return_value = b"csv data"
+        mock_store.open.return_value = mock_file
+
+        backend = self._make_backend(mock_store)
+        result = await backend.download_file("bucket/export.csv")
+
+        assert result == DownloadResult(
+            file_bytes=b"csv data",
+            filename="export.csv",
+            ext="csv",
+        )
+
+    async def test_read_range_returns_bytes(self) -> None:
+        mock_store = MagicMock()
+        mock_store.cat_file.return_value = b"partial content"
+
+        backend = self._make_backend(mock_store)
+        result = await backend.read_range("path/file.txt", offset=0, length=15)
+        assert result == b"partial content"
+        mock_store.cat_file.assert_called_once_with(
+            "path/file.txt", start=0, end=15
+        )
+
+    async def test_read_range_encodes_string_to_bytes(self) -> None:
+        mock_store = MagicMock()
+        mock_store.cat_file.return_value = "text content"
+
+        backend = self._make_backend(mock_store)
+        result = await backend.read_range("path/file.txt", offset=0, length=50)
+        assert result == b"text content"
+
+    async def test_read_range_with_offset(self) -> None:
+        mock_store = MagicMock()
+        mock_store.cat_file.return_value = b"middle"
+
+        backend = self._make_backend(mock_store)
+        result = await backend.read_range("path/file.txt", offset=10, length=6)
+        assert result == b"middle"
+        mock_store.cat_file.assert_called_once_with(
+            "path/file.txt", start=10, end=16
+        )
+
+    async def test_read_range_full_file(self) -> None:
+        mock_store = MagicMock()
+        mock_store.cat_file.return_value = b"entire file"
+
+        backend = self._make_backend(mock_store)
+        result = await backend.read_range("path/file.txt")
+        assert result == b"entire file"
+        mock_store.cat_file.assert_called_once_with(
+            "path/file.txt", start=0, end=None
+        )
+
+    def test_protocol_tuple(self) -> None:
+        mock_store = MagicMock()
+        mock_store.protocol = ("gcs", "gs")
+
+        backend = self._make_backend(mock_store)
+        assert backend.protocol == "gcs"
+
+    def test_root_path(self) -> None:
+        mock_store = MagicMock()
+        mock_store.root_marker = "/some/root"
+
+        backend = self._make_backend(mock_store)
+        assert backend.root_path == "/some/root"
+
+    def test_root_path_empty(self) -> None:
+        mock_store = MagicMock()
+        mock_store.root_marker = ""
+
+        backend = self._make_backend(mock_store)
+        assert backend.root_path == ""
+
+    def test_is_compatible_with_fsspec(self) -> None:
+        from fsspec import AbstractFileSystem
+
+        mock_fs = MagicMock(spec=AbstractFileSystem)
+        assert FsspecFilesystem.is_compatible(mock_fs) is True
+
+    def test_is_compatible_with_non_fsspec(self) -> None:
+        assert FsspecFilesystem.is_compatible("not a fs") is False
+        assert FsspecFilesystem.is_compatible(42) is False
+        assert FsspecFilesystem.is_compatible(None) is False
+
+    def test_is_compatible_with_concrete_filesystem(self) -> None:
+        from fsspec.implementations.memory import MemoryFileSystem
+
+        fs = MemoryFileSystem()
+        assert FsspecFilesystem.is_compatible(fs) is True
+
+    def test_display_name_known_protocol(self) -> None:
+        mock_store = MagicMock()
+        mock_store.protocol = "s3"
+        backend = self._make_backend(mock_store)
+        assert backend.display_name == "Amazon S3"
+
+    async def test_sign_download_url_returns_signed_url(self) -> None:
+        mock_store = MagicMock()
+        mock_store.sign.return_value = "https://signed.example.com/path"
+
+        backend = self._make_backend(mock_store)
+        result = await backend.sign_download_url(
+            "bucket/file.csv", expiration=900
+        )
+
+        assert result == "https://signed.example.com/path"
+        mock_store.sign.assert_called_once_with(
+            "bucket/file.csv", expiration=900
+        )
+
+    async def test_sign_download_url_returns_none_on_not_implemented(
+        self,
+    ) -> None:
+        mock_store = MagicMock()
+        mock_store.sign.side_effect = NotImplementedError
+
+        backend = self._make_backend(mock_store)
+        result = await backend.sign_download_url("bucket/file.csv")
+
+        assert result is None
+
+    async def test_sign_download_url_returns_none_on_exception(self) -> None:
+        mock_store = MagicMock()
+        mock_store.sign.side_effect = RuntimeError("unexpected error")
+
+        backend = self._make_backend(mock_store)
+        result = await backend.sign_download_url("bucket/file.csv")
+
+        assert result is None
+
+    async def test_sign_download_url_converts_result_to_str(self) -> None:
+        mock_store = MagicMock()
+        mock_store.sign.return_value = 12345
+
+        backend = self._make_backend(mock_store)
+        result = await backend.sign_download_url("path")
+
+        assert result == "12345"
+
+    def test_display_name_unknown_protocol(self) -> None:
+        mock_store = MagicMock()
+        mock_store.protocol = "custom-proto"
+        backend = self._make_backend(mock_store)
+        assert backend.display_name == "Custom-proto"
+
+
+@pytest.mark.skipif(not HAS_FSSPEC, reason="fsspec not installed")
+class TestFsspecFilesystemIntegration:
+    """Integration tests using a real fsspec MemoryFileSystem."""
+
+    async def test_list_and_download_with_memory_fs(self) -> None:
+        from fsspec.implementations.memory import MemoryFileSystem
+
+        fs = MemoryFileSystem()
+        fs.mkdir("/test")
+        fs.pipe("/test/hello.txt", b"hello world")
+        fs.pipe("/test/data.csv", b"a,b,c\n1,2,3")
+
+        backend = FsspecFilesystem(fs, VariableName("mem_fs"))
+        entries = backend.list_entries(prefix="/test")
+
+        assert entries.entries == snapshot(
+            [
+                StorageEntry(
+                    path="/test/hello.txt",
+                    kind="file",
+                    size=11,
+                    last_modified=None,
+                    metadata={"created": IsPositiveFloat()},
+                    mime_type="text/plain",
+                ),
+                StorageEntry(
+                    path="/test/data.csv",
+                    kind="file",
+                    size=11,
+                    last_modified=None,
+                    metadata={"created": IsPositiveFloat()},
+                    mime_type="text/csv",
+                ),
+            ]
+        )
+
+        result = await backend.download("/test/hello.txt")
+        assert result == b"hello world"
+
+    async def test_get_entry_with_memory_fs(self) -> None:
+        from fsspec.implementations.memory import MemoryFileSystem
+
+        fs = MemoryFileSystem()
+        fs.pipe("/myfile.txt", b"content here")
+
+        backend = FsspecFilesystem(fs, VariableName("mem_fs"))
+        entry = await backend.get_entry("/myfile.txt")
+        assert entry == snapshot(
+            StorageEntry(
+                path="/myfile.txt",
+                kind="file",
+                size=12,
+                last_modified=None,
+                metadata={"created": IsDatetime()},
+                mime_type="text/plain",
+            )
+        )
+
+    async def test_sign_download_url_not_implemented_by_memory_fs(
+        self,
+    ) -> None:
+        from fsspec.implementations.memory import MemoryFileSystem
+
+        fs = MemoryFileSystem()
+        fs.pipe("/test/file.txt", b"hello")
+
+        backend = FsspecFilesystem(fs, VariableName("mem_fs"))
+        result = await backend.sign_download_url("/test/file.txt")
+        assert result is None
+
+    async def test_read_range_full_file(self) -> None:
+        from fsspec.implementations.memory import MemoryFileSystem
+
+        fs = MemoryFileSystem()
+        fs.pipe("/test/data.txt", b"hello world")
+
+        backend = FsspecFilesystem(fs, VariableName("mem_fs"))
+        result = await backend.read_range("/test/data.txt")
+        assert result == b"hello world"
+
+    async def test_read_range_partial(self) -> None:
+        from fsspec.implementations.memory import MemoryFileSystem
+
+        fs = MemoryFileSystem()
+        fs.pipe("/test/data.txt", b"hello world")
+
+        backend = FsspecFilesystem(fs, VariableName("mem_fs"))
+        result = await backend.read_range("/test/data.txt", offset=0, length=5)
+        assert result == b"hello"
+
+    async def test_read_range_with_offset(self) -> None:
+        from fsspec.implementations.memory import MemoryFileSystem
+
+        fs = MemoryFileSystem()
+        fs.pipe("/test/data.txt", b"hello world")
+
+        backend = FsspecFilesystem(fs, VariableName("mem_fs"))
+        result = await backend.read_range("/test/data.txt", offset=6, length=5)
+        assert result == b"world"
+
+    async def test_read_range_offset_without_length(self) -> None:
+        from fsspec.implementations.memory import MemoryFileSystem
+
+        fs = MemoryFileSystem()
+        fs.pipe("/test/data.txt", b"hello world")
+
+        backend = FsspecFilesystem(fs, VariableName("mem_fs"))
+        result = await backend.read_range("/test/data.txt", offset=6)
+        assert result == b"world"
+
+    def test_protocol_memory_filesystem(self) -> None:
+        from fsspec.implementations.memory import MemoryFileSystem
+
+        fs = MemoryFileSystem()
+        backend = FsspecFilesystem(fs, VariableName("mem_fs"))
+        assert backend.protocol == "in-memory"
+
+    def test_backend_type_memory_filesystem(self) -> None:
+        from fsspec.implementations.memory import MemoryFileSystem
+
+        fs = MemoryFileSystem()
+        backend = FsspecFilesystem(fs, VariableName("mem_fs"))
+        assert backend.backend_type == "fsspec"
+
+
+@pytest.mark.skipif(not HAS_OBSTORE, reason="obstore not installed")
+class TestObstoreIntegration:
+    """Integration tests using a real obstore MemoryStore."""
+
+    async def test_list_entries_with_memory_store(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        # Put some data
+        await store.put_async("test/file1.txt", b"hello")
+        await store.put_async("test/file2.txt", b"world!")
+
+        backend = Obstore(store, VariableName("mem_store"))
+        entries = backend.list_entries(prefix="test/")
+        assert entries.entries == snapshot(
+            [
+                StorageEntry(
+                    path="test/file1.txt",
+                    kind="object",
+                    size=5,
+                    last_modified=IsPositiveFloat(),  # pyright: ignore[reportArgumentType]
+                    metadata={"e_tag": IsStr()},
+                    mime_type="text/plain",
+                ),
+                StorageEntry(
+                    path="test/file2.txt",
+                    kind="object",
+                    size=6,
+                    last_modified=IsPositiveFloat(),  # pyright: ignore[reportArgumentType]
+                    metadata={"e_tag": IsStr()},
+                    mime_type="text/plain",
+                ),
+            ]
+        )
+
+    async def test_download_with_memory_store(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        await store.put_async("data.bin", b"binary data")
+
+        backend = Obstore(store, VariableName("mem_store"))
+        result = await backend.download("data.bin")
+        assert result == b"binary data"
+
+    async def test_get_entry_with_memory_store(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        await store.put_async("info.txt", b"some content")
+
+        backend = Obstore(store, VariableName("mem_store"))
+        entry = await backend.get_entry("info.txt")
+        assert entry == snapshot(
+            StorageEntry(
+                path="info.txt",
+                kind="object",
+                size=12,
+                last_modified=IsPositiveFloat(),  # pyright: ignore[reportArgumentType]
+                metadata={"e_tag": IsStr()},
+                mime_type="text/plain",
+            )
+        )
+
+    async def test_sign_download_url_returns_none_for_memory_store(
+        self,
+    ) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        await store.put_async("data.txt", b"test")
+
+        backend = Obstore(store, VariableName("mem_store"))
+        result = await backend.sign_download_url("data.txt")
+        assert result is None
+
+    async def test_read_range_full_file(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        await store.put_async("file.txt", b"hello world")
+
+        backend = Obstore(store, VariableName("mem_store"))
+        result = await backend.read_range("file.txt")
+        assert result == b"hello world"
+
+    async def test_read_range_partial(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        await store.put_async("file.txt", b"hello world")
+
+        backend = Obstore(store, VariableName("mem_store"))
+        result = await backend.read_range("file.txt", offset=0, length=5)
+        assert result == b"hello"
+
+    async def test_read_range_with_offset(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        await store.put_async("file.txt", b"hello world")
+
+        backend = Obstore(store, VariableName("mem_store"))
+        result = await backend.read_range("file.txt", offset=6, length=5)
+        assert result == b"world"
+
+    async def test_read_range_offset_without_length(self) -> None:
+        from obstore.store import MemoryStore
+
+        store = MemoryStore()
+        await store.put_async("file.txt", b"hello world")
+
+        backend = Obstore(store, VariableName("mem_store"))
+        result = await backend.read_range("file.txt", offset=6)
+        assert result == b"world"
+
+
+class TestNormalizeProtocol:
+    @pytest.mark.parametrize(
+        ("protocol", "expected"),
+        [
+            ("s3", "s3"),
+            ("s3a", "s3"),
+            ("S3", "s3"),
+            ("gs", "gcs"),
+            ("gcs", "gcs"),
+            ("abfs", "azure"),
+            ("abfss", "azure"),
+            ("az", "azure"),
+            ("http", "http"),
+            ("https", "http"),
+            ("file", "file"),
+            ("local", "file"),
+            ("memory", "in-memory"),
+            ("r2", "cloudflare"),
+            ("  s3  ", "s3"),
+            ("unknown", None),
+            ("ftp", None),
+        ],
+    )
+    def test_normalize_protocol(
+        self, protocol: str, expected: str | None
+    ) -> None:
+        assert normalize_protocol(protocol) == expected
+
+
+class TestDetectProtocolFromUrl:
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            ("https://account.r2.cloudflarestorage.com", "cloudflare"),
+            ("https://s3.amazonaws.com", "s3"),
+            ("https://s3.us-east-1.amazonaws.com", "s3"),
+            ("https://storage.googleapis.com", "gcs"),
+            ("https://account.blob.core.windows.net", "azure"),
+            ("https://minio.example.com", None),
+            ("https://my-custom-endpoint.com", None),
+            (
+                "https://s3.cloudflare.com",
+                "cloudflare",
+            ),  # Although there is S3, it will match the cloudflare pattern first
+        ],
+    )
+    def test_detect_protocol_from_url(
+        self, url: str, expected: str | None
+    ) -> None:
+        assert detect_protocol_from_url(url) == expected
+
+
+class TestParsePageOffset:
+    @pytest.mark.parametrize(
+        ("page_token", "expected"),
+        [
+            (None, 0),
+            ("0", 0),
+            ("5", 5),
+            ("100", 100),
+        ],
+    )
+    def test_valid_tokens(self, page_token: str | None, expected: int) -> None:
+        assert parse_page_offset(page_token) == expected
+
+    @pytest.mark.parametrize(
+        "page_token",
+        ["-1", "abc", "", "1.5"],
+    )
+    def test_invalid_tokens_raise(self, page_token: str) -> None:
+        with pytest.raises(ValueError, match="Invalid storage page token"):
+            parse_page_offset(page_token)
+
+
+class TestPaginateEntries:
+    def _entries(self, count: int) -> list[StorageEntry]:
+        return [
+            StorageEntry(
+                path=f"entry-{i}",
+                kind="file",
+                size=0,
+                last_modified=None,
+            )
+            for i in range(count)
+        ]
+
+    def test_raises_for_non_positive_limit(self) -> None:
+        with pytest.raises(
+            ValueError, match="Storage list limit must be positive"
+        ):
+            paginate_entries(self._entries(3), offset=0, limit=0)
+
+    def test_first_page_with_more_entries(self) -> None:
+        result = paginate_entries(self._entries(5), offset=0, limit=2)
+        assert [entry.path for entry in result.entries] == [
+            "entry-0",
+            "entry-1",
+        ]
+        assert result.next_page_token == "2"
+
+    def test_middle_page(self) -> None:
+        result = paginate_entries(self._entries(5), offset=2, limit=2)
+        assert [entry.path for entry in result.entries] == [
+            "entry-2",
+            "entry-3",
+        ]
+        assert result.next_page_token == "4"
+
+    def test_last_page_has_no_next_token(self) -> None:
+        result = paginate_entries(self._entries(5), offset=4, limit=2)
+        assert [entry.path for entry in result.entries] == ["entry-4"]
+        assert result.next_page_token is None
+
+    def test_exact_multiple_has_no_next_token(self) -> None:
+        result = paginate_entries(self._entries(4), offset=0, limit=4)
+        assert len(result.entries) == 4
+        assert result.next_page_token is None
+
+    def test_offset_past_end_returns_empty(self) -> None:
+        result = paginate_entries(self._entries(3), offset=10, limit=2)
+        assert result.entries == []
+        assert result.next_page_token is None
+
+
+# --- Helpers ---
+
+
+async def _async_return(value: Any) -> Any:
+    return value

@@ -1,0 +1,16 @@
+{
+  "encrypted": false,
+  "event_id": "01H_agent_thought_chunk",
+  "event_type": "agent.thought_chunk",
+  "is_final": false,
+  "message_id": "m1",
+  "metadata": {},
+  "part_id": "p_think",
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "sequence": 0,
+  "session_id": "s1",
+  "signature": null,
+  "text": "Let me think\u2026",
+  "time": "2026-05-26T00:00:00Z"
+}

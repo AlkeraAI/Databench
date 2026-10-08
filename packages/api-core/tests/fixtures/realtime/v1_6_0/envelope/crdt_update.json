@@ -1,0 +1,22 @@
+{
+  "doc_id": "sess-01J7Q3M8",
+  "doc_type": "chat_workspace",
+  "epoch": 2,
+  "kind": "crdt",
+  "metadata": {},
+  "payload": {
+    "chunk": null,
+    "data_b64": "bG9yby11cGRhdGU=",
+    "log_ref": null,
+    "loro_peer": 4503599627370517,
+    "metadata": {},
+    "schema_version": "1.0.0",
+    "t": "update",
+    "update_id": "u-7",
+    "user_id": "00000000-0000-4000-8000-000000000001",
+    "vv_b64": "AZWDgICAgIAIAg=="
+  },
+  "peer_id": "p:3f9a1c2b4d6e",
+  "schema_version": "1.1.0",
+  "seq": 0
+}

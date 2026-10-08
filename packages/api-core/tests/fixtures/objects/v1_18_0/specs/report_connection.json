@@ -1,0 +1,6 @@
+{
+  "handle": "tideline-warehouse",
+  "metadata": {},
+  "plugin": "postgres",
+  "schema_version": "1.0.0"
+}

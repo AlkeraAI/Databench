@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0.0",
+  "code": "credit.member_budget_exhausted",
+  "message": "Your budget on Data Science is used up.",
+  "team_id": "6a4f2c18-1e5b-4b0e-9a7d-3f2c9e8b1d44",
+  "team_name": "Data Science",
+  "resets_at": "2026-10-01T12:00:00+00:00",
+  "manage_url": "https://app.alkera.dev/settings/billing"
+}

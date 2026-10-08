@@ -1,0 +1,91 @@
+/* The stacked page's trail: one quiet meta-sized row, chevron-separated, with
+   the current level in full ink. Sized like the chrome's controls so a detail
+   page's header reads as the same header the chat carries. */
+
+/* The leading crumb's own hover padding is pulled back out of the frame, so the
+   trail's first character aligns with the header's inline padding rather than
+   sitting 5px inside it. */
+:global(.chat-root) .crumbs {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  margin-inline-start: -5px;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+}
+
+/* Every level ellipsizes rather than wrapping: the trail is one row, and a
+   chat named in full sentences must not push the level you are on off it. */
+:global(.chat-root) .crumbsStep,
+:global(.chat-root) .crumbsHere {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Flexbox splits a deficit across every crumb at once, weighted by factor times
+   width, so no factor can hold one crumb whole while another gives way. The 8
+   biases the loss onto the history, which is the wider half: measured at a
+   410px panel the ancestor gives up 5.5px against the current level's 0.5px.
+   Ordering comes from the fold below, not from here. */
+:global(.chat-root) .crumbsStep {
+  flex: 0 8 auto;
+  /* 4px vertical clears the 24px pointer target on a 16px line box. */
+  padding: var(--chat-sp-1) var(--chat-sp-1);
+  border-radius: var(--chat-radius-micro);
+  color: var(--chat-ink-3);
+  cursor: pointer;
+  transition: color 100ms ease, background-color 100ms ease;
+}
+
+:global(.chat-root) .crumbsStep:hover {
+  color: var(--chat-ink);
+  background: var(--chat-wash);
+}
+
+/* Matches the step's inline padding so the trail's first character lands in the
+   same place whichever kind of crumb leads it, and carries no heading margin
+   when the host renders this level as the page's h1. */
+:global(.chat-root) .crumbsHere {
+  flex: 0 1 auto;
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-sp-1);
+  color: var(--chat-ink-3);
+}
+
+/* The level you are on: the page's own name, so it carries the full ink and
+   the weight the chat's title carries. */
+:global(.chat-root) .crumbsHere[data-here] {
+  color: var(--chat-ink);
+  font-weight: var(--chat-w-medium);
+}
+
+:global(.chat-root) .crumbsSep {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--chat-ink-4);
+}
+
+/* The chrome's id row owns where the trail sits and how the current level sets,
+   but the names are this component's, so the rules live here. */
+:global(.chat-root) :global(.chat-chrome__id) > .crumbs {
+  align-self: center;
+}
+
+:global(.chat-root) :global(.chat-chrome__id) .crumbsHere[data-here] {
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  letter-spacing: normal;
+}
+
+@container chat-panel (max-width: 260px) {
+  :global(.chat-root) :global(.chat-chrome__id) .crumbsStep,
+  :global(.chat-root) :global(.chat-chrome__id) .crumbsSep {
+    display: none;
+  }
+}

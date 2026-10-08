@@ -1,0 +1,241 @@
+/* The device-grant confirmation body. It drops into the
+ * shared AuthFrame as a cardless centered column: title, one-line instruction, the user_code
+ * in hairline-ruled Newsreader ledger cells with a brass rule, and the approve / deny actions.
+ * Terminal states swap the code for a flask-line status mark whose shape and hue both carry
+ * the outcome. Colors are the shared ui --alk* tokens; the lone page-scoped token is
+ * --pa-brass (the code's confirmed-reading underline, ornamental — never carries meaning).
+ *
+ * Own `pa-device` / `pa-code` / `pa-mark` prefix, in the portal's safe `pa-*` namespace, so no
+ * global CSS can bleed in. */
+
+.pa-device {
+  --pa-brass: #8a6a22; /* deep brass on bone — the code's confirmed-reading underline */
+  --pa-cell-h: 60px;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+[data-alkera-color-scheme="dark"] .pa-device,
+:root:not([data-alkera-color-scheme="light"]) .pa-device {
+  --pa-brass: #c9a451; /* lifted on the dark warm ground so the rule stays visible */
+}
+
+/* Keyed by state in the page, so each state replays the rise as the body content swaps. */
+.pa-device__body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* The shared rise-in entrance (theme/motion.css); a short 6px settle for the device body. */
+  --alk-rise-from: 6px;
+  animation: alk-rise-in var(--alkDurationSlow) var(--alkEaseStandard) both;
+}
+
+.pa-device__title {
+  margin: 0;
+  font-family: var(--alkFontDisplay);
+  font-size: 32px;
+  font-weight: var(--alkWeightMedium);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  color: var(--alkPrimaryText);
+}
+
+/* Reserve two lines so the figure and actions below hold their place as the state's copy
+   changes length (the confirm instruction is longer than the terminal messages). */
+.pa-device__sub {
+  margin: 12px 0 0;
+  min-height: 3em; /* two lines at line-height 1.5 */
+  max-width: 34ch;
+  font-size: var(--alkTextMd);
+  line-height: var(--alkLeadingNormal);
+  color: var(--alkSecondaryText);
+}
+
+.pa-device__sub strong {
+  color: var(--alkPrimaryText);
+  font-weight: var(--alkWeightMedium);
+}
+
+/* The body slot — the code, its loading skeleton, or a status mark — kept one block at a
+   reserved height so the title above and actions below keep their rhythm across states. */
+.pa-device__figure {
+  margin-top: 28px;
+  width: 100%;
+  min-height: var(--pa-cell-h);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+  justify-content: center;
+}
+
+.pa-device__note {
+  margin: 16px 0 0;
+  width: 100%;
+}
+
+.pa-device__org {
+  width: 100%;
+  text-align: left;
+}
+
+.pa-device__note-action {
+  margin-top: 10px;
+}
+
+.pa-device__actions {
+  margin-top: 28px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Approve + deny sit side by side, equal width (one filled button per view). */
+.pa-device__actions--split {
+  flex-direction: row;
+}
+
+.pa-device__actions--split > .alk-btn {
+  flex: 1;
+}
+
+.pa-device .alk-btn {
+  height: 46px;
+  border-radius: 10px;
+}
+
+/* ── Manual code entry (bare /device) — the field + Continue share the figure slot ── */
+
+.pa-device__form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left; /* the field label reads left-aligned inside the centered column */
+}
+
+/* The typed code reads like the ledger cells it becomes on the consent screen. */
+.pa-device__form .alk-input {
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase; /* visual only; the normalizer is the source of truth */
+}
+
+/* ── The code, in hairline-ruled ledger cells ── */
+
+.pa-code {
+  display: flex;
+  gap: 16px; /* the group separator stands in for the code's hyphen */
+  width: 100%;
+}
+
+.pa-code__group {
+  flex: 1;
+  display: flex;
+  height: var(--pa-cell-h);
+  background: var(--alkCardBg);
+  border: 1px solid var(--alkBorderStrong);
+  border-bottom: 2px solid var(--pa-brass); /* the confirmed-reading underline */
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.pa-code__cell {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  /* Newsreader caps/digits seat their ink high in the line box, so plain centering floats
+     the glyph above the brass rule. Nudge it down (em-based) to optically center on the
+     cap-height as the size drops on mobile. */
+  padding-top: 0.2em;
+  font-family: var(--alkFontDisplay);
+  font-size: 40px;
+  font-weight: var(--alkWeightMedium);
+  line-height: 1;
+  color: var(--alkPrimaryText);
+  font-variant-numeric: lining-nums;
+}
+
+.pa-code__cell + .pa-code__cell {
+  border-left: 1px solid var(--alkBorderStrong);
+}
+
+/* ── Loading skeleton of the code ── */
+
+.pa-code--skeleton {
+  animation: pa-code-pulse 1.4s ease-in-out infinite;
+}
+
+.pa-code__skel {
+  width: 44%;
+  height: 38%;
+  border-radius: 4px;
+  background: var(--alkBorderStrong);
+}
+
+@keyframes pa-code-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ── Terminal status mark — a flask-line glyph in a tinted ring ── */
+
+.pa-mark {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--alkRadiusFull);
+  border: 1.5px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.pa-mark[data-kind="success"] {
+  color: var(--alkSuccessText);
+  background: var(--alkSuccessSoft);
+}
+
+.pa-mark[data-kind="denied"] {
+  color: var(--alkPrimaryText);
+  background: var(--alkHoverBg);
+}
+
+.pa-mark[data-kind="expired"] {
+  color: var(--alkWarningText);
+  background: var(--alkWarningSoft);
+}
+
+.pa-mark[data-kind="error"] {
+  color: var(--alkDangerText);
+  background: var(--alkDangerSoft);
+}
+
+@media (max-width: 460px) {
+  .pa-device__title {
+    font-size: 28px;
+  }
+  .pa-code__cell {
+    font-size: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pa-device__body {
+    animation: none;
+  }
+  .pa-code--skeleton {
+    animation: none;
+  }
+}

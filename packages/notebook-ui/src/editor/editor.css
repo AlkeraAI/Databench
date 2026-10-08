@@ -1,0 +1,850 @@
+/* The notebook editor's layout: toolbar, cells with their gutters, panels,
+   and the narrow (below 768 px) single column. */
+
+.nb-notebook {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--nb-bg);
+  color: var(--nb-text);
+  font-family: var(--nb-font-ui);
+  font-size: 14px;
+  outline: none;
+}
+
+.nb-notebook__main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.nb-cells {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px var(--nb-gutter) 96px;
+}
+
+/* -- toolbar -------------------------------------------------------------- */
+
+.nb-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--nb-gutter);
+  border-bottom: 1px solid var(--nb-border);
+  background: var(--nb-surface);
+}
+
+.nb-toolbar__spacer,
+.nb-cell__spacer {
+  flex: 1;
+}
+
+/* Controls keep their size and their one-line labels: a toolbar too narrow
+   for them wraps onto another row instead of squeezing them. */
+.nb-toolbar > * {
+  flex: none;
+  max-width: 100%;
+}
+
+.nb-toolbar > .nb-toolbar__spacer {
+  flex: 1 1 0;
+}
+
+.nb-toolbar .nb-button,
+.nb-toolbar .nb-tab,
+.nb-toolbar .nb-chip,
+.nb-toolbar .nb-icon-button {
+  white-space: nowrap;
+}
+
+/* An icon key: a square that centres its glyph, the same height as a text key. */
+.nb-icon-button--glyph,
+.nb-menu--glyph > .nb-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 7px;
+}
+
+.nb-toolbar__presence {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.nb-button,
+.nb-tab,
+.nb-chip,
+.nb-icon-button,
+.nb-between__add {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--nb-border);
+  border-radius: var(--nb-radius);
+  padding: 3px 9px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.nb-button:hover:not(:disabled),
+.nb-tab:hover,
+.nb-icon-button:hover {
+  background: var(--nb-surface-sunken);
+}
+
+.nb-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.nb-button--primary {
+  background: var(--nb-accent);
+  border-color: var(--nb-accent);
+  color: var(--nb-on-accent);
+}
+
+.nb-button:focus-visible,
+.nb-tab:focus-visible,
+.nb-icon-button:focus-visible,
+.nb-chip--action {
+  cursor: pointer;
+}
+
+.nb-chip:focus-visible {
+  outline: 2px solid var(--nb-focus);
+  outline-offset: 1px;
+}
+
+.nb-icon-button {
+  border-color: transparent;
+  padding: 2px 6px;
+}
+
+.nb-tab--on {
+  background: var(--nb-surface-sunken);
+  border-color: var(--nb-border-strong);
+}
+
+.nb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.nb-chip-menu > .nb-icon-button {
+  border: 1px solid var(--nb-border);
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 3px 10px;
+}
+
+.nb-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nb-text-muted);
+}
+
+.nb-dot--success { background: var(--nb-success); }
+.nb-dot--accent { background: var(--nb-accent); }
+.nb-dot--warning { background: var(--nb-warning); }
+.nb-dot--danger { background: var(--nb-danger); }
+
+.nb-memory {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 64px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--nb-surface-sunken);
+  overflow: visible;
+}
+
+.nb-memory__bar {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--nb-text-muted);
+}
+
+.nb-memory--warn {
+  width: auto;
+  min-width: 64px;
+  height: auto;
+  padding: 2px 8px;
+  background: color-mix(in srgb, var(--nb-warning) 18%, transparent);
+}
+
+.nb-memory--warn .nb-memory__bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--nb-warning);
+}
+
+.nb-memory__label {
+  font-size: 12px;
+  color: var(--nb-warning);
+}
+
+.nb-queue {
+  position: relative;
+}
+
+.nb-queue__list,
+.nb-menu__list,
+.nb-dag__list {
+  position: absolute;
+  /* Above a panel sheet: a list opened from it is read over it. */
+  z-index: 40;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  min-width: 220px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--nb-bg);
+  border: 1px solid var(--nb-border-strong);
+  border-radius: var(--nb-radius);
+  box-shadow: 0 6px 24px var(--nb-shadow);
+}
+
+.nb-queue__list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.nb-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.nb-menu__list--end {
+  right: 0;
+}
+
+.nb-menu__list--start {
+  left: 0;
+}
+
+.nb-menu__item {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 3px 8px 3px 22px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nb-menu__item:hover:not(:disabled),
+.nb-menu__item:focus {
+  background: var(--nb-surface-sunken);
+  outline: none;
+}
+
+.nb-menu__item:disabled {
+  opacity: 0.5;
+}
+
+/* The check sits in the gutter every item reserves, so a checked row's label
+   lines up with the rest instead of being pushed along the row. */
+.nb-menu__item[aria-checked="true"]::before {
+  content: "✓";
+  position: absolute;
+  left: 7px;
+}
+
+.nb-menu__item kbd {
+  font-family: var(--nb-font-mono);
+  font-size: 11px;
+  color: var(--nb-text-muted);
+}
+
+.nb-menu__sep {
+  border-top: 1px solid var(--nb-border);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+/* -- notices -------------------------------------------------------------- */
+
+.nb-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px var(--nb-gutter);
+  border-bottom: 1px solid var(--nb-border);
+  font-size: 13px;
+}
+
+.nb-notice--warning { background: color-mix(in srgb, var(--nb-warning) 12%, var(--nb-bg)); }
+.nb-notice--danger { background: color-mix(in srgb, var(--nb-danger) 12%, var(--nb-bg)); }
+.nb-notice--info { background: var(--nb-surface); }
+
+.nb-notice > span {
+  flex: 1;
+}
+
+.nb-find {
+  border-bottom: 1px solid var(--nb-border);
+  padding: 6px var(--nb-gutter);
+}
+
+/* -- cells ---------------------------------------------------------------- */
+
+.nb-cell {
+  display: grid;
+  /* The gutter fits a three-digit link count ("↓120") on one line, and the
+     outline keeps the same space on both sides. */
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--nb-radius);
+}
+
+.nb-cell--active {
+  border-color: var(--nb-border-strong);
+}
+
+.nb-notebook[data-mode="edit"] .nb-cell--editing {
+  border-color: var(--nb-focus);
+}
+
+/* A cell a link brought into view is marked for a moment, so the eye lands on it. */
+.nb-cell[data-revealed] {
+  border-color: var(--nb-focus);
+  background: color-mix(in srgb, var(--nb-focus) 8%, transparent);
+  transition: background 0.4s ease-out, border-color 0.4s ease-out;
+}
+
+.nb-cell--upstream {
+  background: color-mix(in srgb, var(--nb-accent) 6%, transparent);
+}
+
+.nb-cell--downstream {
+  background: color-mix(in srgb, var(--nb-success) 6%, transparent);
+}
+
+/* A disabled cell dims what it holds, never its controls: opacity on the
+   body would also fade the cell's open menu, which renders inside it. */
+.nb-cell--disabled .nb-cell__body > :not(.nb-cell__header),
+.nb-cell--disabled .nb-cell__header > :not(.nb-menu) {
+  opacity: 0.6;
+}
+
+.nb-cell__gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 6px;
+  white-space: nowrap;
+}
+
+.nb-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--nb-text-muted);
+  background: transparent;
+}
+
+.nb-status--success { border-color: var(--nb-success); background: var(--nb-success); }
+.nb-status--warning { border-color: var(--nb-warning); }
+.nb-status--danger { border-color: var(--nb-danger); background: var(--nb-danger); }
+.nb-status--accent { border-color: var(--nb-accent); }
+.nb-status--muted { border-color: var(--nb-border-strong); }
+
+.nb-status--live {
+  animation: nb-pulse 1s ease-in-out infinite;
+  background: var(--nb-accent);
+}
+
+@keyframes nb-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-status--live { animation: none; }
+}
+
+.nb-dag {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nb-dag__button {
+  font: inherit;
+  font-size: 11px;
+  color: var(--nb-text-muted);
+  background: transparent;
+  border: 0;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.nb-dag__button:hover,
+.nb-dag__button[aria-expanded="true"] {
+  color: var(--nb-accent-text);
+}
+
+.nb-dag__list {
+  left: 100%;
+  top: 0;
+}
+
+.nb-dag__list button {
+  display: block;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 4px 6px;
+  cursor: pointer;
+  color: inherit;
+}
+
+.nb-dag__names {
+  color: var(--nb-text-muted);
+  font-family: var(--nb-font-mono);
+  font-size: 12px;
+}
+
+.nb-cell__body {
+  min-width: 0;
+}
+
+.nb-cell__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  font-size: 12px;
+  color: var(--nb-text-muted);
+}
+
+/* A cell's kind is quiet: hidden until the reader points at or works in the
+   cell, then shown muted. It keeps its space so nothing shifts. */
+.nb-cell__kind {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.nb-cell:hover .nb-cell__kind,
+.nb-cell:focus-within .nb-cell__kind {
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-cell__kind {
+    transition: none;
+  }
+}
+
+.nb-cell__name {
+  font-family: var(--nb-font-mono);
+  color: var(--nb-text);
+}
+
+.nb-cell__connection {
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--nb-surface-sunken);
+}
+
+.nb-sql-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nb-sql-settings__var,
+.nb-sql-settings__var-input {
+  font-family: var(--nb-font-mono);
+  font-size: 12px;
+  color: var(--nb-text);
+}
+
+.nb-sql-settings__var-input {
+  height: 20px;
+  padding: 0 4px;
+  border: 1px solid var(--nb-border);
+  border-radius: 4px;
+  background: transparent;
+}
+
+.nb-sql-settings__var-input[aria-invalid="true"] {
+  border-color: var(--nb-danger);
+}
+
+.nb-sql-settings__error {
+  color: var(--nb-danger);
+}
+
+.nb-sql-settings__hidden {
+  color: var(--nb-text-muted);
+}
+
+.nb-cell__sql-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-block-end: 4px;
+  font-size: 12px;
+  color: var(--nb-text-muted);
+}
+
+.nb-cell__presence {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.nb-face {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--nb-on-accent);
+  background: hsl(var(--nb-hue, 220) 55% 45%);
+}
+
+.nb-face--agent {
+  border-radius: 5px;
+}
+
+.nb-face--more {
+  background: var(--nb-text-muted);
+}
+
+.nb-cell-editor {
+  border: 1px solid var(--nb-border);
+  border-radius: var(--nb-radius);
+  background: var(--nb-surface);
+  font-family: var(--nb-font-mono);
+  font-size: 13px;
+  /* Visible so a collaborator's caret name, drawn beside the editor's
+     scroller, can reach past the box; the editor scrolls its own long lines. */
+  overflow: visible;
+}
+
+.nb-cell-editor .cm-editor {
+  max-height: 70vh;
+}
+
+.nb-cell-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.nb-cell-editor .cm-scroller {
+  font-family: var(--nb-font-mono);
+  padding: 4px 0;
+}
+
+/* The code editor's own chrome. CodeMirror ships light values for these, so
+   each is given the notebook's token and follows the theme with the rest. */
+.nb-cell-editor .cm-editor .cm-content {
+  caret-color: var(--nb-text);
+}
+
+.nb-cell-editor .cm-editor .cm-cursor,
+.nb-cell-editor .cm-editor .cm-dropCursor {
+  border-left-color: var(--nb-text);
+}
+
+.nb-cell-editor .cm-editor .cm-selectionBackground,
+.nb-cell-editor .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: color-mix(in srgb, var(--nb-accent-text) 28%, transparent);
+}
+
+.nb-cell-editor .cm-editor .cm-placeholder {
+  color: var(--nb-text-faint);
+}
+
+.nb-cell-editor .cm-editor .cm-matchingBracket {
+  background: color-mix(in srgb, var(--nb-success) 24%, transparent);
+}
+
+.nb-cell-editor .cm-editor .cm-nonmatchingBracket {
+  background: color-mix(in srgb, var(--nb-danger) 24%, transparent);
+}
+
+.nb-cell-editor .cm-editor .cm-tooltip {
+  border: 1px solid var(--nb-border-strong);
+  border-radius: var(--nb-radius);
+  background: var(--nb-surface);
+  color: var(--nb-text);
+  box-shadow: 0 6px 24px var(--nb-shadow);
+}
+
+.nb-cell-editor .cm-editor .cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--nb-accent);
+  color: var(--nb-on-accent);
+}
+
+.nb-cell-editor .cm-editor .cm-completionDetail,
+.nb-cell-editor .cm-editor .cm-completionInfo {
+  color: var(--nb-text-muted);
+}
+
+/* Syntax colours, set by class so a theme change needs no editor rebuild. */
+.nb-tok-keyword { color: var(--nb-syntax-keyword); }
+.nb-tok-string { color: var(--nb-syntax-string); }
+.nb-tok-number { color: var(--nb-syntax-number); }
+.nb-tok-comment { color: var(--nb-syntax-comment); font-style: italic; }
+.nb-tok-punct { color: var(--nb-syntax-punct); }
+.nb-tok-name { color: var(--nb-syntax-name); }
+.nb-tok-heading { color: var(--nb-syntax-name); font-weight: 600; }
+.nb-tok-strong { font-weight: 600; }
+.nb-tok-emphasis { font-style: italic; }
+.nb-tok-link { color: var(--nb-accent-text); text-decoration: underline; }
+.nb-tok-strike { text-decoration: line-through; }
+.nb-tok-invalid { color: var(--nb-danger); }
+
+.nb-sql-interp {
+  color: var(--nb-accent-text);
+  background: color-mix(in srgb, var(--nb-accent-text) 10%, transparent);
+  border-radius: 2px;
+}
+
+.nb-sql-brace {
+  color: var(--nb-text-muted);
+}
+
+.nb-sql-unmatched {
+  text-decoration: underline wavy var(--nb-danger);
+}
+
+.nb-cell__rendered {
+  padding: 4px 8px;
+  border-radius: var(--nb-radius);
+}
+
+.nb-cell__hidden,
+.nb-cell__expand {
+  font: inherit;
+  font-size: 12px;
+  color: var(--nb-text-muted);
+  background: var(--nb-surface);
+  border: 1px dashed var(--nb-border);
+  border-radius: var(--nb-radius);
+  padding: 4px 8px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nb-cell__outputs {
+  margin-top: 6px;
+  min-width: 0;
+}
+
+.nb-cell__outputs--saved > :not(.nb-cell__saved-note) {
+  opacity: 0.55;
+}
+
+.nb-cell__saved-note {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--nb-text-muted);
+}
+
+.nb-cell__outputs--outdated .nb-cell__saved-note {
+  color: var(--nb-warning);
+}
+
+.nb-cell__problem {
+  margin: 4px 0 0;
+  padding: 4px 8px;
+  border-left: 2px solid var(--nb-warning);
+  background: color-mix(in srgb, var(--nb-warning) 10%, var(--nb-bg));
+  font-size: 12px;
+}
+
+.nb-cell__footer {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--nb-text-muted);
+}
+
+/* What the engine says about this cell alone: a quiet line, no banner. */
+.nb-cell__note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--nb-text-muted);
+}
+
+.nb-cell__footer {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nb-cell__run-by {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.nb-cell:hover .nb-cell__run-by,
+.nb-cell:focus-within .nb-cell__run-by,
+.nb-cell--active .nb-cell__run-by {
+  opacity: 1;
+}
+
+.nb-quickfix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.nb-between {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  height: 18px;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.nb-between:hover,
+.nb-between:focus-within {
+  opacity: 1;
+}
+
+.nb-between__add {
+  font-size: 11px;
+  padding: 0 8px;
+  color: var(--nb-text-muted);
+}
+
+.nb-empty {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  padding: 48px 0;
+  color: var(--nb-text-muted);
+}
+
+.nb-field-error {
+  color: var(--nb-danger);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+/* -- the dock a panel opens in ---------------------------------------------
+   Its own class: a panel's content uses .nb-panel, and sharing the name gave
+   the content the dock's fixed width and border. */
+
+.nb-dock {
+  width: 320px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--nb-border);
+  background: var(--nb-surface);
+}
+
+.nb-dock__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--nb-border);
+}
+
+.nb-dock__header h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.nb-dock__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px;
+}
+
+/* -- narrow: one column, toolbar on the focused cell ---------------------- */
+
+.nb-notebook--narrow .nb-toolbar {
+  row-gap: 4px;
+}
+
+.nb-notebook--narrow .nb-cell {
+  grid-template-columns: 16px minmax(0, 1fr);
+}
+
+.nb-notebook--narrow .nb-cell__outputs {
+  overflow-x: auto;
+}
+
+/* The sheet rises from the bottom of the notebook's own pane, not of the
+   window: a notebook beside a chat keeps its panel beside the chat too. */
+.nb-dock--sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  width: auto;
+  max-height: 70%;
+  border-left: 0;
+  border-top: 1px solid var(--nb-border-strong);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -8px 24px var(--nb-shadow);
+}
+
+.nb-add-end {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.nb-cell__handle {
+  cursor: grab;
+  color: var(--nb-text-muted);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+}
+
+.nb-cell--drop-before {
+  box-shadow: 0 -2px 0 var(--nb-accent);
+}
+
+.nb-cell--drop-after {
+  box-shadow: 0 2px 0 var(--nb-accent);
+}

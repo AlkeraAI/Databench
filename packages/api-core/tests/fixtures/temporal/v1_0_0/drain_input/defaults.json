@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0.0",
+  "metadata": {},
+  "now": null,
+  "limit": 100,
+  "max_passes": 8,
+  "locked_retries": 5,
+  "locked_retry_seconds": 2.0
+}

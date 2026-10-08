@@ -1,0 +1,33 @@
+/* The notebook preview: the view switch above, the notebook (or its source)
+   below, scrolling inside the preview's pane. */
+
+.alk-nb-preview {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
+.alk-nb-preview__bar {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border-bottom: 1px solid var(--alkBorder);
+}
+
+.alk-nb-preview__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.alk-nb-preview__note {
+  margin: 0;
+  padding: var(--alkSpace2) var(--alkSpace3) 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}

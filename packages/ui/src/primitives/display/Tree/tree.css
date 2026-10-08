@@ -1,0 +1,177 @@
+/* ── Tree (alk-tree) ─────────────────────────────────────────────────────────
+ * A selectable, collapsible ARIA tree — the team register and the knowledge subject rail. Per-parent
+ * twist chevrons, drawn hairline elbow connectors, and an expand/collapse that animates both ways
+ * (grid-rows 0fr→1fr on the wrapper, opacity on the inner). The connector geometry is off the 8px
+ * scale by design — it's drawn art, keyed to the row's own half-height. */
+
+.alk-tree {
+  /* Row height + its half (the elbow's vertical centre) + the connector ink. */
+  --alk-tree-row: 36px;
+  --alk-tree-half: 18px;
+  --alk-tree-guide: var(--alkBorder);
+  display: flex;
+  flex-direction: column;
+}
+
+.alk-tree__node {
+  position: relative;
+}
+
+/* The subtree wrapper animates open AND closed; the inner clips the collapsing rows. padding-left
+   keeps the drawn connectors inside the clip box. The inner is `inert` when closed, so collapsed
+   nodes leave the tab + a11y tree. */
+.alk-tree__children {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--alkDurationSlow) var(--alkEaseStandard);
+}
+.alk-tree__children[data-open] {
+  grid-template-rows: 1fr;
+}
+.alk-tree__children-inner {
+  min-height: 0;
+  overflow: hidden;
+  padding-left: 24px;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transition: opacity var(--alkDurationSlow) var(--alkEaseStandard);
+}
+.alk-tree__children[data-open] > .alk-tree__children-inner {
+  opacity: 1;
+}
+
+/* vertical guide: top→row-centre for the last sibling, full height otherwise. */
+.alk-tree__children-inner > .alk-tree__node::before {
+  content: "";
+  position: absolute;
+  left: -13px;
+  top: 0;
+  width: 1px;
+  height: var(--alk-tree-half);
+  background: var(--alk-tree-guide);
+}
+.alk-tree__children-inner > .alk-tree__node:not(:last-child)::before {
+  height: 100%;
+}
+/* elbow into the node at its row centre. */
+.alk-tree__children-inner > .alk-tree__node::after {
+  content: "";
+  position: absolute;
+  left: -13px;
+  top: var(--alk-tree-half);
+  width: 10px;
+  height: 1px;
+  background: var(--alk-tree-guide);
+}
+
+.alk-tree__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  width: 100%;
+  min-height: var(--alk-tree-row);
+  padding: var(--alkSpace1) var(--alkSpace3);
+  border-radius: var(--alkRadiusMd);
+  color: var(--alkPrimaryText);
+  cursor: pointer;
+  /* The shared hover/state cross-fade — see theme/motion.css. */
+  transition: var(--alk-control-transition);
+}
+.alk-tree__row:not([data-active]):hover {
+  background: var(--alkHoverBg);
+}
+/* Focus lands on the treeitem (the .alk-tree__node); paint the ring on its visible row line so it
+   wraps the row, not the whole subtree. */
+.alk-tree__node:focus-visible {
+  outline: none;
+}
+/* Spelled out rather than inherited: the row is never `:focus-visible` itself, so the theme's
+   blanket `:where(:focus-visible)` rule cannot reach it and the ring the node gave up would
+   otherwise land nowhere. */
+.alk-tree__node:focus-visible > .alk-tree__row {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}
+.alk-tree__row[data-active] {
+  background: var(--alkBrandSubtle);
+  color: var(--alkBrandText);
+}
+/* The selected row deepens its own brand wash on hover — never the neutral grey. */
+.alk-tree__row[data-active]:hover {
+  background: var(--alkSelectedHoverBg);
+}
+.alk-tree__row[data-active] .alk-tree__name,
+.alk-tree__row[data-emphasized] .alk-tree__name {
+  font-weight: var(--alkWeightSemibold);
+}
+
+/* twist: a fixed leading column so parents + leaves share one name edge. Sized as a comfortable
+   click target (24px box around the 16px chevron) rather than a cramped glyph. */
+.alk-tree__twist {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  margin: 0 0 0 -4px;
+  appearance: none;
+  border: 0;
+  border-radius: var(--alkRadiusMd);
+  background: none;
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+  /* Rotates on open (transform) AND washes on hover (the shared control cross-fade). */
+  transition:
+    transform var(--alkDurationSlow) var(--alkEaseStandard),
+    var(--alk-control-transition);
+}
+.alk-tree__twist:hover {
+  background: color-mix(in srgb, var(--alkPrimaryText) 8%, transparent);
+  color: var(--alkPrimaryText);
+}
+.alk-tree__twist[data-open] {
+  transform: rotate(90deg);
+}
+.alk-tree__twist--leaf {
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.alk-tree__name {
+  flex: 1;
+  min-width: 0;
+  /* clip (not hidden): a hidden box is scrollable, so clicking the name scrolls it and the ellipsis
+     vanishes; clip clips the same but can't scroll. */
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--alkTextMd);
+}
+.alk-tree__count {
+  flex: 0 0 auto;
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+.alk-tree__row[data-active] .alk-tree__count {
+  color: var(--alkBrandText);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-tree__children,
+  .alk-tree__twist {
+    transition: none;
+  }
+}
+
+/* A row the caller refuses: still drawn, still reachable by keyboard, visibly not a choice.
+   The cursor is the giveaway a hover alone would not give a pointer user. */
+.alk-tree__row[data-disabled] {
+  color: var(--alkTertiaryText);
+  cursor: not-allowed;
+}
+.alk-tree__row[data-disabled]:hover {
+  background: transparent;
+}

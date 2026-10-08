@@ -1,0 +1,1012 @@
+from __future__ import annotations
+
+import json
+from typing import TYPE_CHECKING, Any
+from unittest.mock import Mock, patch
+
+import narwhals.stable.v2 as nw
+import pytest
+
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._plugins import ui
+from marimo._plugins.ui._impl.dataframes.dataframe import (
+    ColumnNotFound,
+    GetColumnValuesArgs,
+    GetColumnValuesResponse,
+)
+from marimo._plugins.ui._impl.table import (
+    DownloadAsArgs,
+    DownloadAsOptions,
+    SearchTableArgs,
+    TableSearchError,
+)
+from marimo._runtime.functions import EmptyArgs
+from marimo._utils.data_uri import from_data_uri
+from marimo._utils.narwhals_utils import (
+    is_narwhals_dataframe,
+    is_narwhals_lazyframe,
+)
+from marimo._utils.platform import is_windows
+from tests._data.mocks import create_dataframes
+
+HAS_DEPS = (
+    DependencyManager.pandas.has()
+    and DependencyManager.numpy.has()
+    and DependencyManager.polars.has()
+)
+
+HAS_IBIS = DependencyManager.ibis.has()
+HAS_POLARS = DependencyManager.polars.has()
+
+if TYPE_CHECKING:
+    from narwhals.stable.v2.typing import IntoDataFrame, IntoLazyFrame
+
+
+if HAS_DEPS:
+    import pandas as pd
+else:
+    pd = Mock()
+    pl = Mock()
+
+
+def df_length(df: IntoDataFrame | IntoLazyFrame) -> int:
+    nw_df = nw.from_native(df)
+    if is_narwhals_lazyframe(nw_df):
+        nw_df = nw_df.collect()
+    return nw_df.shape[0]
+
+
+def is_not_narwhals_dataframe(df: IntoDataFrame | IntoLazyFrame) -> bool:
+    return not (is_narwhals_lazyframe(df) or is_narwhals_dataframe(df))
+
+
+@pytest.mark.skipif(not HAS_DEPS, reason="optional dependencies not installed")
+class TestDataframes:
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_dataframes({"A": [1, 2, 3], "B": ["a", "a", "a"]}),
+    )
+    def test_dataframe_supports_dataframe_backends(df: Any) -> None:
+        subject = ui.dataframe(df)
+        # Construction should succeed and the value should round-trip to the
+        # original native type for each supported dataframe backend.
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_dataframes(
+            {"A": [1, 2, 3], "B": ["a", "a", "a"]},
+        ),
+    )
+    def test_dataframe(df: IntoDataFrame) -> None:
+        subject = ui.dataframe(df)
+
+        assert is_not_narwhals_dataframe(subject.value)
+        assert subject._component_args["columns"] in [
+            # polars
+            [["A", "integer", "i64"], ["B", "string", "str"]],
+            # pandas 2.x
+            [["A", "integer", "int64"], ["B", "string", "object"]],
+            # pandas 2.x with future.infer_string
+            [["A", "integer", "int64"], ["B", "string", "string"]],
+            # pandas 3.x
+            [["A", "integer", "int64"], ["B", "string", "str"]],
+            # pyarrow / duckdb (via narwhals)
+            [["A", "integer", "Int64"], ["B", "string", "String"]],
+        ]
+        assert subject._get_column_values(
+            GetColumnValuesArgs(column="A")
+        ) == GetColumnValuesResponse(values=[1, 2, 3], too_many_values=False)
+        assert subject._get_column_values(
+            GetColumnValuesArgs(column="B")
+        ) == GetColumnValuesResponse(values=["a"], too_many_values=False)
+
+        with pytest.raises(ColumnNotFound):
+            subject._get_column_values(GetColumnValuesArgs(column="idk"))
+
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        # Only pandas supports numeric column names
+        [
+            pd.DataFrame({1: [1, 2, 3], 2: ["a", "a", "a"]}),
+        ],
+    )
+    @pytest.mark.skipif(
+        is_windows(), reason="windows produces different csv output"
+    )
+    def test_dataframe_numeric_columns(df: IntoDataFrame) -> None:
+        subject = ui.dataframe(df)
+
+        assert is_not_narwhals_dataframe(subject.value)
+        assert subject._component_args["columns"] in [
+            # pandas 2.x
+            [["1", "integer", "int64"], ["2", "string", "object"]],
+            # pandas 3.x
+            [["1", "integer", "int64"], ["2", "string", "str"]],
+        ]
+
+        assert subject._get_column_values(
+            GetColumnValuesArgs(column="1")
+        ) == GetColumnValuesResponse(values=[1, 2, 3], too_many_values=False)
+
+        with pytest.raises(ColumnNotFound):
+            subject._get_column_values(GetColumnValuesArgs(column="idk"))
+        with pytest.raises(ColumnNotFound):
+            subject._get_column_values(GetColumnValuesArgs(column=1))
+
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.skipif(
+        is_windows(), reason="windows produces different csv output"
+    )
+    @pytest.mark.parametrize(
+        "df",
+        create_dataframes(
+            {"1": [1, 2, 3], "2": ["a", "a", "a"]},
+        ),
+    )
+    def test_dataframe_page_size(df: IntoDataFrame) -> None:
+        # size 1
+        subject = ui.dataframe(df, page_size=1)
+        result = subject._get_dataframe(EmptyArgs())
+        assert result.total_rows == 3
+        assert result.url == '[{"1":1,"2":"a"}]'
+        # search
+        search_result = subject._search(
+            SearchTableArgs(page_size=1, page_number=0)
+        )
+        assert search_result.total_rows == 3
+        assert search_result.data == result.url
+
+        # size 2
+        subject = ui.dataframe(df, page_size=2)
+        result = subject._get_dataframe(EmptyArgs())
+        assert result.total_rows == 3
+        assert result.url == '[{"1":1,"2":"a"},{"1":2,"2":"a"}]'
+
+        # search
+        search_result = subject._search(
+            SearchTableArgs(page_size=2, page_number=0)
+        )
+        assert search_result.total_rows == 3
+        assert search_result.data == result.url
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_dataframes(
+            {"A": [1, 2], "B": ["a", "b"]},
+        ),
+    )
+    def test_dataframe_format_mapping(df: IntoDataFrame) -> None:
+        def format_value(value: int) -> str:
+            return f"val-{value}"
+
+        subject = ui.dataframe(df, format_mapping={"A": format_value})
+
+        search_result = subject._search(
+            SearchTableArgs(page_size=2, page_number=0)
+        )
+        data = json.loads(search_result.data)
+        assert {row["A"] for row in data} == {"val-1", "val-2"}
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        [
+            *create_dataframes(
+                {"A": [], "B": []},
+            ),  # Empty DataFrame
+            *create_dataframes(
+                {"A": [1], "B": ["a"]},
+            ),  # Single row DataFrame
+            *create_dataframes(
+                {
+                    "A": range(1, 1001),
+                    "B": [f"value_{i}" for i in range(1, 1001)],
+                },
+            ),  # Large DataFrame
+        ],
+    )
+    def test_dataframe_edge_cases(df: IntoDataFrame) -> None:
+        subject = ui.dataframe(df)
+
+        assert is_not_narwhals_dataframe(subject.value)
+        assert len(subject._component_args["columns"]) == 2
+
+        result = subject._get_dataframe(EmptyArgs())
+        assert result.total_rows == df_length(df)
+
+        # Test _get_column_values for empty and large DataFrames
+        if df_length(df) == 0:
+            assert subject._get_column_values(
+                GetColumnValuesArgs(column="A")
+            ) == GetColumnValuesResponse(values=[], too_many_values=False)
+        elif df_length(df) >= 1000:
+            response = subject._get_column_values(
+                GetColumnValuesArgs(column="A")
+            )
+            assert response.too_many_values is True
+            assert len(response.values) == 0
+
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_dataframes(
+            {"A": range(100), "B": ["a"] * 100},
+        ),
+    )
+    def test_dataframe_with_custom_page_size(df: IntoDataFrame) -> None:
+        subject = ui.dataframe(df, page_size=10)
+
+        result = subject._get_dataframe(EmptyArgs())
+        assert result.total_rows == 100
+
+        search_result = subject._search(
+            SearchTableArgs(page_size=10, page_number=0)
+        )
+        assert search_result.total_rows == 100
+        assert search_result.data == result.url
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    def test_dataframe_too_large_page_size() -> None:
+        df = pd.DataFrame({"A": range(300)})
+        with pytest.raises(ValueError) as e:
+            _ = ui.dataframe(df, page_size=201)
+        assert "limited to 200 rows" in str(e.value)
+
+    @staticmethod
+    def test_dataframe_with_non_string_column_names() -> None:
+        df = pd.DataFrame(
+            {0: [1, 2, 3], 1.5: ["a", "b", "c"], "2": [True, False, True]}
+        )
+        subject = ui.dataframe(df)
+
+        assert subject.value is df
+        assert len(subject._component_args["columns"]) == 3
+
+        # Test that we can get column values for non-string column names
+        assert subject._get_column_values(
+            GetColumnValuesArgs(column="0")
+        ) == GetColumnValuesResponse(values=[1, 2, 3], too_many_values=False)
+        assert subject._get_column_values(
+            GetColumnValuesArgs(column="1.5")
+        ) == GetColumnValuesResponse(
+            values=["a", "b", "c"], too_many_values=False
+        )
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_dataframes(
+            {"A": range(1000), "B": ["a"] * 1000},
+        ),
+    )
+    def test_dataframe_with_limit(df: IntoDataFrame) -> None:
+        subject = ui.dataframe(df, limit=100)
+
+        result = subject._get_dataframe(EmptyArgs())
+        assert result.total_rows == 100
+
+        search_result = subject._search(
+            SearchTableArgs(page_size=10, page_number=0)
+        )
+        assert search_result.total_rows == 100
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_show_download() -> None:
+        # default behavior
+        df = pd.DataFrame({"A": [1, 2, 3], "B": ["a", "b", "c"]})
+        subject = ui.dataframe(df)
+        assert subject._component_args["show-download"] is True
+
+        # show_download=True
+        subject = ui.dataframe(df, show_download=True)
+        assert subject._component_args["show-download"] is True
+
+        # show_download=False
+        subject = ui.dataframe(df, show_download=False)
+        assert subject._component_args["show-download"] is False
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_csv_download_defaults_to_utf8() -> None:
+        df = pd.DataFrame({"A": [1, 2], "B": ["こんにちは", "世界"]})
+        subject = ui.dataframe(df)
+
+        csv_url = subject._download_as(DownloadAsArgs(format="csv")).url
+        csv_bytes = from_data_uri(csv_url)[1]
+        assert not csv_bytes.startswith(b"\xef\xbb\xbf")
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_download_encoding_utf8_sig() -> None:
+        df = pd.DataFrame({"A": [1, 2], "B": ["こんにちは", "世界"]})
+        subject = ui.dataframe(
+            df,
+            download_csv_encoding="utf-8-sig",
+        )
+
+        csv_url = subject._download_as(DownloadAsArgs(format="csv")).url
+        csv_bytes = from_data_uri(csv_url)[1]
+        # CSV should include BOM
+        assert csv_bytes.startswith(b"\xef\xbb\xbf")
+        assert "こんにちは" in csv_bytes.decode("utf-8-sig")
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_download_csv_separator() -> None:
+        df = pd.DataFrame({"A": [1, 2], "B": ["x", "y"]})
+        subject = ui.dataframe(
+            df,
+            download_csv_separator=";",
+        )
+
+        csv_url = subject._download_as(DownloadAsArgs(format="csv")).url
+        csv_text = from_data_uri(csv_url)[1].decode("utf-8")
+        assert "A;B" in csv_text
+        assert "1;x" in csv_text
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_download_request_options_layer_over_defaults() -> None:
+        df = pd.DataFrame({"A": [1, 2], "B": ["こんにちは", "y"]})
+        subject = ui.dataframe(
+            df,
+            download_csv_separator=";",
+            download_csv_encoding="utf-8-sig",
+        )
+
+        # A request field replaces the widget default for that setting.
+        url = subject._download_as(
+            DownloadAsArgs(
+                format="csv", options=DownloadAsOptions(separator="|")
+            )
+        ).url
+        csv_bytes = from_data_uri(url)[1]
+        assert csv_bytes.startswith(b"\xef\xbb\xbf")
+        assert "A|B" in csv_bytes.decode("utf-8-sig")
+
+        # An empty request keeps every widget default.
+        url = subject._download_as(
+            DownloadAsArgs(format="csv", options=DownloadAsOptions())
+        ).url
+        csv_bytes = from_data_uri(url)[1]
+        assert csv_bytes.startswith(b"\xef\xbb\xbf")
+        assert "A;B" in csv_bytes.decode("utf-8-sig")
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_download_json_ensure_ascii() -> None:
+        df = pd.DataFrame({"A": [1, 2], "B": ["こんにちは", "世界"]})
+        subject = ui.dataframe(
+            df,
+            download_json_ensure_ascii=False,
+        )
+
+        json_url = subject._download_as(DownloadAsArgs(format="json")).url
+        json_bytes = from_data_uri(json_url)[1]
+        assert not json_bytes.startswith(b"\xef\xbb\xbf")
+        json_text = json_bytes.decode("utf-8")
+        assert "こんにちは" in json_text
+        json_data = json.loads(json_text)
+        assert json_data[0]["B"] == "こんにちは"
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    @pytest.mark.parametrize("format_type", ["csv", "tsv", "json", "parquet"])
+    def test_dataframe_download_formats(format_type) -> None:
+        df = pd.DataFrame(
+            {
+                "cities": ["Newark", "New York", "Los Angeles"],
+                "population": [311549, 8336817, 3898747],
+            }
+        )
+        subject = ui.dataframe(df)
+
+        download_url = subject._download_as(
+            DownloadAsArgs(format=format_type)
+        ).url
+        assert download_url.startswith("data:")
+
+        data_bytes = from_data_uri(download_url)[1]
+        assert len(data_bytes) > 0
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_download_tsv_ignores_csv_separator() -> None:
+        # download_csv_separator configures CSV only; TSV always uses a tab.
+        df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+        subject = ui.dataframe(df, download_csv_separator=";")
+
+        tsv = from_data_uri(
+            subject._download_as(DownloadAsArgs(format="tsv")).url
+        )[1].decode("utf-8")
+        csv = from_data_uri(
+            subject._download_as(DownloadAsArgs(format="csv")).url
+        )[1].decode("utf-8")
+
+        assert tsv.splitlines()[0] == "a\tb"
+        assert csv.splitlines()[0] == "a;b"
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_download_with_transformations() -> None:
+        df = pd.DataFrame(
+            {
+                "name": ["Alice", "Bob", "Charlie"],
+                "age": [25, 30, 35],
+                "city": ["New York", "Newark", "Los Angeles"],
+            }
+        )
+        subject = ui.dataframe(df)
+
+        # Apply some transformations (would be done through the UI)
+        subject._value = df[df["age"] > 27]
+
+        download_url = subject._download_as(DownloadAsArgs(format="json")).url
+        data_bytes = from_data_uri(download_url)[1]
+
+        json_data = json.loads(data_bytes.decode("utf-8"))
+
+        assert len(json_data) == 2
+        names = [row["name"] for row in json_data]
+        assert "Bob" in names
+        assert "Charlie" in names
+        assert "Alice" not in names
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_filter_rows_accepts_legacy_where_list() -> None:
+        # A filter_rows transform with a legacy list-shaped `where` must still
+        # filter the data instead of silently returning the original df.
+        df = pd.DataFrame(
+            {
+                "name": ["Alice", "Bob", "Charlie"],
+                "age": [25, 30, 35],
+            }
+        )
+        subject = ui.dataframe(df)
+
+        result = subject._convert_value(
+            {
+                "transforms": [
+                    {
+                        "type": "filter_rows",
+                        "operation": "keep_rows",
+                        "where": [
+                            {
+                                "type": "condition",
+                                "column_id": "age",
+                                "operator": ">",
+                                "value": 27,
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+        assert subject._error is None
+        assert type(result) is type(df)
+        assert sorted(result["name"].tolist()) == ["Bob", "Charlie"]
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_download_empty() -> None:
+        df = pd.DataFrame({"A": [], "B": []})
+        subject = ui.dataframe(df)
+
+        download_url = subject._download_as(DownloadAsArgs(format="csv")).url
+        data_bytes = from_data_uri(download_url)[1]
+
+        csv_content = data_bytes.decode("utf-8")
+        assert "A,B" in csv_content or "A" in csv_content
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_download_unsupported_format() -> None:
+        df = pd.DataFrame({"A": [1, 2, 3]})
+        subject = ui.dataframe(df)
+
+        # unsupported format
+        with pytest.raises(ValueError) as exc_info:
+            subject._download_as(DownloadAsArgs(format="xml"))
+
+        assert "format must be one of" in str(exc_info.value)
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    @pytest.mark.parametrize(
+        "df",
+        create_dataframes(
+            {"A": [1, 2, 3], "B": ["x", "y", "z"]},
+        ),
+    )
+    def test_dataframe_download_different_backends(df) -> None:
+        subject = ui.dataframe(df)
+
+        # Test that download works with different dataframe backends
+        for format_type in ["csv", "tsv", "json", "parquet"]:
+            try:
+                download_url = subject._download_as(
+                    DownloadAsArgs(format=format_type)
+                ).url
+                assert download_url.startswith("data:")
+            except Exception as e:
+                # Some backends might not support all formats
+                pytest.skip(f"Backend doesn't support {format_type}: {e}")
+
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_dataframe_download_uses_bound_variable_name() -> None:
+        my_dataframe = pd.DataFrame({"A": [1, 2, 3], "B": ["x", "y", "z"]})
+        subject = ui.dataframe(my_dataframe)
+
+        mock_registry = Mock()
+        mock_registry.bound_names.return_value = {"my_dataframe"}
+
+        mock_ctx = Mock()
+        mock_ctx.ui_element_registry = mock_registry
+
+        mock_vfile = Mock()
+        mock_vfile.url = "data:text/csv;base64,dGVzdA=="
+        mock_vfile.filename = "random_name"
+
+        with (
+            patch(
+                "marimo._runtime.context.get_context",
+                return_value=mock_ctx,
+            ),
+            patch(
+                "marimo._plugins.ui._impl.utils.dataframe.get_context",
+                return_value=mock_ctx,
+            ),
+            patch(
+                "marimo._plugins.ui._impl.utils.dataframe.get_default_csv_encoding",
+                return_value="utf-8",
+            ),
+            patch(
+                "marimo._output.data.data.any_data",
+                return_value=mock_vfile,
+            ),
+        ):
+            result = subject._download_as(DownloadAsArgs(format="csv"))
+
+        # The filename should be the bound variable name with extension
+        assert result.filename == "my_dataframe.csv"
+        # The URL should come from mo_data
+        assert result.url == "data:text/csv;base64,dGVzdA=="
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "df",
+        create_dataframes(
+            {"A": [1, 2, 3], "B": ["a", "b", "c"]},
+        ),
+    )
+    def test_dataframe_error_handling(df: IntoDataFrame) -> None:
+        subject = ui.dataframe(df)
+
+        # Test ColumnNotFound error
+        with pytest.raises(ColumnNotFound):
+            subject._get_column_values(GetColumnValuesArgs(column="C"))
+
+        assert type(subject.value) is type(df)
+
+    @staticmethod
+    @pytest.mark.skipif(not HAS_POLARS, reason="Polars not installed")
+    def test_polars_groupby_alias() -> None:
+        """Test that group by operations use original column names correctly."""
+        import polars as pl
+
+        # Create a test dataframe with age and group columns
+        df = pl.DataFrame(
+            {
+                "group": ["a", "a", "b", "b"],
+                "age": [10, 20, 30, 40],
+            }
+        )
+        # Test the transformation directly using TransformsContainer
+        from marimo._plugins.ui._impl.dataframes.transforms.apply import (
+            TransformsContainer,
+            get_handler_for_dataframe,
+        )
+        from marimo._plugins.ui._impl.dataframes.transforms.types import (
+            GroupByTransform,
+            Transformations,
+            TransformType,
+        )
+
+        handler = get_handler_for_dataframe(df)
+        nw_df = nw.from_native(df).lazy()
+        transform_container = TransformsContainer(nw_df, handler)
+
+        # Create and apply the transformation
+        transform = GroupByTransform(
+            type=TransformType.GROUP_BY,
+            column_ids=["group"],
+            drop_na=True,
+            aggregation="max",
+            aggregation_column_ids=["age"],
+        )
+        transformations = Transformations([transform])
+        transformed_df, field_types_at_steps = transform_container.apply(
+            transformations
+        )
+        assert len(field_types_at_steps) == 2  # original + 1 transform
+
+        # Verify the transformed DataFrame
+        df = transformed_df.collect().to_native()
+        assert isinstance(df, pl.DataFrame)
+        assert "group" in df.columns
+        assert "age_max" in df.columns
+        assert df.shape == (2, 2)
+        assert set(df["age_max"].to_list()) == {
+            20,
+            40,
+        }  # max age for each group
+
+        # The resulting frame should have correct column names and values
+        # Convert to dict and verify values
+        result_dict = {col: df[col].to_list() for col in df.columns}
+        assert set(result_dict["group"]) == {"a", "b"}
+        assert set(result_dict["age_max"]) == {20, 40}
+
+        # Verify the generated code uses original column names
+        from marimo._plugins.ui._impl.dataframes.transforms.print_code import (
+            python_print_polars,
+        )
+
+        code = python_print_polars(
+            "df",
+            ["group", "age"],
+            transform,
+        )
+        # Code should reference original "age" column, not "age_max"
+        assert 'pl.col("age")' in code
+        assert 'alias("age_max")' in code
+        assert 'pl.col("group")' in code  # Original column name in group by
+
+    @staticmethod
+    @pytest.mark.skipif(not HAS_IBIS, reason="Ibis not installed")
+    def test_ibis_groupby_alias() -> None:
+        """Test that group by operations use original column names correctly."""
+        import ibis
+        import polars as pl
+
+        # Create a test dataframe with age and group columns
+        df = pl.DataFrame(
+            {
+                "group": ["a", "a", "b", "b"],
+                "age": [10, 20, 30, 40],
+            }
+        )
+
+        # from Polars to Ibis
+        df = ibis.memtable(df)
+
+        # Test the transformation directly using TransformsContainer
+        from marimo._plugins.ui._impl.dataframes.transforms.apply import (
+            TransformsContainer,
+            get_handler_for_dataframe,
+        )
+        from marimo._plugins.ui._impl.dataframes.transforms.types import (
+            GroupByTransform,
+            SortColumnTransform,
+            Transformations,
+            TransformType,
+        )
+
+        handler = get_handler_for_dataframe(df)
+        nw_df = nw.from_native(df).lazy()
+        transform_container = TransformsContainer(nw_df, handler)
+
+        # Create and apply the group_by transformation
+        transform_grp = GroupByTransform(
+            type=TransformType.GROUP_BY,
+            column_ids=["group"],
+            drop_na=True,
+            aggregation="max",
+            aggregation_column_ids=["age"],
+        )
+
+        # Create and apply the sort transformation
+        # result should be ordered
+        transform_sort = SortColumnTransform(
+            type=TransformType.SORT_COLUMN,
+            column_id="age_max",
+            ascending=True,
+            na_position="first",
+        )
+
+        transformations = Transformations([transform_grp, transform_sort])
+        transformed_df, field_types_at_steps = transform_container.apply(
+            transformations
+        )
+        assert len(field_types_at_steps) == 3  # original + 2 transforms
+
+        # from Ibis to Polars
+        transformed_df = transformed_df.collect().to_polars()
+
+        # Verify the transformed DataFrame
+        assert isinstance(transformed_df, pl.DataFrame)
+        assert "group" in transformed_df.columns
+        assert "age_max" in transformed_df.columns
+        assert transformed_df.shape == (2, 2)
+        assert transformed_df["age_max"].to_list() == [
+            20,
+            40,
+        ]  # max age for each group
+
+        # The resulting frame should have correct column names and values
+        # Convert to dict and verify values
+        result_dict = {
+            col: transformed_df[col].to_list()
+            for col in transformed_df.columns
+        }
+        assert result_dict == {
+            "group": ["a", "b"],
+            "age_max": [20, 40],
+        }
+
+        # Verify the generated code uses original column names
+        from marimo._plugins.ui._impl.dataframes.transforms.print_code import (
+            python_print_ibis,
+        )
+
+        code = python_print_ibis(
+            "df",
+            ["group", "age"],
+            transform_grp,
+        )
+        assert (
+            'df.group_by(["group"]).aggregate(**{"age_max" : df["age"].max()})'
+            in code
+        )
+
+
+@pytest.mark.skipif(not HAS_DEPS, reason="optional dependencies not installed")
+def test_dataframe_lazy_small() -> None:
+    """Small dataframes should not be marked as lazy."""
+    df = pd.DataFrame({"A": [1, 2, 3], "B": ["a", "b", "c"]})
+
+    subject = ui.dataframe(df)
+    assert subject._lazy is False
+    assert subject._component_args["lazy"] is False
+
+
+@pytest.mark.skipif(not HAS_POLARS, reason="Polars not installed")
+def test_dataframe_lazy_lazyframe() -> None:
+    """Polars LazyFrames should be marked as lazy."""
+    import polars as pl
+
+    df = pl.DataFrame({"A": [1, 2, 3]}).lazy()
+    subject = ui.dataframe(df)
+    assert subject._lazy is True
+    assert subject._component_args["lazy"] is True
+
+
+@pytest.mark.skipif(not HAS_DEPS, reason="optional dependencies not installed")
+def test_dataframe_lazy_large() -> None:
+    """DataFrames with more than 100,000 rows should be marked as lazy."""
+    from marimo._plugins.ui._impl.dataframes.dataframe import TOO_MANY_ROWS
+
+    df = pd.DataFrame({"A": range(TOO_MANY_ROWS + 1)})
+    subject = ui.dataframe(df)
+    assert subject._lazy is True
+    assert subject._component_args["lazy"] is True
+
+
+@pytest.mark.skipif(not HAS_DEPS, reason="optional dependencies not installed")
+def test_dataframe_lazy_explicit_override() -> None:
+    """Explicit lazy parameter should override inferred value."""
+    df = pd.DataFrame({"A": [1, 2, 3]})
+
+    # Force lazy=True on a small dataframe
+    subject = ui.dataframe(df, lazy=True)
+    assert subject._lazy is True
+    assert subject._component_args["lazy"] is True
+
+    # Force lazy=False on a small dataframe (same as inferred)
+    subject = ui.dataframe(df, lazy=False)
+    assert subject._lazy is False
+    assert subject._component_args["lazy"] is False
+
+
+@pytest.mark.skipif(not HAS_IBIS, reason="Ibis not installed")
+def test_ibis_table_lazy() -> None:
+    """Ibis tables should be marked as lazy (row count may be unknown)."""
+    import ibis
+
+    # Ibis memtables may have unknown row count initially
+    data = {"A": [1, 2, 3], "B": ["a", "b", "c"]}
+    memtable = ibis.memtable(data)
+    subject = ui.dataframe(memtable)
+    # Ibis tables are typically treated as lazy since row count
+    # may not be immediately available
+    assert subject._component_args["lazy"] is True
+
+
+@pytest.mark.skipif(
+    not HAS_IBIS or not HAS_POLARS,
+    reason="optional dependencies not installed",
+)
+def test_ibis_with_polars_backend() -> None:
+    import ibis
+
+    import marimo as mo
+
+    prev_backend = ibis.get_backend()
+    ibis.set_backend("polars")
+
+    data = {
+        "a": [1, 2, 3],
+        "b": [22.5, 23.0, 21.5],
+    }
+    memtable = ibis.memtable(data)
+    dataframe = mo.ui.dataframe(memtable)
+    assert dataframe is not None
+    assert dataframe._get_dataframe(EmptyArgs()).total_rows == 3
+    assert dataframe._get_dataframe(EmptyArgs()).sql_code is None
+    ibis.set_backend(prev_backend)
+    assert type(dataframe.value) is type(memtable)
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="Pandas not installed"
+)
+def test_dataframe_with_int_column_names():
+    import warnings
+
+    import pandas as pd
+
+    data = pd.DataFrame([[1, 2, 3], [4, 5, 6]], columns=[0, 1, 2])
+    with warnings.catch_warnings(record=True) as w:
+        dataframe = ui.dataframe(data)
+        # Check that warnings were made
+        assert len(w) > 0
+        assert "DataFrame has integer column names" in str(w[0].message)
+
+    assert dataframe.value is not None
+    assert type(dataframe.value) is type(data)
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"A": [1, 2, 3], "B": ["a", "b", "c"]},
+    ),
+)
+def test_dataframe_types_are_preserved(df: IntoDataFrame):
+    """Test that dataframe types are preserved after using mo.ui.dataframe."""
+    ui_limit = 3
+    # Create a marimo UI dataframe with a preview limit
+    ui_df = ui.dataframe(df, limit=ui_limit)
+
+    assert type(df) is type(ui_df.value)
+
+
+@pytest.mark.skipif(
+    not HAS_IBIS or not HAS_POLARS,
+    reason="optional dependencies not installed",
+)
+def test_base_exception_handling():
+    """Test that BaseException is caught and re-raised as TableSearchError."""
+    import polars as pl
+
+    df = pl.DataFrame({"col": [1]})
+    table = ui.dataframe(df)
+
+    search_args = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        query="test",
+        sort=None,
+        filters=None,
+    )
+
+    table_manager = table._get_cached_table_manager(df, None)
+
+    with patch.object(table_manager, "take") as take:
+        take.side_effect = BaseException("to json panic")
+
+        with patch.object(
+            table, "_apply_filters_query_sort"
+        ) as _apply_filters_query_sort:
+            _apply_filters_query_sort.return_value = table_manager
+
+            # Should catch BaseException and re-raise as TableSearchError
+            with pytest.raises(TableSearchError) as exc_info:
+                table._search(search_args)
+
+    # Verify the error message is preserved
+    assert "to json panic" in str(exc_info.value)
+    assert exc_info.value.error == str(exc_info.value)
+    assert type(table.value) is type(df)
+
+
+@pytest.mark.skipif(not HAS_DEPS, reason="optional dependencies not installed")
+def test_dataframe_get_size_bytes_rpc_extrapolates() -> None:
+    import pandas as pd
+
+    from marimo._plugins.ui._impl.table import GetSizeBytesResponse
+
+    df = pd.DataFrame({"a": list(range(2000))})
+    subject = ui.dataframe(df)
+    resp = subject._get_size_bytes(EmptyArgs())
+    assert isinstance(resp, GetSizeBytesResponse)
+    assert resp.size_bytes is not None
+    exact = len(subject._manager.to_json(strict_json=True))
+    assert abs(resp.size_bytes - exact) / exact < 0.25
+
+
+@pytest.mark.skipif(not HAS_DEPS, reason="optional dependencies not installed")
+def test_dataframe_get_size_bytes_rpc_returns_none_on_serialization_failure() -> (
+    None
+):
+    from unittest.mock import patch
+
+    import pandas as pd
+
+    from marimo._plugins.ui._impl.table import GetSizeBytesResponse
+
+    subject = ui.dataframe(pd.DataFrame({"a": [1, 2, 3]}))
+    manager_cls = type(subject._manager)
+
+    def _raise(*_args: object, **_kwargs: object) -> str:
+        raise RuntimeError("boom")
+
+    with patch.object(manager_cls, "to_json_str", _raise):
+        resp = subject._get_size_bytes(EmptyArgs())
+
+    assert isinstance(resp, GetSizeBytesResponse)
+    assert resp.size_bytes is None

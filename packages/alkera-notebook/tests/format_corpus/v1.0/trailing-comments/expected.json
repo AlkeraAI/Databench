@@ -1,0 +1,110 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "00000000g1": {
+        "defs": [
+          "json",
+          "math"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000g2": {
+        "defs": [
+          "f"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000g3": {
+        "defs": [
+          "K"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000g4": {
+        "defs": [
+          "y"
+        ],
+        "errors": [],
+        "refs": [
+          "math"
+        ],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "00000000g1",
+        "00000000g4"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "import json\nimport math  # note",
+        "config": {},
+        "extra": {},
+        "id": "00000000g1",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "keyword",
+        "source": "import json\nimport math  # note"
+      },
+      {
+        "code": "def f():\n    return 1  # one",
+        "config": {},
+        "extra": {},
+        "id": "00000000g2",
+        "kind": "function",
+        "meta": {},
+        "name": "f",
+        "resolution": "keyword",
+        "source": "def f():\n    return 1  # one"
+      },
+      {
+        "code": "class K:\n    a = 1  # attribute",
+        "config": {},
+        "extra": {},
+        "id": "00000000g3",
+        "kind": "class",
+        "meta": {},
+        "name": "K",
+        "resolution": "keyword",
+        "source": "class K:\n    a = 1  # attribute"
+      },
+      {
+        "code": "y = math.pi  # pi",
+        "config": {},
+        "extra": {},
+        "id": "00000000g4",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "y = math.pi  # pi"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "cursor": {
+    "after": " last quarter?",
+    "anchor": 5,
+    "before": "what about",
+    "metadata": {},
+    "offset": 11,
+    "schema_version": "1.0.0"
+  },
+  "display_name": "",
+  "last_seen_at": "2026-09-05T12:00:00Z",
+  "metadata": {},
+  "peer_id": "p:3f9a1c2b4d6e",
+  "schema_version": "1.2.0",
+  "user_id": "00000000-0000-4000-8000-000000000001"
+}

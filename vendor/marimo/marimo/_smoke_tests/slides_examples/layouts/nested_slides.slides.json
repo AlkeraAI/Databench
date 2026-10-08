@@ -1,0 +1,93 @@
+{
+  "type": "slides",
+  "data": {
+    "cells": [
+      {
+        "type": "skip"
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "We first introduce slides in marimo, and how awesome they are!",
+        "showCode": false
+      },
+      {
+        "type": "fragment",
+        "speakerNotes": "Then, introduce fragments, which reveal line"
+      },
+      {
+        "type": "fragment",
+        "speakerNotes": "by line"
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Here's another slide on the agenda."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Section A onboard :>",
+        "showCode": true
+      },
+      {
+        "type": "sub-slide",
+        "speakerNotes": "These are sub-slides! They flow from a previous slide vertically."
+      },
+      {
+        "type": "fragment",
+        "speakerNotes": "Some long long\n\ntext\n\nabout \n\nthis \n\nslide.\n\nIt's\n\nactually\n\njust plain\n\n\ntext!"
+      },
+      {
+        "type": "fragment"
+      },
+      {
+        "type": "sub-slide"
+      },
+      {},
+      {
+        "type": "sub-slide"
+      },
+      {
+        "type": "slide"
+      },
+      {
+        "type": "sub-slide"
+      },
+      {
+        "type": "fragment"
+      },
+      {
+        "type": "sub-slide"
+      },
+      {
+        "type": "skip"
+      },
+      {
+        "type": "slide"
+      },
+      {
+        "type": "fragment"
+      },
+      {
+        "type": "fragment"
+      },
+      {
+        "type": "fragment"
+      },
+      {
+        "type": "sub-slide"
+      },
+      {
+        "type": "fragment"
+      },
+      {
+        "type": "fragment"
+      },
+      {
+        "type": "fragment"
+      },
+      {
+        "type": "slide"
+      }
+    ],
+    "deck": {}
+  }
+}

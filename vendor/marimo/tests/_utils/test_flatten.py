@@ -1,0 +1,366 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+from collections import defaultdict
+from typing import Any
+
+import pytest
+
+from marimo._output import formatting
+from marimo._utils.flatten import (
+    CyclicStructureError,
+    contains_instance,
+    flatten,
+)
+
+L = list[Any]
+T = tuple[Any, ...]
+D = dict[Any, Any]
+
+
+def test_flat_list() -> None:
+    x = [1, 2, 3]
+    v, u = flatten(x)
+    assert v == [1, 2, 3]
+    assert u(v) == x
+    assert u([4, 5, 6]) == [4, 5, 6]
+
+
+def test_flat_tuple() -> None:
+    x = (1, 2, 3)
+    v, u = flatten(x)
+    assert v == [1, 2, 3]
+    assert u(v) == x
+    assert u([4, 5, 6]) == (4, 5, 6)
+
+
+def test_flat_dict() -> None:
+    x = {1: 4, 2: 5, 3: 6}
+    v, u = flatten(x)
+    assert v == [4, 5, 6]
+    assert u(v) == x
+    assert u([7, 8, 9]) == {1: 7, 2: 8, 3: 9}
+
+
+def test_flat_defaultdict() -> None:
+    x: defaultdict[int, int] = defaultdict(int, {1: 4, 2: 5, 3: 6})
+    v, u = flatten(x)
+    assert v == [4, 5, 6]
+    assert u(v) == x
+    assert u([7, 8, 9]) == {1: 7, 2: 8, 3: 9}
+
+    # Test with default_factory
+    y: defaultdict[int, list[int]] = defaultdict(list, {1: [4, 5], 2: [6, 7]})
+    v, u = flatten(y)
+    assert v == [4, 5, 6, 7]
+    assert u(v) == y
+    assert u([8, 9, 10, 11]) == {1: [8, 9], 2: [10, 11]}
+
+
+def test_flat_empty_list() -> None:
+    x: L = []
+    v, u = flatten(x)
+    assert v == []
+    assert u(v) == []
+
+
+def test_flat_empty_tuple() -> None:
+    x: T = ()
+    v, u = flatten(x)
+    assert v == []
+    assert u(v) == x
+
+
+def test_flat_empty_dict() -> None:
+    x: D = {}
+    v, u = flatten(x)
+    assert v == []
+    assert u(v) == x
+
+
+def test_flat_singleton_list() -> None:
+    x = [1]
+    v, u = flatten(x)
+    assert v == [1]
+    assert u(v) == [1]
+    assert u([2]) == [2]
+
+
+def test_flat_singleton_tuple() -> None:
+    x = (1,)
+    v, u = flatten(x)
+    assert v == [1]
+    assert u(v) == x
+    assert u([2]) == (2,)
+
+
+def test_flat_singleton_dict() -> None:
+    x = {1: 2}
+    v, u = flatten(x)
+    assert v == [2]
+    assert u(v) == x
+    assert u([3]) == {1: 3}
+
+
+def test_nested_list() -> None:
+    x = [0, 1, [], 2, [3, [4, 5]], [6]]
+    v, u = flatten(x)
+    assert v == [0, 1, 2, 3, 4, 5, 6]
+    assert u(v) == x
+    assert u([7, 8, 9, 10, 11, 12, 13]) == [7, 8, [], 9, [10, [11, 12]], [13]]
+
+
+def test_nested_tuple() -> None:
+    x: T = (0, 1, (), 2, (3, (4, 5)), (6,))
+    v, u = flatten(x)
+    assert v == [0, 1, 2, 3, 4, 5, 6]
+    assert u(v) == x
+    assert u([7, 8, 9, 10, 11, 12, 13]) == (
+        7,
+        8,
+        (),
+        9,
+        (10, (11, 12)),
+        (13,),
+    )
+
+
+def test_nested_dict() -> None:
+    x = {
+        "a": 0,
+        "b": 1,
+        "c": {},
+        "d": 2,
+        "e": {"f": 3, "g": {"h": 4, "i": 5}},
+        "j": {"k": 6},
+    }
+    v, u = flatten(x)
+    assert v == [0, 1, 2, 3, 4, 5, 6]
+    assert u(v) == x
+    assert u([7, 8, 9, 10, 11, 12, 13]) == {
+        "a": 7,
+        "b": 8,
+        "c": {},
+        "d": 9,
+        "e": {"f": 10, "g": {"h": 11, "i": 12}},
+        "j": {"k": 13},
+    }
+
+
+def test_nested_mix() -> None:
+    x = [
+        0,
+        1,
+        {"c": []},
+        (2,),
+        {"d": 3, "e": [4, 5]},
+        [6, (7, 8)],
+    ]
+    v, u = flatten(x)
+    assert v == [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    assert u(v) == x
+    assert u([9, 10, 11, 12, 13, 14, 15, 16, 17]) == [
+        9,
+        10,
+        {"c": []},
+        (11,),
+        {"d": 12, "e": [13, 14]},
+        [15, (16, 17)],
+    ]
+
+
+def test_nested_mix_repack_objects() -> None:
+    x = [
+        0,
+        1,
+        {"c": []},
+        (2,),
+        {"d": 3, "e": [4, 5]},
+        [6, (7, 8)],
+    ]
+    v, u = flatten(x)
+    assert v == [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    assert u(v) == x
+    assert u([[], [], [], [], [], [], [], {}, ()]) == [
+        [],
+        [],
+        {"c": []},
+        ([],),
+        {"d": [], "e": [[], []]},
+        [[], ({}, ())],
+    ]
+
+
+def test_flatten_cyclic_structure_raises() -> None:
+    x: list[Any] = []
+    x.append(x)
+    # should raise since x contains itself
+    with pytest.raises(CyclicStructureError):
+        flatten(x)
+
+    d: dict[Any, Any] = {}
+    d["key"] = d
+    # should raise since d contains itself
+    with pytest.raises(CyclicStructureError):
+        flatten(d)
+
+
+def test_flatten_repeated_structure_does_not_raise() -> None:
+    x: list[Any] = []
+    y = [x, x, x]
+    # should not raise
+    flatten(y)
+
+
+def test_flatten_custom_list() -> None:
+    class CustomList(list):
+        def __init__(self, extra_arg):
+            del extra_arg
+            super().__init__(())
+
+    custom_list = CustomList("data")
+    v, u = flatten(custom_list)
+    assert v == []
+    assert u(v) == []
+
+
+def test_dont_flatten_subclass_list() -> None:
+    class CustomList(list): ...
+
+    @formatting.formatter(CustomList)
+    def format_custom_list(obj: Any) -> tuple[str, str]:
+        return ("text/plain", f"CustomList{list(obj)}")
+
+    mylist = CustomList()
+    mylist.extend([1, 2, 3])
+    v, u = flatten(mylist, flatten_formattable_subclasses=False)
+    assert v == [mylist]
+    assert u(v) == mylist
+
+
+def test_dont_flatten_subclass_tuple() -> None:
+    class CustomTuple(tuple): ...
+
+    @formatting.formatter(CustomTuple)
+    def format_custom_tuple(obj: Any) -> tuple[str, str]:
+        return ("text/plain", f"CustomList{list(obj)}")
+
+    mytuple = CustomTuple([1, 2, 3])
+    v, u = flatten(mytuple, flatten_formattable_subclasses=False)
+    assert v == [mytuple]
+    assert u(v) == mytuple
+
+
+def test_dont_flatten_subclass_dict() -> None:
+    class CustomDict(dict): ...
+
+    @formatting.formatter(CustomDict)
+    def format_custom_dict(obj: Any) -> tuple[str, str]:
+        return ("text/plain", f"CustomList{list(obj)}")
+
+    mydict = CustomDict({1: 2})
+    v, u = flatten(mydict, flatten_formattable_subclasses=False)
+    assert v == [mydict]
+    assert u(v) == mydict
+
+
+def test_flatten_subclass_list() -> None:
+    class CustomList(list): ...
+
+    mylist = CustomList()
+    mylist.extend([1, 2, 3])
+    v, u = flatten(mylist, flatten_formattable_subclasses=True)
+    assert v == [1, 2, 3]
+    assert u(v) == [1, 2, 3]
+
+
+def test_flatten_subclass_tuple() -> None:
+    class CustomTuple(tuple): ...
+
+    mytuple = CustomTuple([1, 2, 3])
+    v, u = flatten(mytuple, flatten_formattable_subclasses=True)
+    assert v == [1, 2, 3]
+    assert u(v) == (1, 2, 3)
+
+
+def test_flatten_subclass_dict() -> None:
+    class CustomDict(dict): ...
+
+    mydict = CustomDict({1: 2})
+    v, u = flatten(mydict, flatten_formattable_subclasses=True)
+    assert v == [2]
+    assert u(v) == {1: 2}
+
+
+def test_contains_instance() -> None:
+    class A:
+        pass
+
+    class B:
+        pass
+
+    assert contains_instance([], A) is False
+    assert contains_instance([B()], A) is False
+    assert contains_instance([B(), A()], A) is True
+
+
+def test_contains_instance_nested() -> None:
+    class A:
+        pass
+
+    class B:
+        pass
+
+    assert contains_instance([{}], A) is False
+    assert contains_instance({"key": B()}, A) is False
+    assert contains_instance({"key": B()}, B) is True
+    assert contains_instance({"key": [B(), (B(), A())]}, A) is True
+
+
+def test_contains_instance_recursive() -> None:
+    class A:
+        pass
+
+    value: Any = [A()]
+    for _ in range(5):
+        value.append(value)
+    assert contains_instance(value, A) is True
+
+
+def test_contains_instance_no_iter_tuple() -> None:
+    class NoIterTuple(tuple):
+        def __iter__(self):
+            raise AttributeError("iter throws")
+
+    collection = NoIterTuple((1, 2, 3))
+    assert contains_instance(collection, NoIterTuple) is False
+    assert contains_instance(collection, tuple) is False
+    assert (
+        contains_instance(collection, int) is False
+    )  # Cannot probe opaque collection
+
+
+def test_contains_instance_no_iter_list() -> None:
+    class NoIterList(list):
+        def __iter__(self):
+            raise AttributeError("iter throws")
+
+    collection = NoIterList([1, 2, 3])
+    assert contains_instance(collection, NoIterList) is False
+    assert contains_instance(collection, list) is False
+    assert (
+        contains_instance(collection, int) is False
+    )  # Cannot probe opaque collection
+
+
+def test_contains_instance_no_iter_dict() -> None:
+    class NoValuesDict(dict):
+        def values(self):
+            raise AttributeError("values() throws")
+
+    collection = NoValuesDict({"a": 1, "b": 2, "c": 3})
+    assert contains_instance(collection, NoValuesDict) is False
+    assert contains_instance(collection, dict) is False
+    assert (
+        contains_instance(collection, int) is False
+    )  # Cannot probe opaque collection

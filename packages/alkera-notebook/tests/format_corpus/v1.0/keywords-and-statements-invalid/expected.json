@@ -1,0 +1,149 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "00000000f1": {
+        "defs": [
+          "a"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000f2": {
+        "defs": [
+          "b"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000f3": {
+        "defs": [
+          "c"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000f4": {
+        "defs": [
+          "d"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {
+      "app_title": "T"
+    },
+    "cells": [
+      {
+        "code": "a = 1",
+        "config": {},
+        "extra": {},
+        "id": "00000000f1",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "a = 1"
+      },
+      {
+        "code": "b = 1",
+        "config": {},
+        "extra": {},
+        "id": "00000000f2",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "b = 1"
+      },
+      {
+        "code": "c = 1",
+        "config": {},
+        "extra": {},
+        "id": "00000000f3",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "c = 1"
+      },
+      {
+        "code": "d = 1",
+        "config": {},
+        "extra": {},
+        "id": "00000000f4",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "d = 1"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": [
+      [
+        "generated_with",
+        0
+      ],
+      [
+        "body_statement",
+        9
+      ],
+      [
+        "body_statement",
+        10
+      ],
+      [
+        "app_keyword",
+        11
+      ],
+      [
+        "cell_keyword",
+        14
+      ],
+      [
+        "cell_keyword",
+        20
+      ],
+      [
+        "cell_keyword",
+        20
+      ],
+      [
+        "cell_keyword",
+        20
+      ],
+      [
+        "cell_keyword",
+        26
+      ],
+      [
+        "cell_keyword",
+        26
+      ],
+      [
+        "decorator_between",
+        32
+      ]
+    ]
+  }
+}

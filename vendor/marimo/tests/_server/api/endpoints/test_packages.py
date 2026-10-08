@@ -1,0 +1,1227 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import asyncio
+import threading
+from typing import TYPE_CHECKING, Any
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
+
+import msgspec
+import pytest
+
+from marimo._environments.errors import (
+    EnvironmentManagerError,
+    SandboxRestartRequired,
+)
+from marimo._environments.sandbox import NotebookSandbox
+from marimo._messaging.notification import EnvironmentOperationNotification
+from marimo._runtime.packages.package_manager import PackageManager
+from marimo._server.api.deps import AppState
+from marimo._session.state.session_view import SessionView
+from tests._server.mocks import token_header
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from unittest.mock import Mock
+
+    from starlette.testclient import TestClient
+
+SESSION_ID = "session-123"
+HEADERS = {
+    "Marimo-Session-Id": SESSION_ID,
+    **token_header("fake-token"),
+}
+
+
+@pytest.mark.parametrize("operation", ["add", "remove"])
+@pytest.mark.parametrize("restart_required", [True, False])
+def test_sandbox_failure_returns_actionable_message(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    operation: str,
+    restart_required: bool,
+) -> None:
+    from marimo._environments.errors import SandboxRestartRequired
+    from marimo._environments.pixi import PixiError
+    from marimo._environments.sandbox import NotebookSandbox
+    from marimo._runtime.packages.sandbox_package_manager import (
+        SandboxPackageManager,
+    )
+
+    message = (
+        "Your dependency changes are saved, but Pixi installed them in a new "
+        "environment. Restart the kernel to use the updated dependencies. "
+        "Restarting clears in-memory variables."
+    )
+    sandbox = MagicMock(spec=NotebookSandbox)
+    sandbox.backend = "pixi"
+    sandbox.environment = None
+    getattr(sandbox, operation).side_effect = (
+        SandboxRestartRequired(message)
+        if restart_required
+        else PixiError(message)
+    )
+    manager = SandboxPackageManager(sandbox)
+    monkeypatch.setattr(
+        "marimo._server.api.endpoints.packages._get_package_manager",
+        lambda _request: manager,
+    )
+
+    response = client.post(
+        f"/api/packages/{operation}",
+        headers=HEADERS,
+        json={"package": "boltons"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": False,
+        "error": None if restart_required else message,
+        "restartRequired": restart_required,
+    }
+
+
+@pytest.fixture
+def mock_package_manager(monkeypatch: pytest.MonkeyPatch) -> PackageManager:
+    mock_manager = MagicMock(spec=PackageManager)
+    mock_manager.restart_required = False
+    mock_manager.name = "pip"
+    mock_manager.install = AsyncMock(return_value=True)
+    mock_manager.uninstall = AsyncMock(return_value=True)
+    mock_manager.list_packages = MagicMock(
+        return_value=["package1", "package2"]
+    )
+
+    def mock_get_package_manager(request: Any) -> PackageManager:
+        del request
+        return mock_manager
+
+    monkeypatch.setattr(
+        "marimo._server.api.endpoints.packages._get_package_manager",
+        mock_get_package_manager,
+    )
+    return mock_manager
+
+
+def test_add_package(client: TestClient, mock_package_manager: Mock) -> None:
+    assert isinstance(mock_package_manager, MagicMock)
+    response = client.post(
+        "/api/packages/add",
+        headers=HEADERS,
+        json={"package": "test-package"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "error": None,
+        "restartRequired": False,
+    }
+    mock_package_manager.install.assert_called_once_with(
+        "test-package",
+        log_callback=ANY,
+        version=None,
+        upgrade=False,
+        group=None,
+    )
+
+
+def test_add_package_no_name(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    with pytest.raises(msgspec.ValidationError):
+        client.post(
+            "/api/packages/add",
+            headers=HEADERS,
+            json={},
+        )
+    mock_package_manager.install.assert_not_called()
+
+
+def test_remove_package(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    response = client.post(
+        "/api/packages/remove",
+        headers=HEADERS,
+        json={"package": "test-package"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "error": None,
+        "restartRequired": False,
+    }
+    mock_package_manager.uninstall.assert_called_once_with(
+        "test-package", group=None
+    )
+
+
+def test_remove_package_no_name(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    with pytest.raises(msgspec.ValidationError):
+        client.post(
+            "/api/packages/remove",
+            headers=HEADERS,
+            json={},
+        )
+    mock_package_manager.uninstall.assert_not_called()
+
+
+def test_list_packages(client: TestClient, mock_package_manager: Mock) -> None:
+    response = client.get(
+        "/api/packages/list",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200
+    assert response.json() == {"packages": ["package1", "package2"]}
+    mock_package_manager.list_packages.assert_called_once()
+
+
+def test_list_packages_without_session(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The home page has no session, but can still list packages."""
+    mock_manager = MagicMock(spec=PackageManager)
+    mock_manager.is_manager_installed = MagicMock(return_value=True)
+    mock_manager.list_packages = MagicMock(return_value=["package1"])
+    monkeypatch.setattr(
+        "marimo._server.api.endpoints.packages.create_package_manager",
+        MagicMock(return_value=mock_manager),
+    )
+
+    response = client.get(
+        "/api/packages/list",
+        headers=token_header("fake-token"),
+    )
+    assert response.status_code == 200
+    assert response.json() == {"packages": ["package1"]}
+
+
+def test_add_package_failure(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    mock_package_manager.install.return_value = False
+    response = client.post(
+        "/api/packages/add",
+        headers=HEADERS,
+        json={"package": "test-package"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": False,
+        "error": "Failed to install test-package. See terminal for error logs.",
+        "restartRequired": False,
+    }
+
+
+def test_remove_package_failure(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    mock_package_manager.uninstall.return_value = False
+    response = client.post(
+        "/api/packages/remove",
+        headers=HEADERS,
+        json={"package": "test-package"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": False,
+        "error": "Failed to uninstall test-package. See terminal for error logs.",
+        "restartRequired": False,
+    }
+
+
+def test_add_package_with_upgrade(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    assert isinstance(mock_package_manager, MagicMock)
+    response = client.post(
+        "/api/packages/add",
+        headers=HEADERS,
+        json={"package": "test-package", "upgrade": True},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "error": None,
+        "restartRequired": False,
+    }
+    mock_package_manager.install.assert_called_once_with(
+        "test-package",
+        log_callback=ANY,
+        version=None,
+        upgrade=True,
+        group=None,
+    )
+
+
+def test_add_package_without_upgrade(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    assert isinstance(mock_package_manager, MagicMock)
+    response = client.post(
+        "/api/packages/add",
+        headers=HEADERS,
+        json={"package": "test-package", "upgrade": False},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "error": None,
+        "restartRequired": False,
+    }
+    mock_package_manager.install.assert_called_once_with(
+        "test-package",
+        log_callback=ANY,
+        version=None,
+        upgrade=False,
+        group=None,
+    )
+
+
+def test_add_package_with_complex_version_spec(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    """Test add_package with complex version specifications."""
+    response = client.post(
+        "/api/packages/add",
+        headers=HEADERS,
+        json={"package": "package>=1.0.0,<2.0.0"},
+    )
+    assert response.status_code == 200
+    mock_package_manager.install.assert_called_once()
+
+
+def test_add_package_with_empty_string(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    """Test add_package with empty package name."""
+    response = client.post(
+        "/api/packages/add",
+        headers=HEADERS,
+        json={"package": ""},
+    )
+    assert response.status_code in [200, 400, 422]
+    mock_package_manager.install.assert_called_once()
+
+
+def test_remove_package_with_empty_string(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    """Test remove_package with empty package name."""
+    response = client.post(
+        "/api/packages/remove",
+        headers=HEADERS,
+        json={"package": ""},
+    )
+    assert response.status_code in [200, 400, 422]
+    mock_package_manager.uninstall.assert_called_once_with("", group=None)
+
+
+@pytest.fixture
+def mock_package_manager_not_installed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> PackageManager:
+    """Mock package manager that is not installed."""
+    mock_manager = MagicMock(spec=PackageManager)
+    mock_manager.is_manager_installed.return_value = False
+    mock_manager.name = "test-manager"
+    mock_manager.docs_url = "https://example.com/docs"
+    mock_manager.alert_not_installed = MagicMock()
+
+    def mock_get_package_manager(request: Any) -> PackageManager:
+        del request
+        return mock_manager
+
+    monkeypatch.setattr(
+        "marimo._server.api.endpoints.packages._get_package_manager",
+        mock_get_package_manager,
+    )
+    return mock_manager
+
+
+def test_add_package_manager_not_installed(
+    client: TestClient, mock_package_manager_not_installed: Mock
+) -> None:
+    """Test add_package when package manager is not installed."""
+    response = client.post(
+        "/api/packages/add",
+        headers=HEADERS,
+        json={"package": "test-package"},
+    )
+    assert response.status_code == 200
+    result = response.json()
+    assert result["success"] is False
+    assert "test-manager is not available" in result["error"]
+    mock_package_manager_not_installed.alert_not_installed.assert_called_once()
+
+
+def test_list_packages_manager_not_installed(
+    client: TestClient, mock_package_manager_not_installed: Mock
+) -> None:
+    """Test list_packages when package manager is not installed."""
+    response = client.get(
+        "/api/packages/list",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200
+    result = response.json()
+    assert result["packages"] == []
+    mock_package_manager_not_installed.alert_not_installed.assert_called_once()
+
+
+def test_package_operations_without_session(client: TestClient) -> None:
+    """Test package operations without session."""
+    headers_no_session = token_header("fake-token")
+
+    endpoints = [
+        ("/api/packages/add", "post"),
+        ("/api/packages/remove", "post"),
+        ("/api/packages/list", "get"),
+    ]
+
+    for endpoint, method in endpoints:
+        if method == "get":
+            response = client.get(endpoint, headers=headers_no_session)
+        else:
+            response = client.post(
+                endpoint,
+                headers=headers_no_session,
+                json={"package": "test-package"},
+            )
+        assert response.status_code in [200, 400, 401, 422]
+
+
+def test_package_operations_with_invalid_authentication(
+    client: TestClient,
+) -> None:
+    """Test package operations with invalid authentication."""
+    invalid_headers = {"Marimo-Session-Id": SESSION_ID}  # No token
+
+    endpoints = [
+        ("/api/packages/add", "post"),
+        ("/api/packages/remove", "post"),
+        ("/api/packages/list", "get"),
+    ]
+
+    for endpoint, method in endpoints:
+        if method == "get":
+            response = client.get(endpoint, headers=invalid_headers)
+        else:
+            response = client.post(
+                endpoint,
+                headers=invalid_headers,
+                json={"package": "test-package"},
+            )
+        assert response.status_code in [401, 403, 422]
+
+
+def test_add_package_request_validation(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    """Test request validation for add_package endpoint."""
+    invalid_requests = [
+        {},  # Missing package
+        {"package": None},  # Null package
+        {"upgrade": True},  # Missing package
+    ]
+
+    for invalid_request in invalid_requests:
+        with pytest.raises(msgspec.ValidationError):
+            client.post(
+                "/api/packages/add",
+                headers=HEADERS,
+                json=invalid_request,
+            )
+    mock_package_manager.install.assert_not_called()
+
+
+def test_remove_package_request_validation(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    """Test request validation for remove_package endpoint."""
+    invalid_requests = [
+        {},  # Missing package
+        {"package": None},  # Null package
+    ]
+
+    for invalid_request in invalid_requests:
+        with pytest.raises(msgspec.ValidationError):
+            client.post(
+                "/api/packages/remove",
+                headers=HEADERS,
+                json=invalid_request,
+            )
+    mock_package_manager.uninstall.assert_not_called()
+
+
+def test_remove_package_manager_not_installed(
+    client: TestClient, mock_package_manager_not_installed: Mock
+) -> None:
+    """Test remove_package when package manager is not installed."""
+    response = client.post(
+        "/api/packages/remove",
+        headers=HEADERS,
+        json={"package": "test-package"},
+    )
+    assert response.status_code == 200
+    result = response.json()
+    assert result["success"] is False
+    assert "test-manager is not available" in result["error"]
+    mock_package_manager_not_installed.alert_not_installed.assert_called_once()
+
+
+@pytest.fixture
+def mock_package_manager_with_tree(
+    monkeypatch: pytest.MonkeyPatch,
+) -> PackageManager:
+    """Mock package manager with dependency tree support."""
+    mock_manager = MagicMock(spec=PackageManager)
+    mock_manager.name = "uv"
+    mock_manager.is_manager_installed.return_value = True
+    from marimo._server.models.packages import DependencyTreeNode
+
+    mock_manager.dependency_tree.return_value = DependencyTreeNode(
+        name="root",
+        version="1.0.0",
+        tags=[],
+        dependencies=[
+            DependencyTreeNode(
+                name="child",
+                version="0.1.0",
+                tags=[{"kind": "extra", "value": "dev"}],
+                dependencies=[],
+            )
+        ],
+    )
+
+    def mock_get_package_manager(request: Any) -> PackageManager:
+        del request
+        return mock_manager
+
+    monkeypatch.setattr(
+        "marimo._server.api.endpoints.packages._get_package_manager",
+        mock_get_package_manager,
+    )
+    return mock_manager
+
+
+def test_dependency_tree(
+    client: TestClient, mock_package_manager_with_tree: Mock
+) -> None:
+    """Test dependency tree endpoint."""
+    response = client.get(
+        "/api/packages/tree",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "tree": {
+            "name": "root",
+            "version": "1.0.0",
+            "tags": [],
+            "dependencies": [
+                {
+                    "name": "child",
+                    "version": "0.1.0",
+                    "tags": [{"kind": "extra", "value": "dev"}],
+                    "dependencies": [],
+                }
+            ],
+        },
+        "context": {"kind": "package-manager", "name": "uv"},
+    }
+    mock_package_manager_with_tree.dependency_tree.assert_called_once()
+
+
+def test_dependency_tree_no_tree(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    """Test dependency tree endpoint when no tree is available."""
+    mock_package_manager.dependency_tree.return_value = None
+    response = client.get(
+        "/api/packages/tree",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "tree": None,
+        "context": {"kind": "package-manager", "name": "pip"},
+    }
+    mock_package_manager.dependency_tree.assert_called_once()
+
+
+def test_dependency_tree_uses_sandbox_context(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from marimo._environments.sandbox import PackageState
+    from marimo._runtime.packages.sandbox_package_manager import (
+        SandboxPackageManager,
+    )
+    from marimo._utils.uv_tree import DependencyTreeNode
+
+    tree = DependencyTreeNode(
+        name="<root>", version=None, tags=[], dependencies=[]
+    )
+    sandbox = MagicMock()
+    sandbox.backend = "pixi"
+    sandbox.environment = None
+    sandbox.packages.return_value = PackageState(packages=(), tree=tree)
+    manager = SandboxPackageManager(sandbox)
+    monkeypatch.setattr(
+        "marimo._server.api.endpoints.packages._get_package_manager",
+        lambda _request: manager,
+    )
+
+    response = client.get("/api/packages/tree", headers=HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "tree": {
+            "name": "<root>",
+            "version": None,
+            "tags": [],
+            "dependencies": [],
+        },
+        "context": {"kind": "sandbox", "backend": "pixi"},
+    }
+
+
+def test_dependency_tree_without_session(client: TestClient) -> None:
+    """Test dependency tree without session."""
+    headers_no_session = token_header("fake-token")
+    response = client.get(
+        "/api/packages/tree",
+        headers=headers_no_session,
+    )
+    assert response.status_code in [200, 400, 401, 422]
+
+
+@pytest.fixture
+def mock_package_manager_with_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> PackageManager:
+    """Mock package manager with metadata update functionality."""
+    mock_manager = MagicMock(spec=PackageManager)
+    mock_manager.install = AsyncMock(return_value=True)
+    mock_manager.uninstall = AsyncMock(return_value=True)
+    mock_manager.is_manager_installed.return_value = True
+    mock_manager.update_notebook_script_metadata = MagicMock()
+
+    def mock_get_package_manager(request: Any) -> PackageManager:
+        del request
+        return mock_manager
+
+    monkeypatch.setattr(
+        "marimo._server.api.endpoints.packages._get_package_manager",
+        mock_get_package_manager,
+    )
+    return mock_manager
+
+
+def test_add_package_with_metadata_update(
+    client: TestClient, mock_package_manager_with_metadata: Mock
+) -> None:
+    """Test add_package calls metadata update when MANAGE_SCRIPT_METADATA is enabled."""
+    with patch(
+        "marimo._config.settings.GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA", True
+    ):
+        with patch(
+            "marimo._server.api.endpoints.packages._get_filename",
+            return_value="test.py",
+        ):
+            response = client.post(
+                "/api/packages/add",
+                headers=HEADERS,
+                json={"package": "test-package"},
+            )
+            assert response.status_code == 200
+            result = response.json()
+            assert result == {
+                "success": True,
+                "error": None,
+                "restartRequired": False,
+            }
+            mock_package_manager_with_metadata.update_notebook_script_metadata.assert_called_once()
+
+
+def test_add_package_with_spaced_extras_updates_metadata(
+    client: TestClient, mock_package_manager_with_metadata: Mock
+) -> None:
+    package = "pydantic-ai[duckduckgo, web-fetch]"
+
+    with (
+        patch(
+            "marimo._config.settings.GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA",
+            True,
+        ),
+        patch(
+            "marimo._server.api.endpoints.packages._get_filename",
+            return_value="test.py",
+        ),
+    ):
+        response = client.post(
+            "/api/packages/add",
+            headers=HEADERS,
+            json={"package": package, "upgrade": True},
+        )
+
+    assert response.json() == {
+        "success": True,
+        "error": None,
+        "restartRequired": False,
+    }
+    mock_package_manager_with_metadata.install.assert_awaited_once_with(
+        package, log_callback=ANY, version=None, upgrade=True, group=None
+    )
+    mock_package_manager_with_metadata.update_notebook_script_metadata.assert_called_once_with(
+        filepath="test.py",
+        packages_to_add=[package],
+        upgrade=True,
+    )
+
+
+def test_add_package_failure_does_not_update_metadata(
+    client: TestClient, mock_package_manager_with_metadata: Mock
+) -> None:
+    mock_package_manager_with_metadata.install.return_value = False
+
+    with (
+        patch(
+            "marimo._config.settings.GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA",
+            True,
+        ),
+        patch(
+            "marimo._server.api.endpoints.packages._get_filename",
+            return_value="test.py",
+        ),
+    ):
+        response = client.post(
+            "/api/packages/add",
+            headers=HEADERS,
+            json={"package": "test-package"},
+        )
+
+    assert response.json()["success"] is False
+    mock_package_manager_with_metadata.update_notebook_script_metadata.assert_not_called()
+
+
+def test_remove_package_with_metadata_update(
+    client: TestClient, mock_package_manager_with_metadata: Mock
+) -> None:
+    """Test remove_package calls metadata update when MANAGE_SCRIPT_METADATA is enabled."""
+    with patch(
+        "marimo._config.settings.GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA", True
+    ):
+        with patch(
+            "marimo._server.api.endpoints.packages._get_filename",
+            return_value="test.py",
+        ):
+            response = client.post(
+                "/api/packages/remove",
+                headers=HEADERS,
+                json={"package": "test-package"},
+            )
+            assert response.status_code == 200
+            result = response.json()
+            assert result == {
+                "success": True,
+                "error": None,
+                "restartRequired": False,
+            }
+            mock_package_manager_with_metadata.update_notebook_script_metadata.assert_called_once()
+
+
+def test_remove_package_failure_does_not_update_metadata(
+    client: TestClient, mock_package_manager_with_metadata: Mock
+) -> None:
+    mock_package_manager_with_metadata.uninstall.return_value = False
+
+    with (
+        patch(
+            "marimo._config.settings.GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA",
+            True,
+        ),
+        patch(
+            "marimo._server.api.endpoints.packages._get_filename",
+            return_value="test.py",
+        ),
+    ):
+        response = client.post(
+            "/api/packages/remove",
+            headers=HEADERS,
+            json={"package": "test-package"},
+        )
+
+    assert response.json()["success"] is False
+    mock_package_manager_with_metadata.update_notebook_script_metadata.assert_not_called()
+
+
+def test_add_package_no_metadata_update_when_disabled(
+    client: TestClient, mock_package_manager_with_metadata: Mock
+) -> None:
+    """Test add_package doesn't call metadata update when MANAGE_SCRIPT_METADATA is disabled."""
+    with patch(
+        "marimo._config.settings.GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA", False
+    ):
+        response = client.post(
+            "/api/packages/add",
+            headers=HEADERS,
+            json={"package": "test-package"},
+        )
+        assert response.status_code == 200
+        mock_package_manager_with_metadata.update_notebook_script_metadata.assert_not_called()
+
+
+def test_add_package_no_metadata_update_when_no_filename(
+    client: TestClient, mock_package_manager_with_metadata: Mock
+) -> None:
+    """Test add_package doesn't call metadata update when no filename is available."""
+    with patch(
+        "marimo._config.settings.GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA", True
+    ):
+        with patch(
+            "marimo._server.api.endpoints.packages._get_filename",
+            return_value=None,
+        ):
+            response = client.post(
+                "/api/packages/add",
+                headers=HEADERS,
+                json={"package": "test-package"},
+            )
+            assert response.status_code == 200
+            mock_package_manager_with_metadata.update_notebook_script_metadata.assert_not_called()
+
+
+def test_add_package_with_git_dependency(
+    client: TestClient, mock_package_manager_with_metadata: Mock
+) -> None:
+    """Test add_package with git dependency calls metadata update correctly."""
+    with patch(
+        "marimo._config.settings.GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA", True
+    ):
+        with patch(
+            "marimo._server.api.endpoints.packages._get_filename",
+            return_value="test.py",
+        ):
+            response = client.post(
+                "/api/packages/add",
+                headers=HEADERS,
+                json={"package": "git+https://github.com/user/repo.git"},
+            )
+            assert response.status_code == 200
+            result = response.json()
+            assert result == {
+                "success": True,
+                "error": None,
+                "restartRequired": False,
+            }
+
+            # Verify metadata update was called with the git dependency
+            mock_package_manager_with_metadata.update_notebook_script_metadata.assert_called_once()
+            call_args = mock_package_manager_with_metadata.update_notebook_script_metadata.call_args
+            assert call_args.kwargs["filepath"] == "test.py"
+            assert (
+                "git+https://github.com/user/repo.git"
+                in call_args.kwargs["packages_to_add"]
+            )
+
+
+def test_add_package_with_dev_dependency(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    """Test add_package with dev dependency calls metadata update correctly."""
+    assert isinstance(mock_package_manager, MagicMock)
+    response = client.post(
+        "/api/packages/add",
+        headers=HEADERS,
+        json={"package": "test-package", "upgrade": True, "group": "dev"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "error": None,
+        "restartRequired": False,
+    }
+    mock_package_manager.install.assert_called_once_with(
+        "test-package",
+        log_callback=ANY,
+        version=None,
+        upgrade=True,
+        group="dev",
+    )
+
+
+def test_remove_package_with_dev_dependency(
+    client: TestClient, mock_package_manager: Mock
+) -> None:
+    """Test remove_package with dev dependency."""
+    assert isinstance(mock_package_manager, MagicMock)
+    response = client.post(
+        "/api/packages/remove",
+        headers=HEADERS,
+        json={"package": "test-package", "group": "dev"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "error": None,
+        "restartRequired": False,
+    }
+    mock_package_manager.uninstall.assert_called_once_with(
+        "test-package", group="dev"
+    )
+
+
+def test_get_package_manager_uses_ipc_venv_python() -> None:
+    """Test that _get_package_manager uses venv Python from IPC kernel."""
+    from marimo._server.api.endpoints.packages import _get_package_manager
+    from marimo._session.managers.ipc import IPCKernelManagerImpl
+    from marimo._session.session import SessionImpl
+
+    mock_kernel_manager = MagicMock(spec=IPCKernelManagerImpl)
+    mock_kernel_manager.venv_python = "/custom/venv/python"
+
+    mock_session = MagicMock(spec=SessionImpl)
+    mock_session._kernel_manager = mock_kernel_manager
+    mock_session.notebook_sandbox = None
+
+    # Mock app state
+    mock_app_state = MagicMock()
+    mock_app_state.get_current_session.return_value = mock_session
+    mock_app_state.app_config_manager.package_manager = "pip"
+
+    mock_request = MagicMock()
+
+    with (
+        patch(
+            "marimo._server.api.endpoints.packages.AppState",
+            return_value=mock_app_state,
+        ),
+        patch(
+            "marimo._server.api.endpoints.packages.create_package_manager"
+        ) as mock_create_pm,
+    ):
+        _get_package_manager(mock_request)
+
+    # Verify create_package_manager was called with python_exe
+    mock_create_pm.assert_called_once_with(
+        "pip",
+        python_exe="/custom/venv/python",
+    )
+
+
+def test_get_package_manager_without_ipc_session() -> None:
+    """Test that _get_package_manager works without IPC session."""
+    from marimo._server.api.endpoints.packages import _get_package_manager
+
+    # Mock non-IPC kernel manager (no venv_python attribute)
+    mock_kernel_manager = MagicMock(spec=[])  # Empty spec = no venv_python
+
+    mock_session = MagicMock()
+    mock_session._kernel_manager = mock_kernel_manager
+
+    # Mock app state
+    mock_app_state = MagicMock()
+    mock_app_state.get_current_session.return_value = mock_session
+    mock_app_state.app_config_manager.package_manager = "uv"
+
+    mock_request = MagicMock()
+
+    with (
+        patch(
+            "marimo._server.api.endpoints.packages.AppState",
+            return_value=mock_app_state,
+        ),
+        patch(
+            "marimo._server.api.endpoints.packages.create_package_manager"
+        ) as mock_create_pm,
+    ):
+        _get_package_manager(mock_request)
+
+    # Verify create_package_manager was called with python_exe=None
+    mock_create_pm.assert_called_once_with("uv", python_exe=None)
+
+
+def test_get_package_manager_no_session() -> None:
+    """Test that _get_package_manager works without any session."""
+    from marimo._server.api.endpoints.packages import _get_package_manager
+
+    # Mock app state with no session
+    mock_app_state = MagicMock()
+    mock_app_state.get_current_session.return_value = None
+    mock_app_state.config_manager.package_manager = "pip"
+
+    mock_request = MagicMock()
+
+    with (
+        patch(
+            "marimo._server.api.endpoints.packages.AppState",
+            return_value=mock_app_state,
+        ),
+        patch(
+            "marimo._server.api.endpoints.packages.create_package_manager"
+        ) as mock_create_pm,
+    ):
+        _get_package_manager(mock_request)
+
+    # Verify create_package_manager was called without python_exe
+    mock_create_pm.assert_called_once_with("pip")
+
+
+@pytest.mark.parametrize("backend", ["uv", "pixi"])
+def test_repair_manifest_without_a_kernel(
+    client: TestClient, tmp_path, monkeypatch: pytest.MonkeyPatch, backend: str
+) -> None:
+    from marimo._server.workspace import SingleFileWorkspace
+    from marimo._utils.marimo_path import MarimoPath
+
+    path = tmp_path / "notebook.py"
+    path.write_text(
+        '# /// script\n# dependencies = ["numpy==0.0.0"]\n# ///\n'
+        "import marimo\napp = marimo.App()\n"
+    )
+    manager = client.app.state.session_manager
+    manager.sandbox = True
+    manager.workspace = SingleFileWorkspace.from_path(MarimoPath(str(path)))
+    monkeypatch.setattr(
+        "marimo._server.api.endpoints.packages.current_backend",
+        lambda: backend,
+    )
+    request = {"fileKey": str(path)}
+    response = client.post(
+        "/api/packages/sandbox", headers=HEADERS, json=request
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "backend": backend,
+        "filename": str(path),
+        "manifest": 'dependencies = ["numpy==0.0.0"]\n',
+    }
+    update = {
+        **request,
+        "previous": response.json()["manifest"],
+        "contents": '[tool.custom]\nmessage = "whole manifest"\n',
+    }
+    response = client.post(
+        "/api/packages/manifest", headers=HEADERS, json=update
+    )
+    assert response.status_code == 200
+    assert response.json()["manifest"] == update["contents"]
+    assert path.read_text().endswith("import marimo\napp = marimo.App()\n")
+    response = client.post(
+        "/api/packages/manifest", headers=HEADERS, json=update
+    )
+    assert response.status_code == 409
+    response = client.post("/api/packages/sync", headers=HEADERS, json=request)
+    assert response.json() == {
+        "success": True,
+        "error": None,
+        "restartRequired": False,
+        "reconnect": True,
+    }
+
+
+def test_manifest_access_uses_workspace_permissions(
+    client: TestClient, tmp_path
+) -> None:
+    from marimo._server.workspace import SingleFileWorkspace
+    from marimo._utils.marimo_path import MarimoPath
+
+    allowed = tmp_path / "allowed.py"
+    denied = tmp_path / "denied.py"
+    allowed.write_text("import marimo\napp = marimo.App()\n")
+    denied.write_text("private = True\n")
+    manager = client.app.state.session_manager
+    manager.sandbox = True
+    manager.workspace = SingleFileWorkspace.from_path(MarimoPath(str(allowed)))
+    response = client.post(
+        "/api/packages/manifest",
+        headers=HEADERS,
+        json={
+            "fileKey": str(denied),
+            "contents": "value = 1",
+            "previous": "",
+        },
+    )
+    assert response.status_code == 404
+    assert denied.read_text() == "private = True\n"
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "operation"),
+    [("sandbox", "read_manifest"), ("manifest", "write_manifest")],
+)
+def test_manifest_file_errors_are_reported(
+    client: TestClient,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    operation: str,
+) -> None:
+    from marimo._server.workspace import SingleFileWorkspace
+    from marimo._utils.marimo_path import MarimoPath
+
+    path = tmp_path / "notebook.py"
+    path.write_text("import marimo\napp = marimo.App()\n")
+    manager = client.app.state.session_manager
+    manager.sandbox = True
+    manager.workspace = SingleFileWorkspace.from_path(MarimoPath(str(path)))
+    monkeypatch.setattr(
+        "marimo._server.api.endpoints.packages.current_backend", lambda: "uv"
+    )
+
+    def denied(*_args: Any, **_kwargs: Any) -> None:
+        raise PermissionError("Permission denied for notebook manifest")
+
+    monkeypatch.setattr(
+        f"marimo._environments.script_metadata.{operation}", denied
+    )
+    response = client.post(
+        f"/api/packages/{endpoint}",
+        headers=HEADERS,
+        json={
+            "fileKey": str(path),
+            "contents": "dependencies = []",
+            "previous": "",
+        },
+    )
+    assert response.status_code == 400
+    assert "Permission denied for notebook manifest" in response.text
+
+
+@pytest.fixture
+def operation_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[Mock, SessionView]:
+
+    view = SessionView()
+    session = MagicMock()
+    session.app_file_manager.filename = None
+    session.notify.side_effect = lambda notification, _: view.add_notification(
+        notification
+    )
+    monkeypatch.setattr(AppState, "get_current_session", lambda _: session)
+    return session, view
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "action"), [("add", "install"), ("remove", "remove")]
+)
+@pytest.mark.parametrize(
+    "outcome", ["succeeded", "failed", "restart-required"]
+)
+def test_package_changes_retain_outcome_and_worker_logs(
+    client: TestClient,
+    mock_package_manager: Mock,
+    operation_session: tuple[Mock, SessionView],
+    endpoint: str,
+    action: str,
+    outcome: str,
+) -> None:
+    session, view = operation_session
+    mock_package_manager.restart_required = outcome == "restart-required"
+
+    async def change(*_args: Any, **kwargs: Any) -> bool:
+        owner_thread = threading.get_ident()
+
+        def notify(
+            notification: EnvironmentOperationNotification, _: object
+        ) -> None:
+            assert threading.get_ident() == owner_thread
+            view.add_notification(notification)
+
+        session.notify.side_effect = notify
+        if callback := kwargs.get("log_callback"):
+            await asyncio.to_thread(callback, "Resolving\n")
+            await asyncio.to_thread(callback, "Applying\n")
+        return outcome == "succeeded"
+
+    getattr(
+        mock_package_manager, "install" if endpoint == "add" else "uninstall"
+    ).side_effect = change
+    response = client.post(
+        f"/api/packages/{endpoint}", headers=HEADERS, json={"package": "numpy"}
+    )
+    assert response.status_code == 200
+    status = {"kind": outcome}
+    if outcome == "failed":
+        status["error"] = (
+            "Could not apply changes to numpy. See operation logs for details."
+        )
+    elif outcome == "restart-required":
+        status["reason"] = (
+            "Dependency changes are saved; restart the kernel to apply them."
+        )
+    assert msgspec.to_builtins(view.get_environment_state("kernel")) == {
+        "restart_required": outcome == "restart-required",
+        "operations": [
+            {
+                "operation_id": ANY,
+                "action": action,
+                "status": status,
+                "source": "kernel",
+                "packages": {"numpy": outcome},
+                "logs": {"numpy": "Resolving\nApplying\n"}
+                if endpoint == "add"
+                else {},
+            }
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    "outcome", ["succeeded", "failed", "restart-required"]
+)
+def test_sync_retains_outcome_and_logs_without_a_package_list(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    operation_session: tuple[Mock, SessionView],
+    outcome: str,
+) -> None:
+    _, view = operation_session
+    sandbox = MagicMock(spec=NotebookSandbox)
+
+    async def sync(*, on_output: Callable[[str], None]) -> None:
+        on_output("Syncing saved dependencies\n")
+        if outcome == "failed":
+            raise EnvironmentManagerError("Resolution failed")
+        if outcome == "restart-required":
+            raise SandboxRestartRequired("Python changed")
+
+    sandbox.sync_async.side_effect = sync
+    monkeypatch.setattr(
+        "marimo._server.api.endpoints.packages._sandbox_source",
+        lambda *_args, **_kwargs: (sandbox, "notebook.py", "uv"),
+    )
+    response = client.post("/api/packages/sync", headers=HEADERS, json={})
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": outcome == "succeeded",
+        "error": {
+            "succeeded": None,
+            "failed": "Resolution failed",
+            "restart-required": "Python changed",
+        }[outcome],
+        "restartRequired": outcome == "restart-required",
+        "reconnect": False,
+    }
+    status = {"kind": outcome}
+    if outcome == "failed":
+        status["error"] = "Resolution failed"
+    elif outcome == "restart-required":
+        status["reason"] = "Python changed"
+    assert msgspec.to_builtins(view.get_environment_state("kernel")) == {
+        "restart_required": outcome == "restart-required",
+        "operations": [
+            {
+                "operation_id": ANY,
+                "action": "sync",
+                "status": status,
+                "source": "kernel",
+                "packages": {},
+                "logs": {"environment": "Syncing saved dependencies\n"},
+            }
+        ],
+    }

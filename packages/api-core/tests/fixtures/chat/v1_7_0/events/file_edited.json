@@ -1,0 +1,17 @@
+{
+  "deletions": 0,
+  "event_id": "01H_file_edited",
+  "event_type": "file.edited",
+  "insertions": 2,
+  "metadata": {},
+  "path": "src/foo.py",
+  "preview": {
+    "content": "--- src/foo.py\n+++ src/foo.py\n@@ -0,0 +1,2 @@\n+line a\n+line b\n",
+    "kind": "diff",
+    "title": "foo.py"
+  },
+  "provider_metadata": {},
+  "schema_version": "1.1.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

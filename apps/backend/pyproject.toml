@@ -1,0 +1,46 @@
+[project]
+name = "alkera-backend"
+version = "0.0.0"
+description = "Alkera FastAPI backend (modular monolith)."
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.118.0",
+    "uvicorn[standard]>=0.30.0",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29.0",
+    "psycopg[binary]>=3.2.0",         # sync driver for Alembic
+    "alembic>=1.13.0",
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "structlog>=24.4.0",
+    "python-json-logger>=2.0.7",
+    "httpx>=0.27.0",
+    "argon2-cffi>=23.1.0",
+    "pyjwt>=2.15.1",
+    "authlib>=1.3.0",                 # OAuth2/OIDC client (Google/GitHub + per-org OIDC SSO)
+    "signxml>=3.2.2",                 # XML-DSig verify/sign for SAML SP (pure-Python; no libxmlsec1)
+    "aioboto3>=13.0.0",               # Bedrock control-plane probe (BYOK test-connection)
+    "alkera-core",
+    "alkera-cli",
+    "pyyaml>=6.0",
+    # Loro CRDT documents for the realtime CRDT lane. Imported ONLY by the isolated
+    # sandbox worker (backend.services.crdt.sandbox), never by the server process.
+    # Pinned exactly; the web pin (loro-crdt in apps/web/package.json) is the pair.
+    "loro==1.16.2",
+    # Server-side chart export (SVG/PNG) for the Alkera chart profile: Vega and
+    # Vega-Lite compiled into a Deno runtime, no browser and no network (the
+    # export service passes allowed_base_urls=[]). Backend only: api-core ships
+    # into the worker and the CLI binary, which never render charts.
+    "vl-convert-python>=1.9",
+    # The notebook engine's models and format, which the notebook routes and
+    # the CRDT sandbox's notebook document type are built on.
+    "alkera-notebook",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend"]

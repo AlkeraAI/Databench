@@ -1,0 +1,39 @@
+{
+  "event_id": "01H_question_request_plan",
+  "event_type": "question.request",
+  "kind": "plan_approval",
+  "metadata": {},
+  "provider_metadata": {},
+  "questions": [
+    {
+      "custom": true,
+      "header": "plan-approval",
+      "metadata": {},
+      "multiple": false,
+      "options": [
+        {
+          "description": null,
+          "label": "Accept \u2014 run normally",
+          "metadata": {},
+          "provider_metadata": {},
+          "schema_version": "1.0.0"
+        },
+        {
+          "description": null,
+          "label": "Accept \u2014 bypass",
+          "metadata": {},
+          "provider_metadata": {},
+          "schema_version": "1.0.0"
+        }
+      ],
+      "provider_metadata": {},
+      "question": "Approve this plan?",
+      "schema_version": "1.0.0"
+    }
+  ],
+  "request_id": "qr2",
+  "schema_version": "1.1.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z",
+  "tool_call_id": null
+}

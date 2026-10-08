@@ -1,0 +1,195 @@
+/* ── Toast (alk-toast) ───────────────────────────────────────────────────────
+ * A transient, corner-stacked status message. The viewport pins a stack to one edge; each toast is a
+ * composed Alert (neutralised to a clean opaque card) plus a close button, with its own enter/exit
+ * lifecycle. Stacked shadows never compound: opaque toasts paint top-to-bottom so the nearer toast
+ * occludes the one behind it, and only the stack's outer edge casts a shadow against the page. Every
+ * value is a role token. */
+
+.alk-toast-viewport {
+  position: fixed;
+  z-index: var(--alkZToast);
+  display: flex;
+  /* Always column (DOM top-to-bottom = paint order) so the nearer toast occludes the farther one's
+     shadow. A top-pinned stack reverses its list in JS so the newest still sits at the top. No flex
+     gap: the stack's spacing is each open toast's margin (inside its slot's row), so it collapses
+     with a dismissed toast instead of snapping shut after the exit. */
+  flex-direction: column;
+  width: min(380px, calc(100vw - 2 * var(--alkSpace7)));
+  padding: var(--alkSpace7);
+  pointer-events: none;
+}
+
+/* corners — the padding insets the stack from the edge; align-items sets the column's side. */
+.alk-toast-viewport:where([data-position="top-left"]) {
+  top: 0;
+  left: 0;
+  align-items: flex-start;
+}
+.alk-toast-viewport:where([data-position="top-center"]) {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: center;
+}
+.alk-toast-viewport:where([data-position="top-right"]) {
+  top: 0;
+  right: 0;
+  align-items: flex-end;
+}
+.alk-toast-viewport:where([data-position="bottom-left"]) {
+  bottom: 0;
+  left: 0;
+  align-items: flex-start;
+}
+.alk-toast-viewport:where([data-position="bottom-center"]) {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: center;
+}
+.alk-toast-viewport:where([data-position="bottom-right"]) {
+  bottom: 0;
+  right: 0;
+  align-items: flex-end;
+}
+
+/* The slot is the toast's collapsible row — the Collapse technique (grid-template-rows 0fr↔1fr), the
+   one way to animate to an intrinsic height. It opens BEFORE the toast fades in and closes AFTER it
+   fades out, so the rest of the stack slides to its new place; it never snaps. This grid is an
+   animation mechanism, not a content layout. */
+.alk-toast-slot {
+  width: 100%;
+  display: grid;
+  grid-template-rows: 0fr;
+  /* Leaving `open` (closing): wait out the toast's fade, then close the row under the neighbors. */
+  transition: grid-template-rows var(--alkDurationSlow) var(--alkEaseStandard) var(--alkDurationNormal);
+}
+.alk-toast-slot[data-state="open"] {
+  grid-template-rows: 1fr;
+  /* Entering: make room at once — the toast's own reveal waits on this instead (see below). */
+  transition: grid-template-rows var(--alkDurationSlow) var(--alkEaseStandard);
+}
+
+/* The row's grid item is this PLAIN box, never the card: a 0fr track can't shrink below its item's
+   padding+border, so the card itself as the item floors the collapse at that sum and the residue
+   snaps shut on unmount. The (already faded) card just overflows this box as it closes. The inner
+   also carries the stack's spacing, so the gap between toasts collapses with the row; the edge
+   margin falls on the stack's open side, where only viewport padding sits. */
+.alk-toast-slot__inner {
+  min-height: 0;
+  transition: margin var(--alkDurationSlow) var(--alkEaseStandard) var(--alkDurationNormal);
+}
+.alk-toast-slot[data-state="open"] .alk-toast-slot__inner {
+  margin-top: var(--alkSpace3);
+  transition: margin var(--alkDurationSlow) var(--alkEaseStandard);
+}
+.alk-toast-viewport:where([data-position^="top"]) .alk-toast-slot[data-state="open"] .alk-toast-slot__inner {
+  margin-top: 0;
+  margin-bottom: var(--alkSpace3);
+}
+
+.alk-toast {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--alkSpace2);
+  width: 100%;
+  padding: var(--alkSpace1);
+  /* Opaque base, so a stacked shadow is occluded by the next toast rather than compounded onto its
+     face — the fix for the per-item --alkShadowLg pile-up. */
+  background: var(--alkOverlayBg);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  box-shadow: var(--alkShadowMd);
+  /* enter + closed are both hidden, but the two journeys are asymmetric: entering waits for the slot
+     to open, then slides up while fading in; exiting fades in place at once, then the slot closes
+     (the unmount rides the slot's transitionend in Toast.tsx). */
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity var(--alkDurationSlow) var(--alkEaseStandard),
+    transform var(--alkDurationSlow) var(--alkEaseStandard);
+}
+.alk-toast[data-state="open"] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--alkDurationSlow) var(--alkEaseStandard) var(--alkDurationNormal),
+    transform var(--alkDurationSlow) var(--alkEaseStandard) var(--alkDurationNormal);
+}
+/* Exit is a fade in place — no slide — so leaving reads differently from arriving. */
+.alk-toast[data-state="closed"] {
+  transform: none;
+}
+
+/* Toast owns its icon + text directly (it does NOT compose a message box, so there's nothing to
+   neutralise). The toast reads as one clean card whose tone shows only in the (tonal) leading glyph;
+   the title + text stay primary-ink. */
+.alk-toast__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace4) var(--alkSpace5);
+  font-size: var(--alkTextMd);
+  line-height: var(--alkLeadingNormal);
+}
+.alk-toast__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  /* One line box tall, so the glyph optically centres on the first line regardless of its height. */
+  height: calc(var(--alkTextMd) * var(--alkLeadingNormal));
+}
+.alk-toast__main[data-tone="brand"] .alk-toast__icon {
+  color: var(--alkBrandText);
+}
+.alk-toast__main[data-tone="info"] .alk-toast__icon {
+  color: var(--alkInfoText);
+}
+.alk-toast__main[data-tone="success"] .alk-toast__icon {
+  color: var(--alkSuccessText);
+}
+.alk-toast__main[data-tone="warning"] .alk-toast__icon {
+  color: var(--alkWarningText);
+}
+.alk-toast__main[data-tone="danger"] .alk-toast__icon {
+  color: var(--alkDangerText);
+}
+.alk-toast__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.alk-toast__title {
+  margin: 0;
+  font-weight: var(--alkWeightSemibold);
+  color: var(--alkPrimaryText);
+}
+.alk-toast__text,
+.alk-toast__text p {
+  margin: 0;
+  color: var(--alkPrimaryText);
+}
+
+.alk-toast__close {
+  /* Centre the close X on the first text line (the main block + the close share the toast's
+     flex-start top). Drop by the main block's top padding to reach the first line, then re-centre the
+     28px control on the 21px line box: padding-top + (lineBox − control) / 2. */
+  margin-top: calc(var(--alkSpace4) + (var(--alkTextMd) * var(--alkLeadingNormal) - var(--alkControlSm)) / 2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-toast,
+  .alk-toast[data-state="open"] {
+    transition: opacity var(--alkDurationNormal) var(--alkEaseStandard);
+    transform: none;
+  }
+  .alk-toast-slot,
+  .alk-toast-slot__inner {
+    transition: none;
+  }
+}

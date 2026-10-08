@@ -1,0 +1,30 @@
+{
+  "path": "encoding.fill.condition.value",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "encoding": {
+      "fill": {
+        "condition": {
+          "param": "p",
+          "value": "url(https://evil.example/rows.json#g)"
+        },
+        "value": "red"
+      }
+    },
+    "mark": "point",
+    "params": [
+      {
+        "name": "p",
+        "select": "point"
+      }
+    ]
+  },
+  "unsafe": true
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "encoding": {
+    "x": {
+      "field": "day",
+      "type": "temporal"
+    },
+    "y": {
+      "field": "orders",
+      "type": "quantitative"
+    }
+  },
+  "mark": "line"
+}

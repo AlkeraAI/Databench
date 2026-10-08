@@ -1,0 +1,44 @@
+/* Teams — the cross-component shell for the register spread. Standard controls (Button, Modal,
+   SidePanel, Table, Card) come from @alkera/ui; text voices compose from the shared theme (alk-*).
+   What's left is this page's own full-width column layout on --alk tokens. */
+
+/* ---- detail (full width) — the section that TeamDetail, its skeleton, and the page's error/empty
+   states all render into. It owns the ptmdetail container the roster + plate queries respond to. */
+.detail {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 0 var(--alkSpace7) 32px;
+  container: ptmdetail / inline-size;
+}
+.detailTop {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  min-height: 28px;
+}
+
+/* The masthead identity row — the team name left, the actions cluster right. Shared by Masthead and
+   the loading skeleton so the two line up. */
+.mast {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace7);
+  min-height: 48px;
+}
+
+/* KEEP: the Members folio + skeleton flush their Card body (Card has no flush-body prop) so the
+   toolbar + roster/table own their own spacing. */
+.folioBody {
+  padding: 0;
+  gap: 0;
+}
+
+/* Below the shell's narrow breakpoint the detail drops its extra side padding (the shell's own 16px
+   content padding then carries the inset). */
+@media (max-width: 900px) {
+  .detail {
+    padding: 0 0 32px;
+  }
+}

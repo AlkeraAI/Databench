@@ -1,0 +1,26 @@
+import { Effect } from "effect"
+import { PluginV2 } from "../../plugin"
+
+export const CerebrasPlugin = PluginV2.define({
+  id: PluginV2.ID.make("cerebras"),
+  effect: Effect.gen(function* () {
+    return {
+      "catalog.transform": Effect.fn(function* (ctx) {
+        for (const item of ctx.data) {
+          if (item.provider.endpoint.type !== "aisdk") continue
+          if (item.provider.endpoint.package !== "@ai-sdk/cerebras") continue
+          ctx.provider.update(item.provider.id, (provider) => {
+            // == ALKERA EDIT START — outbound attribution header names the product (provider-facing)
+            provider.options.headers["X-Cerebras-3rd-Party-Integration"] = "alkera"
+            // == ALKERA EDIT END
+          })
+        }
+      }),
+      "aisdk.sdk": Effect.fn(function* (evt) {
+        if (evt.package !== "@ai-sdk/cerebras") return
+        const mod = yield* Effect.promise(() => import("@ai-sdk/cerebras"))
+        evt.sdk = mod.createCerebras(evt.options)
+      }),
+    }
+  }),
+})

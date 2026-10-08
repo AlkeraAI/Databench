@@ -1,0 +1,174 @@
+/* TabStrip — the editor row of open files. The tabs scroll horizontally inside their own track
+   with a fade on whichever edge still hides something (the `data-overflow` the scroll-shadow hook
+   stamps), while the trailing controls stay put beside it. Every length and colour comes from the
+   token layer so the strip follows the light/dark flip and the spacing scale. */
+
+.alk-tabstrip {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-bottom: 1px solid var(--alkDivider);
+  background: var(--alkCardBg);
+}
+
+.alk-tabstrip__list {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.alk-tabstrip__list::-webkit-scrollbar {
+  display: none;
+}
+
+/* The fade rides a mask so it works over any ground the strip is placed on. */
+.alk-tabstrip__list[data-overflow="start"] {
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--alkSpace6), #000 100%);
+}
+
+.alk-tabstrip__list[data-overflow="end"] {
+  mask-image: linear-gradient(to left, transparent 0, #000 var(--alkSpace6), #000 100%);
+}
+
+.alk-tabstrip__list[data-overflow="both"] {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--alkSpace6),
+    #000 calc(100% - var(--alkSpace6)),
+    transparent 100%
+  );
+}
+
+.alk-tabstrip__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  flex: 0 0 auto;
+  max-width: 13rem;
+  min-width: 0;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border-right: 1px solid var(--alkDivider);
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color var(--alkDurationFast) var(--alkEaseStandard),
+    background var(--alkDurationFast) var(--alkEaseStandard);
+}
+
+.alk-tabstrip__tab:hover {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+
+.alk-tabstrip__tab[data-on] {
+  background: var(--alkSelectedBg);
+  color: var(--alkPrimaryText);
+  font-weight: var(--alkWeightMedium);
+  box-shadow: inset 0 2px 0 0 var(--alkBrandText);
+}
+
+.alk-tabstrip__tab:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+  border-radius: var(--alkRadiusSm);
+}
+
+.alk-tabstrip__icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--alkTertiaryText);
+}
+
+.alk-tabstrip__tab[data-on] .alk-tabstrip__icon {
+  color: var(--alkBrandText);
+}
+
+/* A long name shortens rather than widening the strip; the whole one lives in `title`. */
+.alk-tabstrip__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-tabstrip__marker {
+  flex: 0 0 auto;
+  width: var(--alkSpace2);
+  height: var(--alkSpace2);
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkInfoText);
+}
+
+.alk-tabstrip__marker[data-marker="gone"] {
+  background: var(--alkWarningText);
+}
+
+.alk-tabstrip__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--alkIconMd);
+  height: var(--alkIconMd);
+  padding: 0;
+  border: 0;
+  border-radius: var(--alkRadiusSm);
+  background: none;
+  color: var(--alkTertiaryText);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--alkDurationFast) var(--alkEaseStandard);
+}
+
+/* The close control appears on the tab you are reading or pointing at; it stays reachable to a
+   pointer that lands straight on it and to assistive technology, which does not read opacity. */
+.alk-tabstrip__tab:hover .alk-tabstrip__close,
+.alk-tabstrip__tab[data-on] .alk-tabstrip__close,
+.alk-tabstrip__close:hover,
+.alk-tabstrip__close:focus-visible {
+  opacity: 1;
+}
+
+.alk-tabstrip__close:hover {
+  background: var(--alkActiveBg);
+  color: var(--alkPrimaryText);
+}
+
+.alk-tabstrip__trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+  flex: 0 0 auto;
+  padding-inline: var(--alkSpace2);
+}
+
+/* A preview tab: opened in passing, kept by a double click or an edit. */
+.alk-tabstrip__tab--transient .alk-tabstrip__label {
+  font-style: italic;
+}
+
+/* Where a dragged tab would land: a bar on the leading edge of the tab it would
+   precede, or on the trailing edge of the strip when it would go last. */
+.alk-tabstrip__tab[data-drop="before"] {
+  box-shadow: inset 2px 0 0 0 var(--alkBrandText);
+}
+
+.alk-tabstrip__list[data-drop-end] {
+  box-shadow: inset -2px 0 0 0 var(--alkBrandText);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-tabstrip__tab,
+  .alk-tabstrip__close {
+    transition: none;
+  }
+}

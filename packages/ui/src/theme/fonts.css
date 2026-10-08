@@ -1,0 +1,29 @@
+/* @alkera/ui/fonts — self-hosted brand typefaces, bundled via @fontsource.
+ *
+ * Imported once at an app entry point:
+ *
+ *   import "@alkera/ui/fonts";
+ *
+ * Self-hosting matters: the VS Code webview CSP is `font-src ${cspSource}`
+ * with `connect-src 'none'`, so remote font CDNs are blocked. @fontsource
+ * ships the .woff2 files locally; Vite bundles them.
+ *
+ *   Display  → Newsreader        (headings, brand moments)
+ *   UI       → Hanken Grotesk    (product chrome, body)
+ *   Code     → IBM Plex Mono     (paths, branches, code, tool output)
+ */
+
+/* Newsreader — display */
+@import "@fontsource/newsreader/400.css";
+@import "@fontsource/newsreader/500.css";
+@import "@fontsource/newsreader/600.css";
+
+/* Hanken Grotesk — UI / body */
+@import "@fontsource/hanken-grotesk/400.css";
+@import "@fontsource/hanken-grotesk/500.css";
+@import "@fontsource/hanken-grotesk/600.css";
+@import "@fontsource/hanken-grotesk/700.css";
+
+/* IBM Plex Mono — code */
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";

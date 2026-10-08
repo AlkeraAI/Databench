@@ -1,0 +1,837 @@
+from __future__ import annotations
+
+import os
+import subprocess
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from marimo._cli.sandbox import (
+    _normalize_sandbox_dependencies,
+    _uv_export_script_requirements_txt,
+    construct_uv_command,
+    resolve_sandbox,
+    run_in_sandbox,
+)
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._utils.inline_script_metadata import PyProjectReader
+
+HAS_UV = DependencyManager.which("uv")
+
+
+@pytest.mark.parametrize("backend", ["uv", "pixi"])
+def test_missing_sandbox_backend_reports_install_instructions(
+    backend, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from marimo._cli.errors import MarimoCLIMissingDependencyError
+
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(MarimoCLIMissingDependencyError) as error:
+        run_in_sandbox(["edit", "--sandbox", "notebook.py"], backend=backend)
+
+    message = str(error.value)
+    assert f"{backend} must be installed" in message
+    assert f"Install {backend} from" in message
+    # uv and pixi are standalone tools; a pip hint would be misleading.
+    assert "pip install" not in message
+
+
+@pytest.mark.parametrize("backend", ["uv", "pixi"])
+def test_missing_sandbox_backend_does_not_create_new_notebook(
+    backend: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from click.testing import CliRunner
+
+    from marimo._cli.cli import edit
+
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    notebook = tmp_path / "new_notebook.py"
+
+    result = CliRunner().invoke(
+        edit, [f"--sandbox={backend}", "--headless", str(notebook)]
+    )
+
+    assert result.exit_code != 0
+    assert f"{backend} must be installed" in result.output
+    assert not notebook.exists()
+
+
+def test_dependency_export_uses_notebook_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    notebook = tmp_path / "notebooks" / "nb.py"
+    notebook.parent.mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    def export(
+        args: list[str], *, cwd: str
+    ) -> subprocess.CompletedProcess[str]:
+        target = args[args.index("--script") + 1]
+        assert target == str(notebook)
+        assert cwd == str(notebook.parent)
+        return subprocess.CompletedProcess(args, 0, stdout="-e ../lib")
+
+    monkeypatch.setattr("marimo._cli.sandbox.uv", export)
+
+    assert _uv_export_script_requirements_txt("notebooks/nb.py") == [
+        f"-e {tmp_path / 'lib'}"
+    ]
+
+
+def test_normalize_marimo_dependencies(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr("marimo._cli.sandbox.is_editable", lambda _: False)
+    # Test adding marimo when not present
+    assert _normalize_sandbox_dependencies(
+        ["numpy"], "1.0.0", additional_features=[]
+    ) == [
+        "numpy",
+        "marimo==1.0.0",
+    ]
+
+    # Test preferring bracketed version
+    assert _normalize_sandbox_dependencies(
+        ["marimo", "marimo[extras]", "numpy"], "1.0.0", additional_features=[]
+    ) == ["numpy", "marimo[extras]==1.0.0"]
+
+    # Test keeping existing version with brackets
+    assert _normalize_sandbox_dependencies(
+        ["marimo[extras]>=0.1.0", "numpy"], "1.0.0", additional_features=[]
+    ) == ["numpy", "marimo[extras]>=0.1.0"]
+
+    # Test keeping only one marimo dependency
+    assert _normalize_sandbox_dependencies(
+        ["marimo>=0.1.0", "marimo[extras]>=0.2.0", "numpy"],
+        "1.0.0",
+        additional_features=[],
+    ) == ["numpy", "marimo[extras]>=0.2.0"]
+    assert _normalize_sandbox_dependencies(
+        ["marimo", "marimo[extras]>=0.2.0", "numpy"],
+        "1.0.0",
+        additional_features=[],
+    ) == ["numpy", "marimo[extras]>=0.2.0"]
+
+    # With additional features
+    assert _normalize_sandbox_dependencies(
+        ["marimo[extras]", "numpy"], "1.0.0", additional_features=["lsp"]
+    ) == ["numpy", "marimo[lsp,extras]==1.0.0"]
+
+    # With multiple additional features
+    assert _normalize_sandbox_dependencies(
+        ["marimo[extras]", "numpy"],
+        "1.0.0",
+        additional_features=["lsp", "recommended"],
+    ) == ["numpy", "marimo[lsp,recommended,extras]==1.0.0"]
+
+    # With additional features when not present
+    assert _normalize_sandbox_dependencies(
+        ["marimo", "numpy"], "1.0.0", additional_features=["lsp"]
+    ) == ["numpy", "marimo[lsp]==1.0.0"]
+
+    # With duplicate additional features
+    # This is ok although it's a bit redundant
+    assert _normalize_sandbox_dependencies(
+        ["marimo[lsp]", "numpy"], "1.0.0", additional_features=["lsp"]
+    ) == ["numpy", "marimo[lsp,lsp]==1.0.0"]
+
+    # Test various version specifiers are preserved
+    version_specs = [
+        "==0.1.0",
+        ">=0.1.0",
+        "<=0.1.0",
+        ">0.1.0",
+        "<0.1.0",
+        "~=0.1.0",
+    ]
+    for spec in version_specs:
+        assert _normalize_sandbox_dependencies(
+            [f"marimo{spec}", "numpy"], "1.0.0", additional_features=[]
+        ) == ["numpy", f"marimo{spec}"]
+
+
+def test_normalize_marimo_dependencies_editable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("marimo._cli.sandbox.is_editable", lambda _: True)
+    deps = _normalize_sandbox_dependencies(
+        ["numpy"], "1.0.0", additional_features=[]
+    )
+    assert deps[0] == "numpy"
+    assert deps[1].startswith("-e")
+    assert "marimo" in deps[1]
+
+    deps = _normalize_sandbox_dependencies(
+        ["numpy", "marimo"],
+        "1.0.0",
+        additional_features=["lsp", "recommended"],
+    )
+    assert deps[0] == "numpy"
+    assert deps[1].startswith("-e")
+    assert deps[1].endswith("[lsp,recommended]")
+
+    deps = _normalize_sandbox_dependencies(
+        ["numpy", "marimo"], "1.0.0", additional_features=[]
+    )
+    assert deps[0] == "numpy"
+    assert deps[1].startswith("-e")
+    assert "marimo" in deps[1]
+
+
+def test_construct_uv_cmd_marimo_new() -> None:
+    uv_cmd = construct_uv_command(
+        ["new"], None, additional_features=[], additional_deps=[]
+    )
+    assert "--refresh" in uv_cmd
+
+
+def test_construct_uv_cmd_marimo_edit_empty_file() -> None:
+    # a file that doesn't yet exist
+    uv_cmd = construct_uv_command(
+        ["edit", "foo_123.py"],
+        "foo_123.py",
+        additional_features=[],
+        additional_deps=[],
+    )
+    assert "--refresh" in uv_cmd
+    assert os.path.basename(uv_cmd[0]).startswith("uv")
+    assert uv_cmd[1] == "run"
+
+
+def test_construct_uv_cmd_marimo_edit_file_no_sandbox(
+    temp_marimo_file: str,
+) -> None:
+    # a file that has no inline metadata yet
+    uv_cmd = construct_uv_command(
+        ["edit", temp_marimo_file],
+        temp_marimo_file,
+        additional_features=[],
+        additional_deps=[],
+    )
+    assert "--refresh" in uv_cmd
+    assert os.path.basename(uv_cmd[0]).startswith("uv")
+    assert uv_cmd[1] == "run"
+
+
+def test_construct_uv_cmd_marimo_edit_sandboxed_file(
+    temp_sandboxed_marimo_file: str,
+) -> None:
+    # a file that has inline metadata; shouldn't refresh the cache, uv
+    # --isolated will do the right thing.
+    uv_cmd = construct_uv_command(
+        ["edit", temp_sandboxed_marimo_file],
+        temp_sandboxed_marimo_file,
+        additional_features=[],
+        additional_deps=[],
+    )
+    assert "--refresh" not in uv_cmd
+    assert os.path.basename(uv_cmd[0]).startswith("uv")
+    assert uv_cmd[1] == "run"
+
+
+def test_construct_uv_cmd_with_python_version(tmp_path: Path) -> None:
+    # Test Python version requirement is passed through
+    script_path = tmp_path / "test.py"
+    script_path.write_text(
+        """
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["numpy"]
+# ///
+import marimo
+    """
+    )
+    uv_cmd = construct_uv_command(
+        ["edit", str(script_path), "--sandbox"],
+        str(script_path),
+        additional_features=[],
+        additional_deps=[],
+    )
+    assert "--python" in uv_cmd
+    assert ">=3.11" in uv_cmd
+    assert "--isolated" in uv_cmd
+    assert "--no-project" in uv_cmd
+    assert "--compile-bytecode" in uv_cmd
+    assert "--sandbox" not in uv_cmd
+
+
+def test_construct_uv_cmd_with_index_urls() -> None:
+    pyproject = {
+        "tool": {
+            "uv": {
+                "index-url": "https://custom.pypi.org/simple",
+                "extra-index-url": [
+                    "https://extra1.pypi.org/simple",
+                    "https://extra2.pypi.org/simple",
+                ],
+            }
+        }
+    }
+    with patch("marimo._cli.sandbox.PyProjectReader.from_filename") as mock:
+        mock.return_value = PyProjectReader(pyproject, config_path=None)
+        uv_cmd = construct_uv_command(
+            ["edit", "test.py", "--sandbox"],
+            "test.py",
+            additional_features=[],
+            additional_deps=[],
+        )
+        assert "--index-url" in uv_cmd
+        assert "https://custom.pypi.org/simple" in uv_cmd
+        assert "--extra-index-url" in uv_cmd
+        assert "https://extra1.pypi.org/simple" in uv_cmd
+        assert "https://extra2.pypi.org/simple" in uv_cmd
+
+
+def test_construct_uv_cmd_with_index_configs() -> None:
+    pyproject = {
+        "tool": {
+            "uv": {
+                "index": [
+                    {
+                        "name": "torch-gpu",
+                        "url": "https://download.pytorch.org/whl/cu124",
+                    }
+                ]
+            }
+        }
+    }
+    with patch("marimo._cli.sandbox.PyProjectReader.from_filename") as mock:
+        mock.return_value = PyProjectReader(pyproject, config_path=None)
+        uv_cmd = construct_uv_command(
+            ["edit", "test.py", "--sandbox"],
+            name="test.py",
+            additional_features=[],
+            additional_deps=[],
+        )
+        assert "--index" in uv_cmd
+        assert "https://download.pytorch.org/whl/cu124" in uv_cmd
+
+
+def test_construct_uv_cmd_with_sandbox_flag() -> None:
+    # Test --sandbox flag is removed
+    uv_cmd = construct_uv_command(
+        ["edit", "test.py", "--sandbox"],
+        name="test.py",
+        additional_features=[],
+        additional_deps=[],
+    )
+    assert "--sandbox" not in uv_cmd
+
+
+def test_construct_uv_cmd_empty_dependencies() -> None:
+    # Test empty dependencies triggers refresh
+    with patch("marimo._cli.sandbox.PyProjectReader.from_filename") as mock:
+        mock.return_value = PyProjectReader({}, config_path=None)
+        uv_cmd = construct_uv_command(
+            ["edit", "test.py"],
+            name="test.py",
+            additional_features=[],
+            additional_deps=[],
+        )
+        assert "--refresh" in uv_cmd
+        assert "--isolated" in uv_cmd
+        assert "--compile-bytecode" in uv_cmd
+        assert "--no-project" in uv_cmd
+
+
+def test_construct_uv_cmd_with_complex_args() -> None:
+    # Test complex command arguments are preserved
+    args = [
+        "edit",
+        "test.py",
+        "--theme",
+        "dark",
+        "--port",
+        "8000",
+        "--sandbox",
+    ]
+    uv_cmd = construct_uv_command(
+        args, name="test.py", additional_features=[], additional_deps=[]
+    )
+    assert "edit" in uv_cmd
+    assert "test.py" in uv_cmd
+    assert "--theme" in uv_cmd
+    assert "dark" in uv_cmd
+    assert "--port" in uv_cmd
+    assert "8000" in uv_cmd
+    assert "--sandbox" not in uv_cmd
+
+
+def test_construct_uv_cmd_with_additional_deps() -> None:
+    # Test additional dependencies are added
+    additional_deps = ["numpy>=1.20.0", "pandas"]
+    uv_cmd = construct_uv_command(
+        ["edit", "test.py"],
+        "test.py",
+        additional_features=[],
+        additional_deps=additional_deps,
+    )
+
+    # Get the additional (layered) dependencies
+    with_dependencies_index = uv_cmd.index("--with") + 1
+    with_dependencies = uv_cmd[with_dependencies_index]
+
+    assert "pandas" in with_dependencies
+    assert "numpy>=1.20.0" in with_dependencies
+
+
+def test_markdown_sandbox(tmp_path: Path) -> None:
+    # Test Python version requirement is passed through
+    script_path = tmp_path / "test.md"
+    script_path.write_text(
+        """---
+title: Test
+pyproject: |
+    requires-python = ">=3.11"
+    dependencies = ["numpy"]
+---
+
+Hello world!"""
+    )
+    uv_cmd = construct_uv_command(
+        ["edit", str(script_path), "--sandbox"],
+        str(script_path),
+        additional_features=[],
+        additional_deps=[],
+    )
+    assert "--python" in uv_cmd
+    assert ">=3.11" in uv_cmd
+    assert "--isolated" in uv_cmd
+    assert "--no-project" in uv_cmd
+    assert "--compile-bytecode" in uv_cmd
+    assert "--sandbox" not in uv_cmd
+
+    req_file_index = uv_cmd.index("--with-requirements") + 1
+    req_file_path = uv_cmd[req_file_index]
+    with open(req_file_path) as f:
+        requirements = f.read()
+        assert "numpy" in requirements
+
+
+def test_markdown_header(tmp_path: Path) -> None:
+    # Test Python version requirement is passed through
+    script_path = tmp_path / "test.md"
+    script_path.write_text(
+        """---
+title: Test
+pyproject: |
+header: |
+    #! /usr/bin/env python
+    # /// script
+    # requires-python = ">=3.11"
+    # dependencies = ["numpy"]
+    # ///
+    "Other metadata"
+---
+import marimo
+    """
+    )
+    uv_cmd = construct_uv_command(
+        ["edit", str(script_path), "--sandbox"],
+        str(script_path),
+        additional_features=[],
+        additional_deps=[],
+    )
+    assert "--python" in uv_cmd
+    assert ">=3.11" in uv_cmd
+    assert "--isolated" in uv_cmd
+    assert "--no-project" in uv_cmd
+    assert "--compile-bytecode" in uv_cmd
+    assert "--sandbox" not in uv_cmd
+
+    req_file_index = uv_cmd.index("--with-requirements") + 1
+    req_file_path = uv_cmd[req_file_index]
+    with open(req_file_path) as f:
+        requirements = f.read()
+        assert "numpy" in requirements
+
+
+def test_markdown_sandbox_and_header(tmp_path: Path) -> None:
+    # Test Python version requirement is passed through
+    script_path = tmp_path / "test.md"
+    script_path.write_text(
+        """---
+title: Test
+pyproject: |
+    requires-python = ">=3.11"
+    dependencies = ["numpy"]
+header: |
+    #! /usr/bin/env python
+---
+import marimo
+    """
+    )
+    uv_cmd = construct_uv_command(
+        ["edit", str(script_path), "--sandbox"],
+        str(script_path),
+        additional_features=[],
+        additional_deps=[],
+    )
+    assert "--python" in uv_cmd
+    assert ">=3.11" in uv_cmd
+    assert "--isolated" in uv_cmd
+    assert "--no-project" in uv_cmd
+    assert "--compile-bytecode" in uv_cmd
+    assert "--sandbox" not in uv_cmd
+
+    req_file_index = uv_cmd.index("--with-requirements") + 1
+    req_file_path = uv_cmd[req_file_index]
+    with open(req_file_path) as f:
+        requirements = f.read()
+        assert "numpy" in requirements
+
+
+def test_resolve_sandbox_user_confirms(tmp_path: Path) -> None:
+    # Create a file with dependencies
+    script_path = tmp_path / "test.py"
+    script_path.write_text(
+        """
+# /// script
+# dependencies = ["numpy"]
+# ///
+import marimo
+    """
+    )
+
+    # Mock the prompt to return True (simulating user typing 'y')
+    with (
+        patch(
+            "marimo._cli.sandbox.GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA",
+            False,
+        ),
+        patch("marimo._cli.sandbox.click.confirm", return_value=True),
+        patch("marimo._cli.sandbox.is_uv_available", return_value=True),
+        patch("marimo._cli.sandbox.sys.stdin.isatty", return_value=True),
+    ):
+        result = resolve_sandbox(
+            sandbox=None,
+            no_sandbox=False,
+            name=str(script_path),
+        )
+        assert result == "uv"
+
+
+def test_construct_uv_cmd_without_python_version(tmp_path: Path) -> None:
+    """Test that current Python version is used when not specified."""
+    import platform
+
+    # Create a script without requires-python
+    script_path = tmp_path / "test.py"
+    script_path.write_text(
+        """
+# /// script
+# dependencies = ["numpy"]
+# ///
+import marimo
+    """
+    )
+    uv_cmd = construct_uv_command(
+        ["edit", str(script_path)],
+        str(script_path),
+        additional_features=[],
+        additional_deps=[],
+    )
+    assert "--python" in uv_cmd
+    python_idx = uv_cmd.index("--python")
+    assert uv_cmd[python_idx + 1] == platform.python_version()
+
+
+def test_resolve_local_path_line() -> None:
+    from marimo._cli.sandbox import _resolve_local_path_line
+
+    d = Path("/project/notebooks")
+    _r = lambda p: str((d / p).resolve())  # noqa: E731
+
+    # Plain relative
+    assert _resolve_local_path_line("../../mylib", d) == _r("../../mylib")
+    # Editable
+    assert _resolve_local_path_line("-e ../pkg", d) == f"-e {_r('../pkg')}"
+    # Env marker
+    result = _resolve_local_path_line("../pkg ; py<'3.12'", d)
+    assert _r("../pkg") in result
+    assert "py<'3.12'" in result
+    # Inline comment
+    result = _resolve_local_path_line("../pkg # via foo", d)
+    assert _r("../pkg") in result
+    assert "# via foo" in result
+    # Both marker and comment
+    result = _resolve_local_path_line("../pkg ; py<'3.12' # via foo", d)
+    assert _r("../pkg") in result
+    assert "py<'3.12'" in result
+    assert "# via foo" in result
+    # Spaces in path
+    assert _r("../my lib") in _resolve_local_path_line("../my lib", d)
+    # Non-relative unchanged
+    assert _resolve_local_path_line("numpy==1.26.0", d) == "numpy==1.26.0"
+    assert _resolve_local_path_line("/absolute/path", d) == "/absolute/path"
+    assert _resolve_local_path_line("", d) == ""
+
+
+def test_python_version_override_takes_precedence(tmp_path: Path) -> None:
+    """Override beats both PEP 723 metadata and the host interpreter."""
+    script_path = tmp_path / "test.py"
+    script_path.write_text(
+        """
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["numpy"]
+# ///
+import marimo
+"""
+    )
+    uv_cmd = construct_uv_command(
+        ["edit", str(script_path)],
+        str(script_path),
+        additional_features=[],
+        additional_deps=[],
+        python_version_override="3.12",
+    )
+    python_idx = uv_cmd.index("--python")
+    assert uv_cmd[python_idx + 1] == "3.12"
+    # Original metadata version should not appear.
+    assert ">=3.11" not in uv_cmd
+
+
+def test_python_version_override_without_metadata(tmp_path: Path) -> None:
+    """Override applies even when the script has no requires-python."""
+    script_path = tmp_path / "test.py"
+    script_path.write_text(
+        """
+# /// script
+# dependencies = ["numpy"]
+# ///
+import marimo
+"""
+    )
+    uv_cmd = construct_uv_command(
+        ["edit", str(script_path)],
+        str(script_path),
+        additional_features=[],
+        additional_deps=[],
+        python_version_override="3.12",
+    )
+    python_idx = uv_cmd.index("--python")
+    assert uv_cmd[python_idx + 1] == "3.12"
+
+
+def _supports_sync() -> bool:
+    from marimo._environments.environment import ensure_supported_uv
+    from marimo._environments.uv import UvError, is_uv_available
+
+    if not is_uv_available():
+        return False
+    try:
+        ensure_supported_uv()
+    except UvError:
+        return False
+    return True
+
+
+SUPPORTS_SYNC = _supports_sync()
+
+
+@pytest.fixture
+def _restore_signal_handlers():
+    """run_in_sandbox installs forwarding handlers; undo them."""
+    import signal
+
+    saved = {
+        sig: signal.getsignal(sig)
+        for name in ("SIGINT", "SIGTERM", "SIGHUP")
+        if (sig := getattr(signal, name, None)) is not None
+    }
+    yield
+    for sig, handler in saved.items():
+        signal.signal(sig, handler)
+
+
+@pytest.mark.network
+@pytest.mark.skipif(not SUPPORTS_SYNC, reason="uv >= 0.7.21 required")
+@pytest.mark.skipif(
+    os.name == "nt", reason="signal forwarding differs on Windows"
+)
+@pytest.mark.usefixtures("_restore_signal_handlers")
+@pytest.mark.parametrize(
+    ("suffix", "metadata"),
+    [
+        (".md", "absent"),
+        (".qmd", "absent"),
+        (".md", "title"),
+        (".md", "pyproject"),
+        (".qmd", "header"),
+    ],
+)
+def test_run_in_sandbox_from_script_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    suffix: str,
+    metadata: str,
+) -> None:
+    """The provisioned path: a markdown notebook's manifest is
+    synchronized and marimo launches from the script environment."""
+
+    monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path.parent / "uv-cache"))
+
+    notebook = tmp_path / f"notebook{suffix}"
+    frontmatter = {
+        "absent": "",
+        "title": "---\ntitle: Hello\n---\n",
+        "pyproject": "---\npyproject: |\n  dependencies = []\n---\n",
+        "header": "---\nheader: |\n  # Keep this preamble\n---\n",
+    }[metadata]
+    body = "\n# Hello\r\n\r\n```python\r\nprint('hello')\r\n```\r\n"
+    original = (frontmatter + body).encode("utf-8")
+    notebook.write_bytes(original)
+
+    code = run_in_sandbox(["--version"], name=str(notebook))
+
+    assert code == 0
+    assert notebook.read_bytes().endswith(body.encode("utf-8"))
+    if metadata == "pyproject":
+        assert notebook.read_bytes() == original
+    if metadata == "title":
+        assert "title: Hello" in notebook.read_text()
+    if metadata == "header":
+        from marimo._convert.markdown.to_ir import extract_frontmatter
+
+        saved, _ = extract_frontmatter(notebook.read_text())
+        assert "# Keep this preamble" in saved["header"]
+    # The carrier is deleted after synchronization.
+    assert not list(tmp_path.glob("*.py"))
+
+
+@pytest.mark.network
+@pytest.mark.skipif(not SUPPORTS_SYNC, reason="uv >= 0.7.21 required")
+@pytest.mark.skipif(
+    os.name == "nt", reason="signal forwarding differs on Windows"
+)
+@pytest.mark.usefixtures("_restore_signal_handlers")
+def test_run_in_sandbox_without_a_manifest() -> None:
+    """No target means no manifest: marimo runs ephemerally."""
+
+    code = run_in_sandbox(["--version"], name=None)
+
+    assert code == 0
+
+
+def test_sandbox_exit_codes_propagate(tmp_path: Path) -> None:
+    """Every sandbox entry point exits with the inner process's code."""
+    from unittest.mock import patch as mock_patch
+
+    from click.testing import CliRunner
+
+    from marimo._cli.cli import main as cli_main
+
+    notebook = tmp_path / "nb.py"
+    notebook.write_text(
+        '# /// script\n# dependencies = ["numpy"]\n# ///\n', encoding="utf-8"
+    )
+    runner = CliRunner()
+
+    with mock_patch(
+        "marimo._cli.export.commands.run_in_sandbox", return_value=3
+    ):
+        result = runner.invoke(
+            cli_main, ["export", "html", str(notebook), "--sandbox"]
+        )
+    assert result.exit_code == 3, result.output
+
+
+@pytest.mark.parametrize("name", [None, "notebook.py"])
+@pytest.mark.parametrize("backend", ["uv", "pixi"])
+def test_explicit_sandbox_selection(
+    name: str | None, backend: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unexpected_prompt(_name: str | None) -> bool:
+        raise AssertionError("Explicit sandbox flags must not prompt")
+
+    monkeypatch.setattr(
+        "marimo._cli.sandbox.maybe_prompt_run_in_sandbox", unexpected_prompt
+    )
+    assert resolve_sandbox(backend, False, name) == backend
+    assert resolve_sandbox(backend, True, name) is None
+    assert resolve_sandbox(None, True, name) is None
+
+
+def test_strip_sandbox_args() -> None:
+    from marimo._cli.sandbox import _strip_sandbox_args
+
+    assert _strip_sandbox_args(
+        ["-m", "marimo", "edit", "--sandbox", "nb.py"]
+    ) == ["-m", "marimo", "edit", "nb.py"]
+    assert _strip_sandbox_args(
+        ["-m", "marimo", "edit", "--sandbox=pixi", "nb.py"]
+    ) == ["-m", "marimo", "edit", "nb.py"]
+    assert _strip_sandbox_args(
+        ["-m", "marimo", "edit", "--sandbox", "pixi", "nb.py"]
+    ) == ["-m", "marimo", "edit", "nb.py"]
+    assert _strip_sandbox_args(
+        ["-m", "marimo", "edit", "--sandbox", "uv"]
+    ) == ["-m", "marimo", "edit"]
+    assert _strip_sandbox_args(
+        ["-m", "marimo", "run", "--sandbox", "nb.py", "--", "--sandbox"]
+    ) == ["-m", "marimo", "run", "nb.py", "--", "--sandbox"]
+
+
+def test_no_reprompt_inside_a_sandbox(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A server launched inside a sandbox must not offer to re-wrap
+    itself in a second one."""
+    from marimo._cli.sandbox import maybe_prompt_run_in_sandbox
+    from marimo._config.settings import GLOBAL_SETTINGS
+
+    notebook = tmp_path / "nb.py"
+    notebook.write_text(
+        '# /// script\n# dependencies = ["numpy"]\n# ///\nimport marimo\n'
+    )
+
+    monkeypatch.setattr(GLOBAL_SETTINGS, "MANAGE_SCRIPT_METADATA", False)
+    monkeypatch.setattr(GLOBAL_SETTINGS, "SANDBOX_MODE", None)
+    monkeypatch.setattr(GLOBAL_SETTINGS, "SANDBOX_BACKEND", "pixi")
+    assert maybe_prompt_run_in_sandbox(str(notebook)) is False
+
+
+@pytest.mark.parametrize(
+    ("returncode", "expected"), [(0, 0), (7, 7), (-2, 130), (-15, 143)]
+)
+@pytest.mark.usefixtures("_restore_signal_handlers")
+def test_sandbox_launch_normalizes_child_status(
+    returncode: int, expected: int
+) -> None:
+    from unittest.mock import MagicMock, patch
+
+    from marimo._cli.sandbox import _wait_on_plan
+    from marimo._environments.environment import ProcessPlan
+
+    process = MagicMock()
+    process.wait.return_value = returncode
+    with patch("marimo._cli.sandbox.subprocess.Popen", return_value=process):
+        assert _wait_on_plan(ProcessPlan(argv=("uv",), env={})) == expected
+
+
+def test_editor_reports_unsupported_sandbox_backend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from click.testing import CliRunner
+
+    from marimo._cli.cli import main
+    from marimo._environments.errors import EnvironmentManagerError
+
+    def unavailable(_backend: str) -> None:
+        raise EnvironmentManagerError(
+            "pixi is too old for script environments"
+        )
+
+    monkeypatch.delenv("MARIMO_SERVER_OVERLAY", raising=False)
+    monkeypatch.setattr(
+        "marimo._environments.backends.ensure_available", unavailable
+    )
+    result = CliRunner().invoke(
+        main, ["new", "--sandbox", "pixi", "--headless"]
+    )
+    assert result.exit_code == 1
+    assert "Error: pixi is too old for script environments" in result.output

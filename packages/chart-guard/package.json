@@ -1,0 +1,25 @@
+{
+  "name": "@alkera/chart-guard",
+  "version": "0.0.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "description": "The renderer's wall for Databench charts: refuses a Vega-Lite spec that could fetch or run code, and holds every expression string to the chart profile's grammar and allowlist. Dependency-free, so every surface that draws Vega-Lite (the chart renderer, the notebook's output frame) runs the same check.",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src --max-warnings 0"
+  },
+  "devDependencies": {
+    "@alkera/eslint-config": "workspace:*",
+    "@types/node": "^20.14.10",
+    "eslint": "^9.10.0",
+    "typescript": "^5.5.4",
+    "vitest": "4.1.11"
+  }
+}

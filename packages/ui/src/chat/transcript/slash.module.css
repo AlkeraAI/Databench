@@ -1,0 +1,38 @@
+/* One quiet line where the column affords it. Under squeeze the three tokens
+   fold onto further lines whole, and the figure gives up its right anchor so it
+   reads as the sentence's tail rather than as a stranded number. */
+
+:global(.chat-root) .slash {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: var(--chat-sp-2);
+  row-gap: var(--chat-sp-1);
+  padding: var(--chat-sp-1) 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-2);
+}
+
+:global(.chat-root) .cmd {
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-record);
+  letter-spacing: 0;
+  color: var(--chat-ink);
+  background: var(--chat-wash);
+  border-radius: var(--chat-radius-micro);
+  padding: var(--chat-sp-1) var(--chat-sp-2);
+}
+
+:global(.chat-root) .data {
+  margin-left: auto;
+  font-size: var(--chat-fs-record);
+  color: var(--chat-ink-3);
+}
+
+@container chat-panel (max-width: 359px) {
+  :global(.chat-root) .data {
+    margin-left: 0;
+  }
+}

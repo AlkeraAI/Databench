@@ -1,0 +1,201 @@
+name: Publish Docker images
+
+on:
+  workflow_call:
+    inputs:
+      marimo_version:
+        description: 'marimo version to publish'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      marimo_version:
+        description: 'marimo version to publish'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: marimo-team/marimo
+
+jobs:
+  publish_docker:
+    name: 🐋 Publish Docker images
+    runs-on: ubuntu-latest
+    # Don't error while this is in BETA
+    continue-on-error: true
+
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: ⏳ Wait for PyPI package availability
+        run: |
+          VERSION="${{ inputs.marimo_version }}"
+          echo "Waiting for marimo version $VERSION to be available on PyPI..."
+
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          SLEEP_TIME=10
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking PyPI for version $VERSION..."
+
+            # Check if the version exists on PyPI
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/marimo/$VERSION/json")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Version $VERSION is available on PyPI!"
+              exit 0
+            else
+              echo "Version $VERSION not yet available (HTTP $HTTP_CODE). Waiting ${SLEEP_TIME}s..."
+              sleep $SLEEP_TIME
+            fi
+          done
+
+          echo "❌ Timed out waiting for version $VERSION on PyPI after $((MAX_ATTEMPTS * SLEEP_TIME)) seconds"
+          exit 1
+
+      - name: 🐋 Log in to the Container registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐋 Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: 🐋 Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: 🧪 Build docker image for testing
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          # Don't push test image
+          push: false
+          load: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test
+          target: slim
+          build-args: |
+            marimo_version=${{ inputs.marimo_version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 🧪 Test docker build
+        run: |
+          docker run -d -e PORT=9090 -p 9090:9090 --name test_container ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test
+
+          # Wait for container to be ready with retries
+          echo "Waiting for marimo server to start..."
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          SLEEP_TIME=2
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking health endpoint..."
+
+            if curl -f http://localhost:9090/health 2>/dev/null; then
+              echo "✅ Health check passed!"
+              docker stop test_container
+              docker rm test_container
+              exit 0
+            else
+              echo "Health check failed. Waiting ${SLEEP_TIME}s..."
+              sleep $SLEEP_TIME
+            fi
+          done
+
+          echo "❌ Health check failed after $((MAX_ATTEMPTS * SLEEP_TIME)) seconds"
+          echo "Container logs:"
+          docker logs test_container
+          docker stop test_container
+          docker rm test_container
+          exit 1
+
+      - name: 📦 Build and push Docker images (slim)
+        id: build_slim
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.marimo_version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          target: slim
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            marimo_version=${{ inputs.marimo_version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 📦 Build and push Docker images (data)
+        id: build_data
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.marimo_version }}-data
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-data
+          target: data
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            marimo_version=${{ inputs.marimo_version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 📦 Build and push Docker images (sql)
+        id: build_sql
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.marimo_version }}-sql
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-sql
+          target: sql
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            marimo_version=${{ inputs.marimo_version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 🔍 Determine Docker publish status
+        if: always()
+        id: docker_publish_status
+        run: |
+          status="success"
+          if [ "${{ steps.build_slim.outcome }}" = "failure" ] || \
+             [ "${{ steps.build_data.outcome }}" = "failure" ] || \
+             [ "${{ steps.build_sql.outcome }}" = "failure" ]; then
+            status="failure"
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: 📢 Notify release result
+        if: always()
+        continue-on-error: true
+        uses: marimo-team/internal-gh-actions/release-notification@ba06d4db1f3c5c9b86983ce409e57196f8376777 # main
+        with:
+          status: ${{ steps.docker_publish_status.outputs.status }}
+          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_RELEASES }}
+          artifact-url: "https://ghcr.io/marimo-team/marimo"

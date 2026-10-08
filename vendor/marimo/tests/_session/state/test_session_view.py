@@ -1,0 +1,2430 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+from typing import Any, Literal
+from unittest.mock import patch
+
+import msgspec
+import pytest
+
+from marimo._ast.cell import RuntimeStateType
+from marimo._data.models import (
+    Database,
+    DataSourceConnection,
+    DataTable,
+    DataTableColumn,
+    Schema,
+)
+from marimo._messaging.cell_output import CellChannel, CellOutput
+from marimo._messaging.errors import UnknownError
+from marimo._messaging.msgspec_encoder import asdict as serialize
+from marimo._messaging.notification import (
+    CellNotification,
+    DatasetsNotification,
+    DataSourceConnectionsNotification,
+    EnvironmentAction,
+    EnvironmentOperation,
+    EnvironmentOperationNotification,
+    EnvironmentOperationStatus,
+    EnvironmentState,
+    EsmSpec,
+    ModelClose,
+    ModelCustom,
+    ModelLifecycleNotification,
+    ModelOpen,
+    ModelUpdate,
+    OperationFailed,
+    OperationRestartRequired,
+    OperationRunning,
+    OperationSucceeded,
+    PackageStatusType,
+    SQLDatabaseMetadata,
+    SQLMetadata,
+    SQLSchemaListPreviewNotification,
+    SQLTableListPreviewNotification,
+    SQLTablePreviewNotification,
+    StartupLogsNotification,
+    VariableDeclarationNotification,
+    VariablesNotification,
+    VariableValue,
+    VariableValuesNotification,
+)
+from marimo._messaging.serde import serialize_kernel_message
+from marimo._messaging.variables import create_variable_value
+from marimo._runtime.commands import (
+    CreateNotebookCommand,
+    ExecuteCellCommand,
+    ExecuteCellsCommand,
+    ModelCommand,
+    ModelCustomMessage,
+    ModelUpdateMessage,
+    UpdateUIElementCommand,
+)
+from marimo._runtime.layout.layout import LayoutConfig
+from marimo._session.state.session_view import ModelReplayState, SessionView
+from marimo._sql.engines.duckdb import INTERNAL_DUCKDB_ENGINE
+from marimo._types.ids import CellId_t, RequestId, VariableName, WidgetModelId
+from marimo._utils.parse_dataclass import parse_raw
+
+cell_id = CellId_t("cell_1")
+
+initial_output = CellOutput(
+    channel=CellChannel.OUTPUT,
+    data="Initial output",
+    mimetype="text/plain",
+)
+updated_output = CellOutput(
+    channel=CellChannel.OUTPUT,
+    data="Updated output",
+    mimetype="text/plain",
+)
+
+initial_status: RuntimeStateType = "running"
+updated_status: RuntimeStateType = "running"
+
+
+def test_session_view_cell_notification(session_view: SessionView) -> None:
+    # Create initial CellNotification
+    initial_cell_notification = CellNotification(
+        cell_id=cell_id, output=initial_output, status=initial_status
+    )
+    session_view.add_notification(initial_cell_notification)
+
+    # Add updated CellNotification to SessionView
+    updated_cell_notification = CellNotification(
+        cell_id=cell_id, output=updated_output, status=updated_status
+    )
+    session_view.add_notification(updated_cell_notification)
+
+    assert session_view.cell_notifications[cell_id].output == updated_output
+    assert session_view.cell_notifications[cell_id].status == updated_status
+
+
+def test_session_view_serialization_hint_survives_status_updates(
+    session_view: SessionView,
+) -> None:
+    # A top-level definition advertises its reusability hint.
+    session_view.add_notification(
+        CellNotification(cell_id=cell_id, serialization="Valid")
+    )
+    assert session_view.cell_notifications[cell_id].serialization == "Valid"
+
+    # Subsequent lifecycle updates omit serialization (UNSET) and must not
+    # wipe the hint — otherwise a reconnect snapshot loses the badge.
+    for status in ("queued", "running", "idle"):
+        status_update = CellNotification(cell_id=cell_id, status=status)
+        assert status_update.serialization is msgspec.UNSET
+        session_view.add_notification(status_update)
+        assert (
+            session_view.cell_notifications[cell_id].serialization == "Valid"
+        )
+
+
+def test_session_view_serialization_hint_explicit_clear(
+    session_view: SessionView,
+) -> None:
+    session_view.add_notification(
+        CellNotification(cell_id=cell_id, serialization="Valid")
+    )
+    # An explicit None clears the hint (cell is no longer a top-level def).
+    session_view.add_notification(
+        CellNotification(cell_id=cell_id, serialization=None)
+    )
+    assert session_view.cell_notifications[cell_id].serialization is None
+
+
+def test_cell_notification_serialization_wire_encoding() -> None:
+    # UNSET is omitted (unchanged), None is sent explicitly (clear), a string
+    # is sent verbatim (set).
+    assert "serialization" not in serialize(CellNotification(cell_id=cell_id))
+    assert (
+        serialize(CellNotification(cell_id=cell_id, serialization=None))[
+            "serialization"
+        ]
+        is None
+    )
+    assert (
+        serialize(CellNotification(cell_id=cell_id, serialization="Valid"))[
+            "serialization"
+        ]
+        == "Valid"
+    )
+
+
+# Test adding Variables to SessionView
+def test_session_view_variables(session_view: SessionView) -> None:
+    # Create Variables operation
+    variables_op = VariablesNotification(
+        variables=[
+            VariableDeclarationNotification(
+                name="var1", declared_by=[], used_by=[]
+            )
+        ]
+    )
+    session_view.add_notification(variables_op)
+
+    # Check if the Variables operation was added correctly
+    assert session_view.variable_notifications == variables_op
+
+
+# Test adding VariableValues to SessionView
+def test_session_view_variable_values(session_view: SessionView) -> None:
+    # Create Variables operation
+    variables_op = VariablesNotification(
+        variables=[
+            VariableDeclarationNotification(
+                name="var1", declared_by=[cell_id], used_by=[]
+            ),
+            VariableDeclarationNotification(
+                name="var2", declared_by=[cell_id], used_by=[]
+            ),
+        ]
+    )
+    session_view.add_notification(variables_op)
+
+    # Create VariableValues operation
+    variable_values_op = VariableValuesNotification(
+        variables=[
+            create_variable_value(name="var1", value=1),
+            create_variable_value(name="var2", value="hello"),
+        ]
+    )
+    session_view.add_notification(variable_values_op)
+
+    variables_names = session_view.variable_values.keys()
+    assert list(variables_names) == ["var1", "var2"]
+
+    # Add new Variable operation without the previous variables
+    variables_op = VariablesNotification(
+        variables=[
+            VariableDeclarationNotification(
+                name="var2", declared_by=[cell_id], used_by=[]
+            ),
+            VariableDeclarationNotification(
+                name="var3", declared_by=[cell_id], used_by=[]
+            ),
+        ]
+    )
+    session_view.add_notification(variables_op)
+
+    variables_names = session_view.variable_values.keys()
+    # var1 was removed, var2 was not changed, var3 has no value yet
+    assert list(variables_names) == ["var2"]
+
+
+def test_ui_values(session_view: SessionView) -> None:
+    session_view.add_control_request(
+        UpdateUIElementCommand.from_ids_and_values([("test_ui", 123)])
+    )
+    assert "test_ui" in session_view.ui_values
+    assert session_view.ui_values["test_ui"] == 123
+
+    # Can add multiple values
+    # and can overwrite values
+    session_view.add_control_request(
+        UpdateUIElementCommand.from_ids_and_values(
+            [("test_ui2", 456), ("test_ui", 789)]
+        )
+    )
+    assert "test_ui2" in session_view.ui_values
+    assert "test_ui" in session_view.ui_values
+    assert session_view.ui_values["test_ui2"] == 456
+    assert session_view.ui_values["test_ui"] == 789
+
+    # Can add from CreationRequest
+    session_view.add_control_request(
+        CreateNotebookCommand(
+            execution_requests=(),
+            cell_ids=(),
+            set_ui_element_value_request=UpdateUIElementCommand.from_ids_and_values(
+                [("test_ui3", 101112)]
+            ),
+            auto_run=True,
+        )
+    )
+    assert "test_ui3" in session_view.ui_values
+
+
+def test_model_open_stored(session_view: SessionView) -> None:
+    model_id = WidgetModelId("test_model")
+
+    session_view.add_notification(
+        ModelLifecycleNotification(
+            model_id=model_id,
+            message=ModelOpen(
+                state={"key": "value"},
+                buffer_paths=[],
+                buffers=[],
+            ),
+        )
+    )
+    assert model_id in session_view.model_states
+    assert session_view.model_states[model_id].state == {"key": "value"}
+
+
+def test_model_update_merges_into_open(session_view: SessionView) -> None:
+    model_id = WidgetModelId("test_model")
+
+    session_view.add_notification(
+        ModelLifecycleNotification(
+            model_id=model_id,
+            message=ModelOpen(
+                state={"a": 1, "b": 2},
+                buffer_paths=[],
+                buffers=[],
+            ),
+        )
+    )
+    session_view.add_notification(
+        ModelLifecycleNotification(
+            model_id=model_id,
+            message=ModelUpdate(
+                state={"b": 99, "c": 3},
+                buffer_paths=[],
+                buffers=[],
+            ),
+        )
+    )
+    assert session_view.model_states[model_id].state == {
+        "a": 1,
+        "b": 99,
+        "c": 3,
+    }
+
+
+def test_model_close_removes(session_view: SessionView) -> None:
+    model_id = WidgetModelId("test_model")
+
+    session_view.add_notification(
+        ModelLifecycleNotification(
+            model_id=model_id,
+            message=ModelOpen(
+                state={"key": "value"},
+                buffer_paths=[],
+                buffers=[],
+            ),
+        )
+    )
+    assert model_id in session_view.model_states
+
+    session_view.add_notification(
+        ModelLifecycleNotification(
+            model_id=model_id,
+            message=ModelClose(),
+        )
+    )
+    assert model_id not in session_view.model_states
+
+
+def test_model_custom_skipped(session_view: SessionView) -> None:
+    model_id = WidgetModelId("test_model")
+
+    session_view.add_notification(
+        ModelLifecycleNotification(
+            model_id=model_id,
+            message=ModelCustom(content={"foo": "bar"}, buffers=[]),
+        )
+    )
+    assert model_id not in session_view.model_states
+
+
+def test_model_update_without_open_ignored(
+    session_view: SessionView,
+) -> None:
+    model_id = WidgetModelId("test_model")
+
+    session_view.add_notification(
+        ModelLifecycleNotification(
+            model_id=model_id,
+            message=ModelUpdate(
+                state={"key": "value"},
+                buffer_paths=[],
+                buffers=[],
+            ),
+        )
+    )
+    assert model_id not in session_view.model_states
+
+
+def test_model_multiple_models(session_view: SessionView) -> None:
+    model_id1 = WidgetModelId("model1")
+    model_id2 = WidgetModelId("model2")
+
+    for mid, val in [(model_id1, "v1"), (model_id2, "v2")]:
+        session_view.add_notification(
+            ModelLifecycleNotification(
+                model_id=mid,
+                message=ModelOpen(
+                    state={"key": val},
+                    buffer_paths=[],
+                    buffers=[],
+                ),
+            )
+        )
+    assert session_view.model_states[model_id1].state == {"key": "v1"}
+    assert session_view.model_states[model_id2].state == {"key": "v2"}
+
+
+def _open_model(
+    session_view: SessionView,
+    model_id: WidgetModelId,
+    state: dict[str, Any],
+) -> None:
+    session_view.add_notification(
+        ModelLifecycleNotification(
+            model_id=model_id,
+            message=ModelOpen(state=state, buffer_paths=[], buffers=[]),
+        )
+    )
+
+
+def test_model_command_merges_into_replay(session_view: SessionView) -> None:
+    """A client's model write is recorded for reconnect replay."""
+    model_id = WidgetModelId("test_model")
+    _open_model(session_view, model_id, {"count": 0, "label": "hi"})
+
+    session_view.add_control_request(
+        ModelCommand(
+            model_id=model_id,
+            message=ModelUpdateMessage(state={"count": 5}, buffer_paths=[]),
+            buffers=[],
+        )
+    )
+    assert session_view.model_states[model_id].state == {
+        "count": 5,
+        "label": "hi",
+    }
+
+
+def test_model_command_merges_buffers(session_view: SessionView) -> None:
+    model_id = WidgetModelId("test_model")
+    _open_model(session_view, model_id, {"img": None})
+
+    session_view.add_control_request(
+        ModelCommand(
+            model_id=model_id,
+            message=ModelUpdateMessage(
+                state={"img": None}, buffer_paths=[["img"]]
+            ),
+            buffers=[b"\x89PNG"],
+        )
+    )
+    assert session_view.model_states[model_id].buffers == {
+        ("img",): b"\x89PNG"
+    }
+
+
+def test_model_command_strips_code_and_style(
+    session_view: SessionView,
+) -> None:
+    """Replayed state reaches future viewers, so a client must not
+    be able to persist `_esm` or `_css` into it."""
+    model_id = WidgetModelId("test_model")
+    _open_model(session_view, model_id, {"count": 0})
+
+    session_view.add_control_request(
+        ModelCommand(
+            model_id=model_id,
+            message=ModelUpdateMessage(
+                state={
+                    "_esm": "alert('pwned')",
+                    "_css": "body { display: none }",
+                    "count": 2,
+                },
+                buffer_paths=[],
+            ),
+            buffers=[],
+        )
+    )
+    assert session_view.model_states[model_id].state == {"count": 2}
+
+
+def test_model_command_without_open_ignored(
+    session_view: SessionView,
+) -> None:
+    model_id = WidgetModelId("never_opened")
+    session_view.add_control_request(
+        ModelCommand(
+            model_id=model_id,
+            message=ModelUpdateMessage(state={"count": 1}, buffer_paths=[]),
+            buffers=[],
+        )
+    )
+    assert model_id not in session_view.model_states
+
+
+def test_model_command_custom_message_ignored(
+    session_view: SessionView,
+) -> None:
+    """Custom messages are ephemeral — they never mutate replay state."""
+    model_id = WidgetModelId("test_model")
+    _open_model(session_view, model_id, {"count": 0})
+
+    session_view.add_control_request(
+        ModelCommand(
+            model_id=model_id,
+            message=ModelCustomMessage(content={"foo": "bar"}),
+            buffers=[],
+        )
+    )
+    assert session_view.model_states[model_id].state == {"count": 0}
+
+
+def test_get_model_notifications(session_view: SessionView) -> None:
+    # Empty initially
+    assert session_view.get_model_notifications() == []
+
+    # Add two models
+    m1 = WidgetModelId("m1")
+    m2 = WidgetModelId("m2")
+    session_view.add_notification(
+        ModelLifecycleNotification(
+            model_id=m1,
+            message=ModelOpen(
+                state={"count": 0},
+                buffer_paths=[],
+                buffers=[],
+            ),
+        )
+    )
+    session_view.add_notification(
+        ModelLifecycleNotification(
+            model_id=m2,
+            message=ModelOpen(
+                state={"img": None},
+                buffer_paths=[["img"]],
+                buffers=[b"\x89PNG"],
+            ),
+        )
+    )
+
+    result = session_view.get_model_notifications()
+    assert len(result) == 2
+    by_id = {n.model_id: n for n in result}
+
+    assert by_id[m1].message == ModelOpen(
+        state={"count": 0}, buffer_paths=[], buffers=[]
+    )
+    assert by_id[m2].message == ModelOpen(
+        state={"img": None},
+        buffer_paths=[["img"]],
+        buffers=[b"\x89PNG"],
+    )
+
+    # Close m1, only m2 remains
+    session_view.add_notification(
+        ModelLifecycleNotification(model_id=m1, message=ModelClose())
+    )
+    result = session_view.get_model_notifications()
+    assert len(result) == 1
+    assert result[0].model_id == m2
+
+
+class TestModelReplayState:
+    """Unit tests for ModelReplayState buffer merging."""
+
+    def test_from_open(self) -> None:
+        model_id = WidgetModelId("m")
+        view = ModelReplayState.from_open(
+            model_id,
+            ModelOpen(
+                state={"img": None, "label": "hi"},
+                buffer_paths=[["img"]],
+                buffers=[b"png"],
+            ),
+        )
+        assert view.state == {"img": None, "label": "hi"}
+        assert view.buffers == {("img",): b"png"}
+
+    def test_apply_update_merges_state(self) -> None:
+        view = ModelReplayState(
+            model_id=WidgetModelId("m"),
+            state={"a": 1, "b": 2},
+            buffers={},
+        )
+        view.apply_update(
+            ModelUpdate(state={"b": 99, "c": 3}, buffer_paths=[], buffers=[])
+        )
+        assert view.state == {"a": 1, "b": 99, "c": 3}
+
+    def test_esm_spec_round_trips(self) -> None:
+        """Late joiners must receive the spec from the original open."""
+        spec = EsmSpec(url="./@file/10-w.js", hash="abc123")
+        view = ModelReplayState.from_open(
+            WidgetModelId("m"),
+            ModelOpen(
+                state={"count": 1},
+                buffer_paths=[],
+                buffers=[],
+                esm_spec=spec,
+            ),
+        )
+        assert view.esm_spec == spec
+        assert view.to_notification().message.esm_spec == spec
+
+    def test_apply_update_preserves_spec_by_default(self) -> None:
+        """Ordinary state updates carry no spec and must not clear it."""
+        spec = EsmSpec(url="./@file/10-w.js", hash="abc123")
+        view = ModelReplayState(
+            model_id=WidgetModelId("m"),
+            state={"count": 1},
+            buffers={},
+            esm_spec=spec,
+        )
+        view.apply_update(
+            ModelUpdate(state={"count": 2}, buffer_paths=[], buffers=[])
+        )
+        assert view.esm_spec == spec
+
+    def test_apply_update_with_spec_replaces_it(self) -> None:
+        """A spec on an update is an edit-mode hot reload; late joiners
+        must replay the new code, not the original open's."""
+        view = ModelReplayState(
+            model_id=WidgetModelId("m"),
+            state={},
+            buffers={},
+            esm_spec=EsmSpec(url="./@file/10-old.js", hash="old"),
+        )
+        new_spec = EsmSpec(url="./@file/10-new.js", hash="new")
+        view.apply_update(
+            ModelUpdate(
+                state={},
+                buffer_paths=[],
+                buffers=[],
+                esm_spec=new_spec,
+            )
+        )
+        assert view.esm_spec == new_spec
+        assert view.to_notification().message.esm_spec == new_spec
+
+    def test_apply_update_replaces_buffer_for_updated_key(self) -> None:
+        view = ModelReplayState(
+            model_id=WidgetModelId("m"),
+            state={"img": None, "data": None},
+            buffers={("img",): b"png", ("data",): b"old_csv"},
+        )
+        view.apply_update(
+            ModelUpdate(
+                state={"data": None},
+                buffer_paths=[["data"]],
+                buffers=[b"new_csv"],
+            )
+        )
+        assert view.buffers == {("img",): b"png", ("data",): b"new_csv"}
+
+    def test_apply_update_removes_nested_buffer_paths(self) -> None:
+        """When a state key is updated, all buffers nested under it
+        should be dropped."""
+        view = ModelReplayState(
+            model_id=WidgetModelId("m"),
+            state={"widget": {"a": None, "b": None}},
+            buffers={
+                ("widget", "a"): b"buf_a",
+                ("widget", "b"): b"buf_b",
+                ("other",): b"keep",
+            },
+        )
+        view.apply_update(
+            ModelUpdate(
+                state={"widget": {"c": None}},
+                buffer_paths=[["widget", "c"]],
+                buffers=[b"buf_c"],
+            )
+        )
+        assert view.buffers == {
+            ("other",): b"keep",
+            ("widget", "c"): b"buf_c",
+        }
+
+    def test_apply_update_adds_new_buffer(self) -> None:
+        view = ModelReplayState(
+            model_id=WidgetModelId("m"),
+            state={"label": "hi"},
+            buffers={},
+        )
+        view.apply_update(
+            ModelUpdate(
+                state={"img": None},
+                buffer_paths=[["img"]],
+                buffers=[b"png"],
+            )
+        )
+        assert view.buffers == {("img",): b"png"}
+        assert view.state == {"label": "hi", "img": None}
+
+    def test_to_notification_no_buffers(self) -> None:
+        view = ModelReplayState(
+            model_id=WidgetModelId("m"),
+            state={"label": "hi", "count": 42},
+            buffers={},
+        )
+        result = view.to_notification()
+        assert result.model_id == WidgetModelId("m")
+        assert result.message == ModelOpen(
+            state={"label": "hi", "count": 42},
+            buffer_paths=[],
+            buffers=[],
+        )
+
+    def test_to_notification_with_buffers(self) -> None:
+        view = ModelReplayState(
+            model_id=WidgetModelId("m"),
+            state={"img": None, "data": None, "label": "hi"},
+            buffers={("img",): b"png", ("data",): b"csv"},
+        )
+        result = view.to_notification()
+        assert result.model_id == WidgetModelId("m")
+        msg = result.message
+        assert isinstance(msg, ModelOpen)
+        assert msg.state == {"img": None, "data": None, "label": "hi"}
+        # buffer_paths and buffers should be parallel and match
+        path_buf = dict(
+            zip(
+                [tuple(p) for p in msg.buffer_paths],
+                msg.buffers,
+                strict=False,
+            )
+        )
+        assert path_buf == {("img",): b"png", ("data",): b"csv"}
+
+
+def test_last_run_code(session_view: SessionView) -> None:
+    session_view.add_control_request(
+        ExecuteCellsCommand(
+            cell_ids=[cell_id],
+            codes=["print('hello')"],
+        )
+    )
+    assert session_view.last_executed_code[cell_id] == "print('hello')"
+
+    # Can overwrite values and add multiple
+    session_view.add_control_request(
+        ExecuteCellsCommand(
+            cell_ids=[cell_id, "cell_2"],
+            codes=["print('hello world')", "print('hello world')"],
+        )
+    )
+    assert session_view.last_executed_code[cell_id] == "print('hello world')"
+    assert session_view.last_executed_code["cell_2"] == "print('hello world')"
+
+    # Can add from CreationRequest
+    session_view.add_control_request(
+        CreateNotebookCommand(
+            execution_requests=(
+                ExecuteCellCommand(cell_id=cell_id, code="print('hello')"),
+            ),
+            cell_ids=(cell_id, "cell_2"),
+            set_ui_element_value_request=UpdateUIElementCommand.from_ids_and_values(
+                []
+            ),
+            auto_run=True,
+        )
+    )
+    assert session_view.last_executed_code[cell_id] == "print('hello')"
+
+
+def test_serialize_parse_variable_value() -> None:
+    original = create_variable_value(name="var1", value=1)
+    serialized = serialize(original)
+    assert serialized == {"datatype": "int", "name": "var1", "value": "1"}
+    parsed = parse_raw(serialized, VariableValue)
+    assert parsed == original
+
+
+def test_add_variables(session_view: SessionView) -> None:
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            VariablesNotification(
+                variables=[
+                    VariableDeclarationNotification(
+                        name="var1", declared_by=[cell_id], used_by=[]
+                    ),
+                    VariableDeclarationNotification(
+                        name="var2", declared_by=[cell_id], used_by=[]
+                    ),
+                ]
+            )
+        )
+    )
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            VariableValuesNotification(
+                variables=[
+                    create_variable_value(name="var1", value=1),
+                    create_variable_value(name="var2", value="hello"),
+                ]
+            )
+        )
+    )
+
+    assert session_view.variable_notifications.variables[0].name == "var1"
+    assert session_view.variable_notifications.variables[1].name == "var2"
+    assert session_view.variable_values["var1"].value == "1"
+    assert session_view.variable_values["var1"].datatype == "int"
+    assert session_view.variable_values["var2"].value == "hello"
+    assert session_view.variable_values["var2"].datatype == "str"
+
+
+def test_add_datasets(session_view: SessionView) -> None:
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            DatasetsNotification(
+                tables=[
+                    DataTable(
+                        source_type="local",
+                        source="df",
+                        name="table1",
+                        columns=[
+                            DataTableColumn(
+                                name="col1",
+                                type="boolean",
+                                external_type="BOOL",
+                                sample_values=["true", "false"],
+                            )
+                        ],
+                        num_rows=1,
+                        num_columns=1,
+                        variable_name="df1",
+                    ),
+                    DataTable(
+                        source_type="local",
+                        source="df",
+                        name="table2",
+                        columns=[
+                            DataTableColumn(
+                                name="col2",
+                                type="integer",
+                                external_type="INT",
+                                sample_values=["1", "2"],
+                            )
+                        ],
+                        num_rows=2,
+                        num_columns=2,
+                        variable_name="df2",
+                    ),
+                ]
+            )
+        )
+    )
+
+    assert session_view.datasets.tables[0].name == "table1"
+    assert session_view.datasets.tables[1].name == "table2"
+    assert session_view.datasets.tables[0].variable_name == "df1"
+    assert session_view.datasets.tables[1].variable_name == "df2"
+
+    # Can add a new table and overwrite an existing table
+
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            DatasetsNotification(
+                tables=[
+                    DataTable(
+                        source_type="local",
+                        source="df",
+                        name="table2",
+                        columns=[
+                            DataTableColumn(
+                                name="new_col",
+                                type="boolean",
+                                external_type="BOOL",
+                                sample_values=["true", "false"],
+                            )
+                        ],
+                        num_rows=20,
+                        num_columns=20,
+                        variable_name="df2",
+                    ),
+                    DataTable(
+                        source_type="local",
+                        source="df",
+                        name="table3",
+                        columns=[],
+                        num_rows=3,
+                        num_columns=3,
+                        variable_name="df3",
+                    ),
+                ]
+            )
+        )
+    )
+
+    assert session_view.datasets.tables[0].name == "table1"
+    # Updated
+    assert session_view.datasets.tables[1].name == "table2"
+    assert session_view.datasets.tables[1].columns[0].name == "new_col"
+    assert session_view.datasets.tables[1].num_rows == 20
+    # Added
+    assert session_view.datasets.tables[2].name == "table3"
+    assert session_view.datasets.tables[2].variable_name == "df3"
+
+    # Can filter out tables from new variables
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            VariablesNotification(
+                variables=[
+                    VariableDeclarationNotification(
+                        name="df2", declared_by=[cell_id], used_by=[]
+                    ),
+                ]
+            )
+        )
+    )
+
+    assert len(session_view.datasets.tables) == 1
+    assert session_view.datasets.tables[0].name == "table2"
+
+
+def test_add_datasets_clear_channel(session_view: SessionView) -> None:
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            DatasetsNotification(
+                tables=[
+                    DataTable(
+                        source_type="duckdb",
+                        source="db",
+                        name="db.table1",
+                        columns=[],
+                        num_rows=1,
+                        num_columns=1,
+                        variable_name=None,
+                    ),
+                    DataTable(
+                        source_type="local",
+                        source="memory",
+                        name="df1",
+                        columns=[],
+                        num_rows=1,
+                        num_columns=1,
+                        variable_name="df1",
+                    ),
+                ],
+                clear_channel="duckdb",
+            )
+        )
+    )
+
+    assert len(session_view.datasets.tables) == 2
+    names = [t.name for t in session_view.datasets.tables]
+    assert "db.table1" in names
+    assert "df1" in names
+
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            DatasetsNotification(
+                tables=[
+                    DataTable(
+                        source_type="local",
+                        source="db",
+                        name="db.table2",
+                        columns=[],
+                        num_rows=1,
+                        num_columns=1,
+                        variable_name=None,
+                    )
+                ],
+                clear_channel="duckdb",
+            )
+        )
+    )
+
+    assert len(session_view.datasets.tables) == 2
+    names = [t.name for t in session_view.datasets.tables]
+    assert "db.table1" not in names
+    assert "df1" in names
+    assert "db.table2" in names
+
+
+def test_add_data_source_connections(session_view: SessionView) -> None:
+    # Add initial connections
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            DataSourceConnectionsNotification(
+                connections=[
+                    DataSourceConnection(
+                        source="duckdb",
+                        dialect="duckdb",
+                        name="db1",
+                        display_name="duckdb (db1)",
+                        databases=[],
+                    ),
+                    DataSourceConnection(
+                        source="sqlalchemy",
+                        dialect="postgresql",
+                        name="pg1",
+                        display_name="postgresql (pg1)",
+                        databases=[],
+                    ),
+                    DataSourceConnection(
+                        source="duckdb",
+                        dialect="default",
+                        name=INTERNAL_DUCKDB_ENGINE,
+                        display_name="duckdb internal",
+                        databases=[],
+                    ),
+                ]
+            )
+        )
+    )
+
+    assert len(session_view.data_connectors.connections) == 3
+    names = [c.name for c in session_view.data_connectors.connections]
+    assert "db1" in names
+    assert "pg1" in names
+    assert INTERNAL_DUCKDB_ENGINE in names
+
+    # Add new connection and update existing
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            DataSourceConnectionsNotification(
+                connections=[
+                    DataSourceConnection(
+                        source="duckdb",
+                        dialect="duckdb",
+                        name="db1",
+                        display_name="duckdb (db1_updated)",
+                        databases=[],
+                    ),
+                    DataSourceConnection(
+                        source="sqlalchemy",
+                        dialect="mysql",
+                        name="mysql1",
+                        display_name="mysql (mysql1)",
+                        databases=[],
+                    ),
+                ]
+            )
+        )
+    )
+
+    assert len(session_view.data_connectors.connections) == 4
+    conns = {c.name: c for c in session_view.data_connectors.connections}
+
+    # Check updated connection
+    assert "db1" in conns
+    assert conns["db1"].display_name == "duckdb (db1_updated)"
+
+    # Check new connection replaced old one
+    assert "mysql1" in conns
+    assert conns["mysql1"].dialect == "mysql"
+    # Check existing connection
+    assert "pg1" in conns
+    assert INTERNAL_DUCKDB_ENGINE in names
+
+    # Check connectors in operations
+    assert session_view.data_connectors in session_view.notifications
+
+    # Filter out connections from variables
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            VariablesNotification(
+                variables=[
+                    VariableDeclarationNotification(
+                        name="mysql1", declared_by=[cell_id], used_by=[]
+                    ),
+                ]
+            )
+        )
+    )
+    assert len(session_view.data_connectors.connections) == 2
+    session_view_names = [
+        c.name for c in session_view.data_connectors.connections
+    ]
+    assert "mysql1" in session_view_names
+    assert INTERNAL_DUCKDB_ENGINE in session_view_names
+
+
+def test_add_sql_table_previews() -> None:
+    session_view = SessionView()
+
+    # Add initial connections
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            DataSourceConnectionsNotification(
+                connections=[
+                    DataSourceConnection(
+                        source="duckdb",
+                        name="connection1",
+                        dialect="duckdb",
+                        display_name="duckdb (connection1)",
+                        databases=[
+                            Database(
+                                name="db1",
+                                dialect="duckdb",
+                                schemas=[
+                                    Schema(
+                                        name="db1",
+                                        tables=[
+                                            DataTable(
+                                                name="table1",
+                                                source_type="connection",
+                                                source="db1",
+                                                columns=[],
+                                                num_rows=0,
+                                                num_columns=0,
+                                                variable_name=None,
+                                            )
+                                        ],
+                                    )
+                                ],
+                            )
+                        ],
+                    )
+                ],
+            )
+        )
+    )
+
+    session_view_connections = session_view.data_connectors.connections
+    assert session_view_connections[0].databases[0].schemas[0].tables == [
+        DataTable(
+            source_type="connection",
+            source="db1",
+            name="table1",
+            num_rows=0,
+            num_columns=0,
+            variable_name=None,
+            columns=[],
+        )
+    ]
+
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            SQLTablePreviewNotification(
+                metadata=SQLMetadata(
+                    connection="connection1", database="db1", schema="db1"
+                ),
+                request_id=RequestId("request_id"),
+                table=DataTable(
+                    name="table1",
+                    source_type="connection",
+                    source="db1",
+                    num_rows=10,  # Updated
+                    num_columns=0,
+                    variable_name=None,
+                    columns=[],
+                ),
+            )
+        )
+    )
+    session_view_connections = session_view.data_connectors.connections
+    assert (
+        session_view_connections[0].databases[0].schemas[0].tables[0].num_rows
+        == 10
+    )
+
+    # Add sql schema preview list
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            SQLSchemaListPreviewNotification(
+                metadata=SQLDatabaseMetadata(
+                    connection="connection1", database="db1"
+                ),
+                request_id=RequestId("request_id"),
+                schemas=[
+                    Schema(
+                        name="db1",
+                        tables=[
+                            DataTable(
+                                name="table2",
+                                source_type="connection",
+                                source="db1",
+                                num_rows=20,
+                                num_columns=10,
+                                variable_name=VariableName("var"),
+                                columns=[],
+                            )
+                        ],
+                    )
+                ],
+            )
+        )
+    )
+    assert session_view_connections[0].databases[0].schemas[0].tables == [
+        DataTable(
+            source_type="connection",
+            source="db1",
+            name="table2",
+            num_rows=20,
+            num_columns=10,
+            variable_name=VariableName("var"),
+            columns=[],
+            engine=None,
+            type="table",
+            primary_keys=None,
+            indexes=None,
+        )
+    ]
+
+    # Add sql table preview list
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            SQLTableListPreviewNotification(
+                metadata=SQLMetadata(
+                    connection="connection1", database="db1", schema="db1"
+                ),
+                request_id=RequestId("request_id"),
+                tables=[
+                    DataTable(
+                        name="table2",
+                        source_type="connection",
+                        source="db1",
+                        num_rows=20,
+                        num_columns=10,
+                        variable_name=VariableName("var"),
+                        columns=[],
+                    )
+                ],
+            )
+        )
+    )
+
+    assert session_view_connections[0].databases[0].schemas[0].tables == [
+        DataTable(
+            source_type="connection",
+            source="db1",
+            name="table2",
+            num_rows=20,
+            num_columns=10,
+            variable_name=VariableName("var"),
+            columns=[],
+            engine=None,
+            type="table",
+            primary_keys=None,
+            indexes=None,
+        )
+    ]
+
+
+def test_add_cell_notification(session_view: SessionView) -> None:
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            CellNotification(
+                cell_id=cell_id, output=initial_output, status=initial_status
+            )
+        )
+    )
+
+    assert session_view.cell_notifications[cell_id].output == initial_output
+    assert session_view.cell_notifications[cell_id].status == initial_status
+
+
+# patch time
+@patch("time.time", return_value=123)
+def test_combine_console_outputs(
+    time_mock: Any, session_view: SessionView
+) -> None:
+    del time_mock
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("one"),
+            status="running",
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("two"),
+            status="running",
+        )
+    )
+
+    # Consecutive text/plain stdout outputs are merged
+    assert session_view.cell_notifications[cell_id].console == [
+        CellOutput.stdout("onetwo"),
+    ]
+
+    # Moves to queued
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=None,
+            status="queued",
+        )
+    )
+
+    assert session_view.cell_notifications[cell_id].console == [
+        CellOutput.stdout("onetwo"),
+    ]
+
+    # Moves to running clears console
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=None,
+            status="running",
+        )
+    )
+    assert session_view.cell_notifications[cell_id].console == []
+
+    # Write again
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("three"),
+            status="running",
+        )
+    )
+    assert session_view.cell_notifications[cell_id].console == [
+        CellOutput.stdout("three")
+    ]
+
+
+@patch("time.time", return_value=123)
+def test_explicit_empty_console_clears_mid_run(
+    time_mock: Any, session_view: SessionView
+) -> None:
+    """An explicit `console=[]` clears the session view, even while running."""
+    del time_mock
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("secret"),
+            status="running",
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout(" code"),
+            status="running",
+        )
+    )
+    assert session_view.cell_notifications[cell_id].console == [
+        CellOutput.stdout("secret code"),
+    ]
+
+    # Explicit clear mid-run (status stays "running", no queued transition).
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=[],
+            status="running",
+        )
+    )
+    assert session_view.cell_notifications[cell_id].console == []
+
+    # A subsequent status-only update (console unchanged) keeps it cleared.
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=None,
+            status="running",
+        )
+    )
+    assert session_view.cell_notifications[cell_id].console == []
+
+
+@patch("time.time", return_value=123)
+def test_stdin(time_mock: Any, session_view: SessionView) -> None:
+    del time_mock
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("Hello"),
+            status="running",
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdin("What is your name?"),
+            status="running",
+        )
+    )
+
+    assert session_view.cell_notifications[cell_id].console == [
+        CellOutput.stdout("Hello"),
+        CellOutput.stdin("What is your name?"),
+    ]
+
+    session_view.add_stdin("marimo")
+
+    assert session_view.cell_notifications[cell_id].console == [
+        CellOutput.stdout("Hello"),
+        CellOutput.stdout("What is your name? marimo\n"),
+    ]
+
+
+@patch("time.time", return_value=123)
+def test_merge_consecutive_text_plain_outputs(
+    time_mock: Any, session_view: SessionView
+) -> None:
+    """Test that consecutive text/plain outputs with same channel are merged."""
+    del time_mock
+
+    # Add multiple consecutive stdout outputs
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("Hello "),
+            status="running",
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("World"),
+            status="running",
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("!"),
+            status="running",
+        )
+    )
+
+    # Should be merged into a single output
+    assert len(session_view.cell_notifications[cell_id].console) == 1
+    assert (
+        session_view.cell_notifications[cell_id].console[0].data
+        == "Hello World!"
+    )
+    assert (
+        session_view.cell_notifications[cell_id].console[0].channel
+        == CellChannel.STDOUT
+    )
+
+
+@patch("time.time", return_value=123)
+def test_merge_different_channels_not_merged(
+    time_mock: Any, session_view: SessionView
+) -> None:
+    """Test that outputs with different channels are not merged."""
+    del time_mock
+
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("stdout message"),
+            status="running",
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stderr("stderr message"),
+            status="running",
+        )
+    )
+
+    # Should remain separate
+    assert len(session_view.cell_notifications[cell_id].console) == 2
+    assert (
+        session_view.cell_notifications[cell_id].console[0].channel
+        == CellChannel.STDOUT
+    )
+    assert (
+        session_view.cell_notifications[cell_id].console[1].channel
+        == CellChannel.STDERR
+    )
+
+
+@patch("time.time", return_value=123)
+def test_merge_different_mimetypes_not_merged(
+    time_mock: Any, session_view: SessionView
+) -> None:
+    """Test that outputs with different mimetypes are not merged."""
+    del time_mock
+
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("plain text", mimetype="text/plain"),
+            status="running",
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("html content", mimetype="text/html"),
+            status="running",
+        )
+    )
+
+    # Should remain separate
+    assert len(session_view.cell_notifications[cell_id].console) == 2
+    assert (
+        session_view.cell_notifications[cell_id].console[0].mimetype
+        == "text/plain"
+    )
+    assert (
+        session_view.cell_notifications[cell_id].console[1].mimetype
+        == "text/html"
+    )
+
+
+@patch("time.time", return_value=123)
+def test_merge_with_non_string_data_not_merged(
+    time_mock: Any, session_view: SessionView
+) -> None:
+    """Test that outputs with non-string data are not merged."""
+    del time_mock
+
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput.stdout("text"),
+            status="running",
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=CellOutput(
+                channel=CellChannel.STDOUT,
+                mimetype="text/plain",
+                data={"key": "value"},  # dict, not string
+            ),
+            status="running",
+        )
+    )
+
+    # Should remain separate
+    assert len(session_view.cell_notifications[cell_id].console) == 2
+
+
+@patch("time.time", return_value=123)
+def test_get_cell_outputs(time_mock: Any, session_view: SessionView) -> None:
+    del time_mock
+    cell_2_id = "cell_2"
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            output=initial_output,
+            status=initial_status,
+        ),
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_2_id,
+            output=None,
+            status=updated_status,
+        ),
+    )
+
+    assert session_view.get_cell_outputs([cell_id]) == {
+        cell_id: initial_output
+    }
+    assert session_view.get_cell_outputs([cell_id, cell_2_id]) == {
+        cell_id: initial_output
+    }
+
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            output=updated_output,
+            status=updated_status,
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_2_id,
+            output=updated_output,
+            status=updated_status,
+        )
+    )
+
+    assert session_view.get_cell_outputs([cell_id, cell_2_id]) == {
+        cell_id: updated_output,
+        cell_2_id: updated_output,
+    }
+
+
+@patch("time.time", return_value=123)
+def test_get_cell_console_outputs(
+    time_mock: Any, session_view: SessionView
+) -> None:
+    del time_mock
+    cell_2_id = "cell_2"
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=[CellOutput.stdout("one")],
+            status=initial_status,
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_2_id,
+            console=None,
+            status=updated_status,
+        )
+    )
+
+    assert session_view.get_cell_console_outputs([cell_id]) == {
+        cell_id: [CellOutput.stdout("one")]
+    }
+    assert session_view.get_cell_console_outputs([cell_id, cell_2_id]) == {
+        cell_id: [CellOutput.stdout("one")],
+    }
+
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            console=[CellOutput.stdout("two")],
+            status=updated_status,
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_2_id,
+            console=[CellOutput.stdout("two")],
+            status=updated_status,
+        )
+    )
+
+    # Consecutive text/plain stdout outputs are merged
+    assert session_view.get_cell_console_outputs([cell_id, cell_2_id]) == {
+        cell_id: [CellOutput.stdout("onetwo")],
+        cell_2_id: [CellOutput.stdout("two")],
+    }
+
+
+def test_mark_auto_export(session_view: SessionView):
+    assert session_view.needs_export("html")
+    assert session_view.needs_export("md")
+
+    session_view.mark_auto_export_html()
+    assert not session_view.needs_export("html")
+
+    session_view.mark_auto_export_md()
+    assert not session_view.needs_export("md")
+
+    session_view._touch()
+    assert session_view.needs_export("html")
+    assert session_view.needs_export("md")
+
+    session_view.mark_auto_export_html()
+    session_view.mark_auto_export_md()
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            output=initial_output,
+            status=initial_status,
+        ),
+    )
+    assert session_view.needs_export("html")
+    assert session_view.needs_export("md")
+
+    session_view.mark_auto_export_session()
+    assert not session_view.needs_export("session")
+
+    session_view._touch()
+    assert session_view.needs_export("session")
+
+
+def test_auto_export_html_tracks_layout(session_view: SessionView):
+    slides = LayoutConfig(type="slides", data={"deck": {}})
+    changed_slides = LayoutConfig(
+        type="slides", data={"deck": {"transition": "fade"}}
+    )
+
+    assert session_view.needs_auto_export_html(slides)
+    session_view.mark_auto_export_html(slides)
+    assert not session_view.needs_auto_export_html(slides)
+    assert session_view.needs_auto_export_html(changed_slides)
+
+
+def test_auto_export_does_not_mark_an_older_generation_current(
+    session_view: SessionView,
+) -> None:
+    generation = session_view.auto_export_generation
+    session_view._touch()
+
+    assert not session_view.mark_auto_export_html(generation=generation)
+    assert not session_view.mark_auto_export_md(generation=generation)
+    assert not session_view.mark_auto_export_ipynb(generation=generation)
+    assert session_view.needs_export("html")
+    assert session_view.needs_export("md")
+    assert session_view.needs_export("ipynb")
+
+
+def test_notification_advances_auto_export_generation_once() -> None:
+    notification = CellNotification(
+        cell_id=cell_id,
+        output=initial_output,
+        status=initial_status,
+    )
+
+    direct = SessionView()
+    direct.add_notification(notification)
+    assert direct.auto_export_generation == 1
+
+    serialized = SessionView()
+    serialized.add_raw_notification(serialize_kernel_message(notification))
+    assert serialized.auto_export_generation == 1
+
+
+def test_dataset_filter_by_engine_and_variable(
+    session_view: SessionView,
+) -> None:
+    # Initially add three tables: one with an engine, one with a variable name, and one with neither
+    session_view.add_raw_notification(
+        serialize_kernel_message(
+            DatasetsNotification(
+                tables=[
+                    DataTable(
+                        source_type="connection",
+                        source="duckdb",
+                        name="table_with_engine",
+                        columns=[],
+                        num_rows=1,
+                        num_columns=1,
+                        engine="some_engine",
+                        variable_name=None,
+                    ),
+                    DataTable(
+                        source_type="local",
+                        source="df",
+                        name="table_with_var",
+                        columns=[],
+                        num_rows=1,
+                        num_columns=1,
+                        engine=None,
+                        variable_name="some_var",
+                    ),
+                    DataTable(
+                        source_type="local",
+                        source="df",
+                        name="table_none",
+                        columns=[],
+                        num_rows=1,
+                        num_columns=1,
+                        engine=None,
+                        variable_name=None,
+                    ),
+                ]
+            )
+        )
+    )
+    # Confirm all three are present before filtering
+    assert len(session_view.datasets.tables) == 3
+
+    # Step 1: Add operation of all variables
+    session_view.add_notification(
+        VariablesNotification(
+            variables=[
+                VariableDeclarationNotification(
+                    name="some_engine", declared_by=[], used_by=[]
+                ),
+                VariableDeclarationNotification(
+                    name="some_var", declared_by=[], used_by=[]
+                ),
+            ]
+        )
+    )
+    assert len(session_view.datasets.tables) == 3
+
+    # Step 2: Only "some_engine" is in scope => keep table_with_engine + table_none
+    session_view.add_notification(
+        VariablesNotification(
+            variables=[
+                VariableDeclarationNotification(
+                    name="some_engine", declared_by=[], used_by=[]
+                )
+            ]
+        )
+    )
+    table_names = [t.name for t in session_view.datasets.tables]
+    assert "table_with_engine" in table_names
+    assert "table_with_var" not in table_names
+    assert "table_none" in table_names
+
+    # Step 3: No variables => only table with neither engine nor variable_name is kept
+    session_view.add_notification(VariablesNotification(variables=[]))
+    table_names = [t.name for t in session_view.datasets.tables]
+    assert table_names == ["table_none"]
+
+
+def test_is_empty(session_view: SessionView) -> None:
+    """Test that SessionView.is_empty() correctly detects empty session views."""
+
+    # Initially empty
+    assert session_view.is_empty()
+
+    # Add a cell operation without output or console
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            status=initial_status,
+        )
+    )
+
+    # Add a cell operation
+    session_view.add_notification(
+        CellNotification(
+            cell_id=cell_id,
+            output=initial_output,
+            status=initial_status,
+        )
+    )
+
+    # No longer empty
+    assert not session_view.is_empty()
+
+
+def test_is_empty_multiple_operations(session_view: SessionView) -> None:
+    assert session_view.is_empty()
+
+    # Add multiple operations - should still not be empty
+    session_view.add_notification(
+        CellNotification(
+            cell_id="cell1",
+            output=initial_output,
+            status="idle",
+        )
+    )
+    session_view.add_notification(
+        CellNotification(
+            cell_id="cell2",
+            output=updated_output,
+            status="idle",
+        )
+    )
+    assert not session_view.is_empty()
+
+
+def test_session_view_startup_logs(session_view: SessionView) -> None:
+    # Test adding a startup log with "start" status
+    start_log = StartupLogsNotification(
+        content="Starting process...", status="start"
+    )
+    session_view.add_notification(start_log)
+
+    assert session_view.startup_logs is not None
+    assert session_view.startup_logs.content == "Starting process..."
+    assert session_view.startup_logs.status == "start"
+
+    # Test appending to startup log
+    append_log = StartupLogsNotification(
+        content=" more content", status="append"
+    )
+    session_view.add_notification(append_log)
+
+    assert session_view.startup_logs is not None
+    assert (
+        session_view.startup_logs.content == "Starting process... more content"
+    )
+    assert session_view.startup_logs.status == "append"
+
+    # Test marking startup log as done
+    done_log = StartupLogsNotification(content=" done!", status="done")
+    session_view.add_notification(done_log)
+
+    assert session_view.startup_logs is not None
+    assert (
+        session_view.startup_logs.content
+        == "Starting process... more content done!"
+    )
+    assert session_view.startup_logs.status == "done"
+
+
+def test_session_view_startup_logs_operations_exclude_done(
+    session_view: SessionView,
+) -> None:
+    # Add startup log in progress
+    start_log = StartupLogsNotification(content="Starting...", status="start")
+    session_view.add_notification(start_log)
+
+    # Should include in operations while in progress
+    operations = session_view.notifications
+    startup_ops = [
+        op for op in operations if isinstance(op, StartupLogsNotification)
+    ]
+    assert len(startup_ops) == 1
+    assert startup_ops[0].status == "start"
+
+    # Mark as done
+    done_log = StartupLogsNotification(content=" complete", status="done")
+    session_view.add_notification(done_log)
+
+    # Should not include done startup logs in operations
+    operations = session_view.notifications
+    startup_ops = [
+        op for op in operations if isinstance(op, StartupLogsNotification)
+    ]
+    assert len(startup_ops) == 0
+
+
+def test_session_view_startup_logs_standalone_done(
+    session_view: SessionView,
+) -> None:
+    # Add a standalone "done" log without prior start/append
+    done_log = StartupLogsNotification(
+        content="Process complete", status="done"
+    )
+    session_view.add_notification(done_log)
+
+    assert session_view.startup_logs is not None
+    assert session_view.startup_logs.content == "Process complete"
+    assert session_view.startup_logs.status == "done"
+
+
+def test_package_operations_separate_environments(
+    session_view: SessionView,
+) -> None:
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            operation_id="install",
+            status=OperationRunning(),
+            packages={"ruff": "running"},
+            logs={"ruff": "Kernel install\n"},
+            log_mode="replace",
+            source="kernel",
+        )
+    )
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            operation_id="install",
+            status=OperationRunning(),
+            packages={"ruff": "running"},
+            logs={"ruff": "Server install\n"},
+            log_mode="replace",
+            source="server",
+        )
+    )
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            operation_id="install",
+            status=OperationRunning(),
+            packages={"ruff": "failed"},
+            logs={"ruff": "Server failure\n"},
+            log_mode="append",
+            source="server",
+        )
+    )
+
+    assert (
+        session_view.get_environment_state("kernel").operations
+        + session_view.get_environment_state("server").operations
+    ) == [
+        EnvironmentOperation(
+            action="install",
+            operation_id="install",
+            status=OperationRunning(),
+            source="kernel",
+            packages={"ruff": "running"},
+            logs={"ruff": "Kernel install\n"},
+        ),
+        EnvironmentOperation(
+            action="install",
+            operation_id="install",
+            status=OperationRunning(),
+            packages={"ruff": "failed"},
+            logs={"ruff": "Server install\nServer failure\n"},
+            source="server",
+        ),
+    ]
+
+
+def test_package_log_start_resets_only_that_package(
+    session_view: SessionView,
+) -> None:
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            source="kernel",
+            operation_id="install",
+            status=OperationRunning(),
+            packages={"numpy": "succeeded", "pandas": "failed"},
+            logs={"numpy": "Installed\n", "pandas": "Failed\n"},
+            log_mode="append",
+        )
+    )
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            source="kernel",
+            operation_id="install",
+            status=OperationRunning(),
+            packages={"numpy": "succeeded", "pandas": "running"},
+            logs={"pandas": ""},
+            log_mode="replace",
+        )
+    )
+    assert session_view.get_environment_state("kernel").operations == [
+        EnvironmentOperation(
+            action="install",
+            operation_id="install",
+            status=OperationRunning(),
+            source="kernel",
+            packages={"numpy": "succeeded", "pandas": "running"},
+            logs={"numpy": "Installed\n", "pandas": ""},
+        )
+    ]
+
+
+@pytest.mark.parametrize("packages", [{"pandas": "queued"}, {}])
+def test_package_operations_replace_statuses_and_keep_named_logs(
+    session_view: SessionView, packages: PackageStatusType
+) -> None:
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            source="kernel",
+            operation_id="install",
+            status=OperationRunning(),
+            packages={"numpy": "failed"},
+            logs={"numpy": "Failed\n"},
+            log_mode="append",
+        )
+    )
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            source="kernel",
+            logs={},
+            log_mode="append",
+            operation_id="install",
+            status=OperationRunning(),
+            packages=packages,
+        )
+    )
+    assert session_view.get_environment_state("kernel").operations == [
+        EnvironmentOperation(
+            action="install",
+            operation_id="install",
+            status=OperationRunning(),
+            logs={"numpy": "Failed\n"},
+            source="kernel",
+            packages=packages,
+        )
+    ]
+
+
+def test_package_installation_snapshot_does_not_share_mutable_state(
+    session_view: SessionView,
+) -> None:
+    notification = EnvironmentOperationNotification(
+        action="install",
+        source="kernel",
+        operation_id="install",
+        status=OperationRunning(),
+        packages={"numpy": "running"},
+        logs={"numpy": "Installing\n"},
+        log_mode="replace",
+    )
+    session_view.add_notification(notification)
+    state = session_view.get_environment_state("kernel").operations
+
+    notification.packages["numpy"] = "failed"
+    state[0].packages.clear()
+    state[0].logs.clear()
+    state.clear()
+
+    assert session_view.get_environment_state("kernel").operations == [
+        EnvironmentOperation(
+            action="install",
+            operation_id="install",
+            status=OperationRunning(),
+            source="kernel",
+            packages={"numpy": "running"},
+            logs={"numpy": "Installing\n"},
+        )
+    ]
+
+
+def test_package_operations_retain_active_and_latest_completed_attempts(
+    session_view: SessionView,
+) -> None:
+    for operation_id in ("first", "second", "active"):
+        session_view.add_notification(
+            EnvironmentOperationNotification(
+                action="install",
+                source="kernel",
+                logs={"numpy": operation_id},
+                log_mode="append",
+                packages={"numpy": "running"},
+                operation_id=operation_id,
+                status=OperationRunning(),
+            )
+        )
+    for operation_id in ("first", "second"):
+        session_view.add_notification(
+            EnvironmentOperationNotification(
+                action="install",
+                source="kernel",
+                logs={"numpy": " failed"},
+                log_mode="append",
+                packages={"numpy": "failed"},
+                operation_id=operation_id,
+                status=OperationFailed(error=operation_id),
+            )
+        )
+
+    assert session_view.get_environment_state("kernel").operations == [
+        EnvironmentOperation(
+            action="install",
+            logs={"numpy": "second failed"},
+            source="kernel",
+            packages={"numpy": "failed"},
+            operation_id="second",
+            status=OperationFailed(error="second"),
+        ),
+        EnvironmentOperation(
+            action="install",
+            logs={"numpy": "active"},
+            source="kernel",
+            packages={"numpy": "running"},
+            operation_id="active",
+            status=OperationRunning(),
+        ),
+    ]
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            source="kernel",
+            operation_id="retry",
+            status=OperationRunning(),
+            packages={"numpy": "queued"},
+            logs={},
+            log_mode="append",
+        )
+    )
+    assert [
+        (op.operation_id, op.logs)
+        for op in session_view.get_environment_state("kernel").operations
+    ] == [
+        ("active", {"numpy": "active"}),
+        ("retry", {}),
+    ]
+
+
+@pytest.mark.parametrize(
+    "result",
+    [OperationSucceeded(), OperationFailed(error="A later operation failed")],
+)
+def test_restart_requirement_survives_replacing_operation_results(
+    session_view: SessionView,
+    result: EnvironmentOperationStatus,
+) -> None:
+    source: Literal["kernel", "server"] = "kernel"
+    initial = session_view.get_environment_state(source)
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            logs={},
+            log_mode="append",
+            operation_id="first",
+            source=source,
+            status=OperationRunning(),
+            packages={"numpy": "restart-required", "pandas": "running"},
+        )
+    )
+    assert session_view.get_environment_state(source).restart_required
+
+    # A batch can fail after an earlier package saved changes needing restart.
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            logs={},
+            log_mode="append",
+            operation_id="first",
+            source=source,
+            status=OperationFailed(error="Could not install pandas"),
+            packages={"numpy": "restart-required", "pandas": "failed"},
+        )
+    )
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            logs={},
+            log_mode="append",
+            operation_id="second",
+            source=source,
+            status=OperationRunning(),
+            packages={"polars": "running"},
+        )
+    )
+    packages: PackageStatusType = {
+        "polars": "succeeded"
+        if isinstance(result, OperationSucceeded)
+        else "failed"
+    }
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="install",
+            logs={},
+            log_mode="append",
+            operation_id="second",
+            source=source,
+            status=result,
+            packages=packages,
+        )
+    )
+
+    assert session_view.get_environment_state(source) == EnvironmentState(
+        restart_required=True,
+        operations=[
+            EnvironmentOperation(
+                action="install",
+                operation_id="second",
+                source=source,
+                status=result,
+                packages=packages,
+                logs={},
+            )
+        ],
+    )
+    other = "server" if source == "kernel" else "kernel"
+    assert (
+        initial,
+        session_view.get_environment_state(other),
+        SessionView().get_environment_state(source),
+    ) == (EnvironmentState(restart_required=False, operations=[]),) * 3
+
+
+def test_restart_outcome_retains_requirement_without_package_progress(
+    session_view: SessionView,
+) -> None:
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            action="sync",
+            source="kernel",
+            logs={},
+            log_mode="append",
+            operation_id="first",
+            status=OperationRestartRequired(reason="Python version changed"),
+            packages={},
+        )
+    )
+    assert session_view.get_environment_state("kernel").restart_required
+
+
+class TestUpdateCellOutputs:
+    """Tests for SessionView.update_cell_outputs method."""
+
+    def test_creates_new_output_when_none(self) -> None:
+        """When existing output is None, creates a new CellOutput."""
+        session_view = SessionView()
+        cell_id = CellId_t("cell1")
+        session_view.cell_notifications[cell_id] = CellNotification(
+            cell_id=cell_id, output=None, status="idle"
+        )
+
+        session_view.update_cell_outputs(
+            {cell_id: ("image/png", "base64_data")}
+        )
+
+        output = session_view.cell_notifications[cell_id].output
+        assert output is not None
+        assert output.channel == CellChannel.OUTPUT
+        assert output.mimetype == "image/png"
+        assert output.data == "base64_data"
+
+    def test_skips_error_output(self) -> None:
+        """When existing output data is a list (errors), skips update."""
+        session_view = SessionView()
+        cell_id = CellId_t("cell1")
+        error = UnknownError(msg="Something went wrong")
+        error_output = CellOutput(
+            channel=CellChannel.OUTPUT,
+            mimetype="application/vnd.marimo+error",
+            data=[error],
+        )
+        session_view.cell_notifications[cell_id] = CellNotification(
+            cell_id=cell_id, output=error_output, status="idle"
+        )
+
+        session_view.update_cell_outputs(
+            {cell_id: ("image/png", "base64_data")}
+        )
+
+        # Output should be unchanged
+        assert session_view.cell_notifications[cell_id].output == error_output
+
+    def test_merges_into_existing_mimebundle(self) -> None:
+        """When existing output is a mimebundle, merges new data into it."""
+        session_view = SessionView()
+        cell_id = CellId_t("cell1")
+        session_view.cell_notifications[cell_id] = CellNotification(
+            cell_id=cell_id,
+            output=CellOutput(
+                channel=CellChannel.OUTPUT,
+                mimetype="application/vnd.marimo+mimebundle",
+                data={"text/html": "<div>Chart</div>"},
+            ),
+            status="idle",
+        )
+
+        session_view.update_cell_outputs(
+            {cell_id: ("image/png", "base64_data")}
+        )
+
+        output = session_view.cell_notifications[cell_id].output
+        assert output is not None
+        assert output.channel == CellChannel.OUTPUT
+        assert output.mimetype == "application/vnd.marimo+mimebundle"
+        assert output.data == {
+            "text/html": "<div>Chart</div>",
+            "image/png": "base64_data",
+        }
+
+    def test_converts_string_output_to_mimebundle(self) -> None:
+        """When existing output is a string, converts to mimebundle."""
+        session_view = SessionView()
+        cell_id = CellId_t("cell1")
+        session_view.cell_notifications[cell_id] = CellNotification(
+            cell_id=cell_id,
+            output=CellOutput(
+                channel=CellChannel.OUTPUT,
+                mimetype="text/html",
+                data="<div>Original</div>",
+            ),
+            status="idle",
+        )
+
+        session_view.update_cell_outputs(
+            {cell_id: ("image/png", "base64_data")}
+        )
+
+        output = session_view.cell_notifications[cell_id].output
+        assert output is not None
+        assert output.mimetype == "application/vnd.marimo+mimebundle"
+        assert output.data == {
+            "text/html": "<div>Original</div>",
+            "image/png": "base64_data",
+        }
+
+    def test_overwrites_same_mimetype(self) -> None:
+        """When merging same mimetype, new data overwrites old."""
+        session_view = SessionView()
+        cell_id = CellId_t("cell1")
+        session_view.cell_notifications[cell_id] = CellNotification(
+            cell_id=cell_id,
+            output=CellOutput(
+                channel=CellChannel.OUTPUT,
+                mimetype="application/vnd.marimo+mimebundle",
+                data={"text/html": "<div>HTML</div>", "image/png": "old_data"},
+            ),
+            status="idle",
+        )
+
+        session_view.update_cell_outputs({cell_id: ("image/png", "new_data")})
+
+        output = session_view.cell_notifications[cell_id].output
+        assert output is not None
+        assert output.data == {
+            "text/html": "<div>HTML</div>",
+            "image/png": "new_data",
+        }
+
+    def test_skips_missing_cell(self) -> None:
+        """When cell doesn't exist, logs warning and continues."""
+        session_view = SessionView()
+
+        # Should not raise
+        session_view.update_cell_outputs(
+            {CellId_t("missing"): ("image/png", "data")}
+        )
+
+    def test_marks_exports_stale(self) -> None:
+        """Calling update_cell_outputs marks all exports as stale."""
+        session_view = SessionView()
+        cell_id = CellId_t("cell1")
+        session_view.cell_notifications[cell_id] = CellNotification(
+            cell_id=cell_id, output=None, status="idle"
+        )
+
+        # Mark exports as done
+        session_view.mark_auto_export_html()
+        session_view.mark_auto_export_ipynb()
+        assert not session_view.needs_export("html")
+        assert not session_view.needs_export("ipynb")
+
+        session_view.update_cell_outputs({cell_id: ("image/png", "data")})
+
+        # Should be stale now
+        assert session_view.needs_export("html")
+        assert session_view.needs_export("ipynb")
+
+    def test_skips_malformed_mimebundle(self) -> None:
+        """When mimetype is mimebundle but data is not a dict, skips."""
+        session_view = SessionView()
+        cell_id = CellId_t("cell1")
+        malformed_output = CellOutput(
+            channel=CellChannel.OUTPUT,
+            mimetype="application/vnd.marimo+mimebundle",
+            data="not a dict",
+        )
+        session_view.cell_notifications[cell_id] = CellNotification(
+            cell_id=cell_id, output=malformed_output, status="idle"
+        )
+
+        session_view.update_cell_outputs(
+            {cell_id: ("image/png", "base64_data")}
+        )
+
+        # Output should be unchanged
+        assert (
+            session_view.cell_notifications[cell_id].output == malformed_output
+        )
+
+
+def test_preparation_remains_available_after_package_changes(
+    session_view: SessionView,
+) -> None:
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            operation_id="prepare",
+            action="prepare",
+            source="kernel",
+            status=OperationSucceeded(),
+            packages={},
+            logs={"environment": "Prepared environment\n"},
+            log_mode="replace",
+        )
+    )
+    preparation = session_view.get_environment_state("kernel").operations[0]
+    actions: tuple[EnvironmentAction, ...] = ("install", "sync", "remove")
+    for action in actions:
+        for status in (OperationRunning(), OperationSucceeded()):
+            session_view.add_notification(
+                EnvironmentOperationNotification(
+                    operation_id=action,
+                    action=action,
+                    source="kernel",
+                    status=status,
+                    packages={},
+                    logs={"environment": action},
+                    log_mode="replace",
+                )
+            )
+        assert session_view.get_environment_state("kernel").operations == [
+            preparation,
+            EnvironmentOperation(
+                operation_id=action,
+                action=action,
+                source="kernel",
+                status=OperationSucceeded(),
+                packages={},
+                logs={"environment": action},
+            ),
+        ]
+    session_view.add_notification(
+        EnvironmentOperationNotification(
+            operation_id="new-preparation",
+            action="prepare",
+            source="kernel",
+            status=OperationRunning(),
+            packages={},
+            logs={},
+            log_mode="replace",
+        )
+    )
+    assert session_view.get_environment_state("kernel").operations == [
+        EnvironmentOperation(
+            operation_id="new-preparation",
+            action="prepare",
+            source="kernel",
+            status=OperationRunning(),
+            packages={},
+            logs={},
+        ),
+    ]

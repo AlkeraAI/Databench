@@ -1,0 +1,47 @@
+/* The framed output: a borderless frame that takes the height its content
+   reports, and the notices shown instead of it. */
+.nb-frame {
+  display: block;
+  width: 100%;
+}
+
+.nb-frame__frame {
+  display: block;
+  width: 100%;
+  min-height: 24px;
+  border: 0;
+  background: transparent;
+}
+
+.nb-frame__notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: var(--nb-text-muted, #6b6a66);
+  font: 13px/1.45 var(--nb-font-ui, system-ui, sans-serif);
+}
+
+.nb-frame__button {
+  padding: 2px 10px;
+  border: 1px solid var(--nb-border-strong, #c9c7c1);
+  border-radius: var(--nb-radius, 6px);
+  background: var(--nb-surface, #fafaf9);
+  color: var(--nb-text, #1c1b19);
+  font: inherit;
+  cursor: pointer;
+}
+
+.nb-frame__button:focus-visible {
+  outline: 2px solid var(--nb-focus, #2f5bd3);
+  outline-offset: 2px;
+}
+
+.nb-frame__error {
+  margin: 4px 0 0;
+  color: var(--nb-danger, #c0392b);
+  font: 12px/1.45 var(--nb-font-mono, ui-monospace, monospace);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

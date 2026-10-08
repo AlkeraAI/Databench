@@ -1,0 +1,21 @@
+/* Collapse — the animated disclosure region. grid-template-rows 0fr↔1fr is the one technique that
+   animates a panel to its INTRINSIC height (no max-height guess to clip tall content); the inner clips
+   the overflow while the row track is mid-transition. This grid is an ANIMATION mechanism, not a content
+   layout — the flex-over-grid rule governs layout and doesn't apply here. */
+.alk-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 240ms var(--alkEaseStandard);
+}
+.alk-collapse[data-state="open"] {
+  grid-template-rows: 1fr;
+}
+.alk-collapse__inner {
+  overflow: hidden;
+  min-height: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .alk-collapse {
+    transition: none;
+  }
+}

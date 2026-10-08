@@ -1,0 +1,94 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "0000000001": {
+        "defs": [
+          "alkera",
+          "pl"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000061": {
+        "defs": [],
+        "errors": [
+          {
+            "code": "syntax_error"
+          }
+        ],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000062": {
+        "defs": [],
+        "errors": [
+          {
+            "code": "syntax_error"
+          }
+        ],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "import alkera\nimport polars as pl",
+        "config": {},
+        "extra": {},
+        "id": "0000000001",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "keyword",
+        "source": "import alkera\nimport polars as pl"
+      },
+      {
+        "code": "def f(:\n    pass",
+        "config": {},
+        "extra": {},
+        "id": "0000000061",
+        "kind": "unparsable",
+        "meta": {
+          "verbatim": "app._unparsable_cell(\n    r\"\"\"\n    def f(:\n        pass\n    \"\"\",\n    name=\"half_written\", alkera_id=\"0000000061\"\n)"
+        },
+        "name": "half_written",
+        "resolution": "keyword",
+        "source": "def f(:\n    pass"
+      },
+      {
+        "code": "x = [1, 2",
+        "config": {
+          "column": 1
+        },
+        "extra": {},
+        "id": "0000000062",
+        "kind": "unparsable",
+        "meta": {
+          "verbatim": "app._unparsable_cell(\n    r\"\"\"\n    x = [1, 2\n    \"\"\",\n    column=1, disabled=False, hide_code=False, expand_output=False, name=\"_\", alkera_id=\"0000000062\"\n)"
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "x = [1, 2"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

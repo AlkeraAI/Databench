@@ -1,0 +1,12 @@
+{
+  "agent": null,
+  "event_id": "01H_session_updated",
+  "event_type": "session.updated",
+  "metadata": {},
+  "model": null,
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z",
+  "title": "Renamed"
+}

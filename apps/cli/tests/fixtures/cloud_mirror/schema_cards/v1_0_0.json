@@ -1,0 +1,21 @@
+{
+  "connections": {
+    "fixture-row": {
+      "cards": 2,
+      "credential_version": 1,
+      "detail": "",
+      "handle": "wh",
+      "last_attempt_at": 1757200000.0,
+      "last_refresh_at": 1757200000.0,
+      "metadata": {},
+      "plugin": "postgres",
+      "record_id": "fixture-row",
+      "schema_version": "1.0.0",
+      "state": "ready",
+      "team_name": "Data Platform"
+    }
+  },
+  "metadata": {},
+  "schema_version": "1.0.0",
+  "updated_at": 1757200000.0
+}

@@ -1,0 +1,61 @@
+{
+  "metadata": {},
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "tasks": [
+    {
+      "created_at": "2026-05-26T00:00:00Z",
+      "depends_on": [],
+      "description": "Find the seams the change touches.",
+      "id": "explore",
+      "metadata": {},
+      "provider_metadata": {},
+      "schema_version": "1.0.0",
+      "status": "completed",
+      "title": "Survey the repo",
+      "updated_at": "2026-05-26T00:00:00Z"
+    },
+    {
+      "created_at": "2026-05-26T00:00:00Z",
+      "depends_on": [
+        "explore"
+      ],
+      "description": "",
+      "id": "create-schema",
+      "metadata": {},
+      "provider_metadata": {},
+      "schema_version": "1.0.0",
+      "status": "in_progress",
+      "title": "Create staging schema",
+      "updated_at": "2026-05-26T00:00:00Z"
+    },
+    {
+      "created_at": "2026-05-26T00:00:00Z",
+      "depends_on": [
+        "create-schema"
+      ],
+      "description": "",
+      "id": "load-data",
+      "metadata": {},
+      "provider_metadata": {},
+      "schema_version": "1.0.0",
+      "status": "pending",
+      "title": "Load raw data",
+      "updated_at": "2026-05-26T00:00:00Z"
+    },
+    {
+      "created_at": "2026-05-26T00:00:00Z",
+      "depends_on": [
+        "load-data"
+      ],
+      "description": "Spawn the Review agent before delivering.",
+      "id": "review",
+      "metadata": {},
+      "provider_metadata": {},
+      "schema_version": "1.0.0",
+      "status": "pending",
+      "title": "Review the change",
+      "updated_at": "2026-05-26T00:00:00Z"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+/* Both token families: `r-tok--*` (the closed code kinds the leaves module
+   emits) and `r-btok--*` (the bash highlighter's kinds). The sheet and the kind
+   maps are a closed pair: no class lands in the DOM that a rule here does not
+   color. Every color routes through the theme seam; Prism's own theme CSS never
+   loads (it is global and would leak past `.chat-root`). */
+
+.chat-root .chat-tok--keyword {
+  color: var(--chat-sql-keyword);
+  font-weight: var(--chat-w-medium);
+}
+
+.chat-root .chat-tok--function {
+  color: var(--chat-sql-function);
+}
+
+.chat-root .chat-tok--string {
+  color: var(--chat-sql-string);
+}
+
+.chat-root .chat-tok--number {
+  color: var(--chat-sql-number);
+}
+
+.chat-root .chat-tok--comment {
+  color: var(--chat-sql-comment);
+}
+
+/* An operator is code the reader parses, not an aside: it holds the
+   informational floor while the comment stays an aside. */
+.chat-root .chat-tok--operator {
+  color: var(--chat-ink-3);
+}
+
+/* Bash kinds. A surface with its own measured command palette overrides the
+   `--chat-bash-*` vars in its scope; the rules themselves live only here. */
+.chat-root .chat-btok--command {
+  color: var(--chat-bash-cmd);
+  font-weight: var(--chat-bash-cmd-weight);
+}
+
+.chat-root .chat-btok--flag {
+  color: var(--chat-bash-flag);
+}
+
+.chat-root .chat-btok--string {
+  color: var(--chat-bash-string);
+}
+
+.chat-root :is(.chat-btok--path, .chat-btok--comment, .chat-btok--operator) {
+  color: var(--chat-bash-muted);
+}

@@ -1,0 +1,12 @@
+{
+  "child_session_id": "child_s2",
+  "error": null,
+  "event_id": "01H_subagent_completed",
+  "event_type": "subagent.completed",
+  "metadata": {},
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "summary": "Found 3 references to FooBar",
+  "time": "2026-05-26T00:00:00Z"
+}

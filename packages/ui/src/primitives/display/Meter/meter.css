@@ -1,0 +1,63 @@
+/* Meter — a horizontal proportion gauge: a rounded track holding a toned fill scaled to `value` (0..1).
+   The fill scales on the X axis (transform, never width) so it animates on the compositor and honours
+   the motion floor; the track's `overflow: clip` + full radius clip the fill to rounded ends.
+   The track is a tint of the ink over whatever it sits on, never a surface token: a surface token
+   matches the card in one scheme or the other (the control ground is the card's white in light), and
+   an empty gauge painted in the card's own colour is no gauge at all. */
+.alk-meter {
+  position: relative;
+  height: 4px;
+  border-radius: var(--alkRadiusFull);
+  background: color-mix(in srgb, var(--alkPrimaryText) 12%, transparent);
+  overflow: clip;
+}
+.alk-meter:where([data-size="md"]) {
+  height: 6px;
+}
+.alk-meter:where([data-size="lg"]) {
+  height: 8px;
+}
+.alk-meter__fill {
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--alk-meter-v, 0));
+  transition: transform 240ms var(--alkEaseStandard);
+  border-radius: inherit;
+}
+.alk-meter__fill--brand {
+  background: var(--alkBrandText);
+}
+.alk-meter__fill--neutral {
+  background: var(--alkCatNeutralSolid);
+}
+.alk-meter__fill--info {
+  background: var(--alkInfo);
+}
+.alk-meter__fill--warning {
+  background: var(--alkWarning);
+}
+.alk-meter__fill--danger {
+  background: var(--alkDanger);
+}
+.alk-meter__fill--success {
+  background: var(--alkSuccess);
+}
+/* Engraved graduation ticks — the cylinder's scale, drawn over fill and track alike so the
+   reading is measured off marks, not color. `--alk-meter-segs` = ticks + 1 equal segments. */
+.alk-meter__ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(var(--alk-meter-seg, 25%) - 1px),
+    color-mix(in srgb, var(--alkPrimaryText, #808080) 22%, transparent) calc(var(--alk-meter-seg, 25%) - 1px)
+      var(--alk-meter-seg, 25%)
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-meter__fill {
+    transition: none;
+  }
+}

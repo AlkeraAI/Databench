@@ -1,0 +1,29 @@
+/* Sparkline — a compact trend line with a soft area fill. Paint only; the series colour is the
+ * shared --alk-viz-color token (see ../viz.css), brand when unset. */
+.alk-spark {
+  /* Paint opacities as component-local vars: the area gradient fades from a soft top wash to clear,
+     and the no-data baseline is a faint muted dash. */
+  --alk-spark-fill-opacity: 0.22;
+  --alk-spark-empty-opacity: 0.55;
+}
+.alk-spark__line {
+  stroke: var(--alk-viz-color, var(--alkBrand));
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.alk-spark__stop0 {
+  stop-color: var(--alk-viz-color, var(--alkBrand));
+  stop-opacity: var(--alk-spark-fill-opacity);
+}
+.alk-spark__stop1 {
+  stop-color: var(--alk-viz-color, var(--alkBrand));
+  stop-opacity: 0;
+}
+/* No-data treatment — a faint dashed baseline so "nothing measured" reads as nothing. */
+.alk-spark__line:where([data-state="empty"]) {
+  stroke: var(--alkTertiaryText, currentColor);
+  opacity: var(--alk-spark-empty-opacity);
+  stroke-dasharray: 3 3;
+}

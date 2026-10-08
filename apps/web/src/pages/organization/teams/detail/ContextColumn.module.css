@@ -1,0 +1,105 @@
+/* The context column's plate-body treatments — the column itself and the row innards are ui
+   Stack/Inline in the TSX; the plates are the Card (variant="panel"). */
+
+/* The descent card (the Permissions plate body) — an accent wash with a 2px accent left-border. */
+.descent {
+  gap: var(--alkSpace4);
+  border-left: 2px solid var(--alkBrand);
+  background: color-mix(in srgb, var(--alkBrandSubtle) 40%, var(--alkCardBg));
+}
+.descentLine {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--alkSpace3);
+  font-size: var(--alkTextMd);
+  line-height: var(--alkLeadingSnug);
+  color: var(--alkSecondaryText);
+  text-wrap: pretty;
+}
+.descentLine b {
+  color: var(--alkPrimaryText);
+  font-weight: var(--alkWeightSemibold);
+}
+.descentGlyph {
+  flex: 0 0 auto;
+  display: inline-flex;
+  height: calc(var(--alkTextMd) * 1.45);
+  align-items: center;
+  margin-top: 1px;
+  color: var(--alkBrand);
+}
+
+/* sub-teams — the contributing children as navigable cards inside the provenance plate. A wrapping
+   flex row of ~220px cards (auto-fill grid flattened to flex per the flex-over-grid rule). */
+.subs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace3);
+}
+/* KEEP: the card-sizing rule over a variable-length map of children — an inline style can't carry a
+   per-child flex-basis for however many sub-teams render. */
+.subs > li {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+/* KEEP: a navigable card button (border + surface + a documented hover wash) — richer than a bare
+   alk-rowlink row; no card primitive produces a clickable bordered list card. */
+.subrow {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace5);
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkCardBg);
+  text-align: left;
+  padding: var(--alkSpace3) var(--alkSpace5);
+  cursor: pointer;
+  transition: var(--alk-control-transition);
+}
+/* A hover wash lighter than --alkHoverBg, so the card hover never matches the inner icon-chip that
+   rests on --alkHoverBg (which would make the chip vanish on hover). */
+.subrow:hover {
+  border-color: var(--alkBorderStrong);
+  background: color-mix(in srgb, var(--alkCardBg) 94%, var(--alkPrimaryText));
+}
+.subrow:focus-visible {
+  outline-offset: -2px;
+}
+
+/* invitations — KEEP: a single-column ruled list (a bordered, overflow-clipped list of ruled rows);
+   no primitive produces a ruled inline list. */
+.invites {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusLg);
+  overflow: hidden;
+}
+.invite {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace7);
+  padding: var(--alkSpace5) var(--alkSpace7);
+  border-bottom: 1px solid var(--alkDivider);
+}
+.invite:last-child {
+  border-bottom: 0;
+}
+
+/* Invitation rows stack the email above the buttons when the pane is too tight to hold them abreast. */
+@container ptmdetail (max-width: 480px) {
+  .invite {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--alkSpace4);
+  }
+}

@@ -1,0 +1,219 @@
+name: cli test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  TURBO_TEAM: marimo
+  MARIMO_SKIP_UPDATE_CHECK: 1
+  UV_EXCLUDE_NEWER: "7 days"
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      cli: ${{ steps.filter.outputs.cli }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
+        id: filter
+        with:
+          filters: |
+            cli:
+              - 'marimo/**'
+              - 'tests/_cli/**'
+              - '.github/workflows/test_cli.yaml'
+
+  build_wheel:
+    needs: changes
+    if: ${{ needs.changes.outputs.cli == 'true' }}
+    name: Build marimo wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 8 # 2024-01-18
+    permissions:
+      contents: read
+      id-token: write # required for Doppler OIDC
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0 # so we can run --since on the main branch and turbo can do faster cache hashing
+
+      - name: 🔐 Fetch Doppler secrets
+        # Skip on PRs from forks: id-token write is downgraded to read, so OIDC fails.
+        # Downstream tokens (TURBO_TOKEN, CODECOV_TOKEN) are optional and tolerate empty.
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: dopplerhq/secrets-fetch-action@cd2efbf9a404504316435873eff298b82f7e0562 # v1.3.0
+        id: secrets
+        with:
+          auth-method: oidc
+          doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
+          doppler-project: marimo-oss
+          doppler-config: ci_test
+
+      - name: 📦 Build frontend
+        uses: ./.github/actions/build-frontend
+        with:
+          turbo-token: ${{ steps.secrets.outputs.TURBO_TOKEN }}
+          codecov-token: ${{ steps.secrets.outputs.CODECOV_TOKEN }}
+
+      - name: 🐍 Setup uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: 📦 Build marimo wheel
+        run: uv build --wheel
+
+      - name: Check for _static/_lsp directory in wheel
+        run: |
+          wheel_file=$(ls dist/*.whl)
+          files_or_dirs_to_check=(
+            "marimo/_static/"
+            "marimo/_lsp/"
+            "marimo/_tutorials/"
+            "third_party.txt"
+            "third_party_licenses.txt"
+          )
+
+          for file_or_dir in "${files_or_dirs_to_check[@]}"; do
+            if ! unzip -l "$wheel_file" | grep -q "$file_or_dir"; then
+              echo "Error: $file_or_dir not found in the wheel"
+              exit 1
+            else
+              echo "Found $file_or_dir in the wheel"
+            fi
+          done
+
+      - name: Run LSP binary
+        run: ./scripts/test-lsp.sh
+      - name: Upload wheel
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: testwheel
+          path: dist/*.whl
+          retention-days: 1
+
+  test_pyodide:
+    needs: [changes, build_wheel]
+    if: ${{ needs.changes.outputs.cli == 'true' }}
+    name: Test Pyodide
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+
+      - name: Download wheel
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: testwheel
+          path: dist
+
+      - name: 🧪 Run Pyodide acceptance test
+        run: |
+          # Get version from package.json
+          pyodide_version=$(cat frontend/package.json | jq -r '.dependencies["pyodide"]')
+          echo "Pyodide version: $pyodide_version"
+          npm install --ignore-scripts pyodide@$pyodide_version
+          wheel_file=$(ls dist/*.whl)
+          echo "Testing wheel: $wheel_file"
+          node tests/_pyodide/test_pyodide_acceptance.mjs "$wheel_file"
+
+  test_cli:
+    needs: [changes, build_wheel]
+    if: ${{ needs.changes.outputs.cli == 'true' }}
+    name: Tests CLI on ${{ matrix.os }} ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10 # 2024-01-18 avg: 2.5m max: 4.5m
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+        # TODO: update to latest once networking issues on macos-15 are resolved
+        # https://github.com/actions/runner-images/issues/10924
+        os: [ubuntu-latest, macos-14, windows-latest]
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: 🐍 Setup uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+          # TODO(https://github.com/astral-sh/setup-uv/issues/226): Remove this.
+          prune-cache: ${{ matrix.os != 'windows-latest' }}
+
+      - name: Download wheel
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: testwheel
+
+      # xdist is disabled for CLI tests because they test process-level
+      # behavior (spawning marimo processes, port binding) that conflicts
+      # with parallel execution.
+      #
+      # UV_FIND_LINKS points sandbox subprocesses at the locally-built wheel,
+      # so `marimo[lsp]==<current version>` resolves to it instead of PyPI.
+      # Without this, a marimo release published less than UV_EXCLUDE_NEWER ago
+      # falls outside the cutoff and sandbox resolution fails.
+      - name: Test CLI
+        shell: bash
+        env:
+          UV_FIND_LINKS: ${{ github.workspace }}
+        run: |
+          # Each run builds a different wheel under the same version and path.
+          uv cache clean marimo
+          uv venv
+          uv pip install --group=test-optional --group=dev marimo*.whl
+          uv run --no-project pytest -v tests/_cli/test_cli* -p no:xdist --maxfail=2
+
+  test_examples:
+    needs: [changes]
+    name: Tests examples and smoke_tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 3 # 2024-01-18 avg: 0.3m max: 0.5m
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: 🐍 Setup uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          enable-cache: true
+          python-version: 3.12
+
+      - name: Check example quality with marimo check
+        shell: bash
+        run: |
+          echo "Checking examples directory..."
+          uv run marimo check --ignore-scripts --strict examples/
+
+      - name: Check tutorial quality with marimo check
+        shell: bash
+        run: |
+          echo "Checking tutorials..."
+          uv run marimo check --ignore-scripts --fix \
+            marimo/_tutorials/ >> /dev/null \
+            || echo "Errors expected"
+          # Fail if there's a git diff
+          if [[ -n "$(git status --porcelain marimo/_tutorials)" ]]; then
+            echo "marimo check found issues in tutorials."
+            git --no-pager diff marimo/_tutorials
+            exit 1
+          fi

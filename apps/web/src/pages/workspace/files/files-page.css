@@ -1,0 +1,1409 @@
+/* The Files page frame: head (title, breadcrumb, toolbar) over a three-column body — rail,
+ * browser, details. Product tokens only, so light and dark come for free. Dense rows, no cards,
+ * no gradients. Newsreader is the page title alone; everything else is the UI face. */
+
+.alk-files {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--alkPageBg);
+  color: var(--alkPrimaryText);
+  font-family: var(--alkFontUi);
+}
+
+/* Two rows, not three columns. The toolbar carries the search field AND the whole chip bar, so
+ * as a third column it grew several rows tall and left the title stranded in a gutter beside it,
+ * vertically centred against nothing. The trail owns the first line; the toolbar gets the full
+ * width underneath. */
+.alk-files__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "trail"
+    "toolbar";
+  align-items: center;
+  column-gap: var(--alkSpace4);
+  row-gap: var(--alkSpace3);
+  /* Flush with the rail and the listing below: the search box starts where they do. */
+  padding: var(--alkSpace4) 0;
+  border-bottom: 1px solid var(--alkDivider);
+}
+
+.alk-files__head > .alk-files__trail {
+  grid-area: trail;
+}
+.alk-files__head > .alk-files__toolbar {
+  grid-area: toolbar;
+  min-width: 0;
+}
+
+/* The app masthead already prints the route's name as the page's <h1>, so the Trash view's own
+ * heading stays in the document for a screen reader's heading list but is not drawn twice. */
+.alk-files__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The trail reads in the UI face: it names folders, not a path a person types. Hashes, store
+   keys and the search results' path column keep the mono face. */
+.alk-files__trail {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.alk-files__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+}
+
+/* Wide, the three columns are a split view whose gutters the reader drags and
+   this browser remembers; narrow, the same three children stack in one column
+   with the details pane raised over them as a sheet. */
+.alk-files__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+
+.alk-files__browser {
+  min-width: 0;
+  overflow: auto;
+}
+
+/* Only the stacked layout draws its own rules: the split view's gutters ARE the
+   dividers between its columns, and a border beside one reads as two lines. */
+.alk-files[data-layout="narrow"] .alk-files__browser {
+  border-inline: 1px solid var(--alkDivider);
+}
+
+.alk-files__pane {
+  min-width: 0;
+  overflow: auto;
+  padding: var(--alkSpace4);
+}
+
+.alk-files__resolving {
+  margin: var(--alkSpace5);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+/* The rail: dense rows, a flat list, current marked by weight and ground rather than a card. */
+.alk-files-rail {
+  overflow: auto;
+  padding: var(--alkSpace3) 0;
+}
+
+.alk-files-rail__group {
+  margin: 0 0 var(--alkSpace3);
+  padding: 0;
+  list-style: none;
+}
+
+.alk-files-rail__group + .alk-files-rail__group {
+  padding-top: var(--alkSpace3);
+  border-top: 1px solid var(--alkDivider);
+}
+
+.alk-files-rail__item {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  width: 100%;
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--alkTextSm);
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--alkDurationFast) var(--alkEaseStandard);
+}
+
+.alk-files-rail__item:hover:not(:disabled) {
+  background: var(--alkHoverBg);
+}
+
+.alk-files-rail__item[aria-current="page"] {
+  background: var(--alkSelectedBg);
+  font-weight: 600;
+}
+
+.alk-files-rail__item:disabled {
+  color: var(--alkDisabledText);
+  cursor: default;
+}
+
+.alk-files-rail__item:focus-visible,
+.alk-files__sheet-toggle:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}
+
+.alk-files__sheet-toggle {
+  display: none;
+}
+
+/* Below the portal breakpoint the frame is one column: the rail folds into a scrolling strip at
+ * the head of the browser and the details pane becomes a sheet raised over it. */
+@media (max-width: 900px) {
+  /* A strip that SCROLLS. Laid out as a plain flex row the groups shrank to fit the viewport and
+     the last places — Shared with me, My leases, Trash — were clipped away with no way to reach
+     them, which on a phone is the whole rail below the fold. Nothing shrinks; the strip scrolls
+     sideways and every place stays reachable. */
+  .alk-files-rail {
+    display: flex;
+    gap: var(--alkSpace2);
+    padding: var(--alkSpace2) var(--alkSpace3);
+    border-bottom: 1px solid var(--alkDivider);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+  }
+
+  .alk-files-rail__group,
+  .alk-files-rail__group + .alk-files-rail__group {
+    display: flex;
+    flex: 0 0 auto;
+    gap: var(--alkSpace2);
+    margin: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .alk-files-rail__group > li {
+    flex: 0 0 auto;
+  }
+
+  .alk-files-rail__item {
+    width: auto;
+    padding: var(--alkSpace2) var(--alkSpace3);
+    border-radius: var(--alkRadiusFull);
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
+  /* The head's two rows and the browser's bar are already tight at 390; the frame keeps its
+     gutters small so the listing gets the width instead. */
+  .alk-files__head {
+    padding: var(--alkSpace3);
+  }
+
+  .alk-files__browser {
+    border-inline: 0;
+  }
+
+  .alk-files__pane[data-sheet="true"] {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 30;
+    max-height: 70vh;
+    border-top: 1px solid var(--alkBorderStrong);
+    background: var(--alkCardBg);
+    transition: transform var(--alkDurationNormal) var(--alkEaseDecelerate);
+  }
+
+  .alk-files__sheet-toggle {
+    display: block;
+    position: sticky;
+    bottom: 0;
+    padding: var(--alkSpace3);
+    border: 0;
+    border-top: 1px solid var(--alkDivider);
+    background: var(--alkControlBg);
+    color: inherit;
+    font: inherit;
+    font-size: var(--alkTextSm);
+    cursor: pointer;
+  }
+}
+
+/* A sideways scroller with an overlay scrollbar (every Mac) shows no edge at all, so the places
+ * or chips beyond the fold look like the whole set. These two keep a slim, always-drawn bar. */
+.alk-files-rail,
+.alk-files-filters {
+  scrollbar-width: thin;
+  scrollbar-color: var(--alkBorderStrong) transparent;
+}
+
+.alk-files-rail::-webkit-scrollbar,
+.alk-files-filters::-webkit-scrollbar {
+  height: 6px;
+}
+
+.alk-files-rail::-webkit-scrollbar-track,
+.alk-files-filters::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.alk-files-rail::-webkit-scrollbar-thumb,
+.alk-files-filters::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--alkBorderStrong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-files-rail__item,
+  .alk-files__pane[data-sheet="true"] {
+    transition: none;
+  }
+}
+
+/* ========================================================================= *
+ * The surfaces the shell holds. One vocabulary across all of them: dense rows,
+ * a hairline divider instead of a card, the mono face for anything that is a
+ * path, a hash or a machine name, and a single focus ring. Every value is a
+ * product token, so light and dark, and the brand, come from one place.
+ * ========================================================================= */
+
+.alk-files__toolbar-slot,
+.alk-files__pane-slot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+  min-width: 0;
+}
+
+.alk-files__toolbar-slot {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.alk-files__drop {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  min-width: 0;
+}
+
+.alk-files__drop:focus-visible,
+.alk-files__pane-slot:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}
+
+/* The trail, in the browser's bar — the UI face, like the rail places it walks between. */
+.alk-files-crumbs {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+}
+
+/* --- search ------------------------------------------------------------- */
+
+.alk-files-search {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  min-width: 0;
+}
+
+.alk-files-search__label {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+/* The two scopes, in one dropdown. The wrapper is what fixes the width: the
+   control must read the same whatever it is named after, and a chat's name is
+   a sentence often enough that a control sized to its content would push the
+   field off the toolbar. */
+.alk-files-search__scope {
+  flex: 0 0 auto;
+  width: 12rem;
+  min-width: 0;
+}
+
+/* The field's own type scale and corner, so the pair reads as one row rather
+   than as a toolbar control parked beside a smaller field. Scoped to the bar so
+   it outranks the primitive's own trigger rule whatever order the two sheets
+   land in. */
+.alk-files-search .alk-files-search__scope-trigger {
+  border-radius: var(--alkRadiusSm);
+  font-size: var(--alkTextSm);
+}
+
+.alk-files-search__input,
+.alk-files-search-input {
+  min-width: 12rem;
+  /* The same rung of the control ladder the scope dropdown is on, so the two
+     line up rather than sitting a pixel or two apart. */
+  height: var(--alkControlSm);
+  padding: var(--alkSpace1) var(--alkSpace2);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkControlBg);
+  color: inherit;
+  font: inherit;
+  font-size: var(--alkTextSm);
+}
+
+.alk-files-search__input:focus-visible,
+.alk-files-search-input:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+}
+
+.alk-files-search__results {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.alk-files-search__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  align-items: baseline;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border-bottom: 1px solid var(--alkDivider);
+  font-size: var(--alkTextSm);
+}
+
+/* A picked result wears what a picked listing row wears: the menu, the keyboard and
+   the details pane all act on it, so it has to look picked. */
+.alk-files-search__row[aria-selected="true"] {
+  background: var(--alkSelectedBg);
+  color: var(--alkPrimaryText);
+}
+
+.alk-files-search__row--head {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.alk-files-search__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The enclosing folder is a path, so it reads in the mono face. */
+.alk-files-search__path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--alkSecondaryText);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: start;
+}
+
+/* --- filters ------------------------------------------------------------ */
+
+/* The bar WRAPS. Scrolling it sideways under a sticky summary button meant the button sat on
+ * top of a chip at every width — "Last 30 da…" cut mid-word with "+18 more filters" printed over
+ * it — and carried whole groups off screen with nothing to say so. Wrapping cannot clip a chip
+ * and cannot cover one; the groups it cannot fit go to the next line, and the summary button is
+ * an ordinary item at the end of the last one. */
+.alk-files-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  flex-wrap: wrap;
+  row-gap: var(--alkSpace2);
+  min-width: 0;
+  padding-bottom: 2px;
+}
+
+.alk-files-filters__group {
+  flex: 0 0 auto;
+}
+
+.alk-files-filters__more {
+  flex: 0 0 auto;
+  padding: 2px var(--alkSpace2);
+  border: 1px dashed var(--alkBorder);
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkPageBg);
+  color: var(--alkSecondaryText);
+  font: inherit;
+  font-size: var(--alkTextXs);
+  cursor: pointer;
+}
+
+.alk-files-filters__more:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+}
+
+.alk-files-filters__group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--alkSpace1);
+  max-width: 100%;
+}
+
+.alk-files-filters__group-label {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.alk-files-filters__chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px var(--alkSpace2);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkControlBg);
+  color: inherit;
+  font: inherit;
+  font-size: var(--alkTextXs);
+  cursor: pointer;
+  transition: background-color var(--alkDurationFast) var(--alkEaseStandard);
+}
+
+.alk-files-filters__chip[aria-pressed="true"] {
+  border-color: var(--alkBorderStrong);
+  background: var(--alkSelectedBg);
+  font-weight: 600;
+}
+
+.alk-files-filters__chip:focus-visible,
+.alk-files-filters__clear:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+}
+
+.alk-files-filters__clear {
+  border: 0;
+  background: none;
+  color: var(--alkBrandText);
+  font: inherit;
+  font-size: var(--alkTextXs);
+  cursor: pointer;
+}
+
+.alk-files-filters__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--alkSpace2);
+  padding: var(--alkSpace6) var(--alkSpace5);
+}
+
+.alk-files-filters__empty-text {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+/* --- the soft-threshold footer ------------------------------------------ */
+
+.alk-files-threshold {
+  display: flex;
+  border-top: 1px solid var(--alkDivider);
+}
+
+.alk-files-threshold__cell {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  flex-wrap: wrap;
+  width: 100%;
+  padding: var(--alkSpace3) var(--alkSpace4);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+/* Tabular figures so a count that grows while loading does not jitter. */
+.alk-files-threshold__count,
+.alk-files-threshold__progress {
+  font-variant-numeric: tabular-nums;
+}
+
+.alk-files-threshold__action {
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+  padding: 2px var(--alkSpace2);
+  background: var(--alkControlBg);
+  color: inherit;
+  font: inherit;
+  font-size: var(--alkTextXs);
+  cursor: pointer;
+}
+
+.alk-files-threshold__action:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+}
+
+/* --- inline rename ------------------------------------------------------ */
+
+.alk-files-rename {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  min-width: 0;
+}
+
+.alk-files-rename__field {
+  min-width: 6rem;
+  width: 100%;
+  padding: 1px var(--alkSpace1);
+  border: 1px solid var(--alkBorderStrong);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkControlBg);
+  color: inherit;
+  font: inherit;
+  font-size: var(--alkTextSm);
+}
+
+.alk-files-rename__field:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+}
+
+/* A refusal hangs below the field as a card of its own. Drawn inline beside the
+   field it was squeezed into a row one line high: the sentence wrapped over the
+   Modified column and the row beneath, and its first line was cut off. */
+.alk-files-rename__error {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  inline-size: max-content;
+  max-inline-size: min(24rem, 80vw);
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border: 1px solid var(--alkDivider);
+  border-inline-start: 2px solid var(--alkDangerText);
+  border-radius: var(--alkRadiusSm, 4px);
+  background: var(--alkCardBg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+  color: var(--alkDangerText);
+  font-size: var(--alkTextXs);
+  white-space: normal;
+}
+
+/* Not a refusal — the name is going to be saved. Muted rather than red so the
+   two sentences that can appear under this field never read the same way. */
+.alk-files-rename__note {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+}
+
+/* --- the details pane --------------------------------------------------- */
+
+.alk-files-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace4);
+  min-width: 0;
+}
+
+.alk-files-pane__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--alkSpace2);
+  min-width: 0;
+}
+
+/* The menu opener sits at the trailing edge and never shrinks: the name takes
+   whatever is left, and the button stays the same size at every pane width. */
+.alk-files-pane__head .alk-files-pane__action {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+.alk-files-pane__name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  /* A name wraps onto up to three lines before it is cut. On one line even a short
+     receipt name was ellipsised in a 20rem pane, which hid the part that told two
+     receipts apart. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.alk-files-pane__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+}
+
+.alk-files-pane__heading {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.alk-files-pane__fields {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--alkSpace1) var(--alkSpace3);
+  margin: 0;
+  font-size: var(--alkTextSm);
+}
+
+.alk-files-pane__field {
+  display: contents;
+}
+
+.alk-files-pane__label {
+  color: var(--alkSecondaryText);
+}
+
+.alk-files-pane__value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A store key or a content hash is bytes, not prose. */
+.alk-files-pane__value--mono {
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+}
+
+.alk-files-pane__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--alkTextSm);
+}
+
+.alk-files-pane__empty {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.alk-files-pane__action {
+  align-self: flex-start;
+  padding: var(--alkSpace1) var(--alkSpace3);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkControlBg);
+  color: inherit;
+  font: inherit;
+  font-size: var(--alkTextSm);
+  cursor: pointer;
+}
+
+.alk-files-pane__action:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+}
+
+/* A field value that opens something. Drawn as the link it reads as, so a row of
+   plain facts does not grow a button-shaped hole in the middle of it. */
+.alk-files-pane__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--alkLinkText);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.alk-files-pane__link:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+}
+
+/* --- leases ------------------------------------------------------------- */
+
+.alk-files-lease {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+  padding: 0 var(--alkSpace1);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkControlBg);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+  white-space: nowrap;
+}
+
+.alk-files-lease__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--alkSelectedBg);
+  font-size: var(--alkTextXs);
+  font-weight: 600;
+}
+
+.alk-files-lease__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Past the grace period the badge stops claiming the holder is still there. */
+.alk-files-lease__stale {
+  color: var(--alkWarningText, var(--alkSecondaryText));
+}
+
+.alk-files-lease__facet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace1);
+  font-size: var(--alkTextSm);
+}
+
+.alk-files-lease--list,
+.alk-files-lease--grid {
+  max-width: 12rem;
+}
+
+.alk-files-lease--breadcrumb,
+.alk-files-lease--inside {
+  background: none;
+}
+
+.alk-files-lease--pane {
+  align-self: flex-start;
+}
+
+.alk-files-myleases {
+  display: flex;
+  flex-direction: column;
+}
+
+.alk-files-myleases__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--alkSpace3);
+  width: 100%;
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border: 0;
+  border-bottom: 1px solid var(--alkDivider);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--alkTextSm);
+  text-align: start;
+  cursor: pointer;
+}
+
+.alk-files-myleases__row:hover {
+  background: var(--alkHoverBg);
+}
+
+.alk-files-myleases__row:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}
+
+/* A machine name is an identifier, not prose. */
+.alk-files-myleases__machine {
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+}
+
+.alk-files-myleases__meta {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+}
+
+.alk-files-myleases__empty {
+  padding: var(--alkSpace5) var(--alkSpace4);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+/* --- trash, the undo toast and the page's own notices -------------------- */
+
+.alk-files--trash {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* The trash head is one row: the sentence, then Empty trash at the far edge at its own
+   width. Under the page's stacked head template the button took the toolbar row and the
+   whole width of it. */
+.alk-files--trash .alk-files__head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "trail toolbar";
+  /* The trash has no rail to line up with: the sentence and Empty trash take the rows'
+     inline padding, so they start and end where the listing's cells do and the
+     button's focus ring is not cut off at the pane's edge. */
+  padding-inline: var(--alkSpace4);
+}
+
+/* Four cells per row — name, original location, time left, actions — so four tracks.
+   Laid out for three, the actions wrapped under the name on every row and the header
+   printed ACTIONS on a line of its own.
+
+   The two text tracks carry a FLOOR. As `minmax(0, …)` they were free to collapse, and
+   against an actions cell three buttons wide they did — to nothing: every row read as
+   "29 days left · Restore · Restore to… · Delete forever" with the name and the folder
+   it came from in the DOM at zero width. That is the one row in the product where the
+   name has to be legible, because Delete forever cannot be taken back. Out of room the
+   listing scrolls sideways instead of crushing them.
+
+   The time and the actions are sized to what they hold. Three buttons on one line
+   need more than a Files pane beside the details pane has at 1440 px, and as an
+   `auto` track they ran past the pane's edge with Delete forever out of sight; the
+   actions track now gives back down to its widest button, and the buttons wrap onto
+   a second line inside the row instead. */
+.alk-files--trash .alk-files__grid-head,
+.alk-files--trash .alk-files__row {
+  grid-template-columns: minmax(11rem, 1.2fr) minmax(8rem, 1fr) max-content minmax(min-content, max-content);
+  align-items: center;
+}
+
+.alk-files--trash .alk-files__cell-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.alk-files--trash .alk-files__grid {
+  overflow-x: auto;
+}
+
+.alk-files__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border-bottom: 1px solid var(--alkDivider);
+  font-size: var(--alkTextSm);
+}
+
+.alk-files__row:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: -2px;
+}
+
+.alk-files__cell-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--alkSpace2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-files__cell-path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--alkSecondaryText);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-files__cell-actions {
+  display: flex;
+  gap: var(--alkSpace2);
+}
+
+.alk-files__grid {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.alk-files__grid-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border-bottom: 1px solid var(--alkDivider);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.alk-files__empty {
+  padding: var(--alkSpace6) var(--alkSpace5);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.alk-files__skeleton {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The skeleton is a placeholder, never a claim: it pulses, and holds still for
+ * anyone who has asked the system for less motion. */
+.alk-files__skeleton-row {
+  height: 1.75rem;
+  margin: var(--alkSpace1) var(--alkSpace4);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkHoverBg);
+  animation: alk-files-pulse 1.4s var(--alkEaseStandard) infinite;
+}
+
+@keyframes alk-files-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.alk-files__notice {
+  padding: var(--alkSpace2) var(--alkSpace4);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.alk-files__error {
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border-inline-start: 2px solid var(--alkDangerText);
+  color: var(--alkDangerText);
+  font-size: var(--alkTextSm);
+}
+
+/* The sentence a refused write leaves behind, anchored to the window.
+ *
+ * In flow it was the last row of a full-height column, so it was drawn against the
+ * bottom edge of the viewport and cut in half — the one line that says the write did
+ * not happen, unreadable. Anchoring it to the viewport takes the window's height out
+ * of the question; the inline gutter and the reading width keep it off both edges of
+ * a narrow one. */
+.alk-files__refusal {
+  position: fixed;
+  /* One notice above the bottom lane, not in it: the undo offer is sticky at
+     --alkSpace3 in the same place, and an opaque banner sharing the lane covered
+     the Undo button for the whole life of the offer. */
+  inset-block-end: calc(var(--alkSpace4) + 3rem);
+  inset-inline: var(--alkSpace4);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-inline-size: 32rem;
+  margin-inline: auto;
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border: 1px solid var(--alkDangerText);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkCardBg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+  color: var(--alkDangerText);
+  font-size: var(--alkTextSm);
+}
+
+/* The way out of it, for a reader who has read it. */
+.alk-files__refusal-dismiss {
+  align-self: flex-end;
+}
+
+.alk-files__toast {
+  position: sticky;
+  bottom: var(--alkSpace3);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  align-self: center;
+  margin: var(--alkSpace3);
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border: 1px solid var(--alkBorderStrong);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkCardBg);
+  font-size: var(--alkTextSm);
+}
+
+.alk-files__toast-error {
+  border-color: var(--alkDangerText);
+  color: var(--alkDangerText);
+}
+
+.alk-files__toast-label {
+  min-width: 0;
+}
+
+.alk-files__toast-undo,
+.alk-files__toast-dismiss {
+  border: 0;
+  background: none;
+  color: var(--alkBrandText);
+  font: inherit;
+  font-size: var(--alkTextSm);
+  cursor: pointer;
+}
+
+.alk-files__toast-undo:focus-visible,
+.alk-files__toast-dismiss:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-files-filters__chip,
+  .alk-files__skeleton-row {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Below the breakpoint the toolbar wraps to its own line and the move dialog
+ * becomes a sheet raised from the foot, like the details pane. */
+@media (max-width: 900px) {
+  .alk-files__toolbar-slot {
+    width: 100%;
+  }
+
+  /* Two fixed 12rem controls are wider than a phone: the scope dropdown ran 24px past the right
+     edge at 390 with its chevron cut off. Narrow, the field takes what is left and the dropdown
+     gives up width before either leaves the screen. */
+  .alk-files-search {
+    width: 100%;
+  }
+
+  .alk-files-search__scope {
+    flex: 0 1 12rem;
+    width: auto;
+  }
+
+  .alk-files-search__input,
+  .alk-files-search-input {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  /* The stacked body is a grid whose spare height went to every auto row, so the one-line
+     places strip stood 280px tall over an empty band. The strip takes its own height; the
+     listing under it takes the rest. */
+  .alk-files[data-layout="narrow"] .alk-files__body {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .alk-files-move__panel {
+    width: 100vw;
+    max-width: none;
+    margin-top: auto;
+    border-radius: var(--alkRadiusMd) var(--alkRadiusMd) 0 0;
+  }
+}
+
+/* --- treegrid: column widths, the lease badge, and the narrow row ---------
+ *
+ * These sit here rather than in `treegrid.css` because they are the page's layout decisions:
+ * how much of the head's width each column may take, and what the row becomes below the
+ * breakpoint where the shell already folds to one column. The attribute selectors also keep
+ * them above the plain-class rules regardless of which stylesheet the bundler emits first. */
+
+/* The track list itself is the grid's, not the sheet's: a column that does not fit is not
+ * drawn at all (`visibleColumns` in `columns.ts`), so how many tracks there are changes with
+ * the width the listing was given, and only the component knows that. The sheet keeps the
+ * things that do not depend on the count. */
+
+/* One line per cell, ellipsised, so a long actor name runs out of room instead of wrapping
+ * onto a second line and pushing into its neighbour. */
+.alk-files-grid[data-view="list"] .alk-files-grid__cell[data-column="kind"],
+.alk-files-grid[data-view="list"] .alk-files-grid__cell[data-column="modified"],
+.alk-files-grid[data-view="list"] .alk-files-grid__cell[data-column="owner"] {
+  display: block;
+  overflow: hidden;
+  line-height: 32px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The badge is inline content in the name cell, so it has to be allowed to shrink: without a
+ * min-width of 0 it kept its full intrinsic width and the cell clipped it mid-word. */
+.alk-files-grid__cell[data-column="name"] .alk-files-lease {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+/* The liveness line sits between the trail and the rows, with the same gutter
+ * as the object notice it shares the slot with. */
+.alk-files-browser .alk-files-live {
+  padding: var(--alkSpace1) var(--alkSpace3);
+}
+
+/* A narrow listing keeps its header and its rows in the same shape, with fewer columns.
+ * Folding the row instead would leave unlabelled placeholders under each name. */
+
+/* What a chat's own listing says about itself, above the rows. */
+.alk-files-browser__notice {
+  margin: 0;
+  padding: var(--alkSpace1) var(--alkSpace3);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+/* The pane's two ways into a chat or a template, side by side rather than stacked. */
+.alk-files-pane__ways {
+  display: flex;
+  gap: var(--alkSpace2);
+}
+
+/* What trashing a chat's folder does and does not do. A sentence, not a warning
+   banner: it is true of every chat row, not a refusal of this one. */
+.alk-files-pane__note {
+  margin: var(--alkSpace2) 0 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+/* A template's brief is prose in a field of one-liners, so it wraps and keeps
+   the author's own line breaks rather than running together. */
+.alk-files-pane__brief {
+  display: block;
+  margin-bottom: var(--alkSpace1);
+  white-space: pre-wrap;
+}
+
+/* --- drag and drop ------------------------------------------------------- */
+
+/* A desktop drag over the listing: the whole listing is the target (the folder on
+   screen) and says so, until a folder row or a trail segment under the pointer
+   takes the drop for itself — then its own ring is the target and the listing's
+   hint steps back. */
+.alk-files__drop {
+  position: relative;
+}
+
+.alk-files__drop[data-drop-active="true"] {
+  box-shadow: inset 0 0 0 2px var(--alkFocusRing);
+}
+
+.alk-files__drop-hint {
+  position: absolute;
+  inset-inline: var(--alkSpace4);
+  bottom: var(--alkSpace4);
+  z-index: 15;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border: 1px solid var(--alkFocusRing);
+  border-radius: var(--alkRadiusSm, 4px);
+  background: var(--alkCardBg);
+  color: var(--alkPrimaryText);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+  text-align: center;
+  pointer-events: none;
+  transition: opacity var(--alkDurationFast) var(--alkEaseStandard);
+}
+
+.alk-files__drop[data-drop-active="true"]:has([data-drop-active="true"]) .alk-files__drop-hint {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-files__drop-hint {
+    transition: none;
+  }
+}
+
+/* --- The large file preview ------------------------------------------------
+   The dialog itself is the shared `Modal` at its `full` size; these rules are the
+   chrome inside it. The body must not scroll — the preview owns its own scrolling,
+   and two nested scrollers make a page a reader cannot get to the bottom of. */
+
+.files-preview .alk-modal__body {
+  overflow: hidden;
+  gap: var(--alkSpace4);
+}
+
+/* The action row wraps. It is a right-aligned row that never scrolls, so at a
+   phone's width the actions that did not fit were pushed off the LEFT edge —
+   Download and Open in Files sat at negative x, where no scroll reaches them. A
+   second line keeps every action on screen. */
+.files-preview .alk-modal__foot {
+  flex-wrap: wrap;
+  row-gap: var(--alkSpace2);
+}
+
+.files-preview__meta {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--alkSpace3);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+
+.files-preview__kind {
+  padding: var(--alkSpace1) var(--alkSpace3);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkInsetBg);
+  color: var(--alkPrimaryText);
+}
+
+/* What the reader is looking at — the live copy or the saved one. Its own colour
+   so it does not read as one more fact in the row. */
+.files-preview__live {
+  margin-inline-start: auto;
+  color: var(--alkTertiaryText);
+}
+
+.files-preview__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.files-preview__body > .alk-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.files-preview__notice {
+  margin: auto;
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextMd);
+  color: var(--alkSecondaryText);
+}
+
+/* Empty until a copy is attempted; it keeps no height so the action row does not
+   jump when the answer arrives. */
+.files-preview__copied {
+  flex: 0 0 auto;
+  margin: 0;
+  min-height: 0;
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+
+/* One file, standing on its own: a link to something shared without the folder it
+   lives in, and the card the reader lands on when the id names nothing they may
+   have. Centred and narrow, because there is no listing for it to sit beside. */
+.alk-files-solo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--alkSpace3);
+  margin: var(--alkSpace5);
+  padding: var(--alkSpace5);
+  max-width: 44rem;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+  font-family: var(--alkFontUi);
+}
+
+.alk-files-solo__name {
+  margin: 0;
+  font-size: var(--alkTextLg);
+  font-weight: 600;
+  color: var(--alkPrimaryText);
+  overflow-wrap: anywhere;
+}
+
+.alk-files-solo__facts {
+  display: flex;
+  gap: var(--alkSpace3);
+  margin: 0;
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+
+.alk-files-solo__line {
+  margin: 0;
+  font-size: var(--alkTextMd);
+  color: var(--alkSecondaryText);
+}
+
+.alk-files-solo__ways {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--alkSpace3);
+}
+
+.alk-files-solo__way {
+  font-size: var(--alkTextSm);
+}
+
+/* --- the selection bar -------------------------------------------------- */
+
+/* Pinned under the rows rather than drawn above them: a multi-selection is a
+   transient state, and a bar that pushed the listing down every time one grew
+   would move the row under the pointer. */
+.alk-files-selection {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--alkSpace2);
+  padding: var(--alkSpace1) var(--alkSpace2);
+  border-top: 1px solid var(--alkBorder);
+  background: var(--alkCardBg);
+  font-size: var(--alkTextXs);
+}
+
+.alk-files-selection__count {
+  color: var(--alkSecondaryText);
+  white-space: nowrap;
+}
+
+.alk-files-selection__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace1);
+  margin-inline-start: auto;
+}
+
+.alk-files-selection__action {
+  padding: var(--alkSpace1) var(--alkSpace2);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkControlBg);
+  color: inherit;
+  font: inherit;
+  font-size: var(--alkTextXs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.alk-files-selection__action:hover {
+  background: var(--alkHoverBg);
+}
+
+.alk-files-selection__action:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+}

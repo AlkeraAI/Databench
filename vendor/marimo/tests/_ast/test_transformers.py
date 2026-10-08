@@ -1,0 +1,562 @@
+from __future__ import annotations
+
+import ast
+import sys
+
+import pytest
+
+from marimo._ast.transformers import (
+    ARG_PREFIX,
+    BlockException,
+    CacheExtractWithBlock,
+    ContainedExtractWithBlock,
+    DeprivateVisitor,
+    ExtractWithBlock,
+    MangleArguments,
+    RemoveImportTransformer,
+    RemoveReturns,
+    clean_to_modules,
+    compiled_ast,
+    get_hashable_ast,
+)
+
+
+def test_import_transformer_strip() -> None:
+    code = """
+import thing.marimo # Only line that's reasonable.
+import marimo
+import thing as marimo
+from thing.thing import marimo
+from thing import m as marimo
+    """
+
+    stripped = RemoveImportTransformer("marimo").strip_imports(code)
+    assert stripped == "import thing.marimo"
+
+
+def test_remove_import_transformer_import_from() -> None:
+    """Test RemoveImportTransformer with from import statements."""
+    transformer = RemoveImportTransformer("bar")
+
+    # Test removing specific import - should return None when all names are removed
+    import_from_node = ast.ImportFrom(
+        module="foo", names=[ast.alias(name="bar", asname=None)]
+    )
+    result = transformer.visit(import_from_node)
+    assert result is None  # Should be removed
+
+    # Test keeping other imports - should return the node with remaining names
+    import_from_node = ast.ImportFrom(
+        module="foo", names=[ast.alias(name="baz", asname=None)]
+    )
+    result = transformer.visit(import_from_node)
+    assert result is not None
+    assert len(result.names) == 1
+    assert result.names[0].name == "baz"
+
+    # Test with alias - should keep since alias is different
+    import_from_node = ast.ImportFrom(
+        module="foo", names=[ast.alias(name="bar", asname="baz")]
+    )
+    result = transformer.visit(import_from_node)
+    assert result is not None  # Should keep since alias is different
+    assert len(result.names) == 1
+    assert result.names[0].asname == "baz"
+
+    # Test removing by alias - should return None when alias matches
+    import_from_node = ast.ImportFrom(
+        module="foo", names=[ast.alias(name="baz", asname="bar")]
+    )
+    result = transformer.visit(import_from_node)
+    assert result is None  # Should be removed since alias matches
+
+    # Test multiple names - some removed, some kept
+    import_from_node = ast.ImportFrom(
+        module="foo",
+        names=[
+            ast.alias(name="bar", asname=None),  # Should be removed
+            ast.alias(name="baz", asname=None),  # Should be kept
+        ],
+    )
+    result = transformer.visit(import_from_node)
+    assert result is not None
+    assert len(result.names) == 1
+    assert result.names[0].name == "baz"
+
+
+def test_compiled_ast() -> None:
+    """Test the compiled_ast function."""
+    # Test with simple statements
+    statements = [
+        ast.Assign(
+            targets=[ast.Name(id="x", ctx=ast.Store())],
+            value=ast.Constant(value=42),
+        ),
+        ast.Expr(
+            value=ast.Call(
+                func=ast.Name(id="print", ctx=ast.Load()),
+                args=[ast.Name(id="x", ctx=ast.Load())],
+                keywords=[],
+            )
+        ),
+    ]
+    # Fix missing lineno/col_offset required for compiling AST nodes
+    for stmt in statements:
+        ast.fix_missing_locations(stmt)
+
+    result = compiled_ast(statements)
+    assert isinstance(result, ast.Module)
+    assert len(result.body) == 2
+
+
+def test_clean_to_modules() -> None:
+    """Test the clean_to_modules function."""
+    # Create a simple with block
+    with_block = ast.With(
+        items=[
+            ast.withitem(
+                context_expr=ast.Call(
+                    func=ast.Name(id="open", ctx=ast.Load()),
+                    args=[ast.Constant(value="test.txt")],
+                    keywords=[],
+                ),
+                optional_vars=ast.Name(id="f", ctx=ast.Store()),
+            )
+        ],
+        body=[
+            ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Name(id="f", ctx=ast.Load()),
+                        attr="read",
+                        ctx=ast.Load(),
+                    ),
+                    args=[],
+                    keywords=[],
+                )
+            )
+        ],
+    )
+
+    pre_block = [
+        ast.Assign(
+            targets=[ast.Name(id="x", ctx=ast.Store())],
+            value=ast.Constant(value=1),
+        )
+    ]
+    # Fix missing lineno/col_offset required for compiling AST nodes
+    ast.fix_missing_locations(with_block)
+    for stmt in pre_block:
+        ast.fix_missing_locations(stmt)
+
+    pre_module, with_module = clean_to_modules(pre_block, with_block)
+
+    assert isinstance(pre_module, ast.Module)
+    assert isinstance(with_module, ast.Module)
+    assert len(pre_module.body) == 2  # original + the assignment from with
+    assert len(with_module.body) == 1  # the body of the with block
+
+
+def test_clean_to_modules_no_optional_vars() -> None:
+    """Test clean_to_modules with a with block that has no 'as' clause."""
+    with_block = ast.With(
+        items=[
+            ast.withitem(
+                context_expr=ast.Call(
+                    func=ast.Name(id="open", ctx=ast.Load()),
+                    args=[ast.Constant(value="test.txt")],
+                    keywords=[],
+                ),
+                optional_vars=None,
+            )
+        ],
+        body=[ast.Expr(value=ast.Constant(value="hello"))],
+    )
+    # Fix missing lineno/col_offset required for compiling AST nodes
+    ast.fix_missing_locations(with_block)
+
+    pre_block = []
+    pre_module, with_module = clean_to_modules(pre_block, with_block)
+
+    assert isinstance(pre_module, ast.Module)
+    assert isinstance(with_module, ast.Module)
+    assert len(pre_module.body) == 1  # the context expression as an Expr
+    assert len(with_module.body) == 1
+
+
+def test_get_hashable_ast() -> None:
+    """Test the get_hashable_ast function."""
+
+    def test_function(x: int, y: str) -> int:
+        result = x + len(y)
+        return result
+
+    module = get_hashable_ast(test_function)
+    assert isinstance(module, ast.Module)
+
+    # The function should be stripped of returns and arguments mangled
+    code = ast.unparse(module)
+    assert f"{ARG_PREFIX}result = {ARG_PREFIX}x + len({ARG_PREFIX}y)" in code
+    assert "return result" not in code
+    assert f"{ARG_PREFIX}x" in code
+    assert f"{ARG_PREFIX}y" in code
+
+
+def test_get_hashable_ast_with_decorators() -> None:
+    """Test that get_hashable_ast includes decorator AST and can skip specific ones.
+
+    When skip_decorator is provided, that decorator is filtered out while
+    all others are included so their parameters affect the hash.
+    """
+
+    def my_cache(fn):
+        return fn
+
+    def other_decorator(param: str):
+        del param
+
+        def wrapper(fn):
+            return fn
+
+        return wrapper
+
+    @other_decorator(param="before")
+    @my_cache
+    @other_decorator(param="after")
+    def decorated_function():
+        return 42
+
+    # Test 1: With skip_decorators, that decorator is filtered out
+    module = get_hashable_ast(decorated_function, skip_decorators={"my_cache"})
+    code = ast.unparse(module)
+
+    assert "my_cache" not in code
+    assert "other_decorator" in code
+    # Only decorators AFTER (inner to) the skipped one should be included
+    assert 'param="before"' not in code
+    assert "param='before'" not in code
+    assert 'param="after"' in code or "param='after'" in code
+
+    # Test 2: Without skip_decorator, all decorators are included
+    module_all = get_hashable_ast(decorated_function)
+    code_all = ast.unparse(module_all)
+
+    assert "my_cache" in code_all
+    assert "other_decorator" in code_all
+
+
+def test_mangle_arguments() -> None:
+    """Test the MangleArguments transformer."""
+    code = """
+def test_func(x, y):
+    result = x + y
+    return result
+"""
+    tree = ast.parse(code)
+    args = {"x", "y"}
+
+    transformer = MangleArguments(args)
+    result = transformer.visit(tree)
+
+    code_result = ast.unparse(result)
+    assert f"{ARG_PREFIX}x" in code_result
+    assert f"{ARG_PREFIX}y" in code_result
+    assert (
+        "result" in code_result
+    )  # Should not be mangled since it's not in args
+
+
+def test_mangle_arguments_custom_prefix() -> None:
+    """Test MangleArguments with custom prefix."""
+    code = "x = 1"
+    tree = ast.parse(code)
+    args = {"x"}
+
+    transformer = MangleArguments(args, prefix="custom_")
+    result = transformer.visit(tree)
+
+    code_result = ast.unparse(result)
+    assert "custom_x" in code_result
+
+
+def test_deprivate_visitor() -> None:
+    """Test the DeprivateVisitor transformer."""
+    # Test with mangled local names
+    code = "_cell_123_private_var = 42"
+    tree = ast.parse(code)
+
+    transformer = DeprivateVisitor()
+    result = transformer.visit(tree)
+
+    code_result = ast.unparse(result)
+    assert "_private_var" in code_result
+    assert "_cell_123_private_var" not in code_result
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 12),
+    reason="PEP 695 `type` alias syntax requires Python 3.12+",
+)
+def test_deprivate_visitor_type_alias() -> None:
+    """PEP 695 TypeAlias.name is ast.Name — must not call str methods."""
+    code = "type Mode = str\nclass C:\n    x: Mode = 'a'\n"
+    tree = ast.parse(code)
+    result = DeprivateVisitor().visit(tree)
+    code_result = ast.unparse(result)
+    assert "type Mode" in code_result
+    assert "class C" in code_result
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 12),
+    reason="PEP 695 `type` alias syntax requires Python 3.12+",
+)
+def test_deprivate_visitor_mangled_type_alias() -> None:
+    """Mangled identifiers inside type aliases are deprivated."""
+    code = "type _cell_ab_Mode = _cell_ab_int_name"
+    tree = ast.parse(code)
+    # Hand-mangle Name target if the parser left a plain id
+    result = DeprivateVisitor().visit(tree)
+    code_result = ast.unparse(result)
+    assert "_cell_ab" not in code_result
+    assert "_Mode" in code_result or "Mode" in code_result
+
+
+def test_remove_returns() -> None:
+    """Test the RemoveReturns transformer."""
+    code = """
+def test_func():
+    x = 1
+    return x
+    y = 2
+"""
+    tree = ast.parse(code)
+
+    transformer = RemoveReturns()
+    result = transformer.visit(tree)
+
+    code_result = ast.unparse(result)
+    assert "return x" not in code_result
+    assert (
+        "x" in code_result
+    )  # The value should still be there as an expression
+
+
+class TestRemoveReturnsBareName:
+    """return <Name> should become an Expr (the name is already captured)."""
+
+    def test_return_name(self) -> None:
+        tree = ast.parse("x = 1\nreturn x")
+        result = RemoveReturns().visit(tree)
+        code = ast.unparse(result)
+        assert "return" not in code
+        assert "x = 1" in code
+
+
+class TestRemoveReturnsConstant:
+    """return <constant> must be preserved in bytecode (regression #8364)."""
+
+    def test_return_int(self) -> None:
+        tree = ast.parse("return 42")
+        result = RemoveReturns().visit(tree)
+        code = ast.unparse(result)
+        assert "* = 42" in code
+
+    def test_return_constant_expr(self) -> None:
+        """return 11 + 19 — no Name, so must preserve via assignment."""
+        tree = ast.parse("return 11 + 19")
+        result = RemoveReturns().visit(tree)
+        code = ast.unparse(result)
+        assert "* = " in code
+        assert "11" in code
+        assert "19" in code
+
+
+class TestRemoveReturnsPureLambda:
+    """return (lambda: <const>) has no Name — must preserve via assignment."""
+
+    def test_return_pure_lambda(self) -> None:
+        tree = ast.parse("return (lambda: 1)")
+        result = RemoveReturns().visit(tree)
+        code = ast.unparse(result)
+        assert "* = " in code
+        assert "lambda" in code
+
+    def test_return_lambda_with_name(self) -> None:
+        """return (lambda: x) — the lambda body references a Name."""
+        tree = ast.parse("return (lambda: x)")
+        result = RemoveReturns().visit(tree)
+        code = ast.unparse(result)
+        assert "return" not in code
+        assert "x" in code
+
+
+class TestRemoveReturnsExprWithName:
+    """return <expr containing Name> should become an Expr."""
+
+    def test_return_binop_with_name(self) -> None:
+        tree = ast.parse("return x + 1")
+        result = RemoveReturns().visit(tree)
+        code = ast.unparse(result)
+        assert "return" not in code
+        assert "x" in code
+
+    def test_return_call(self) -> None:
+        """return fn(x) — Call with Name args."""
+        tree = ast.parse("return fn(x)")
+        result = RemoveReturns().visit(tree)
+        code = ast.unparse(result)
+        assert "return" not in code
+        assert "fn" in code
+        assert "x" in code
+
+
+class TestRemoveReturnsBareReturn:
+    """A bare `return` (no value) should not crash."""
+
+    def test_bare_return(self) -> None:
+        tree = ast.parse("return")
+        result = RemoveReturns().visit(tree)
+        code = ast.unparse(result)
+        assert "return" not in code
+        assert "* = None" in code
+
+
+def test_extract_with_block_simple() -> None:
+    """Test ExtractWithBlock with a simple with statement."""
+    code = """
+x = 1
+with open("file.txt") as f:
+    content = f.read()
+    print(content)
+"""
+    tree = ast.parse(code)
+
+    extractor = ExtractWithBlock(line=3, allowed_types=(ast.With,))
+    pre_module, with_module = extractor.generic_visit(tree.body)
+
+    assert isinstance(pre_module, ast.Module)
+    assert isinstance(with_module, ast.Module)
+
+    pre_code = ast.unparse(pre_module)
+    with_code = ast.unparse(with_module)
+
+    assert "x = 1" in pre_code
+    assert "f = open('file.txt')" in pre_code
+    assert "content = f.read()" in with_code
+    assert "print(content)" in with_code
+
+
+def test_extract_with_block_nested() -> None:
+    """Test ExtractWithBlock with nested structures."""
+    code = """
+if True:
+    with open("file.txt") as f:
+        content = f.read()
+        print(content)
+"""
+    tree = ast.parse(code)
+
+    extractor = ExtractWithBlock(line=3, allowed_types=(ast.With, ast.If))
+    pre_module, with_module = extractor.generic_visit(tree.body)
+
+    assert isinstance(pre_module, ast.Module)
+    assert isinstance(with_module, ast.Module)
+
+
+def test_extract_with_block_error_no_with() -> None:
+    """Test ExtractWithBlock raises error when no with statement is found."""
+    code = """
+x = 1
+y = 2
+"""
+    tree = ast.parse(code)
+
+    extractor = ExtractWithBlock(line=2, allowed_types=(ast.With,))
+
+    with pytest.raises(BlockException):
+        extractor.generic_visit(tree.body)
+
+
+def test_cache_extract_with_block() -> None:
+    """Test CacheExtractWithBlock."""
+    code = """
+x = 1
+with cache:
+    result = expensive_function()
+    print(result)
+"""
+    tree = ast.parse(code)
+
+    extractor = CacheExtractWithBlock(line=3)
+    pre_module, with_module = extractor.generic_visit(tree.body)
+
+    assert isinstance(pre_module, ast.Module)
+    assert isinstance(with_module, ast.Module)
+
+
+def test_cache_extract_with_block_try_error() -> None:
+    """Test CacheExtractWithBlock raises error when first statement is try."""
+    code = """
+with cache:
+    try:
+        result = expensive_function()
+    except Exception:
+        result = None
+"""
+    tree = ast.parse(code)
+
+    extractor = CacheExtractWithBlock(line=2)
+
+    with pytest.raises(
+        BlockException, match="first statement cannot be a try block"
+    ):
+        extractor.generic_visit(tree.body)
+
+
+def test_contained_extract_with_block() -> None:
+    """Test ContainedExtractWithBlock with various container types."""
+    # Test with function
+    code = """
+def test_func():
+    with app.setup:
+        x = 1
+        y = 2
+"""
+    tree = ast.parse(code)
+
+    extractor = ContainedExtractWithBlock(line=3)
+    pre_module, with_module = extractor.generic_visit(tree.body)
+
+    assert isinstance(pre_module, ast.Module)
+    assert isinstance(with_module, ast.Module)
+
+    # Test with class
+    code = """
+class TestClass:
+    def __init__(self):
+        with app.setup:
+            self.x = 1
+"""
+    tree = ast.parse(code)
+
+    extractor = ContainedExtractWithBlock(line=4)
+    pre_module, with_module = extractor.generic_visit(tree.body)
+
+    assert isinstance(pre_module, ast.Module)
+    assert isinstance(with_module, ast.Module)
+
+
+def test_extract_with_block_inline_with() -> None:
+    """Test ExtractWithBlock with inline with statement."""
+    code = """
+with cache: x = 1  # All on one line
+"""
+    tree = ast.parse(code)
+
+    extractor = ExtractWithBlock(line=2, allowed_types=(ast.With,))
+
+    # This should actually work, not raise an exception
+    pre_module, with_module = extractor.generic_visit(tree.body)
+    assert isinstance(pre_module, ast.Module)
+    assert isinstance(with_module, ast.Module)

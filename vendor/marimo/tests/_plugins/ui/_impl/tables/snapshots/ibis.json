@@ -1,0 +1,32 @@
+[
+  {
+    "strings": "a",
+    "bool": true,
+    "int": 1,
+    "float": 1.0,
+    "date": "2021-01-01",
+    "datetime": "2021-01-01 00:00:00",
+    "time": "01:02:03",
+    "nulls": null
+  },
+  {
+    "strings": "b",
+    "bool": false,
+    "int": 2,
+    "float": 2.0,
+    "date": "2021-01-02",
+    "datetime": "2021-01-02 00:00:00",
+    "time": "04:05:06",
+    "nulls": "data"
+  },
+  {
+    "strings": "c",
+    "bool": true,
+    "int": 3,
+    "float": 3.0,
+    "date": "2021-01-03",
+    "datetime": "2021-01-03 00:00:00",
+    "time": "07:08:09",
+    "nulls": null
+  }
+]

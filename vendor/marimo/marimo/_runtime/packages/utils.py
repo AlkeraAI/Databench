@@ -1,0 +1,326 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import dataclasses
+import os
+import re
+import subprocess
+import sys
+from typing import TYPE_CHECKING, Any
+
+from marimo._utils.platform import is_pyodide
+from marimo._utils.subprocess import safe_popen
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+
+def run_package_command(
+    command: list[str],
+    *,
+    capture_output: bool = False,
+    text: bool | None = None,
+    encoding: str | None = None,
+    check: bool = False,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess[Any]:
+    """Run a package-manager command to completion.
+
+    Package commands run in their own session so that signals aimed at
+    the kernel's or server's process group (cell interrupts, notebook
+    close, Ctrl-C at the terminal) never abort them midway.
+    `start_new_session` is ignored on Windows, where interrupts don't
+    use signals.
+    """
+    kwargs: dict[str, Any] = {}
+    if capture_output:
+        kwargs["capture_output"] = capture_output
+    if text is not None:
+        kwargs["text"] = text
+    if encoding is not None:
+        kwargs["encoding"] = encoding
+    if check:
+        kwargs["check"] = check
+    if timeout is not None:
+        kwargs["timeout"] = timeout
+    return subprocess.run(command, start_new_session=True, **kwargs)
+
+
+def popen_package_command(
+    command: list[str],
+) -> subprocess.Popen[bytes] | None:
+    """Stream a package-manager command's combined output as bytes.
+
+    Same session isolation as `run_package_command`, though the command
+    is only protected while the kernel lives: its output is piped to the
+    kernel, so it can die on SIGPIPE if the kernel exits mid-command.
+    Output stays as unbuffered bytes to preserve ANSI codes in real
+    time. Returns None if the subprocess cannot be created.
+    """
+    return safe_popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=False,
+        bufsize=0,
+        start_new_session=True,
+    )
+
+
+def in_virtual_environment() -> bool:
+    """Returns True if a venv/virtualenv is activated"""
+    # https://stackoverflow.com/questions/1871549/how-to-determine-if-python-is-running-inside-a-virtualenv/40099080#40099080
+    base_prefix = (
+        getattr(sys, "base_prefix", None)
+        or getattr(sys, "real_prefix", None)
+        or sys.prefix
+    )
+    return sys.prefix != base_prefix
+
+
+def in_conda_env() -> bool:
+    return "CONDA_DEFAULT_ENV" in os.environ
+
+
+def is_dockerized() -> bool:
+    return os.path.exists("/.dockerenv")
+
+
+def is_modal_image() -> bool:
+    return os.environ.get("MODAL_TASK_ID") is not None
+
+
+def is_python_isolated() -> bool:
+    """Returns True if not using system Python"""
+    return (
+        in_virtual_environment()
+        or in_conda_env()
+        or is_pyodide()
+        or is_dockerized()
+        or is_modal_image()
+    )
+
+
+def marker_environment_for_platform(
+    sys_platform: str | None = None,
+) -> dict[str, str]:
+    """Build a PEP 508 marker evaluation environment.
+
+    When `sys_platform` is provided, overrides the current platform (e.g.
+    `"emscripten"` for Pyodide / WASM).
+    """
+    from packaging.markers import default_environment
+
+    env = {k: str(v) for k, v in default_environment().items()}
+    if sys_platform is not None:
+        env["sys_platform"] = sys_platform
+    return env
+
+
+def requirement_applies(
+    requirement: str,
+    *,
+    marker_environment: Mapping[str, str] | None = None,
+) -> bool:
+    """Return whether a PEP 508 requirement applies in the given environment."""
+    if ";" not in requirement:
+        return True
+    _, marker_str = requirement.split(";", 1)
+    marker_str = marker_str.strip()
+    if not marker_str:
+        return True
+    from packaging.markers import Marker, default_environment
+
+    env = (
+        dict(marker_environment)
+        if marker_environment is not None
+        else {k: str(v) for k, v in default_environment().items()}
+    )
+    return Marker(marker_str).evaluate(env)
+
+
+def strip_requirement_name(requirement: str) -> str:
+    """Strip version specifiers and environment markers from a PEP 508 requirement."""
+    if not requirement or not isinstance(requirement, str):
+        return requirement if isinstance(requirement, str) else ""
+
+    requirement = requirement.strip()
+    if not requirement:
+        return requirement
+
+    # URL dependencies (package @ <url>) — leave as-is.
+    if "@" in requirement:
+        _name, rhs = requirement.split("@", 1)
+        rhs = rhs.strip()
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://", rhs):
+            return requirement
+
+    if ";" in requirement:
+        requirement = requirement.split(";", 1)[0].strip()
+
+    parts = re.split(
+        r"\s*(?:===|==|!=|<=|>=|~=|<|>)\s*",
+        requirement,
+        maxsplit=1,
+    )
+    return parts[0].strip() if parts else requirement
+
+
+def filter_requirements_for_emscripten(requirements: list[str]) -> list[str]:
+    """Filter PEP 508 requirements to those applicable on Emscripten (Pyodide)."""
+    env = marker_environment_for_platform("emscripten")
+    return [
+        req
+        for req in requirements
+        if requirement_applies(req, marker_environment=env)
+    ]
+
+
+def append_version(pkg_name: str, version: str | None) -> str:
+    """Qualify a version string with a leading '==' if it doesn't have one"""
+    if version is None:
+        return pkg_name
+    if version == "":
+        return pkg_name
+    if version == "latest":
+        return pkg_name
+    return f"{pkg_name}=={version}"
+
+
+def _is_pep508_requirement(package: str) -> bool:
+    from packaging.requirements import InvalidRequirement, Requirement
+
+    try:
+        Requirement(package)
+    except InvalidRequirement:
+        return False
+    return True
+
+
+def _split_around_extras(package: str) -> list[str]:
+    """Split on whitespace except within package extras."""
+    parts: list[str] = []
+    current: list[str] = []
+    current_is_package_name = False
+    bracket_depth = 0
+    quote: str | None = None
+
+    for index, char in enumerate(package):
+        if char.isspace() and bracket_depth == 0 and quote is None:
+            if current and current[-1].isspace():
+                current.append(char)
+                continue
+            if not current:
+                continue
+            next_index = index + 1
+            while next_index < len(package) and package[next_index].isspace():
+                next_index += 1
+            if (
+                next_index < len(package)
+                and package[next_index] == "["
+                and current_is_package_name
+            ):
+                current.append(char)
+                continue
+            if current:
+                parts.append("".join(current))
+                current = []
+                current_is_package_name = False
+            continue
+
+        if char in ("'", '"') and bracket_depth == 0:
+            quote = None if quote == char else quote or char
+
+        if char == "[" and quote is None and current_is_package_name:
+            bracket_depth += 1
+        elif char == "]" and bracket_depth > 0:
+            bracket_depth -= 1
+
+        if not current:
+            current_is_package_name = char.isascii() and char.isalnum()
+        elif not (char.isascii() and (char.isalnum() or char in "._-")):
+            current_is_package_name = False
+        current.append(char)
+
+    if current:
+        parts.append("".join(current))
+    return parts
+
+
+def split_packages(package: str) -> list[str]:
+    """Split one or more package specifications.
+
+    PEP 508 requirements are parsed before falling back to handling editable
+    installs, paths, and URLs.
+
+    Examples:
+    "package1[extra1,extra2]==1.0.0" -> ["package1[extra1,extra2]==1.0.0"]
+    "package1 package2" -> ["package1", "package2"]
+    "package1==1.0.0 package2==2.0.0" -> ["package1==1.0.0", "package2==2.0.0"]
+    "package1 -e /path/to/package1" -> ["package1 -e /path/to/package1"]
+    "package1 --editable /path/to/package1" -> ["package1 --editable /path/to/package1"]
+    "package1 -e /path/to/package1 package2" -> ["package1 -e /path/to/package1", "package2"]
+    "package1 @ /path/to/package1" -> ["package1 @ /path/to/package1"]
+    """
+    package = package.strip()
+    if not package:
+        return []
+    if _is_pep508_requirement(package):
+        return [package]
+
+    packages: list[str] = []
+    current_package: list[str] = []
+    in_environment_marker = False
+
+    for part in _split_around_extras(package):
+        if (
+            part in ["-e", "--editable", "@"]
+            or current_package
+            and current_package[-1] in ["-e", "--editable", "@"]
+        ):
+            current_package.append(part)
+        elif part.endswith(";"):
+            if current_package:
+                packages.append(" ".join(current_package))
+                current_package = []
+            in_environment_marker = True
+            current_package.append(part)
+        elif in_environment_marker:
+            current_package.append(part)
+            if part.endswith(("'", '"')):
+                in_environment_marker = False
+                packages.append(" ".join(current_package))
+                current_package = []
+        else:
+            if current_package:
+                packages.append(" ".join(current_package))
+            current_package = [part]
+
+    if current_package:
+        packages.append(" ".join(current_package))
+
+    return packages
+
+
+@dataclasses.dataclass
+class PackageRequirement:
+    """A package requirement with name and optional extras."""
+
+    name: str
+    extras: set[str] = dataclasses.field(default_factory=set)
+
+    @classmethod
+    def parse(cls, requirement: str) -> PackageRequirement:
+        """Parse a package requirement string into name and extras."""
+        match = re.match(r"^([^\[\]]+)(?:\[([^\[\]]+)\])?$", requirement)
+        if not match:
+            return cls(name=requirement)
+        name = match.group(1)
+        extras = set(match.group(2).split(",")) if match.group(2) else set()
+        return cls(name=name, extras=extras)
+
+    def __str__(self) -> str:
+        """Convert back to a package requirement string."""
+        if not self.extras:
+            return self.name
+        return f"{self.name}[{','.join(sorted(self.extras))}]"

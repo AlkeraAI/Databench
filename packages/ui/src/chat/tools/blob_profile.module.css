@@ -1,0 +1,108 @@
+@import "./tokens.css";
+
+/* One block per column: what it holds, where it has holes, how far it spreads,
+   which values dominate. */
+
+:global(.chat-root) [data-tool="blob"] .blobProfileCols {
+  padding: var(--chat-sp-1) 0 var(--chat-sp-2);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileCol {
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-2);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileColHead {
+  margin: 0;
+  white-space: nowrap;
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileColName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileColDtype[data-dtype="int"],
+:global(.chat-root) [data-tool="blob"] .blobProfileColDtype[data-dtype="float"] {
+  color: var(--chat-sql-number);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileColDtype[data-dtype="str"] {
+  color: var(--chat-sql-string);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileColDtype[data-dtype="bool"] {
+  color: var(--chat-sql-keyword);
+}
+
+/* Missing values are what breaks a join or skews an average downstream, so the
+   null tally is the one figure in a profile that carries status ink. */
+:global(.chat-root) [data-tool="blob"] .blobProfileColNull {
+  flex: none;
+  color: var(--chat-tool-warn);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Completeness appears only where a column has holes, so the bar is a signal
+   rather than furniture. The filled run is what the column carries; the ground
+   showing through it is the same warn the null tally takes. */
+:global(.chat-root) [data-tool="blob"] .blobProfileFill {
+  display: block;
+  margin-top: var(--chat-sp-1);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--chat-tool-warn-wash);
+  overflow: hidden;
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileFillBar {
+  display: block;
+  height: 100%;
+  background: var(--chat-tool-id);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileColRange {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--chat-sp-1) var(--chat-sp-2);
+  margin: var(--chat-sp-1) 0 0;
+  overflow: hidden;
+  color: var(--chat-ink-2);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileColLabel {
+  color: var(--chat-tool-ink-3);
+  font-family: var(--chat-sans);
+  font-size: var(--chat-fs-text);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileTop {
+  display: grid;
+  grid-template-columns: minmax(0, 8em) minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: var(--chat-sp-1) var(--chat-sp-2);
+  margin-top: var(--chat-sp-1);
+}
+
+:global(.chat-root) [data-tool="blob"] .blobProfileTopTrack {
+  height: 8px;
+  border-radius: 2px;
+  background: var(--chat-tool-wash-quiet);
+  overflow: hidden;
+}
+
+/* Measured against the whole result: a value that covers almost nothing still
+   shows, at the narrowest width that stays visible. */
+:global(.chat-root) [data-tool="blob"] .blobProfileTopBar {
+  display: block;
+  min-width: 2px;
+  height: 100%;
+  background: var(--chat-tool-id);
+}
+

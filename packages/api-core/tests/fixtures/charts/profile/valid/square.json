@@ -1,0 +1,59 @@
+{
+  "data": {
+    "values": [
+      {
+        "day": "2026-01-01",
+        "ok": true,
+        "price": 4.5,
+        "region": "north",
+        "units": 12
+      },
+      {
+        "day": "2026-01-02",
+        "ok": true,
+        "price": 4.1,
+        "region": "north",
+        "units": 18
+      },
+      {
+        "day": "2026-01-03",
+        "ok": false,
+        "price": 5.2,
+        "region": "north",
+        "units": 9
+      },
+      {
+        "day": "2026-01-01",
+        "ok": true,
+        "price": 3.9,
+        "region": "south",
+        "units": 22
+      },
+      {
+        "day": "2026-01-02",
+        "ok": null,
+        "price": 4.4,
+        "region": "south",
+        "units": 17
+      },
+      {
+        "day": "2026-01-03",
+        "ok": true,
+        "price": 3.7,
+        "region": "south",
+        "units": 25
+      }
+    ]
+  },
+  "encoding": {
+    "x": {
+      "field": "price",
+      "type": "quantitative"
+    },
+    "y": {
+      "field": "units",
+      "type": "quantitative"
+    }
+  },
+  "mark": "square"
+}

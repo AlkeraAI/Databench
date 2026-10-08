@@ -1,0 +1,97 @@
+@import "./tokens.css";
+
+/* What the repository is built on, then how it is laid out. */
+
+.chat-root [data-tool="repo_overview"] .chat-repo-profile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--chat-sp-1) var(--chat-sp-2);
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+/* A chip is a fact the scan read off the top level, so it is outlined rather
+   than filled: no chip outranks another. */
+.chat-root [data-tool="repo_overview"] .chat-repo-chip {
+  /* A repository fact is a longer word than most chips carry, so its seat is
+     one step wider than the shared one. */
+  --chat-tool-chip-pad: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  white-space: nowrap;
+  color: var(--chat-ink-2);
+}
+
+/* The branch is the one chip that says which version of the repository this
+   reading describes. */
+.chat-root [data-tool="repo_overview"] .chat-repo-chip[data-chip="branch"] {
+  border-color: var(--chat-tool-id-line);
+  background: var(--chat-tool-id-wash);
+  color: var(--chat-tool-id);
+}
+
+.chat-root [data-tool="repo_overview"] .chat-repo-chip[data-chip="dep"] {
+  color: var(--chat-tool-ink-3);
+}
+
+.chat-root [data-tool="repo_overview"] .chat-repo-cap {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-1);
+  border-top: 1px solid var(--chat-hairline);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+/* A caption that opens the well rules against the band's own edge, so a scan
+   with no profile to show does not draw the line twice. */
+.chat-root [data-tool="repo_overview"] .chat-tool-band + .chat-repo-cap {
+  border-top: 0;
+}
+
+.chat-root [data-tool="repo_overview"] .chat-repo-entries {
+  margin: 0;
+  padding: 0 0 var(--chat-sp-1);
+  list-style: none;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+.chat-root [data-tool="repo_overview"] .chat-repo-entry {
+  display: flex;
+  align-items: baseline;
+  gap: var(--chat-sp-2);
+  padding: 1px var(--chat-tool-pad-x);
+}
+
+/* The role is what package.json called this path; the path is the answer. */
+.chat-root [data-tool="repo_overview"] .chat-repo-entry__role {
+  flex: none;
+  min-width: 6ch;
+  color: var(--chat-tool-ink-3);
+}
+
+.chat-root [data-tool="repo_overview"] .chat-repo-tree {
+  padding-bottom: var(--chat-sp-2);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+/* Two spaces of the tool's own indentation are one level; each level seats the
+   row 12px further in. */
+.chat-root [data-tool="repo_overview"] .chat-repo-tree__row {
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1) calc(var(--chat-tool-pad-x) + var(--chat-repo-level, 0) * 12px);
+}
+
+/* A directory is the tree's structure and a file is its content, so the folder
+   name reads as a heading over the names beneath it. */
+.chat-root [data-tool="repo_overview"] .chat-repo-tree__row[data-dir] .chat-repo-tree__icon {
+  color: var(--chat-tool-id);
+}
+
+.chat-root [data-tool="repo_overview"] .chat-repo-tree__row[data-dir] .chat-repo-tree__name {
+  font-weight: var(--chat-w-medium);
+}

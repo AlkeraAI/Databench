@@ -1,0 +1,79 @@
+/* Tabs — the underline section nav. Natural-width tabs on a hairline rule; the active marker is
+   a 1px-wide bar scaled to the measured tab width, so the slide animates on transform only. */
+
+/* A strip wider than its box scrolls sideways rather than wrapping a label mid-name ("Single
+   sign-" / "on" at 390). The rule is an inset shadow, not a border, so the marker can sit on it
+   inside the scroller's own box instead of hanging a pixel below where the scroller clips it. */
+.alk-tabs {
+  position: relative;
+  display: flex;
+  gap: var(--alkSpace7);
+  box-shadow: inset 0 -1px 0 var(--alkDivider);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.alk-tabs > [role="tab"] {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  padding: var(--alkSpace4) 2px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightMedium);
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+  transition: color var(--alkDurationFast) var(--alkEaseStandard);
+}
+
+.alk-tabs > [role="tab"]:hover,
+.alk-tabs > [role="tab"][data-on] {
+  color: var(--alkPrimaryText);
+}
+
+/* Inset, because the scroller clips anything drawn outside a tab. */
+.alk-tabs > [role="tab"]:focus-visible {
+  border-radius: var(--alkRadiusSm);
+  outline-offset: -2px;
+}
+
+.alk-tabs__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--alkTertiaryText);
+  transition: color var(--alkDurationFast) var(--alkEaseStandard);
+}
+
+.alk-tabs > [role="tab"][data-on] .alk-tabs__icon {
+  color: var(--alkBrandText);
+}
+
+.alk-tabs__count {
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  color: var(--alkTertiaryText);
+}
+
+.alk-tabs__marker {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 2px;
+  transform-origin: left center;
+  background: var(--alkBrandText);
+  transition: transform var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-tabs > [role="tab"],
+  .alk-tabs__icon,
+  .alk-tabs__marker {
+    transition: none;
+  }
+}

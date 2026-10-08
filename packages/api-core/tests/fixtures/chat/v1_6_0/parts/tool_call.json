@@ -1,0 +1,20 @@
+{
+  "attachments": [],
+  "call_id": "c1",
+  "error_text": null,
+  "input": {
+    "path": "/tmp/x"
+  },
+  "message_id": "m1",
+  "metadata": {},
+  "name": "read_file",
+  "output": {
+    "content": "ok"
+  },
+  "part_id": "p1",
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "state": "completed",
+  "time": "2026-05-26T00:00:00Z",
+  "type": "tool_call"
+}

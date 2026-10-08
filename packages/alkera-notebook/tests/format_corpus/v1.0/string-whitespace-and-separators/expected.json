@@ -1,0 +1,123 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "00000000a4": {
+        "defs": [
+          "doc",
+          "sep"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000a5": {
+        "defs": [
+          "df"
+        ],
+        "errors": [],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": [
+          "t"
+        ]
+      },
+      "00000000a6": {
+        "defs": [],
+        "errors": [],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": []
+      },
+      "ye2krt48c4": {
+        "defs": [
+          "alkera"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "ye2krt48c4",
+        "00000000a5"
+      ],
+      [
+        "ye2krt48c4",
+        "00000000a6"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "import alkera",
+        "config": {},
+        "extra": {},
+        "id": "ye2krt48c4",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "keyword",
+        "source": "import alkera"
+      },
+      {
+        "code": "doc = \"\"\"\nfirst\n   \n\tlast\n\"\"\"\nsep = \"a b\fc\u001dd\"",
+        "config": {},
+        "extra": {},
+        "id": "00000000a4",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "doc = \"\"\"\nfirst\n   \n\tlast\n\"\"\"\nsep = \"a b\fc\u001dd\""
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n       \n    FROM t  \n    \"\"\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "00000000a5",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "df",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT 1\n   \nFROM t  "
+      },
+      {
+        "code": "alkera.md(\n    r\"\"\"\n    line one  \n     \n    line two\n    \"\"\"\n)",
+        "config": {},
+        "extra": {},
+        "id": "00000000a6",
+        "kind": "markdown",
+        "meta": {
+          "quote": "r"
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "line one  \n \nline two"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

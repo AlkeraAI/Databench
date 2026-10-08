@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "event_type": "model.changed",
+  "event_id": "aside-model-8a1e0c4f2d6b4e19",
+  "time": "2026-10-04T16:20:00Z",
+  "session_id": "d6d800e9-5bce-4d9f-b0e0-dd5367ea4298",
+  "model_id": "claude-sonnet-5.5",
+  "effort": "medium",
+  "display_name": "Claude Sonnet 5.5",
+  "previous_model_id": "claude-fable-5",
+  "previous_effort": "medium",
+  "previous_display_name": "Claude Fable 5",
+  "decided_by_user_id": "359cb909-5f54-4e3f-9b9a-5fb17a407c9c",
+  "decided_by_name": "Robin Lee",
+  "decided_via": "web"
+}

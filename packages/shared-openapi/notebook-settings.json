@@ -1,0 +1,147 @@
+{
+  "notebook": [
+    {
+      "name": "reactivity",
+      "type": "enum",
+      "default": "autorun",
+      "label": "When a cell runs",
+      "help": "What happens to the cells that read what a cell defines.",
+      "control": "enum",
+      "effect": "none",
+      "choices": [
+        {
+          "value": "autorun",
+          "label": "Cells that read a changed value re-run"
+        },
+        {
+          "value": "lazy",
+          "label": "They are marked stale instead"
+        }
+      ]
+    },
+    {
+      "name": "dataframe",
+      "type": "enum",
+      "default": "auto",
+      "label": "Frames as",
+      "help": "The frame type a SQL cell's result is.",
+      "control": "enum",
+      "effect": "next_run",
+      "choices": [
+        {
+          "value": "auto",
+          "label": "Whichever is installed"
+        },
+        {
+          "value": "polars",
+          "label": "Polars"
+        },
+        {
+          "value": "pandas",
+          "label": "pandas"
+        }
+      ]
+    },
+    {
+      "name": "env",
+      "type": "env",
+      "default": null,
+      "label": "Environment",
+      "help": "The environment the notebook runs in.",
+      "control": "env-ref",
+      "effect": "restart_kernel",
+      "pattern": "(default|script|\\.\\.?/[^\\x00]{0,1020})"
+    },
+    {
+      "name": "outputs_in_git",
+      "type": "bool",
+      "default": false,
+      "label": "Save outputs with the file",
+      "help": "Keep the saved outputs beside the notebook out of .gitignore.",
+      "control": "bool",
+      "effect": "none"
+    },
+    {
+      "name": "autoreload",
+      "type": "enum",
+      "default": "off",
+      "label": "Reload changed modules",
+      "help": "Reload the workspace's changed Python modules before each run.",
+      "control": "enum",
+      "effect": "next_run",
+      "choices": [
+        {
+          "value": "off",
+          "label": "Off"
+        },
+        {
+          "value": "on",
+          "label": "On"
+        }
+      ]
+    },
+    {
+      "name": "sql_row_limit",
+      "type": "int",
+      "default": null,
+      "label": "Rows per SQL result",
+      "help": "The most rows kept from a query that has no LIMIT of its own. Empty keeps them all.",
+      "control": "int-range",
+      "effect": "next_run",
+      "minimum": 1,
+      "maximum": 10000000
+    }
+  ],
+  "cells": {
+    "sql": [
+      {
+        "name": "connection",
+        "type": "text",
+        "default": null,
+        "label": "Connection",
+        "help": "Where the query runs. Empty runs it on the notebook's own frames.",
+        "control": "connection-ref",
+        "effect": "none"
+      },
+      {
+        "name": "output_var",
+        "type": "text",
+        "default": "_df",
+        "label": "Result name",
+        "help": "The name later cells read the result by.",
+        "control": "identifier",
+        "effect": "none"
+      },
+      {
+        "name": "show_output",
+        "type": "bool",
+        "default": true,
+        "label": "Show result",
+        "help": "Show the result under the cell.",
+        "control": "bool",
+        "effect": "none"
+      }
+    ],
+    "markdown": [
+      {
+        "name": "quote",
+        "type": "enum",
+        "default": "r",
+        "label": "Interpolate values",
+        "help": "Fill {name} in the text with the value it names.",
+        "control": "enum",
+        "effect": "none",
+        "choices": [
+          {
+            "value": "r",
+            "label": "Off"
+          },
+          {
+            "value": "rf",
+            "label": "On"
+          }
+        ]
+      }
+    ]
+  }
+}

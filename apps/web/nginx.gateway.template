@@ -1,0 +1,31 @@
+# The model gateway at /gateway/ on the app's own origin, rendered by
+# `docker-entrypoint.sh` only when ALKERA_GATEWAY_UPSTREAM names one. A remote
+# machine's node (a host added over SSH) sends its chats' model calls here, so a
+# self-hosted install needs one public origin, not a second published port.
+# The prefix is stripped: /gateway/v1/models reaches the gateway as /v1/models,
+# and /gateway/health/live is its liveness probe. The upstream is a variable, so
+# nginx resolves it per request: a gateway that is not up yet (or not run at
+# all) answers 502 here instead of stopping the web server from starting. The
+# variables substituted are `${ALKERA_GATEWAY_UPSTREAM}` and
+# `${ALKERA_NGINX_RESOLVER}`.
+location /gateway/ {
+    resolver           ${ALKERA_NGINX_RESOLVER} valid=10s;
+    set                $alkera_gateway ${ALKERA_GATEWAY_UPSTREAM};
+    rewrite            ^/gateway/(.*)$ /$1 break;
+    proxy_pass         $alkera_gateway;
+    proxy_http_version 1.1;
+    proxy_set_header   Host              $host;
+    proxy_set_header   X-Real-IP         $remote_addr;
+    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    # A model's answer streams token by token; buffering would hold it back
+    # until the turn ends, and a request body (a long context, an image) is
+    # passed on as it arrives.
+    proxy_buffering         off;
+    proxy_cache             off;
+    proxy_request_buffering off;
+    client_max_body_size    64m;
+    # A long turn outlives an ordinary request.
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+}

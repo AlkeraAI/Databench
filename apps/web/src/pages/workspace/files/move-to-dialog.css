@@ -1,0 +1,73 @@
+/* The folder picker's own sheet (Move to…, Copy to…, Restore to…). A chat's
+   file tab and files tab open it from chunks that never load the files
+   browser's stylesheet, so it brings its styles with it. The trail and the
+   treegrid carry their own sheet (treegrid.css, imported by the grid); this one
+   places them.
+
+   The shared Modal for the chrome, the library's search field on top, the trail
+   above a bordered box that holds the browser's own treegrid in its list layout.
+   The box has a height of its own so the grid's virtualizer has a scrollport to
+   fill. */
+
+.alk-modal.alk-files-picker .alk-files-picker__search {
+  --alk-search-w: 100%;
+  margin-bottom: var(--alkSpace2);
+}
+
+.alk-files-picker__trail {
+  padding-block: var(--alkSpace1) var(--alkSpace2);
+}
+
+/* A search result's name beside where it lives: two folders can share a name. */
+.alk-files-picker__name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--alkSpace2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-files-picker__where {
+  color: var(--alkSecondaryText);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+}
+
+/* Why the destination on screen cannot be used, beside the action it disables. */
+.alk-files-picker__refusal {
+  margin: var(--alkSpace2) 0 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.alk-files-picker__grid {
+  display: flex;
+  flex-direction: column;
+  height: min(50vh, 26rem);
+  min-height: 12rem;
+  overflow: hidden;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+}
+
+.alk-files-picker__empty {
+  margin: 0;
+  padding: var(--alkSpace4);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+/* Who last touched a folder and when do not help pick one, and at the modal's width they
+   overflowed and cut Modified mid-name. The grid drops columns by priority now, and the
+   picker is narrow enough that these two are the first to go on their own — this stays as
+   the floor under that, for a modal someone later makes wider. */
+.alk-modal.alk-files-picker
+  .alk-files-grid[data-view="list"]
+  .alk-files-grid__cell[data-column="modified"],
+.alk-modal.alk-files-picker
+  .alk-files-grid[data-view="list"]
+  .alk-files-grid__cell[data-column="owner"] {
+  display: none;
+}

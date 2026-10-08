@@ -1,0 +1,56 @@
+/* Stat card (KPI) — a flex column: label + trend ride the top, value + viz pin to the bottom. The
+ * height floor lets the metric row sit at the bottom instead of the card floating short. */
+.alk-statcard {
+  /* Card inset — off the 8px scale (between --alkSpace8/18 and --alkSpaceLg/24), so a component-local
+     var carries the literal rather than an invented global token. */
+  --alk-statcard-pad: 20px;
+  /* One KPI-tile height floor for EVERY card, viz or not, so a row of stat cards is always equal
+     height on its own — never dependent on whether a sibling happens to carry a viz. */
+  --alk-statcard-min-h: 138px;
+  min-height: var(--alk-statcard-min-h);
+  background: var(--alkCardBg);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusLg);
+  padding: var(--alk-statcard-pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+  overflow: hidden;
+}
+.alk-statcard__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.alk-statcard__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace5);
+}
+/* Only the viz variant pins the metric row to the bottom (the viz needs the room above). A no-viz
+   card keeps the value right under its label even when row-mates stretch the card taller — pinning
+   unconditionally opened a hole between a label and its own number the moment a sibling carried a
+   viz (the admin overview regression). */
+.alk-statcard:where([data-has-viz]) .alk-statcard__main {
+  margin-top: auto;
+}
+.alk-statcard__label {
+  font-size: var(--alkTextMd);
+  color: var(--alkSecondaryText);
+  font-weight: var(--alkWeightMedium);
+}
+.alk-statcard__value {
+  /* The UI face, not mono: at stat size the mono zero's dot read as a glitch ("100%"). Tabular
+     figures keep a row of cards aligned digit for digit. */
+  font-family: var(--alkFontUi);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-size: var(--alkText4xl);
+  font-weight: var(--alkWeightSemibold);
+  line-height: 1;
+}
+.alk-statcard__note {
+  font-size: var(--alkTextMd);
+  color: var(--alkSecondaryText);
+}

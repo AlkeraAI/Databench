@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "event_type": "mode.changed",
+  "event_id": "aside-mode-3f0c1a9e2b7d4c55",
+  "time": "2026-09-30T09:14:00Z",
+  "session_id": "d6d800e9-5bce-4d9f-b0e0-dd5367ea4298",
+  "mode": "bypass",
+  "previous_mode": "default",
+  "decided_by_user_id": "359cb909-5f54-4e3f-9b9a-5fb17a407c9c",
+  "decided_by_name": "Robin Lee",
+  "decided_via": "web"
+}

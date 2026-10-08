@@ -1,0 +1,68 @@
+@import "./tokens.css";
+
+/* An instance's dashboards, or one dashboard's sources. */
+
+:global(.chat-root) [data-tool="looker"] .list {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="looker"] .dash {
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x);
+}
+
+/* The tables the dashboard reads: the answer, stated before the tiles that
+   justify it. */
+:global(.chat-root) [data-tool="looker"] .reads {
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-2);
+  border-bottom: 1px solid var(--chat-hairline);
+}
+
+:global(.chat-root) [data-tool="looker"] .readsHead {
+  margin: 0 0 var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="looker"] .tables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--chat-sp-1) var(--chat-sp-1);
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="looker"] .tiles {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="looker"] .tile {
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-2);
+}
+
+:global(.chat-root) [data-tool="looker"] .tileTitle {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+}
+
+:global(.chat-root) [data-tool="looker"] .tileMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--chat-sp-1) var(--chat-sp-2);
+  margin: var(--chat-sp-1) 0 0;
+  min-width: 0;
+}
+

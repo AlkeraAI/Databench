@@ -1,0 +1,82 @@
+{
+  "about": "Who is editing which cell: the contract every document store's editing() answers (alkera_notebook/document/editing.py). Each case replays events at second t and reads editing() at second `at`. A `caret` event puts the actor's caret in a cell (null: in no cell); an `edit` event is an edit of a cell. Expected: cell -> [actor, caret?] in order.",
+  "actors": {
+    "ann": {"kind": "person", "name": "Ann"},
+    "bob": {"kind": "person", "name": "Bob"},
+    "bot": {"kind": "agent", "name": "Agent"}
+  },
+  "cases": [
+    {
+      "name": "a caret in a cell is editing it, however long it stands there while confirmed",
+      "events": [
+        {"t": 0, "actor": "bob", "do": "caret", "cell": "b"},
+        {"t": 20, "actor": "bob", "do": "caret", "cell": "b"},
+        {"t": 40, "actor": "bob", "do": "caret", "cell": "b"}
+      ],
+      "at": 60,
+      "editing": {"b": [["bob", true]]}
+    },
+    {
+      "name": "leaving the cell ends it at once",
+      "events": [
+        {"t": 0, "actor": "bob", "do": "caret", "cell": "b"},
+        {"t": 1, "actor": "bob", "do": "caret", "cell": null}
+      ],
+      "at": 1,
+      "editing": {}
+    },
+    {
+      "name": "moving to another cell moves it",
+      "events": [
+        {"t": 0, "actor": "bob", "do": "caret", "cell": "b"},
+        {"t": 2, "actor": "bob", "do": "caret", "cell": "a"}
+      ],
+      "at": 2,
+      "editing": {"a": [["bob", true]]}
+    },
+    {
+      "name": "a caret nobody confirmed still counts at 30 s",
+      "events": [{"t": 0, "actor": "bob", "do": "caret", "cell": "b"}],
+      "at": 30,
+      "editing": {"b": [["bob", true]]}
+    },
+    {
+      "name": "a vanished peer's caret lapses after 30 s",
+      "events": [{"t": 0, "actor": "bob", "do": "caret", "cell": "b"}],
+      "at": 31,
+      "editing": {}
+    },
+    {
+      "name": "an edit by an actor with no caret counts for 15 s",
+      "events": [{"t": 0, "actor": "bot", "do": "edit", "cell": "a"}],
+      "at": 15,
+      "editing": {"a": [["bot", false]]}
+    },
+    {
+      "name": "and no longer",
+      "events": [{"t": 0, "actor": "bot", "do": "edit", "cell": "a"}],
+      "at": 16,
+      "editing": {}
+    },
+    {
+      "name": "a person who typed and left is not editing: their caret says where they are",
+      "events": [
+        {"t": 0, "actor": "bob", "do": "caret", "cell": "b"},
+        {"t": 1, "actor": "bob", "do": "edit", "cell": "b"},
+        {"t": 2, "actor": "bob", "do": "caret", "cell": null}
+      ],
+      "at": 3,
+      "editing": {}
+    },
+    {
+      "name": "two people in one cell are both named, carets before edits",
+      "events": [
+        {"t": 0, "actor": "bot", "do": "edit", "cell": "b"},
+        {"t": 1, "actor": "ann", "do": "caret", "cell": "b"},
+        {"t": 2, "actor": "bob", "do": "caret", "cell": "b"}
+      ],
+      "at": 3,
+      "editing": {"b": [["bob", true], ["ann", true], ["bot", false]]}
+    }
+  ]
+}

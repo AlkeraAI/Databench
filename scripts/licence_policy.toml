@@ -1,0 +1,80 @@
+# What licences may ship in the open repository, read by licence_audit.py.
+#
+# An SPDX id in `allowed` or `weak_copyleft` passes. An id starting with one of
+# `refused_prefixes` fails. Anything else, and a package whose metadata names no
+# licence, is unknown and fails until a row under [overrides] decides it.
+
+[licences]
+allowed = [
+    "0BSD",
+    "Apache-2.0",
+    "BlueOak-1.0.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSD-3-Clause-Clear",
+    "BSL-1.0",
+    "CC-BY-3.0",
+    "CC-BY-4.0",
+    "CC0-1.0",
+    "CNRI-Python",
+    "HPND",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MIT-CMU",
+    "OFL-1.1",
+    "PSF-2.0",
+    "Python-2.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Unlicense",
+    "WTFPL",
+    "X11",
+    "Zlib",
+]
+# File-level or library copyleft: shipping the library unmodified is fine.
+# Changing one of these packages' files obliges publishing that change.
+weak_copyleft = [
+    "CDDL-1.0",
+    "EPL-1.0",
+    "EPL-2.0",
+    "LGPL-2.1-only",
+    "LGPL-2.1-or-later",
+    "LGPL-3.0-only",
+    "LGPL-3.0-or-later",
+    "MPL-2.0",
+]
+refused_prefixes = [
+    "AGPL-",
+    "CC-BY-NC",
+    "CC-BY-SA-",
+    "EUPL-",
+    "GPL-",
+    "OSL-",
+    "RPL-",
+    "SSPL-",
+    "Sleepycat",
+    "UNLICENSED",
+    "BUSL-",
+    "Elastic-",
+    "Commons-Clause",
+]
+# `X WITH <exception>` passes for these exceptions, whatever X is.
+allowed_exceptions = ["LLVM-exception", "Classpath-exception-2.0", "GCC-exception-3.1"]
+
+# Packages whose installed metadata names no licence, or names it in a form the
+# audit cannot read. Each row was checked by hand against the package's own
+# LICENSE file at `version`; `reason` says what was found. A row stops applying
+# when the lock moves to another version, so the new version is checked again.
+[overrides.python]
+brotlicffi = { version = "1.2.0.1", licence = "MIT", reason = "Not installed on macOS (marker-gated). PyPI 1.2.0.1 metadata and the python-hyper/brotlicffi LICENSE say MIT." }
+fastembed = { version = "0.8.0", licence = "Apache-2.0", reason = "Metadata says 'Apache License'; the shipped LICENSE file is Apache License 2.0." }
+mrml = { version = "0.2.4", licence = "MIT", reason = "The wheel ships no licence metadata. Upstream jdrouet/mrml is MIT (GitHub licence API)." }
+onnxruntime = { version = "1.26.0", licence = "MIT", reason = "Locked 1.26.0 is not the version installed here. PyPI 1.26.0 classifiers say MIT." }
+overrides = { version = "7.7.0", licence = "Apache-2.0", reason = "Not installed on Python 3.13 (marker-gated). PyPI 7.7.0 metadata says Apache License, Version 2.0." }
+py-rust-stemmers = { version = "0.1.8", licence = "MIT", reason = "Metadata names only a licence file; that LICENSE is the MIT License (qdrant)." }
+pywin32 = { version = "312", licence = "PSF-2.0", reason = "Windows only. PyPI 312 classifiers say Python Software Foundation License." }
+tzdata = { version = "2026.1", licence = "Apache-2.0", reason = "Not installed on macOS (Windows marker). PyPI 2026.1 metadata says Apache-2.0." }
+win32-setctime = { version = "1.2.0", licence = "MIT", reason = "Windows only. PyPI 1.2.0 classifiers say MIT License." }
+
+[overrides.node]

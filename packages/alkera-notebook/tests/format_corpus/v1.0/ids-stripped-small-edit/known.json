@@ -1,0 +1,6 @@
+{
+  "aaaaaaaaa1": "import polars as pl",
+  "aaaaaaaaa2": "df = pl.read_csv('orders.csv')",
+  "aaaaaaaaa3": "total = df['amount'].sum()",
+  "aaaaaaaaa4": "print(f'total: {total}')"
+}

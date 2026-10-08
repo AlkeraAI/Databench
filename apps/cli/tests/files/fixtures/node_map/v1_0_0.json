@@ -1,0 +1,18 @@
+{
+  "files": {
+    "notes.md": {
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "etag": "3",
+      "node_id": "node-notes",
+      "size": 41
+    },
+    "scratch/out.csv": {
+      "content_hash": "",
+      "etag": "",
+      "node_id": "node-out",
+      "size": 0
+    }
+  },
+  "metadata": {},
+  "schema_version": "1.0.0"
+}

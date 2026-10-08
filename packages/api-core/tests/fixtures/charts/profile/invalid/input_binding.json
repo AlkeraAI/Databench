@@ -1,0 +1,24 @@
+{
+  "path": "params[0].bind",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "mark": "point",
+    "params": [
+      {
+        "bind": {
+          "input": "range"
+        },
+        "name": "p",
+        "select": "point"
+      }
+    ]
+  },
+  "unsafe": true
+}

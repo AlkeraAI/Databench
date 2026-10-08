@@ -1,0 +1,21 @@
+{
+  "doc_id": "sess-01J7Q3M8",
+  "doc_type": "chat",
+  "epoch": 2,
+  "kind": "op",
+  "metadata": {},
+  "payload": {
+    "events": [],
+    "fields": {},
+    "intent": "set_meta",
+    "meta": {
+      "title": "Renamed"
+    },
+    "metadata": {},
+    "op_id": "op-meta-1",
+    "schema_version": "1.0.0"
+  },
+  "peer_id": "p:3f9a1c2b4d6e",
+  "schema_version": "1.0.0",
+  "seq": 9
+}

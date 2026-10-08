@@ -1,0 +1,13 @@
+{
+  "adopted_chat_id": null,
+  "binding_authority": "chat",
+  "kind": "main",
+  "layout": "native",
+  "machine_id": null,
+  "machine_pin": null,
+  "metadata": {},
+  "sandbox_memory_used_mb": null,
+  "sandbox_reported_at": null,
+  "sandbox_state": null,
+  "schema_version": "1.2.0"
+}

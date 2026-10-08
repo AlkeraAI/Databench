@@ -1,0 +1,254 @@
+/* Markdown — a small, theme-portable Markdown subset. Its styling travels with the `.alk-markdown`
+   element (no ancestor scope) so the component renders correctly BOTH inside the chat transcript
+   (`[data-alkera-tool-cards]`, where the chat tokens below resolve) AND on a plain product surface
+   such as the Knowledge drawer. Every chat-only token carries a general fallback: inside a transcript
+   the chat token resolves (so the chat look is byte-identical), while a product surface — and the
+   extension host theme, via the webview root's token adoption — resolves the general token instead. */
+
+.alk-markdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextMd);
+  line-height: var(--alkLeadingSnug);
+}
+
+.alk-markdown p,
+.alk-markdown ul,
+.alk-markdown ol,
+.alk-markdown figure {
+  margin: 0;
+}
+
+.alk-markdown ul,
+.alk-markdown ol {
+  padding-left: var(--alkSpace7);
+}
+
+.alk-markdown h1,
+.alk-markdown h2,
+.alk-markdown h3 {
+  margin: 0;
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextLg);
+  line-height: var(--alkLeadingHeading);
+}
+
+.alk-markdown strong {
+  font-weight: var(--alkWeightBold);
+}
+
+.alk-markdown code {
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  color: var(--alkWarningText);
+}
+
+.alk-markdown p code,
+.alk-markdown li code {
+  padding: 0 var(--alkSpace1);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkHoverBg);
+}
+
+.alk-markdown-code {
+  overflow: hidden;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+}
+
+.alk-markdown-code figcaption {
+  padding: var(--alkSpace1) var(--alkSpace3);
+  border-bottom: 1px solid var(--alkBorder);
+  color: var(--alkTertiaryText);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+}
+
+.alk-markdown-code pre {
+  max-height: 168px;
+  margin: 0;
+  overflow: auto;
+  padding: var(--alkSpace3);
+  background: var(--alkRaisedBg);
+}
+
+/* The streaming text cursor — NOT `.alk-caret`, which is the disclosure chevron (Caret.tsx);
+   sharing that name once painted every chevron as a blinking cursor bar. */
+.alk-stream-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  background: currentColor;
+  animation: alk-stream-caret-pulse 1s steps(2, jump-none) infinite;
+}
+
+@keyframes alk-stream-caret-pulse {
+  50% { opacity: 0; }
+}
+
+/* --- the blocks the transcript port added (quotes, ordered lists, tables, math, links) --- */
+
+.alk-markdown blockquote {
+  margin: 0;
+  padding: var(--alkSpace1) var(--alkSpace4);
+  border-left: 2px solid var(--alkBorderStrong, var(--alkBorder));
+  color: var(--alkSecondaryText);
+  white-space: pre-wrap;
+}
+
+.alk-markdown-code figcaption {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+}
+
+.alk-markdown-code__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--alkTertiaryText);
+}
+
+/* A markdown link is a routed action (opens the resource in the host), not a bare
+   hyperlink — button semantics with link dress. */
+.alk-markdown-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--alkLinkText);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.alk-markdown-link:hover {
+  color: var(--alkPrimaryText);
+}
+.alk-markdown-link:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+  border-radius: var(--alkRadiusSm);
+}
+
+/* A mid-sentence blob mention: styled, titled, never navigable. */
+.alk-markdown-blobref {
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+
+.alk-markdown-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+}
+.alk-markdown-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--alkTextMd);
+}
+.alk-markdown-table-wrap th {
+  text-align: left;
+  font-weight: var(--alkWeightSemibold);
+  color: var(--alkSecondaryText);
+}
+.alk-markdown-table-wrap th,
+.alk-markdown-table-wrap td {
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border-bottom: 1px solid var(--alkDivider);
+  /* Hosts put `overflow-wrap: anywhere` on prose so a huge token can't blow the
+     bubble width. Inherited into a table it collapses every cell's min-content
+     to one character — columns squeeze words into vertical shreds and the
+     wrapper's `overflow-x: auto` never engages. Reset both: cells keep whole
+     words, and a too-wide table scrolls sideways in the wrap instead. */
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.alk-markdown-table-wrap tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.alk-markdown-math {
+  overflow-x: auto;
+  padding-block: var(--alkSpace1);
+}
+
+/* A chat-folder image: capped so a full-size chart never widens the column,
+   a labelled placeholder where the path resolves to nothing. */
+.alk-chat-image {
+  /* The cap, as tokens on the figure: a surface that wants a smaller picture --
+     a thumbnail in the reader's own bubble -- sets these rather than restating
+     the rule, so the ceiling is written once. */
+  --alk-chat-image-max-w: 640px;
+  --alk-chat-image-max-h: 480px;
+  margin: 0.5rem 0;
+}
+.alk-chat-image__img {
+  display: block;
+  max-width: min(100%, var(--alk-chat-image-max-w));
+  max-height: var(--alk-chat-image-max-h);
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--alkBorder, rgba(0, 0, 0, 0.12));
+}
+.alk-chat-image__open {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.alk-chat-image__missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.35em 0.6em;
+  border: 1px dashed var(--alkBorder, rgba(0, 0, 0, 0.25));
+  border-radius: 6px;
+  color: var(--alkSecondaryText);
+  font-style: italic;
+}
+/* While the answer or the file's bytes are on the way: a quiet block the size
+   of a small chart, no text, so a normal load never reads as "missing". */
+.alk-chat-image__loading {
+  display: block;
+  width: min(100%, var(--alk-chat-image-max-w), 320px);
+  height: min(var(--alk-chat-image-max-h), 180px);
+  border-radius: 6px;
+  background: var(--alkRaisedBg);
+  /* @keyframes alk-skeleton-pulse lives in theme/motion.css */
+  animation: alk-skeleton-pulse 1.4s var(--alkEaseStandard) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .alk-chat-image__loading {
+    animation: none;
+  }
+}
+
+/* A reference to a file inside the chat, once the shell has said where it is.
+   The live one is a door onto the Files panel, so it carries the dotted
+   underline a reader reads as "this points at something of ours"; a gone,
+   not-yet-arrived or missing one is deliberately NOT a control — plain text with a muted
+   note beside it, since there is nothing there to open. */
+.chat-file-ref--live {
+  text-decoration-style: dotted;
+  text-decoration-thickness: from-font;
+}
+.chat-file-ref--gone,
+.chat-file-ref--pending,
+.chat-file-ref--missing {
+  color: var(--alkPrimaryText);
+  text-decoration: none;
+  cursor: default;
+}
+.chat-file-ref__note {
+  color: var(--alkSecondaryText);
+  font-size: 0.9em;
+  font-style: italic;
+}
+.alk-chat-image[data-state="gone"] .chat-file-ref--gone,
+.alk-chat-image[data-state="pending"] .chat-file-ref--pending,
+.alk-chat-image[data-state="missing"] .chat-file-ref--missing {
+  font-style: italic;
+}

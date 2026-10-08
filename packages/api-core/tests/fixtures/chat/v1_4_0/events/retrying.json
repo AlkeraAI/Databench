@@ -1,0 +1,12 @@
+{
+  "attempt": 2,
+  "event_id": "01H_retrying",
+  "event_type": "retrying",
+  "metadata": {},
+  "next_attempt_in_ms": 2000,
+  "provider_metadata": {},
+  "reason": "network error",
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

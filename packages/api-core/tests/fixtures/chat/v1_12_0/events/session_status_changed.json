@@ -1,0 +1,15 @@
+{
+  "detail": "calling claude-opus-4-7",
+  "event_id": "01H_session_status_changed",
+  "event_type": "session.status_changed",
+  "metadata": {},
+  "overflow": false,
+  "phase": "streaming_response",
+  "provider_metadata": {},
+  "refusal": null,
+  "schema_version": "1.3.0",
+  "session_id": "s1",
+  "status": "running",
+  "time": "2026-05-26T00:00:00Z",
+  "turn_id": null
+}

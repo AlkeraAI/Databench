@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>html,body{margin:0;padding:4px;font:13px system-ui,sans-serif;background:#fff}</style>
+<script>
+// The output frame's bootstrap as the frame contract describes it: the
+// listener is registered before any module loads; content arrives only by
+// postMessage from the parent window; every message carries {alk: 1, frame};
+// the frame posts only to the allowed app origin its parent has.
+(() => {
+  const ALLOWED = __APP_ORIGINS__;
+  const nonce = new URLSearchParams(location.hash.slice(1)).get("n");
+  const ancestor = location.ancestorOrigins && location.ancestorOrigins[0];
+  let parentOrigin = ALLOWED.includes(ancestor) ? ancestor : null;
+  const outbox = [];
+  const post = (m) => {
+    const transfer = [];
+    if (parentOrigin) parent.postMessage({ alk: 1, frame: nonce, ...m }, parentOrigin, transfer);
+    else outbox.push(m);
+  };
+  let widgets = null;
+  const pending = [];
+  addEventListener("securitypolicyviolation", (e) => post({ type: "violation", directive: e.violatedDirective, blocked: e.blockedURI }));
+  addEventListener("message", (e) => {
+    if (e.source !== parent) return;
+    const m = e.data;
+    if (!m || m.alk !== 1 || m.frame !== nonce) return;
+    if (!parentOrigin && ALLOWED.includes(e.origin)) {
+      parentOrigin = e.origin;
+      for (const q of outbox.splice(0)) post(q);
+    }
+    if (m.type === "module" && m.name === "@alkera/widgets" && !widgets) {
+      // The one name on window: the bundle registers itself through it, and
+      // the manager chains its own handler onto it.
+      let api = null;
+      window.__alkRegister = (name, version, exports) => {
+        if (name === "alkera-widgets" && !api) api = exports;
+      };
+      const s = document.createElement("script");
+      s.textContent = m.code;
+      document.head.appendChild(s);
+      if (!api) { post({ type: "error", message: "the widget bundle did not register" }); return; }
+      widgets = api.start({ post, root: document.getElementById("out") });
+      for (const q of pending.splice(0)) widgets.handle(q);
+      return;
+    }
+    if (widgets) widgets.handle(m); else pending.push(m);
+  });
+  new ResizeObserver(() => post({ type: "size", height: Math.min(20000, document.documentElement.scrollHeight) })).observe(document.documentElement);
+  post({ type: "ready" });
+})();
+</script>
+</head>
+<body><div id="out"></div></body>
+</html>

@@ -1,0 +1,168 @@
+/* Shared data grid (SQL result preview + full blob view) and its footer pager.
+   The compact preview caps its height; `is-fill` gives the grid a bounded box of
+   its own, so the rows scroll inside it wherever it is embedded rather than
+   handing the scroll to an ancestor. Surface-neutral: base --alk* tokens only,
+   with in-var() literal fallbacks inside every color-mix() on a non-inherited
+   property. */
+
+.alk-datatable {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.alk-datatable__wrap {
+  max-height: var(--alkPreviewMaxHeightSm);
+  overflow: auto;
+}
+
+/* `is-fill` means the grid owns its scroll: it takes the height its parent
+   offers and the rows move inside that box, so the pager below stays put and
+   the sticky header anchors to the rows it heads.
+
+   It used to mean the opposite — cap lifted, `overflow: visible`, scroll left to
+   whatever ancestor happened to have one. A caller that was also paged then hit
+   a rule that put a 320px cap back, and a 200-row page spilled out of it: the
+   pager, laid out under that box, drew across the middle of the table, and the
+   sticky header escaped to the pane and rode over what was above it. Handing the
+   ancestor the scroll is what made the same grid behave differently in each
+   surface that embedded it, so it is the grid's own box now, everywhere. */
+.alk-datatable.is-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.alk-datatable__wrap.is-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  scrollbar-color: var(--alkScrollbarThumb) transparent;
+}
+
+/* The pager footer sits below the table, separated by a hairline. Opaque: it is
+   the floor of a pane whose rows scroll above it, and a transparent bar would
+   read the rows through itself. */
+.alk-datatable__foot {
+  flex: 0 0 auto;
+  padding: var(--alkSpace2) var(--alkSpace1);
+  background: var(--alkRaisedBg);
+  border-top: 1px solid color-mix(in srgb, var(--alkBorder, rgba(231, 226, 216, 0.11)) 55%, transparent);
+}
+
+.alk-datatable__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--alkTextXs);
+}
+
+.alk-datatable__table th,
+.alk-datatable__table td {
+  border-bottom: 1px solid var(--alkBorder);
+  padding: var(--alkSpace2) var(--alkSpace3);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.alk-datatable__table th {
+  position: sticky;
+  top: 0;
+  /* Opaque raised ground — rows scroll UNDER the sticky header. */
+  background: var(--alkRaisedBg);
+  /* Brass — the alchemy-metal accent reserved for result-table headers. */
+  color: var(--alkWarningText);
+  font-weight: 600;
+}
+
+/* When the grid sorts, the header IS the control, drawn by the shared
+   SortHeader. Only the ink is the grid's own: these headers are brass, and the
+   button would otherwise bring the product's header grey in with it. */
+.alk-datatable__table th .alk-sortheader,
+.alk-datatable__table th .alk-sortheader:hover,
+.alk-datatable__table th .alk-sortheader[data-active] {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/* Row-number gutter (opt-in via the rowNumbers prop): a slim column sized to its
+   content, right-aligned and muted. `width: 1%` + nowrap collapses it to
+   min-content; data columns take the rest. */
+.alk-datatable__rownum {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--alkTertiaryText);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.alk-datatable__empty {
+  padding: var(--alkSpace3);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+/* ── Footer pager ─────────────────────────────────────────────────────── */
+
+.alk-datatable-pager {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--alkSpace3);
+  /* Wrap so a long count (the blob view's "… showing 51–100 of 500 rows") drops
+     the nav to its own line under a squeezed pane instead of pushing it past the
+     bar's overflow edge and clipping the next chevron. */
+  flex-wrap: wrap;
+  row-gap: var(--alkSpace2);
+}
+
+.alk-datatable-pager__count {
+  min-width: 0;
+  color: var(--alkSecondaryText);
+  /* The count is a measured reading (row totals, ranges) — mono, per the brand's
+     "Plex Mono for the measured readings: … counts". */
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Right-aligned even when there is no count on the left. */
+.alk-datatable-pager__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+  margin-left: auto;
+}
+
+.alk-datatable-pager__pagelabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+  white-space: nowrap;
+}
+
+.alk-datatable-pager__pageinput {
+  width: 40px;
+  height: var(--alkControlSm);
+  padding: 0 var(--alkSpace2);
+  text-align: center;
+  /* Mono — the page number is a measured reading, matching the count + the
+     result table's own row-number gutter rather than the sans product chrome. */
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+  font-variant-numeric: tabular-nums;
+  color: var(--alkPrimaryText);
+  background: var(--alkRaisedBg);
+  /* --alkBorderStrong keeps the field's edge legible so it reads as editable at rest. */
+  border: 1px solid var(--alkBorderStrong);
+  border-radius: var(--alkRadiusSm);
+}
+
+.alk-datatable-pager__pageinput:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+  border-color: var(--alkFocusRing);
+}

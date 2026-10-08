@@ -1,0 +1,13 @@
+{
+  "adopted_chat_id": null,
+  "binding_authority": "chat",
+  "kind": "project",
+  "layout": "native",
+  "machine_id": null,
+  "machine_pin": "e2938415-b697-43a4-a6e5-0a3c58293aaa",
+  "metadata": {},
+  "sandbox_memory_used_mb": null,
+  "sandbox_reported_at": null,
+  "sandbox_state": null,
+  "schema_version": "1.2.0"
+}

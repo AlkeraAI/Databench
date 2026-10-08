@@ -1,0 +1,27 @@
+/* The SSO settings form — columns, rows, and clusters are ui Stack/Inline at the call sites;
+   text VOICES (alk-meta/alk-code/alk-truncate) are applied in the TSX. This owns only what neither
+   covers: the helper prose measure and the raw-secret geometry. */
+
+/* Helper prose under a heading / field — its readable measure + leading (the voice is alk-meta). */
+.formHelp {
+  line-height: var(--alkLeadingSnug);
+  margin: 4px 0 0;
+  max-width: 64ch;
+}
+
+/* The once-shown SCIM token: the wrap/select geometry a raw secret needs (voice is alk-code). */
+.tokenVal {
+  font-size: var(--alkTextSm);
+  word-break: break-all;
+  user-select: all;
+}
+
+/* The assigned domains: a plain list whose rows are separated by the parent's gap. */
+.domains {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

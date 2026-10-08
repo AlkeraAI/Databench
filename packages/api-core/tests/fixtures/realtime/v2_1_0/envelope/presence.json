@@ -1,0 +1,36 @@
+{
+  "doc_id": "0f2b6c1e-6d1a-4a6d-9f1e-2c3b4a5d6e7f",
+  "doc_type": "artifact",
+  "epoch": 1,
+  "kind": "presence",
+  "metadata": {},
+  "payload": {
+    "metadata": {},
+    "peers": [
+      {
+        "cursor": null,
+        "display_name": "",
+        "email": "dana.okafor@acme.test",
+        "last_seen_at": "2026-09-05T12:00:00Z",
+        "metadata": {},
+        "peer_id": "p:3f9a1c2b4d6e",
+        "schema_version": "1.3.0",
+        "user_id": "00000000-0000-4000-8000-000000000001"
+      },
+      {
+        "cursor": null,
+        "display_name": "",
+        "email": "dana.okafor@acme.test",
+        "last_seen_at": "2026-09-05T12:00:00Z",
+        "metadata": {},
+        "peer_id": "p:a1b2c3d4e5f6",
+        "schema_version": "1.3.0",
+        "user_id": "00000000-0000-4000-8000-000000000001"
+      }
+    ],
+    "schema_version": "1.0.0"
+  },
+  "peer_id": "srv:0",
+  "schema_version": "2.1.0",
+  "seq": 0
+}

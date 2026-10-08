@@ -1,0 +1,13 @@
+{
+  "event_id": "01H_tombstone_applied",
+  "event_ids": [
+    "01H_message_created"
+  ],
+  "event_type": "tombstone.applied",
+  "metadata": {},
+  "provider_metadata": {},
+  "reason": "pii redaction",
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

@@ -1,0 +1,13 @@
+{
+  "ignored": false,
+  "message_id": "m1",
+  "metadata": {},
+  "part_id": "p1",
+  "provider_metadata": {},
+  "redacted": false,
+  "schema_version": "1.0.0",
+  "synthetic": false,
+  "text": "hello",
+  "time": "2026-05-26T00:00:00Z",
+  "type": "text"
+}

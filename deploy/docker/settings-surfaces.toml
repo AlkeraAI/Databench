@@ -1,0 +1,8 @@
+# The operator surfaces this tree owns, read by scripts/check_settings_surfaces.py.
+# Paths are relative to the root of the tree this file is in.
+
+[[surface]]
+key = "compose"
+label = "compose.prod"
+kind = "deployment"
+paths = ["deploy/docker/compose.prod.example.yml"]

@@ -1,0 +1,93 @@
+/* Dashboard shell — ported from the Hearth `dashboard-r1` specimen onto @alkera/ui tokens. Owns
+   what more than one component on the page shares: the page root + its scoped chart tokens, the
+   12-column grid and where each panel sits on it, the skeleton-to-content height locks, and the mount
+   motion. Component-specific internals live in each component's own colocated module. Class
+   vocabulary: shared text/layout roles stay the global `alk-*` roles applied in the TSX; only
+   page-local concepts become module classes here. */
+
+/* ---- page root + scoped chart tokens -------------------------------------- */
+/* Chart series + tooltip. The series rides the brand accent — one source, so both this page and the
+   admin overview (which paints its Sparkline from the same --alkBrand fallback) move together when
+   the accent changes; `--alk-chart-credits` is a semantic alias UsageChart.module.css consumes. (It
+   was a hand-copied snapshot of the brand hex — identical until the accent moved, then it drifted.)
+   The tooltip is an inverted chip. The 14px reading baseline is set once by the shared theme on
+   [data-measure-surface="product"] (this root carries that attr) — no page re-declare. */
+.root {
+  --alk-chart-credits: var(--alkBrand);
+  --alk-tip-bg: #38352d;
+}
+:global(:root[data-alkera-color-scheme="light"]) .root,
+:global([data-alkera-color-scheme="light"]) .root,
+:global(body.vscode-light) .root {
+  --alk-tip-bg: #1b1a17;
+}
+
+/* ---- grid ----------------------------------------------------------------- */
+/* The resolved grid fades its content in over the skeleton via an inline animation in
+   DashboardPage.tsx (shared alk-fade-in keyframe from @alkera/ui theme/motion.css) — the
+   skeleton shares this class and must not fade, so the animation can't live here. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--alkSpace7);
+  align-items: stretch;
+}
+
+/* ---- grid-item placement -------------------------------------------------- */
+/* Each stat card is one grid item — the real card's `.statlink` wrapper (components.tsx) and the
+   skeleton's bare library card (Skeleton.tsx) both carry this class for the column span. Three
+   stat cards share the top row at a third each; chats takes two thirds of the second row with the
+   model ledger beside it. */
+.grid > .statPlace {
+  grid-column: span 4;
+}
+.chats {
+  grid-column: span 8;
+}
+.models {
+  grid-column: span 4;
+}
+
+/* ---- skeleton height locks ------------------------------------------------ */
+/* Reserve each card's loaded height so the skeleton swaps in place at every width — the skeleton
+   always undershoots, so a min-height set to the resolved height lifts it to match (no jump). Values
+   measured from the resolved layout. The stat card carries its own 138px floor via .alk-statcard, so
+   it needs no lock here. */
+.grid[aria-busy="true"] .chats {
+  min-height: 330px;
+}
+.grid[aria-busy="true"] .models {
+  min-height: 302px;
+}
+@media (min-width: 1101px) {
+  .grid[aria-busy="true"] .models {
+    min-height: 330px;
+  }
+}
+
+/* ---- responsive ----------------------------------------------------------- */
+/* The 3-up stat strip needs ~244px-wide cards to seat a metric + its 88px viz; below ~1100 the
+   cards drop to halves and chats+models each take the full width; stat cards stack one-up on
+   phones. */
+@media (max-width: 1100px) {
+  .grid > .statPlace {
+    grid-column: span 6;
+  }
+  .chats,
+  .models {
+    grid-column: span 12;
+  }
+}
+@media (max-width: 720px) {
+  .grid > .statPlace {
+    grid-column: span 12;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before {
+    transition: none !important;
+    animation: none !important;
+  }
+}

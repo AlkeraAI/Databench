@@ -1,0 +1,6 @@
+# The open platform's settings and the registry an install starts from
+# (scripts/check_settings_surfaces.py).
+
+[[settings]]
+section = "alkera_core.config:Settings"
+registry = ".env.example"

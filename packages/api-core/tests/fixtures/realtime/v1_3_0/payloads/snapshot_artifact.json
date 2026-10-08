@@ -1,0 +1,20 @@
+{
+  "metadata": {},
+  "schema_version": "1.0.0",
+  "seq": 2,
+  "state": {
+    "fields": {
+      "body": {
+        "peer_id": "p:3f9a1c2b4d6e",
+        "ts": 1757073600.0,
+        "value": "orders are unique"
+      },
+      "title": {
+        "peer_id": "p:3f9a1c2b4d6e",
+        "ts": 1757073600.0,
+        "value": "Orders fact"
+      }
+    },
+    "kb_version": 3
+  }
+}

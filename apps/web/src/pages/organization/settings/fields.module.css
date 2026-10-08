@@ -1,0 +1,50 @@
+/* Settings page-layout — the one shell with no @alkera/ui equivalent: the sticky save bar.
+   Section plates are Card; rows and clusters are Stack/Inline at the call sites; text VOICES
+   (alk-strong/alk-meta/alk-name) are applied in the TSX. All colour is a token. */
+
+/* ---- sticky save bar ------------------------------------------------------ */
+.savebar {
+  position: sticky;
+  bottom: 20px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 4px;
+  padding: 10px 10px 10px 16px;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusLg);
+  background: color-mix(in srgb, var(--alkCardBg) 92%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--alkShadowLg);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  /* Hidden, not merely transparent: a transparent bar still counts as on the
+     page to a find-in-page, a hit test and a browser-automation visibility
+     check, so a pristine form appeared to be announcing unsaved changes. The
+     flip is delayed to the end of the fade so the exit still animates. */
+  visibility: hidden;
+  transition:
+    opacity 200ms var(--alkEaseStandard),
+    transform 200ms var(--alkEaseStandard),
+    visibility 0s linear 200ms;
+}
+.savebar[data-show] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  visibility: visible;
+  transition:
+    opacity 200ms var(--alkEaseStandard),
+    transform 200ms var(--alkEaseStandard),
+    visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .savebar {
+    transition-duration: 1ms;
+    transform: none;
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "acting": {
+    "credential": "proxy_token",
+    "id": "00000000-0000-4000-8000-000000000003",
+    "kind": "service",
+    "label": "proxy: laptop",
+    "metadata": {},
+    "org_id": "00000000-0000-4000-8000-00000000000a",
+    "schema_version": "1.0.0"
+  },
+  "agent_id_asserted_by": null,
+  "chain": [
+    {
+      "credential": "proxy_token",
+      "id": "00000000-0000-4000-8000-000000000003",
+      "kind": "service",
+      "label": "proxy: laptop",
+      "metadata": {},
+      "org_id": "00000000-0000-4000-8000-00000000000a",
+      "schema_version": "1.0.0"
+    }
+  ],
+  "delegating_user": null,
+  "metadata": {},
+  "schema_version": "1.0.0"
+}

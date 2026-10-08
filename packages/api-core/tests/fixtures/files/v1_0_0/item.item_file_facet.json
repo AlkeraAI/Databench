@@ -1,0 +1,11 @@
+{
+  "$model": "alkera_core.schemas.files.item.FileFacet",
+  "block_hash": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+  "content_hash": "abababababababababababababababababababababababababababababababab",
+  "metadata": {},
+  "mime_type": "application/pdf",
+  "provider": "bytes",
+  "scan_state": "clean",
+  "schema_version": "1.0.0",
+  "size": 65536
+}

@@ -1,0 +1,18 @@
+/* NodeLabel — a Files node's name, with the home mark in front of a member's home. The text
+   truncates inside its own box so the mark stays whole on a narrow line. */
+.alk-node-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  min-width: 0;
+  max-width: 100%;
+}
+.alk-node-label__mark {
+  flex: 0 0 auto;
+}
+.alk-node-label__text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+}

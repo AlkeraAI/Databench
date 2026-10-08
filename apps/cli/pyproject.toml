@@ -1,0 +1,149 @@
+[project]
+name = "alkera-cli"
+version = "0.5.0"
+description = "Alkera command-line interface."
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "textual>=8.2.7",
+    "httpx>=0.27.0",
+    "httpx-sse>=0.4.0",
+    "websockets>=13.0",
+    "aiosqlite>=0.20.0",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "alembic>=1.13.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.4.0",
+    "pyyaml>=6.0",
+    "types-pyyaml>=6.0",
+    "jinja2>=3.1",
+    "jsonschema>=4.20",
+    "structlog>=24.1",
+    "claude-agent-sdk>=0.2.93",
+    "duckdb>=1.1",
+    # The [c] extra pulls `sqlglotc`, a mypyc-compiled build of sqlglot's parser /
+    # generator / tokenizer / expression tree. It installs `.so` modules INTO the
+    # sqlglot package dir, which the import machinery prefers over the `.py` sources
+    # — same code, same behavior, compiled. SQL parsing is on the hot path here
+    # (lineage extraction, the shell/SQL permission classifier), so the pure-Python
+    # build is a silent tax. Floor is 29.0: that is the first sqlglot release that
+    # publishes the `c` extra (and the first `sqlglotc` on PyPI). The older `[rs]`
+    # extra is DEPRECATED upstream — sqlglot itself warns and points at `[c]`.
+    "sqlglot[c]>=29.0",
+    "defusedxml>=0.7",
+    "types-defusedxml>=0.7",
+    "tree-sitter>=0.23",
+    "tree-sitter-bash>=0.23",
+    # Event-driven file watching (Rust `notify` via PyO3) so a connection's lineage/KB
+    # refreshes the moment its source file changes. Ships wheels for every target platform
+    # (darwin x86_64 + arm64, manylinux x86_64, win_amd64); `force_polling` covers
+    # filesystems where OS notifications don't fire (network mounts / Docker / WSL).
+    "snowflake-connector-python>=3.12",
+    # Snowflake Python management API (snowflake.core.Root) — typed CRUD over warehouses,
+    # tasks, databases, roles, etc. Backs the native snowflake.* control-plane tools and the
+    # snowflake.core surface the model can reach via call_integration_sdk. Wraps a live
+    # snowflake.connector connection, so it rides the same auth the SQL connector resolves.
+    "snowflake-core>=1.0",
+    # PostgreSQL driver (v3). The [binary] extra bundles libpq so there's no system
+    # dependency in dev or the Nuitka bundle; also the wire driver for Redshift
+    # (Postgres protocol). Ships its own type stubs (py.typed).
+    "psycopg[binary]>=3.2",
+    # MySQL / MariaDB driver — pure Python (no system libmysqlclient), bundle-friendly.
+    "pymysql>=1.1",
+    "types-pymysql>=1.1",
+    # ClickHouse driver over its HTTP interface (pure Python; PEP-249 via
+    # clickhouse_connect.dbapi). No native lib needed.
+    "clickhouse-connect>=0.8",
+    # Databricks SQL warehouse driver (PEP-249 over Thrift). Pulls pyarrow/thrift; fine —
+    # the binary downloads from S3 so driver weight isn't a packaging constraint.
+    "databricks-sql-connector>=3.0",
+    # Databricks control-plane SDK (WorkspaceClient) — jobs/clusters/warehouses/Unity Catalog
+    # over the REST API, none of which the SQL warehouse driver can reach. Backs the native
+    # databricks.* tools and the WorkspaceClient the model can drive via call_integration_sdk.
+    # Ships py.typed; authenticates from the same host+PAT / OAuth (all-apis) we already store.
+    "databricks-sdk>=0.30",
+    # Trino driver — pure-Python PEP-249 client over the Trino HTTP protocol (basic auth /
+    # JWT / no-auth). Federated SQL engine; no native lib needed.
+    "trino>=0.330",
+    "pymongo>=4.17.0",
+    "confluent-kafka[avro,json,protobuf,schema-registry]>=2.15.0",
+    # AWS SDK — backs the native aws.* tools (S3, RDS, Glue, STS) and the boto3 session /
+    # client surface the model can drive via call_integration_sdk. botocore resolves and
+    # REFRESHES SSO credentials from the same ~/.aws/sso/cache the `aws sso login` CLI
+    # writes, so an account connection rides whatever the user already logged into.
+    "boto3>=1.34",
+    "boto3-stubs[essential,rds,sts,sso,sso-oidc,glue]>=1.34",
+    # BigQuery auth: google-auth resolves + AUTO-REFRESHES access tokens from a
+    # service-account key (GOOGLE_APPLICATION_CREDENTIALS) or application-default
+    # credentials, so a long-running session never hits the ~1h token expiry. We hit
+    # BigQuery's REST API with httpx (no heavy google-cloud-bigquery SDK); `requests`
+    # is only the transport google-auth uses to refresh the token at its OAuth endpoint.
+    "google-auth>=2.0",
+    "requests>=2.31",
+    "croniter>=2.0",
+    "types-croniter>=2.0",
+    # Local web search (the `web.search` tool): key-less metasearch over
+    # DuckDuckGo/Google/Bing/... . Pulls `primp` (Rust abi3, wheels for every release
+    # target: darwin arm64+x64, manylinux x64+aarch64, win_amd64) for real-browser
+    # TLS/HTTP2 fingerprints — `web.fetch` reuses it to browse result pages.
+    "ddgs>=9.0",
+    # HTML → Markdown for `web.fetch` readable output. Pure Python (bs4 + six),
+    # `py3-none-any` on every target. We stream+cap the raw body ourselves (bounded
+    # memory) and convert with this, keeping structure — code blocks, lists, links —
+    # and passing through the TEXT of any tag it doesn't specially handle.
+    "markdownify>=1.2",
+    "psutil>=6.1.0",
+    "types-psutil>=6.1.0",
+    # lancedb is EXACT-pinned (not >=) and marker-gated OFF the two platforms with
+    # NO PyPI wheel: darwin-x64 (Intel mac) AND win32-arm64 (Windows ARM64). lancedb
+    # publishes NO macosx_x86_64 wheel, NO win_arm64 wheel, and NO sdist, so it's
+    # unsatisfiable on those via PyPI. Both release legs build the wheel from source
+    # (its own build script) and `uv pip install` it; every other platform
+    # uses the PyPI wheel. The darwin-universal binary `lipo`s the arm64 + x64 slices,
+    # so BOTH must be the SAME version — the exact pin guarantees that. Dev on one of
+    # those hosts without that build degrades to BM25-only via the JsonlVectorBackend
+    # fallback (context/vector_backend.py). Bump deliberately: re-pin, re-lock, AND
+    # rebuild the from-source wheels from the matching `python-v<ver>` tag together.
+    "lancedb==0.33.0; (sys_platform != 'darwin' or platform_machine != 'x86_64') and (sys_platform != 'win32' or platform_machine != 'ARM64')",
+    "pyarrow>=17.0",
+    "fastembed>=0.4",
+    # onnxruntime (fastembed's inference engine for offline embeddings) dropped its
+    # macosx_x86_64 wheel at 1.26 — Intel-mac, like lancedb. Unlike lancedb there's no
+    # practical from-source build, but an OLDER onnxruntime still ships an x86_64-mac
+    # wheel: pin darwin-x64 to the latest such version that also satisfies fastembed
+    # (>1.21.0) — 1.23.2. Every other platform keeps the latest from PyPI. This is what
+    # lets the Intel-mac binary embed offline (and thus do real LanceDB vector search).
+    # 1.23.2 ships no cp314 wheel, so the pin is unsatisfiable on Python 3.14 anyway;
+    # bounding it there keeps it from constraining that resolution branch, where it
+    # would otherwise hold fastembed back to 0.7.4 and pin a vulnerable pillow<12.
+    "onnxruntime==1.23.2; sys_platform == 'darwin' and platform_machine == 'x86_64' and python_full_version < '3.14'",
+    # The public `alkera` API (`alkera.test`, `Connection.sql`, `RowSet`) that the
+    # governed test runner answers.
+    "alkera",
+    "alkera-core",
+    # The notebook engine and the agent's notebook tools (alkera_cli.notebooks).
+    "alkera-notebook[agent]",
+    # The kernel runtime (boot.py and _alkera_kernel, standard library only) a
+    # box stages into every kernel sandbox: an org worker cannot start a
+    # notebook engine without it.
+    "alkera-kernel",
+    "alkera-sdk",
+]
+
+[project.optional-dependencies]
+# The SQLAlchemy dialects the generic SQL connector needs beyond its base drivers
+# (psycopg for Postgres and PyMySQL for MySQL are base dependencies): DuckDB's,
+# for a SQLAlchemy engine on a DuckDB URL (the connector's SDK escape hatch).
+sql = ["duckdb-engine>=0.13"]
+
+[project.scripts]
+alkera = "alkera_cli.entry:console_main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["alkera_cli"]

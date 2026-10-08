@@ -1,0 +1,18 @@
+/* Skeleton — component styles for @alkera/ui. Every value is a role token (tokens.css). */
+
+.alk-skeleton {
+  background: var(--alkRaisedBg);
+  border-radius: var(--alkRadiusSm);
+  /* @keyframes alk-skeleton-pulse lives in theme/motion.css */
+  animation: alk-skeleton-pulse 1.4s var(--alkEaseStandard) infinite;
+}
+
+.alk-skeleton--circle {
+  border-radius: var(--alkRadiusFull);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-skeleton {
+    animation: none;
+  }
+}

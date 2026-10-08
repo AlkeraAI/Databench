@@ -1,0 +1,969 @@
+{
+  "call_id": "run-6851c8e5-b61e-4358-9f50-2436da87cf5d",
+  "chat_id": "8bef0f5e-41bf-415f-8fb0-b1d3921eb635",
+  "connection_id": "8c4e3d6f-5031-4d5e-a08f-a4d6f2c3e444",
+  "csv_head": "day,orders\n2026-07-01,10\n2026-07-02,11",
+  "query_object": {
+    "content_updated_at": 1788779280.143925,
+    "created_at": "2026-09-07T11:08:00.137845Z",
+    "id": "b00a7e2e-2527-4755-b443-ecd89e443524",
+    "logical_id": "save-query-12fec976-1e97-4892-b99a-2a81952c4485",
+    "namespace": "workspace",
+    "owner_user_id": "439681f7-b06c-46df-8587-5d753e31edba",
+    "spec": {
+      "connection_id": "8c4e3d6f-5031-4d5e-a08f-a4d6f2c3e444",
+      "defaults": {},
+      "engine": "postgres",
+      "metadata": {},
+      "params": [
+        {
+          "enum_values": [],
+          "label": "",
+          "metadata": {},
+          "name": "customer",
+          "prompt": "",
+          "required": true,
+          "schema_version": "1.3.0",
+          "type": "string"
+        },
+        {
+          "enum_values": [],
+          "label": "",
+          "metadata": {},
+          "name": "period",
+          "prompt": "",
+          "required": true,
+          "schema_version": "1.3.0",
+          "type": "daterange"
+        }
+      ],
+      "schema_version": "1.2.0",
+      "source_chat_id": "8bef0f5e-41bf-415f-8fb0-b1d3921eb635",
+      "sql_template": "SELECT day, count(*) FROM prompts WHERE customer = {customer} AND day BETWEEN {period.start} AND {period.end}"
+    },
+    "status": "ready",
+    "title": "Orders by day for a customer",
+    "type": "query",
+    "updated_at": "2026-09-07T11:08:00.137845Z",
+    "version": 1,
+    "visibility_scope": "org"
+  },
+  "result_object": {
+    "content_updated_at": 1788779280.640917,
+    "created_at": "2026-09-07T11:08:00.609466Z",
+    "id": "46ef99c8-1a40-4cab-80b7-be98d171760a",
+    "logical_id": "promote:8bef0f5e-41bf-415f-8fb0-b1d3921eb635:run-6851c8e5-b61e-4358-9f50-2436da87cf5d",
+    "namespace": "workspace",
+    "owner_user_id": "439681f7-b06c-46df-8587-5d753e31edba",
+    "spec": {
+      "chart_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "encoding": {
+          "x": {
+            "field": "day",
+            "type": "temporal"
+          },
+          "y": {
+            "field": "orders",
+            "type": "quantitative"
+          }
+        },
+        "mark": "line"
+      },
+      "columns": [
+        {
+          "label": "",
+          "metadata": {},
+          "name": "day",
+          "schema_version": "1.0.0"
+        },
+        {
+          "label": "",
+          "metadata": {},
+          "name": "orders",
+          "schema_version": "1.0.0"
+        }
+      ],
+      "envelope_columns": [
+        "day",
+        "orders"
+      ],
+      "failure_reason": null,
+      "inline": {
+        "columns": [
+          "day",
+          "orders"
+        ],
+        "kind": "rows",
+        "metadata": {},
+        "rows": [
+          [
+            "2026-07-01",
+            10
+          ],
+          [
+            "2026-07-02",
+            11
+          ],
+          [
+            "2026-07-03",
+            12
+          ],
+          [
+            "2026-07-04",
+            13
+          ],
+          [
+            "2026-07-05",
+            14
+          ],
+          [
+            "2026-07-06",
+            15
+          ],
+          [
+            "2026-07-07",
+            16
+          ],
+          [
+            "2026-07-08",
+            17
+          ],
+          [
+            "2026-07-09",
+            18
+          ],
+          [
+            "2026-07-10",
+            19
+          ],
+          [
+            "2026-07-11",
+            20
+          ],
+          [
+            "2026-07-12",
+            21
+          ],
+          [
+            "2026-07-13",
+            22
+          ],
+          [
+            "2026-07-14",
+            23
+          ],
+          [
+            "2026-07-15",
+            24
+          ],
+          [
+            "2026-07-16",
+            25
+          ],
+          [
+            "2026-07-17",
+            26
+          ],
+          [
+            "2026-07-18",
+            27
+          ],
+          [
+            "2026-07-19",
+            28
+          ],
+          [
+            "2026-07-20",
+            29
+          ],
+          [
+            "2026-07-21",
+            30
+          ],
+          [
+            "2026-07-22",
+            31
+          ],
+          [
+            "2026-07-23",
+            32
+          ],
+          [
+            "2026-07-24",
+            33
+          ],
+          [
+            "2026-07-25",
+            34
+          ],
+          [
+            "2026-07-26",
+            35
+          ],
+          [
+            "2026-07-27",
+            36
+          ],
+          [
+            "2026-07-28",
+            37
+          ],
+          [
+            "2026-07-01",
+            38
+          ],
+          [
+            "2026-07-02",
+            39
+          ],
+          [
+            "2026-07-03",
+            40
+          ],
+          [
+            "2026-07-04",
+            41
+          ],
+          [
+            "2026-07-05",
+            42
+          ],
+          [
+            "2026-07-06",
+            43
+          ],
+          [
+            "2026-07-07",
+            44
+          ],
+          [
+            "2026-07-08",
+            45
+          ],
+          [
+            "2026-07-09",
+            46
+          ],
+          [
+            "2026-07-10",
+            47
+          ],
+          [
+            "2026-07-11",
+            48
+          ],
+          [
+            "2026-07-12",
+            49
+          ],
+          [
+            "2026-07-13",
+            50
+          ],
+          [
+            "2026-07-14",
+            51
+          ],
+          [
+            "2026-07-15",
+            52
+          ],
+          [
+            "2026-07-16",
+            53
+          ],
+          [
+            "2026-07-17",
+            54
+          ],
+          [
+            "2026-07-18",
+            55
+          ],
+          [
+            "2026-07-19",
+            56
+          ],
+          [
+            "2026-07-20",
+            57
+          ],
+          [
+            "2026-07-21",
+            58
+          ],
+          [
+            "2026-07-22",
+            59
+          ],
+          [
+            "2026-07-23",
+            60
+          ],
+          [
+            "2026-07-24",
+            61
+          ],
+          [
+            "2026-07-25",
+            62
+          ],
+          [
+            "2026-07-26",
+            63
+          ],
+          [
+            "2026-07-27",
+            64
+          ],
+          [
+            "2026-07-28",
+            65
+          ],
+          [
+            "2026-07-01",
+            66
+          ],
+          [
+            "2026-07-02",
+            67
+          ],
+          [
+            "2026-07-03",
+            68
+          ],
+          [
+            "2026-07-04",
+            69
+          ]
+        ],
+        "schema_version": "1.0.0",
+        "text": "",
+        "total": 60
+      },
+      "metadata": {},
+      "payload": {
+        "media_type": "application/json",
+        "metadata": {},
+        "schema_version": "1.0.0",
+        "sha256": "9e5a92b44a6709260645e2817e3e11152194acf3e58b23dafb79c4ee896724e0",
+        "size": 1191
+      },
+      "receipt": {
+        "connection_id": "8c4e3d6f-5031-4d5e-a08f-a4d6f2c3e444",
+        "connection_name": "Tideline Postgres",
+        "definitions_referenced": [],
+        "duration_ms": 0,
+        "engine": "postgres",
+        "event_id": "run-6851c8e5-b61e-4358-9f50-2436da87cf5d",
+        "executed_at": "2026-09-07T11:08:00.523000Z",
+        "metadata": {},
+        "params": {
+          "customer": "acme",
+          "period": {
+            "end": "2026-07-28",
+            "start": "2026-07-01"
+          }
+        },
+        "principal": {
+          "agent_id": "8bef0f5e-41bf-415f-8fb0-b1d3921eb635",
+          "chain": [
+            "439681f7-b06c-46df-8587-5d753e31edba",
+            "8bef0f5e-41bf-415f-8fb0-b1d3921eb635"
+          ],
+          "metadata": {},
+          "schema_version": "1.0.0",
+          "user_id": "439681f7-b06c-46df-8587-5d753e31edba"
+        },
+        "principal_chain": {
+          "promoted_by": {
+            "acting": {
+              "credential": "jwt",
+              "id": "439681f7-b06c-46df-8587-5d753e31edba",
+              "kind": "user",
+              "label": "admin-a5ae895441aa@alkera.dev",
+              "metadata": {},
+              "org_id": "ac0df09d-f514-4a0a-b02b-7ba3bd2a74c6",
+              "schema_version": "1.0.0"
+            },
+            "agent_id_asserted_by": null,
+            "chain": [
+              {
+                "credential": "jwt",
+                "id": "439681f7-b06c-46df-8587-5d753e31edba",
+                "kind": "user",
+                "label": "admin-a5ae895441aa@alkera.dev",
+                "metadata": {},
+                "org_id": "ac0df09d-f514-4a0a-b02b-7ba3bd2a74c6",
+                "schema_version": "1.0.0"
+              }
+            ],
+            "delegating_user": null,
+            "metadata": {},
+            "schema_version": "1.0.0"
+          },
+          "uploaded_by": {
+            "acting": {
+              "credential": "agent_header",
+              "id": "8bef0f5e-41bf-415f-8fb0-b1d3921eb635",
+              "kind": "agent",
+              "label": "8bef0f5e-41bf-415f-8fb0-b1d3921eb635",
+              "metadata": {},
+              "org_id": "ac0df09d-f514-4a0a-b02b-7ba3bd2a74c6",
+              "schema_version": "1.0.0"
+            },
+            "agent_id_asserted_by": "client",
+            "chain": [
+              {
+                "credential": "jwt",
+                "id": "439681f7-b06c-46df-8587-5d753e31edba",
+                "kind": "user",
+                "label": "admin-a5ae895441aa@alkera.dev",
+                "metadata": {},
+                "org_id": "ac0df09d-f514-4a0a-b02b-7ba3bd2a74c6",
+                "schema_version": "1.0.0"
+              },
+              {
+                "credential": "agent_header",
+                "id": "8bef0f5e-41bf-415f-8fb0-b1d3921eb635",
+                "kind": "agent",
+                "label": "8bef0f5e-41bf-415f-8fb0-b1d3921eb635",
+                "metadata": {},
+                "org_id": "ac0df09d-f514-4a0a-b02b-7ba3bd2a74c6",
+                "schema_version": "1.0.0"
+              }
+            ],
+            "delegating_user": {
+              "credential": "jwt",
+              "id": "439681f7-b06c-46df-8587-5d753e31edba",
+              "kind": "user",
+              "label": "admin-a5ae895441aa@alkera.dev",
+              "metadata": {},
+              "org_id": "ac0df09d-f514-4a0a-b02b-7ba3bd2a74c6",
+              "schema_version": "1.0.0"
+            },
+            "metadata": {},
+            "schema_version": "1.0.0"
+          }
+        },
+        "role": "analytics_readonly",
+        "row_count": 60,
+        "schema_version": "1.1.0",
+        "sql": "SELECT day, count(*) FROM prompts WHERE customer = %(customer)s AND day BETWEEN %(period__start)s AND %(period__end)s"
+      },
+      "schema_version": "1.3.0",
+      "source_chat_id": "8bef0f5e-41bf-415f-8fb0-b1d3921eb635",
+      "source_event_id": "run-6851c8e5-b61e-4358-9f50-2436da87cf5d",
+      "source_query_id": null,
+      "total_rows": 60
+    },
+    "status": "ready",
+    "title": "Orders by day \u2014 acme",
+    "type": "result",
+    "updated_at": "2026-09-07T11:08:00.635398Z",
+    "version": 2,
+    "visibility_scope": "org"
+  },
+  "rows_page": {
+    "columns": [
+      "day",
+      "orders"
+    ],
+    "keys": [
+      "day",
+      "orders"
+    ],
+    "rows": [
+      [
+        "2026-07-01",
+        10
+      ],
+      [
+        "2026-07-02",
+        11
+      ],
+      [
+        "2026-07-03",
+        12
+      ],
+      [
+        "2026-07-04",
+        13
+      ],
+      [
+        "2026-07-05",
+        14
+      ],
+      [
+        "2026-07-06",
+        15
+      ],
+      [
+        "2026-07-07",
+        16
+      ],
+      [
+        "2026-07-08",
+        17
+      ],
+      [
+        "2026-07-09",
+        18
+      ],
+      [
+        "2026-07-10",
+        19
+      ],
+      [
+        "2026-07-11",
+        20
+      ],
+      [
+        "2026-07-12",
+        21
+      ],
+      [
+        "2026-07-13",
+        22
+      ],
+      [
+        "2026-07-14",
+        23
+      ],
+      [
+        "2026-07-15",
+        24
+      ],
+      [
+        "2026-07-16",
+        25
+      ],
+      [
+        "2026-07-17",
+        26
+      ],
+      [
+        "2026-07-18",
+        27
+      ],
+      [
+        "2026-07-19",
+        28
+      ],
+      [
+        "2026-07-20",
+        29
+      ],
+      [
+        "2026-07-21",
+        30
+      ],
+      [
+        "2026-07-22",
+        31
+      ],
+      [
+        "2026-07-23",
+        32
+      ],
+      [
+        "2026-07-24",
+        33
+      ],
+      [
+        "2026-07-25",
+        34
+      ],
+      [
+        "2026-07-26",
+        35
+      ],
+      [
+        "2026-07-27",
+        36
+      ],
+      [
+        "2026-07-28",
+        37
+      ],
+      [
+        "2026-07-01",
+        38
+      ],
+      [
+        "2026-07-02",
+        39
+      ],
+      [
+        "2026-07-03",
+        40
+      ],
+      [
+        "2026-07-04",
+        41
+      ],
+      [
+        "2026-07-05",
+        42
+      ],
+      [
+        "2026-07-06",
+        43
+      ],
+      [
+        "2026-07-07",
+        44
+      ],
+      [
+        "2026-07-08",
+        45
+      ],
+      [
+        "2026-07-09",
+        46
+      ],
+      [
+        "2026-07-10",
+        47
+      ],
+      [
+        "2026-07-11",
+        48
+      ],
+      [
+        "2026-07-12",
+        49
+      ],
+      [
+        "2026-07-13",
+        50
+      ],
+      [
+        "2026-07-14",
+        51
+      ],
+      [
+        "2026-07-15",
+        52
+      ],
+      [
+        "2026-07-16",
+        53
+      ],
+      [
+        "2026-07-17",
+        54
+      ],
+      [
+        "2026-07-18",
+        55
+      ],
+      [
+        "2026-07-19",
+        56
+      ],
+      [
+        "2026-07-20",
+        57
+      ],
+      [
+        "2026-07-21",
+        58
+      ],
+      [
+        "2026-07-22",
+        59
+      ]
+    ],
+    "total": 60
+  },
+  "run_id": "6851c8e5-b61e-4358-9f50-2436da87cf5d",
+  "transcript_entry": {
+    "chat_id": "8bef0f5e-41bf-415f-8fb0-b1d3921eb635",
+    "created_at": "2026-09-07T11:08:00.536975Z",
+    "event_id": "run-6851c8e5-b61e-4358-9f50-2436da87cf5d-result",
+    "id": "7b9d6b78-f76e-48a1-abde-f85e719b04ac",
+    "kind": "part.created",
+    "payload": {
+      "event_id": "run-6851c8e5-b61e-4358-9f50-2436da87cf5d-result",
+      "kind": "part.created",
+      "metadata": {},
+      "payload": {
+        "event_id": "run-6851c8e5-b61e-4358-9f50-2436da87cf5d-result",
+        "event_type": "part.created",
+        "metadata": {},
+        "part": {
+          "attachments": [],
+          "call_id": "run-6851c8e5-b61e-4358-9f50-2436da87cf5d",
+          "error_text": null,
+          "input": {
+            "connection": "Tideline Postgres",
+            "engine": "postgres",
+            "limit": 1000,
+            "object_id": "b00a7e2e-2527-4755-b443-ecd89e443524",
+            "params": {
+              "customer": "acme",
+              "period": {
+                "end": "2026-07-28",
+                "start": "2026-07-01"
+              }
+            },
+            "result_name": "Orders by day for a customer",
+            "run_id": "6851c8e5-b61e-4358-9f50-2436da87cf5d",
+            "sql": "SELECT day, count(*) FROM prompts WHERE customer = %(customer)s AND day BETWEEN %(period__start)s AND %(period__end)s"
+          },
+          "message_id": "run-6851c8e5-b61e-4358-9f50-2436da87cf5d",
+          "metadata": {},
+          "name": "sql.query",
+          "output": {
+            "blob": {
+              "media_type": "application/json",
+              "metadata": {},
+              "schema_version": "1.0.0",
+              "sha256": "c835f98509e698a880c76b8f3126587b47f02491852fe7756c2868d872cfbcbf",
+              "size": 1324
+            },
+            "columns": [
+              "day",
+              "orders"
+            ],
+            "cost_warnings": [],
+            "job_id": "",
+            "note": "",
+            "preview_rows": [
+              [
+                "2026-07-01",
+                10
+              ],
+              [
+                "2026-07-02",
+                11
+              ],
+              [
+                "2026-07-03",
+                12
+              ],
+              [
+                "2026-07-04",
+                13
+              ],
+              [
+                "2026-07-05",
+                14
+              ],
+              [
+                "2026-07-06",
+                15
+              ],
+              [
+                "2026-07-07",
+                16
+              ],
+              [
+                "2026-07-08",
+                17
+              ],
+              [
+                "2026-07-09",
+                18
+              ],
+              [
+                "2026-07-10",
+                19
+              ],
+              [
+                "2026-07-11",
+                20
+              ],
+              [
+                "2026-07-12",
+                21
+              ],
+              [
+                "2026-07-13",
+                22
+              ],
+              [
+                "2026-07-14",
+                23
+              ],
+              [
+                "2026-07-15",
+                24
+              ],
+              [
+                "2026-07-16",
+                25
+              ],
+              [
+                "2026-07-17",
+                26
+              ],
+              [
+                "2026-07-18",
+                27
+              ],
+              [
+                "2026-07-19",
+                28
+              ],
+              [
+                "2026-07-20",
+                29
+              ],
+              [
+                "2026-07-21",
+                30
+              ],
+              [
+                "2026-07-22",
+                31
+              ],
+              [
+                "2026-07-23",
+                32
+              ],
+              [
+                "2026-07-24",
+                33
+              ],
+              [
+                "2026-07-25",
+                34
+              ],
+              [
+                "2026-07-26",
+                35
+              ],
+              [
+                "2026-07-27",
+                36
+              ],
+              [
+                "2026-07-28",
+                37
+              ],
+              [
+                "2026-07-01",
+                38
+              ],
+              [
+                "2026-07-02",
+                39
+              ],
+              [
+                "2026-07-03",
+                40
+              ],
+              [
+                "2026-07-04",
+                41
+              ],
+              [
+                "2026-07-05",
+                42
+              ],
+              [
+                "2026-07-06",
+                43
+              ],
+              [
+                "2026-07-07",
+                44
+              ],
+              [
+                "2026-07-08",
+                45
+              ],
+              [
+                "2026-07-09",
+                46
+              ],
+              [
+                "2026-07-10",
+                47
+              ],
+              [
+                "2026-07-11",
+                48
+              ],
+              [
+                "2026-07-12",
+                49
+              ],
+              [
+                "2026-07-13",
+                50
+              ],
+              [
+                "2026-07-14",
+                51
+              ],
+              [
+                "2026-07-15",
+                52
+              ],
+              [
+                "2026-07-16",
+                53
+              ],
+              [
+                "2026-07-17",
+                54
+              ],
+              [
+                "2026-07-18",
+                55
+              ],
+              [
+                "2026-07-19",
+                56
+              ],
+              [
+                "2026-07-20",
+                57
+              ],
+              [
+                "2026-07-21",
+                58
+              ],
+              [
+                "2026-07-22",
+                59
+              ]
+            ],
+            "provenance": {
+              "connection_id": "8c4e3d6f-5031-4d5e-a08f-a4d6f2c3e444",
+              "connection_name": "Tideline Postgres",
+              "duration_ms": 0,
+              "engine": "postgres",
+              "executed_at": "2026-09-07T11:08:00.523+00:00",
+              "role": "analytics_readonly",
+              "row_count": 60,
+              "sql": "SELECT day, count(*) FROM prompts WHERE customer = %(customer)s AND day BETWEEN %(period__start)s AND %(period__end)s"
+            },
+            "ref_type": "rows",
+            "result_name": "Orders by day for a customer",
+            "row_count": 60,
+            "truncated": true
+          },
+          "part_id": "run-6851c8e5-b61e-4358-9f50-2436da87cf5d-part",
+          "provider_metadata": {},
+          "schema_version": "1.0.0",
+          "state": "completed",
+          "time": null,
+          "type": "tool_call"
+        },
+        "provider_metadata": {},
+        "schema_version": "1.0.0",
+        "session_id": "8bef0f5e-41bf-415f-8fb0-b1d3921eb635",
+        "time": "2026-09-07T11:08:00.524457Z"
+      },
+      "role": "tool",
+      "schema_version": "1.0.0"
+    },
+    "role": "tool",
+    "seq": 2
+  }
+}

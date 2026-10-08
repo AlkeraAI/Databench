@@ -1,0 +1,124 @@
+{
+  "ipywidgets": "8.1.9",
+  "model_id": "model-2",
+  "opens": [
+    {
+      "comm_id": "model-0",
+      "data": {
+        "buffer_paths": [],
+        "state": {
+          "_model_module": "@jupyter-widgets/base",
+          "_model_module_version": "2.0.0",
+          "_model_name": "LayoutModel",
+          "_view_count": null,
+          "_view_module": "@jupyter-widgets/base",
+          "_view_module_version": "2.0.0",
+          "_view_name": "LayoutView",
+          "align_content": null,
+          "align_items": null,
+          "align_self": null,
+          "border_bottom": null,
+          "border_left": null,
+          "border_right": null,
+          "border_top": null,
+          "bottom": null,
+          "display": null,
+          "flex": null,
+          "flex_flow": null,
+          "grid_area": null,
+          "grid_auto_columns": null,
+          "grid_auto_flow": null,
+          "grid_auto_rows": null,
+          "grid_column": null,
+          "grid_gap": null,
+          "grid_row": null,
+          "grid_template_areas": null,
+          "grid_template_columns": null,
+          "grid_template_rows": null,
+          "height": null,
+          "justify_content": null,
+          "justify_items": null,
+          "left": null,
+          "margin": null,
+          "max_height": null,
+          "max_width": null,
+          "min_height": null,
+          "min_width": null,
+          "object_fit": null,
+          "object_position": null,
+          "order": null,
+          "overflow": null,
+          "padding": null,
+          "right": null,
+          "top": null,
+          "visibility": null,
+          "width": null
+        }
+      },
+      "metadata": {
+        "version": "2.1.0"
+      },
+      "target_name": "jupyter.widget",
+      "type": "comm.open"
+    },
+    {
+      "comm_id": "model-1",
+      "data": {
+        "buffer_paths": [],
+        "state": {
+          "_model_module": "@jupyter-widgets/controls",
+          "_model_module_version": "2.0.0",
+          "_model_name": "SliderStyleModel",
+          "_view_count": null,
+          "_view_module": "@jupyter-widgets/base",
+          "_view_module_version": "2.0.0",
+          "_view_name": "StyleView",
+          "description_width": "",
+          "handle_color": null
+        }
+      },
+      "metadata": {
+        "version": "2.1.0"
+      },
+      "target_name": "jupyter.widget",
+      "type": "comm.open"
+    },
+    {
+      "comm_id": "model-2",
+      "data": {
+        "buffer_paths": [],
+        "state": {
+          "_dom_classes": [],
+          "_model_module": "@jupyter-widgets/controls",
+          "_model_module_version": "2.0.0",
+          "_model_name": "IntSliderModel",
+          "_view_count": null,
+          "_view_module": "@jupyter-widgets/controls",
+          "_view_module_version": "2.0.0",
+          "_view_name": "IntSliderView",
+          "behavior": "drag-tap",
+          "continuous_update": true,
+          "description": "",
+          "description_allow_html": false,
+          "disabled": false,
+          "layout": "IPY_MODEL_model-0",
+          "max": 10,
+          "min": 0,
+          "orientation": "horizontal",
+          "readout": true,
+          "readout_format": "d",
+          "step": 1,
+          "style": "IPY_MODEL_model-1",
+          "tabbable": null,
+          "tooltip": null,
+          "value": 3
+        }
+      },
+      "metadata": {
+        "version": "2.1.0"
+      },
+      "target_name": "jupyter.widget",
+      "type": "comm.open"
+    }
+  ]
+}

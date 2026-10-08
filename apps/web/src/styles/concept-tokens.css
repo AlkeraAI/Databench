@@ -1,0 +1,49 @@
+/* Portal concept tokens — provenance pigments and shared readings, layered on @alkera/ui.
+ *
+ * Origin (descent) is first-class in Alkera: where a fact or a node came from — human, agent,
+ * connector, seed, synced — reads as a warm, earthen pigment, never cold data-neon. These recur
+ * across Knowledge, Lineage, Teams, and the dashboard, so they live at the app level and ride
+ * the SAME scheme flip as the library's tokens (dark is the `:root` base; light keys on the
+ * `data-alkera-color-scheme` attribute the portal sets). */
+
+:root,
+[data-alkera-color-scheme="dark"] {
+  --alkPigAgent: #3a9d8e;
+  --alkPigHuman: #cb8763;
+  --alkPigConnector: #9aa766;
+  --alkPigSeed: #c9a451;
+  --alkPigSynced: #9499a2;
+  /* Brass — the rare precious-metal accent, spent only on the most precious reading: a sealed /
+     verified assay (a confirmed margin, a healthy heartbeat). Warm metal, never a glow. */
+  --alkBrass: #c9a45a;
+  --alkBrassSoft: color-mix(in srgb, var(--alkBrass) 16%, transparent);
+}
+
+:root[data-alkera-color-scheme="light"],
+[data-alkera-color-scheme="light"],
+body.vscode-light,
+body.vscode-high-contrast-light {
+  --alkPigAgent: #1c7064;
+  --alkPigHuman: #a8623d;
+  --alkPigConnector: #6f7a3e;
+  --alkPigSeed: #9a7b2e;
+  --alkPigSynced: #6b6f76;
+  --alkBrass: #93701f;
+  --alkBrassSoft: color-mix(in srgb, var(--alkBrass) 14%, transparent);
+}
+
+/* The text voices (alk-num, alk-eyebrow, alk-h*, …) live once in @alkera/ui's typography.css and
+ * are used directly. This file adds only the portal's shared layout concepts below. */
+
+/* ── Shared data-row concept — the clickable register row. The stacked cell + inline cluster moved to
+      @alkera/ui as the Stack / Inline layout primitives (.alk-stack / .alk-inline live there now,
+      so raw class use and the component share one source). ────────────────────────────────────────── */
+
+/* A clickable register/table row — the whole row opens its detail drawer. Trailing controls and links
+   inside it stop propagation so they don't double-fire. */
+.alk-rowlink {
+  cursor: pointer;
+}
+.alk-rowlink:focus-visible {
+  outline-offset: -2px;
+}

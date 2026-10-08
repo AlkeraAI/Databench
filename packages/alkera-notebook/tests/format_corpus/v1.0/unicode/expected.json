@@ -1,0 +1,122 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "0000000001": {
+        "defs": [
+          "alkera",
+          "pl"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000a1": {
+        "defs": [],
+        "errors": [],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": []
+      },
+      "00000000a2": {
+        "defs": [
+          "emoji",
+          "größe"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "00000000a3": {
+        "defs": [
+          "df"
+        ],
+        "errors": [],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "0000000001",
+        "00000000a1"
+      ],
+      [
+        "0000000001",
+        "00000000a3"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "import alkera\nimport polars as pl",
+        "config": {},
+        "extra": {},
+        "id": "0000000001",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "keyword",
+        "source": "import alkera\nimport polars as pl"
+      },
+      {
+        "code": "alkera.md(\n    r\"\"\"\n    # Café ☕ 🧪\n\n    שלום עולם — مرحبا\n\n    é vs é\n    \"\"\"\n)",
+        "config": {},
+        "extra": {},
+        "id": "00000000a1",
+        "kind": "markdown",
+        "meta": {
+          "quote": "r"
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "# Café ☕ 🧪\n\nשלום עולם — مرحبا\n\né vs é"
+      },
+      {
+        "code": "größe = '𝔘𝔫𝔦𝔠𝔬𝔡𝔢'\nemoji = '👩🏽‍🔬'",
+        "config": {},
+        "extra": {},
+        "id": "00000000a2",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "größe = '𝔘𝔫𝔦𝔠𝔬𝔡𝔢'\nemoji = '👩🏽‍🔬'"
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT 'ünïcödé 🦆' AS label\n    \"\"\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "00000000a3",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "df",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT 'ünïcödé 🦆' AS label"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

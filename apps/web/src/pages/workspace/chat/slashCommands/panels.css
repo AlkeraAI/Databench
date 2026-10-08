@@ -1,0 +1,219 @@
+/* Inline slash-command panels — the composer's instrument cluster. The root
+   class `.alk-slash-panel` is the ui Composer's sizing contract: its menu
+   frame keys the tall command-panel treatment off
+   `.alk-composer-menu.is-command:has(.alk-slash-panel)`. Controls come from
+   @alkera/ui (Button, SegmentedControl, TextInput) unstyled here; this file
+   owns only the panel's own layout + readouts. */
+
+.alk-slash-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  gap: var(--alkSpace4);
+  color: var(--alkPrimaryText);
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+}
+
+/* Pinned header — a plain title, or (Usage) a title + control on one row. */
+.alk-slash-panel__head {
+  flex: 0 0 auto;
+  margin: 0;
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alkTextXl);
+  font-weight: var(--alkWeightMedium);
+  letter-spacing: -0.01em;
+  color: var(--alkPrimaryText);
+}
+
+.alk-slash-panel__topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace3);
+}
+
+/* The scroll region — everything below the pinned header. */
+.alk-slash-panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Consequence / framing line (Clear, Cost when org-managed) and the loading /
+   empty readouts share one muted voice. */
+.alk-slash-panel__sub,
+.alk-slash-panel__muted {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+  line-height: 1.45;
+}
+
+.alk-slash-panel__error {
+  margin: 0;
+  color: var(--alkDangerText);
+  font-size: var(--alkTextSm);
+}
+
+/* Footer — action panels (Title, Clear) only; pinned below the body. */
+.alk-slash-panel__actions {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--alkSpace3);
+}
+
+/* --- Usage stats (dl) ----------------------------------------------------- */
+
+.alk-slash-stats {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+}
+
+.alk-slash-stats__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--alkSpace5);
+}
+
+.alk-slash-stats__row dt {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.alk-slash-stats__row dd {
+  margin: 0;
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextMd);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The credit balance is the panel's focal number. */
+.alk-slash-stats__row.is-hero dd {
+  font-size: var(--alkTextLg);
+  font-weight: var(--alkWeightMedium);
+}
+
+/* --- Cost table ----------------------------------------------------------- */
+
+.alk-slash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.alk-slash-table thead tr {
+  border-bottom: 1px solid var(--alkBorder);
+}
+
+.alk-slash-table th {
+  font-size: var(--alkTextXs);
+  font-weight: var(--alkWeightSemibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--alkSecondaryText);
+  text-align: left;
+  padding: 0 0 var(--alkSpace1);
+}
+
+.alk-slash-table td {
+  padding: var(--alkSpace2) 0;
+  font-size: var(--alkTextSm);
+  color: var(--alkPrimaryText);
+}
+
+.alk-slash-table td:first-child {
+  color: var(--alkSecondaryText);
+}
+
+.alk-slash-table td:not(:first-child),
+.alk-slash-table th:not(:first-child) {
+  text-align: right;
+}
+
+.alk-slash-table td.is-over {
+  color: var(--alkDangerText);
+  font-weight: var(--alkWeightSemibold);
+}
+
+/* --- /mode picker ----------------------------------------------------------- */
+
+.alk-slash-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* The panel / radiogroup hold focus to capture arrow keys; the mode highlight
+   is the visible indicator, so the focus container itself shows no outline. */
+.alk-slash-panel:focus,
+.alk-slash-mode:focus {
+  outline: none;
+}
+
+.alk-slash-mode__row {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border: 0;
+  border-radius: var(--alkRadiusSm);
+  background: transparent;
+  color: var(--alkPrimaryText);
+  font: inherit;
+  font-size: var(--alkTextSm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.alk-slash-mode__row:hover:not(:disabled),
+.alk-slash-mode__row.is-highlight {
+  background: var(--alkHoverBg);
+}
+
+.alk-slash-mode__row.is-highlight {
+  outline: 1px solid var(--alkFocusRing);
+  outline-offset: -1px;
+}
+
+.alk-slash-mode__row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  width: 100%;
+}
+
+.alk-slash-mode__dot {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--alkBorderStrong);
+  border-radius: 50%;
+}
+
+.alk-slash-mode__dot[data-active="true"] {
+  border-color: var(--alkBrand);
+  background: radial-gradient(circle, var(--alkBrand) 0 42%, transparent 46%);
+}
+
+.alk-slash-mode__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--alkSecondaryText);
+}
+
+.alk-slash-mode__desc {
+  display: block;
+  padding-left: calc(12px + var(--alkSpace3));
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+  line-height: 1.35;
+}

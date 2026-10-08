@@ -1,0 +1,52 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import contextlib
+from collections.abc import AsyncIterator, Sequence
+from contextlib import AbstractAsyncContextManager
+from typing import Any, Generic, TypeAlias, TypeVar
+
+from marimo import _loggers
+from marimo._types.lifespan import Lifespan
+
+T = TypeVar("T", bound=Any)
+
+LifespanList: TypeAlias = Sequence[Lifespan[T]]
+
+LOGGER = _loggers.marimo_logger()
+
+
+class Lifespans(Generic[T]):
+    """
+    A compound lifespan that runs a list of lifespans in order.
+    """
+
+    def __init__(
+        self,
+        lifespans: LifespanList[T],
+    ) -> None:
+        self._lifespans = lifespans
+
+    def has_lifespans(self) -> bool:
+        return bool(self._lifespans)
+
+    @contextlib.asynccontextmanager
+    async def _manager(
+        self,
+        app: T,
+        lifespans: LifespanList[T],
+    ) -> AsyncIterator[None]:
+        # Don't swallow CancelledError — the ASGI server uses cancellation
+        # to drive graceful shutdown of the lifespan chain.
+        exit_stack = contextlib.AsyncExitStack()
+        async with exit_stack:
+            for lifespan in lifespans:
+                LOGGER.debug(f"Setup: {lifespan.__name__}")
+                await exit_stack.enter_async_context(lifespan(app))
+            yield
+
+    def __call__(self, app: T) -> AbstractAsyncContextManager[None]:
+        return self._manager(app, lifespans=self._lifespans)
+
+    def __repr__(self) -> str:
+        return f"Lifespans({self._lifespans})"

@@ -1,0 +1,1 @@
+"""Alkera FastAPI backend."""

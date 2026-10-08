@@ -1,0 +1,3422 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import json
+from datetime import date, timedelta
+from enum import Enum
+from typing import TYPE_CHECKING, Any
+from unittest.mock import patch
+
+import pytest
+
+from marimo._data.models import ValueCount
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._plugins import ui
+from marimo._plugins.ui._impl.dataframes.transforms.types import (
+    FilterCondition,
+    FilterGroup,
+)
+from marimo._plugins.ui._impl.table import (
+    CHART_MAX_ROWS_STRING_VALUE_COUNTS,
+    DEFAULT_MAX_COLUMNS,
+    MAX_COLUMNS_NOT_PROVIDED,
+    CalculateTopKRowsArgs,
+    CalculateTopKRowsResponse,
+    ColumnSummariesArgs,
+    DownloadAsArgs,
+    DownloadAsOptions,
+    SearchTableArgs,
+    SortArgs,
+    TableSearchError,
+    get_default_table_max_columns,
+    get_default_table_page_size,
+)
+from marimo._plugins.ui._impl.tables.default_table import DefaultTableManager
+from marimo._plugins.ui._impl.tables.selection import INDEX_COLUMN_NAME
+from marimo._plugins.ui._impl.tables.table_manager import TableCell
+from marimo._plugins.ui._impl.utils.dataframe import TableData
+from marimo._runtime.functions import EmptyArgs
+from marimo._runtime.runtime import Kernel
+from marimo._utils.data_uri import from_data_uri
+from marimo._utils.platform import is_windows
+from tests._data.mocks import NON_EAGER_LIBS, create_dataframes
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+
+@pytest.fixture
+def dtm() -> DefaultTableManager:
+    return DefaultTableManager([])
+
+
+def _normalize_data(data: Any) -> list[dict[str, Any]]:
+    return DefaultTableManager._normalize_data(data)
+
+
+def test_normalize_data(executing_kernel: Kernel) -> None:
+    # unused, except for the side effect of giving the kernel an execution
+    # context
+    del executing_kernel
+
+    # Create kernel and give the execution context an existing cell
+    data: TableData
+
+    # Test with list of integers
+    data = [1, 2, 3]
+    result = _normalize_data(data)
+    assert result == [
+        {"value": 1},
+        {"value": 2},
+        {"value": 3},
+    ]
+
+    # Test with list of strings
+    data = ["a", "b", "c"]
+    result = _normalize_data(data)
+    assert result == [
+        {"value": "a"},
+        {"value": "b"},
+        {"value": "c"},
+    ]
+
+    # Test with list of dictionaries
+    data = [
+        {"key1": "value1"},
+        {"key2": "value2"},
+        {"key3": "value3"},
+    ]
+    result = _normalize_data(data)
+    assert result == [
+        {"key1": "value1"},
+        {"key2": "value2"},
+        {"key3": "value3"},
+    ]
+
+    # Dictionary with list of integers
+    data = {"key": [1, 2, 3]}
+    result = _normalize_data(data)
+    assert result == [
+        {"key": 1},
+        {"key": 2},
+        {"key": 3},
+    ]
+
+    # Dictionary with tuple of integers
+    data = {"key": (1, 2, 3)}
+    result = _normalize_data(data)
+    assert result == [
+        {"key": 1},
+        {"key": 2},
+        {"key": 3},
+    ]
+
+    # Test with empty list
+    data = []
+    result = _normalize_data(data)
+    assert result == []
+
+    # Test with invalid data type
+    data2: Any = "invalid data type"
+    with pytest.raises(ValueError) as e:
+        _normalize_data(data2)
+    assert str(e.value) == "data must be a list or tuple or a dict of lists."
+
+    # Test with invalid data structure
+    data3: Any = [{1, 2, 3}]
+    with pytest.raises(ValueError) as e:
+        _normalize_data(data3)
+    assert (
+        str(e.value) == "data must be a sequence of JSON-serializable types, "
+        "or a sequence of dicts."
+    )
+
+
+def test_sort_1d_list_of_strings(dtm: DefaultTableManager) -> None:
+    data = ["banana", "apple", "cherry", "date", "elderberry"]
+    dtm.data = _normalize_data(data)
+    sorted_data = dtm.sort_values(
+        [SortArgs(by="value", descending=False)]
+    ).data
+    expected_data = [
+        {"value": "apple"},
+        {"value": "banana"},
+        {"value": "cherry"},
+        {"value": "date"},
+        {"value": "elderberry"},
+    ]
+    assert sorted_data == expected_data
+
+
+def test_sort_1d_list_of_integers(dtm: DefaultTableManager) -> None:
+    data = [42, 17, 23, 99, 8]
+    dtm.data = _normalize_data(data)
+    sorted_data = dtm.sort_values(
+        [SortArgs(by="value", descending=False)]
+    ).data
+    expected_data = [
+        {"value": 8},
+        {"value": 17},
+        {"value": 23},
+        {"value": 42},
+        {"value": 99},
+    ]
+    assert sorted_data == expected_data
+
+
+def test_sort_list_of_dicts(dtm: DefaultTableManager) -> None:
+    data = [
+        {"name": "Alice", "age": 30, "birth_year": date(1994, 5, 24)},
+        {"name": "Bob", "age": 25, "birth_year": date(1999, 7, 14)},
+        {"name": "Charlie", "age": 35, "birth_year": date(1989, 12, 1)},
+        {"name": "Dave", "age": 28, "birth_year": date(1996, 3, 5)},
+        {"name": "Eve", "age": 22, "birth_year": date(2002, 1, 30)},
+    ]
+    dtm.data = _normalize_data(data)
+    sorted_data = dtm.sort_values([SortArgs(by="age", descending=True)]).data
+
+    with pytest.raises(KeyError):
+        _res = dtm.sort_values(
+            [SortArgs(by="missing_column", descending=True)]
+        ).data
+
+    expected_data = [
+        {"name": "Charlie", "age": 35, "birth_year": date(1989, 12, 1)},
+        {"name": "Alice", "age": 30, "birth_year": date(1994, 5, 24)},
+        {"name": "Dave", "age": 28, "birth_year": date(1996, 3, 5)},
+        {"name": "Bob", "age": 25, "birth_year": date(1999, 7, 14)},
+        {"name": "Eve", "age": 22, "birth_year": date(2002, 1, 30)},
+    ]
+    assert sorted_data == expected_data
+
+
+def test_sort_dict_of_lists(dtm: DefaultTableManager) -> None:
+    data = {
+        "company": [
+            "Company A",
+            "Company B",
+            "Company C",
+            "Company D",
+            "Company E",
+        ],
+        "type": ["Tech", "Finance", "Health", "Tech", "Finance"],
+        "net_worth": [1000, 2000, 1500, 1800, 1700],
+    }
+    dtm.data = _normalize_data(data)
+    sorted_data = dtm.sort_values(
+        [SortArgs(by="net_worth", descending=False)]
+    ).data
+
+    with pytest.raises(KeyError):
+        _res = dtm.sort_values(
+            [SortArgs(by="missing_column", descending=True)]
+        ).data
+
+    expected_data = {
+        "company": [
+            "Company A",
+            "Company C",
+            "Company E",
+            "Company D",
+            "Company B",
+        ],
+        "type": ["Tech", "Health", "Finance", "Tech", "Finance"],
+        "net_worth": [1000, 1500, 1700, 1800, 2000],
+    }
+    assert sorted_data == _normalize_data(expected_data)
+
+
+def test_sort_dict_of_tuples(dtm: DefaultTableManager) -> None:
+    data = {
+        "key1": (42, 17, 23),
+        "key2": (99, 8, 4),
+        "key3": (34, 65, 12),
+        "key4": (1, 2, 3),
+        "key5": (7, 9, 11),
+    }
+    dtm.data = _normalize_data(data)
+    sorted_data = dtm.sort_values([SortArgs(by="key1", descending=True)]).data
+
+    with pytest.raises(KeyError):
+        _res = dtm.sort_values(
+            [SortArgs(by="missing_column", descending=True)]
+        ).data
+
+    expected_data = [
+        {"key1": 42, "key2": 99, "key3": 34, "key4": 1, "key5": 7},
+        {"key1": 23, "key2": 4, "key3": 12, "key4": 3, "key5": 11},
+        {"key1": 17, "key2": 8, "key3": 65, "key4": 2, "key5": 9},
+    ]
+    assert sorted_data == _normalize_data(expected_data)
+
+
+def test_value() -> None:
+    data = ["banana", "apple", "cherry", "date", "elderberry"]
+    table = ui.table(data)
+    assert list(table.value) == []
+    assert type(table.value) is type(data)
+
+
+def test_value_with_selection() -> None:
+    data = ["banana", "apple", "cherry", "date", "elderberry"]
+    table = ui.table(data)
+    assert list(table._convert_value(["0", "2"])) == [
+        "banana",
+        "cherry",
+    ]
+    assert type(table.value) is type(data)
+
+
+def test_value_with_initial_selection() -> None:
+    data = ["banana", "apple", "cherry", "date", "elderberry"]
+    table = ui.table(data, initial_selection=[0, 2])
+    assert table.value == ["banana", "cherry"]
+    assert type(table.value) is type(data)
+
+
+def test_value_does_not_include_index_column() -> None:
+    data: list[dict[str, Any]] = [
+        {"name": "Alice", "age": 30},
+        {"name": "Bob", "age": 25},
+        {"name": "Charlie", "age": 35},
+    ]
+    table = ui.table(data, initial_selection=[0, 2])
+    selected_data = table.value
+    assert isinstance(selected_data, list)
+    assert len(selected_data) == 2
+    assert all(isinstance(row, dict) for row in selected_data)
+    # Check that INDEX_COLUMN_NAME is not in any of the selected rows
+    for row in selected_data:
+        assert isinstance(row, dict)
+        assert INDEX_COLUMN_NAME not in row
+    assert selected_data == [
+        {"name": "Alice", "age": 30},
+        {"name": "Charlie", "age": 35},
+    ]
+    assert type(table.value) is type(data)
+
+
+def test_invalid_initial_selection() -> None:
+    data = ["banana", "apple"]
+    with pytest.raises(IndexError):
+        ui.table(data, initial_selection=[2])
+
+    with pytest.raises(TypeError):
+        ui.table(data, initial_selection=["apple"])
+
+    # multiple rows cannot be selected for single selection mode
+    with pytest.raises(ValueError):
+        ui.table(data, selection="single", initial_selection=[0, 1])
+
+
+def test_value_with_sorting_then_selection() -> None:
+    data = ["banana", "apple", "cherry", "date", "elderberry"]
+    table = ui.table(data)
+
+    table._search(
+        SearchTableArgs(
+            sort=[SortArgs(by="value", descending=True)],
+            page_size=10,
+            page_number=0,
+        )
+    )
+    assert list(table._convert_value(["0"])) == [
+        {"value": "elderberry"},
+    ]
+
+    table._search(
+        SearchTableArgs(
+            sort=[SortArgs(by="value", descending=False)],
+            page_size=10,
+            page_number=0,
+        )
+    )
+    assert list(table._convert_value(["0"])) == [
+        {"value": "apple"},
+    ]
+    assert type(table.value) is type(data)
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"a": ["x", "z", "y"]},
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_value_with_sorting_then_selection_dfs(df: Any) -> None:
+    import narwhals as nw
+
+    table = ui.table(df)
+    table._search(
+        SearchTableArgs(
+            sort=[SortArgs(by="a", descending=True)],
+            page_size=10,
+            page_number=0,
+        )
+    )
+    value = table._convert_value(["0"])
+    assert not isinstance(value, nw.DataFrame)
+    assert nw.from_native(value)["a"][0] == "x"
+
+    table._search(
+        SearchTableArgs(
+            sort=[SortArgs(by="a", descending=False)],
+            page_size=10,
+            page_number=0,
+        )
+    )
+    value = table._convert_value(["0"])
+    assert not isinstance(value, nw.DataFrame)
+    assert INDEX_COLUMN_NAME not in value.columns
+    assert nw.from_native(value)["a"][0] == "x"
+    assert type(table.value) is type(df)
+
+
+def test_value_with_search_then_selection() -> None:
+    data = ["banana", "apple", "cherry", "date", "elderberry"]
+    table = ui.table(data)
+
+    table._search(
+        SearchTableArgs(
+            query="apple",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    assert list(table._convert_value(["0"])) == [
+        {"value": "apple"},
+    ]
+
+    table._search(
+        SearchTableArgs(
+            query="banana",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    assert list(table._convert_value(["0"])) == [
+        {"value": "banana"},
+    ]
+
+    # Rows not in the search are not selected
+    with pytest.raises(IndexError):
+        table._convert_value(["2"])
+
+    # empty search
+    table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=0,
+        )
+    )
+    assert list(table._convert_value(["2"])) == ["cherry"]
+    assert type(table.value) is type(data)
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"a": ["foo", "bar", "baz"]},
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_value_with_search_then_selection_dfs(df: Any) -> None:
+    import narwhals as nw
+
+    table = ui.table(df)
+    table._search(
+        SearchTableArgs(
+            query="bar",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    value = table._convert_value(["1"])
+    assert not isinstance(value, nw.DataFrame)
+    assert INDEX_COLUMN_NAME not in value.columns
+    assert nw.from_native(value)["a"][0] == "bar"
+
+    table._search(
+        SearchTableArgs(
+            query="foo",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    # Can still select rows not in the search
+    value = table._convert_value(["0", "1"])
+    assert not isinstance(value, nw.DataFrame)
+    assert INDEX_COLUMN_NAME not in value.columns
+    assert nw.from_native(value)["a"][0] == "foo"
+    assert nw.from_native(value)["a"][1] == "bar"
+    # empty search
+    table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=0,
+        )
+    )
+    value = table._convert_value(["2"])
+    assert not isinstance(value, nw.DataFrame)
+    assert nw.from_native(value)["a"][0] == "baz"
+    assert type(table.value) is type(df)
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"a": ["foo", "bar", "baz"]},
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_value_with_search_then_cell_selection_dfs(df: Any) -> None:
+    import narwhals as nw
+
+    table = ui.table(df, selection="multi-cell")
+    table._search(
+        SearchTableArgs(
+            query="bar",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    value = table._convert_value([{"rowId": "1", "columnName": "a"}])
+    assert not isinstance(value, nw.DataFrame)
+    assert value[0].value == "bar"
+
+    table._search(
+        SearchTableArgs(
+            query="foo",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    # Can still select rows not in the search
+    value = table._convert_value(
+        [{"rowId": 0, "columnName": "a"}, {"rowId": 1, "columnName": "a"}]
+    )
+    assert not isinstance(value, nw.DataFrame)
+    assert value[0].value == "foo"
+    assert len(value) == 1
+
+    # empty search
+    table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=0,
+        )
+    )
+    value = table._convert_value([{"rowId": "2", "columnName": "a"}])
+    assert not isinstance(value, nw.DataFrame)
+    assert value[0].value == "baz"
+
+
+def test_value_with_selection_then_sorting_dict_of_lists() -> None:
+    data = {
+        "company": [
+            "Company A",
+            "Company B",
+            "Company C",
+            "Company D",
+            "Company E",
+        ],
+        "type": ["Tech", "Finance", "Health", "Tech", "Finance"],
+        "net_worth": [1000, 2000, 1500, 1800, 1700],
+    }
+    table = ui.table(data)
+
+    table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=0,
+        )
+    )
+    assert table._convert_value(["0", "2"])["company"] == [
+        "Company A",
+        "Company C",
+    ]
+
+    table._search(
+        SearchTableArgs(
+            sort=[SortArgs(by="net_worth", descending=True)],
+            page_size=10,
+            page_number=0,
+        )
+    )
+    assert table._convert_value(["0", "2"])["company"] == [
+        "Company B",
+        "Company E",
+    ]
+    assert type(table.value) is type(data)
+
+
+def test_value_with_cell_selection_then_sorting_dict_of_lists() -> None:
+    data = {
+        "company": [
+            "Company A",
+            "Company B",
+            "Company C",
+            "Company D",
+            "Company E",
+        ],
+        "type": ["Tech", "Finance", "Health", "Tech", "Finance"],
+        "net_worth": [1000, 2000, 1500, 1800, 1700],
+    }
+    table = ui.table(data, selection="multi-cell")
+
+    table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=0,
+        )
+    )
+    assert table._convert_value(
+        [
+            {"rowId": "0", "columnName": "company"},
+            {"rowId": "2", "columnName": "company"},
+        ]
+    ) == [
+        TableCell(row="0", column="company", value="Company A"),
+        TableCell(row="2", column="company", value="Company C"),
+    ]
+
+    table._search(
+        SearchTableArgs(
+            sort=[SortArgs(by="net_worth", descending=True)],
+            page_size=10,
+            page_number=0,
+        )
+    )
+    assert table._convert_value(
+        [
+            {"rowId": "0", "columnName": "company"},
+            {"rowId": "2", "columnName": "company"},
+        ]
+    ) == [
+        TableCell(row="0", column="company", value="Company B"),
+        TableCell(row="2", column="company", value="Company E"),
+    ]
+    assert type(table.value) is list
+
+
+def test_search_sort_nonexistent_columns() -> None:
+    data = ["banana", "apple", "cherry", "date", "elderberry"]
+    table = ui.table(data)
+
+    # no error raised
+    table._search(
+        SearchTableArgs(
+            sort=[SortArgs(by="missing_column", descending=False)],
+            page_size=10,
+            page_number=0,
+        )
+    )
+
+    assert table._convert_value(["0"]) == ["banana"]
+    assert type(table.value) is type(data)
+
+
+def test_invalid_index_in_initial_selection() -> None:
+    """Test that invalid initial selection raises appropriate errors"""
+    with pytest.raises(IndexError):
+        ui.table(
+            data={"a": [1, 2], "b": [3, 4]},
+            initial_selection=[5],  # Invalid index
+        )
+
+
+def test_invalid_initial_cell_selection() -> None:
+    """Test that invalid initial selection raises appropriate errors"""
+    with pytest.raises(TypeError):
+        ui.table(
+            data={"a": [1, 2], "b": [3, 4]},
+            selection="single-cell",
+            initial_selection=[(1, 2, 3)],  # invalid tulple length
+        )
+
+
+def test_initial_row_selection_happy_path() -> None:
+    """Test that initial row selection works with valid indices"""
+    table = ui.table(
+        data={"a": [1, 2, 3], "b": [4, 5, 6]}, initial_selection=[0, 1]
+    )
+    assert table.value == {"a": [1, 2], "b": [4, 5]}
+
+
+def test_initial_cell_selection_happy_path() -> None:
+    """Test that initial cell selection works with valid coordinates"""
+    table = ui.table(
+        data={"a": [1, 2, 3], "b": [4, 5, 6]},
+        selection="multi-cell",
+        initial_selection=[("0", "a"), ("1", "b")],
+    )
+    assert table.value == [
+        TableCell(row="0", column="a", value=1),
+        TableCell(row="1", column="b", value=5),
+    ]
+
+
+def test_get_row_ids_dict() -> None:
+    data = {
+        "id": [1, 2, 3] * 3,
+        "fruits": ["banana", "apple", "cherry"] * 3,
+        "quantity": [10, 20, 30] * 3,
+    }
+    table = ui.table(data)
+
+    initial_response = table._get_row_ids(EmptyArgs())
+    assert initial_response.all_rows is True
+    assert initial_response.row_ids == []
+    assert initial_response.error is None
+
+    table._search(
+        SearchTableArgs(
+            query="cherry",
+            page_size=10,
+            page_number=0,
+        )
+    )
+
+    response = table._get_row_ids(EmptyArgs())
+    # For dicts, we do not need to find row_id, we just return the index
+    assert response.row_ids == [0, 1, 2]
+    assert response.all_rows is False
+    assert response.error is None
+
+
+def test_get_row_ids_for_lists() -> None:
+    table = ui.table(["apples", "bananas", "bananas", "cherries"])
+    initial_response = table._get_row_ids(EmptyArgs())
+    assert initial_response.all_rows is True
+    assert initial_response.row_ids == []
+    assert initial_response.error is None
+
+    table._search(
+        SearchTableArgs(
+            query="banana",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    response = table._get_row_ids(EmptyArgs())
+    assert response.row_ids == [0, 1]
+    assert response.all_rows is False
+    assert response.error is None
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {
+            "id": [1, 2, 3] * 3,
+            "fruits": ["banana", "apple", "cherry"] * 3,
+            "quantity": [10, 20, 30] * 3,
+        },
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_get_row_ids_with_df(df: any) -> None:
+    table = ui.table(df)
+
+    initial_response = table._get_row_ids(EmptyArgs())
+    assert initial_response.all_rows is True
+    assert initial_response.row_ids == []
+    assert initial_response.error is None
+
+    # Test with search
+    table._search(
+        SearchTableArgs(
+            query="cherry",
+            page_size=10,
+            page_number=0,
+        )
+    )
+
+    response = table._get_row_ids(EmptyArgs())
+    assert response.row_ids == [2, 5, 8]
+    assert response.all_rows is False
+    assert response.error is None
+
+    # Test with no search
+    table._search(
+        SearchTableArgs(
+            query="",
+            page_size=10,
+            page_number=0,
+        )
+    )
+
+    response = table._get_row_ids(EmptyArgs())
+    assert response.all_rows is True
+    assert response.row_ids == []
+    assert response.error is None
+
+
+def test_table_with_too_many_columns_passes() -> None:
+    data = {str(i): [1] for i in range(101)}
+    assert ui.table(data) is not None
+
+
+def test_table_with_too_many_rows_gets_clamped() -> None:
+    data = {"a": list(range(20_002))}
+    table = ui.table(data)
+    assert table._component_args["pagination"] is True
+    assert table._component_args["page-size"] == 10
+    assert table._component_args["total-rows"] == 20_002
+    assert len(json.loads(table._component_args["data"])) == 10
+
+
+def test_table_too_large_pagesize_throws_error() -> None:
+    data = {"a": list(range(20_002))}
+    with pytest.raises(ValueError) as e:
+        _ = ui.table(data, page_size=201)
+    assert "limited to 200 rows" in str(e.value)
+
+
+def test_can_get_second_page() -> None:
+    data = {"a": list(range(40))}
+    table = ui.table(data)
+    result = table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=1,
+        )
+    )
+    result_data = json.loads(result.data)
+    assert len(result_data) == 10
+    assert result_data[0]["a"] == 10
+    assert result_data[-1]["a"] == 19
+
+
+def test_can_get_second_page_with_search() -> None:
+    data = {"a": list(range(40))}
+    table = ui.table(data)
+    result = table._search(
+        SearchTableArgs(
+            query="2",
+            page_size=5,
+            page_number=1,
+        )
+    )
+    result_data = json.loads(result.data)
+    assert len(result_data) == 5
+    assert result_data[0]["a"] == 23
+    assert result_data[-1]["a"] == 27
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes({"a": list(range(40))}, include=["ibis"]),
+)
+def test_can_get_second_page_with_search_df(df: Any) -> None:
+    table = ui.table(df)
+    result = table._search(
+        SearchTableArgs(
+            query="2",
+            page_size=5,
+            page_number=1,
+        )
+    )
+    result_data = json.loads(result.data)
+    assert len(result_data) == 5
+    assert int(result_data[0]["a"]) == 23
+    assert int(result_data[-1]["a"]) == 27
+    assert type(table.value) is type(df)
+
+
+def test_with_no_pagination() -> None:
+    data = {"a": list(range(20))}
+    table = ui.table(data, pagination=False)
+    assert table._component_args["pagination"] is False
+    assert table._component_args["page-size"] == 20
+    assert table._component_args["total-rows"] == 20
+    assert len(json.loads(table._component_args["data"])) == 20
+    assert type(table.value) is type(data)
+
+
+def test_table_with_too_many_rows_and_custom_total() -> None:
+    data = {"a": list(range(40))}
+    table = ui.table(
+        data, _internal_column_charts_row_limit=30, _internal_total_rows=300
+    )
+    assert table._component_args["pagination"] is True
+    assert table._component_args["page-size"] == 10
+    assert table._component_args["total-rows"] == 300
+    assert len(json.loads(table._component_args["data"])) == 10
+
+
+def test_table_with_too_many_rows_unknown_total() -> None:
+    data = {"a": list(range(40))}
+    table = ui.table(
+        data,
+        _internal_column_charts_row_limit=30,
+        _internal_total_rows="too_many",
+    )
+    assert table._component_args["pagination"] is True
+    assert table._component_args["page-size"] == 10
+    assert table._component_args["total-rows"] == "too_many"
+    assert len(json.loads(table._component_args["data"])) == 10
+
+
+def test_empty_table() -> None:
+    table = ui.table([])
+    assert table._component_args["total-rows"] == 0
+
+
+def test_table_with_too_many_rows_column_summaries_disabled() -> None:
+    data = {"a": list(range(20))}
+    table = ui.table(data, _internal_summary_row_limit=10)
+
+    summaries_disabled = table._get_column_summaries(ColumnSummariesArgs())
+    assert summaries_disabled.is_disabled is True
+
+    # search results are 2 and 12
+    table._search(
+        SearchTableArgs(
+            query="2",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    summaries_enabled = table._get_column_summaries(ColumnSummariesArgs())
+    assert summaries_enabled.is_disabled is False
+
+
+def test_with_too_many_rows_column_charts_disabled() -> None:
+    data = {"a": list(range(20))}
+    table = ui.table(data, _internal_column_charts_row_limit=10)
+
+    charts_disabled = table._get_column_summaries(ColumnSummariesArgs())
+    assert charts_disabled.show_charts is False
+    assert charts_disabled.is_disabled is False
+
+    # search results are 2 and 12
+    table._search(
+        SearchTableArgs(
+            query="2",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    charts_enabled = table._get_column_summaries(ColumnSummariesArgs())
+    assert charts_enabled.show_charts is True
+    assert charts_enabled.data is None
+    assert charts_enabled.is_disabled is False
+
+
+@pytest.mark.skipif(is_windows(), reason=r"windows returns \r instead")
+def test_get_column_summaries_after_search() -> None:
+    data = {"a": list(range(20))}
+    table = ui.table(data)
+
+    # search results are 2 and 12
+    table._search(
+        SearchTableArgs(
+            query="2",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    summaries = table._get_column_summaries(ColumnSummariesArgs())
+    assert summaries.show_charts is True
+    assert summaries.is_disabled is False
+    # We don't have column summaries for non-dataframe data
+    assert summaries.stats["a"].min is None
+    assert summaries.stats["a"].max is None
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes({"a": list(range(20))}, exclude=NON_EAGER_LIBS),
+)
+def test_get_column_summaries_after_search_df(df: Any) -> None:
+    table = ui.table(df)
+    summaries = table._get_column_summaries(ColumnSummariesArgs())
+    assert summaries.show_charts is True
+    assert summaries.is_disabled is False
+    # Different dataframe types return different formats
+    FORMATS = [
+        "data:text/plain;base64,",  # arrow format for polars
+        "data:application/vnd.apache.arrow.file;base64,",
+        "data:text/csv;base64,",
+    ]
+
+    assert summaries.stats["a"].min == 0
+    assert summaries.stats["a"].max == 19
+
+    # search results are 2 and 12
+    table._search(
+        SearchTableArgs(
+            query="2",
+            page_size=10,
+            page_number=0,
+        )
+    )
+    summaries = table._get_column_summaries(ColumnSummariesArgs())
+    assert summaries.show_charts is True
+    assert summaries.is_disabled is False
+    # We don't have column summaries for non-dataframe data
+    assert summaries.stats["a"].min == 2
+    assert summaries.stats["a"].max == 12
+    assert summaries.stats["a"].nulls == 0
+
+
+def test_show_column_summaries_modes():
+    data = {"a": list(range(20))}
+
+    # Test stats-only mode
+    table_stats = ui.table(data, show_column_summaries="stats")
+    summaries_stats = table_stats._get_column_summaries(ColumnSummariesArgs())
+    assert summaries_stats.show_charts is False
+    assert summaries_stats.is_disabled is False
+    assert summaries_stats.bin_values == {}
+    assert summaries_stats.value_counts == {}
+    assert len(summaries_stats.stats) > 0
+
+    # Test chart-only mode
+    table_chart = ui.table(data, show_column_summaries="chart")
+    summaries_chart = table_chart._get_column_summaries(ColumnSummariesArgs())
+    assert summaries_chart.show_charts is True
+    assert summaries_chart.is_disabled is False
+    assert len(summaries_chart.stats) == 0
+
+    # Test default mode (both stats and chart)
+    table_both = ui.table(data, show_column_summaries=True)
+    summaries_both = table_both._get_column_summaries(ColumnSummariesArgs())
+    assert summaries_both.show_charts is True
+    assert summaries_both.is_disabled is False
+    assert len(summaries_both.stats) > 0
+
+    # Test disabled mode
+    table_disabled = ui.table(data, show_column_summaries=False)
+    summaries_disabled = table_disabled._get_column_summaries(
+        ColumnSummariesArgs()
+    )
+    assert summaries_disabled.is_disabled is False
+    assert summaries_disabled.show_charts is False
+    assert summaries_disabled.bin_values == {}
+    assert summaries_disabled.value_counts == {}
+    assert len(summaries_disabled.stats) == 0
+
+    # Test Default behavior
+    table_default = ui.table(data)
+    summaries_default = table_default._get_column_summaries(
+        ColumnSummariesArgs()
+    )
+    assert summaries_default.show_charts is True
+    assert summaries_default.is_disabled is False
+    assert len(summaries_default.stats) > 0
+    assert table_default._component_args["show-column-summaries"] is True
+
+
+class TestTableBinValues:
+    @pytest.mark.parametrize(
+        "df",
+        create_dataframes({"a": [None] * 20}),
+    )
+    def test_bin_values_all_nulls(self, df: Any) -> None:
+        table = ui.table(df)
+        summaries = table._get_column_summaries(ColumnSummariesArgs())
+
+        # Returns empty list
+        assert summaries.bin_values == {"a": []}
+
+
+class TestTableGetValueCounts:
+    @pytest.fixture
+    def table(self) -> ui.table:
+        data = {
+            "unique": [1, 2, 3, 4, 5],
+            "repeat": [1, 1, 2, 3, 4],
+            "with_nulls": [None, None, 2, 3, 4],
+        }
+        self.total_rows = len(data["unique"])
+        return ui.table(data)
+
+    def test_all_unique_values(self, table: ui.table) -> None:
+        value_counts = table._get_value_counts(
+            column="unique", size=10, total_rows=self.total_rows
+        )
+        assert value_counts == [ValueCount(value="unique values", count=5)]
+
+    def test_repeated_values(self, table: ui.table) -> None:
+        value_counts = table._get_value_counts(
+            column="repeat", size=10, total_rows=self.total_rows
+        )
+        assert value_counts == [
+            ValueCount(value="1", count=2),
+            ValueCount(value="2", count=1),
+            ValueCount(value="3", count=1),
+            ValueCount(value="4", count=1),
+        ]
+
+    def test_with_nulls(self, table: ui.table) -> None:
+        value_counts = table._get_value_counts(
+            column="with_nulls", size=10, total_rows=self.total_rows
+        )
+        assert value_counts == [
+            ValueCount(value="null", count=2),
+            ValueCount(value="2", count=1),
+            ValueCount(value="3", count=1),
+            ValueCount(value="4", count=1),
+        ]
+
+    @pytest.mark.skipif(
+        not DependencyManager.pandas.has(), reason="Pandas not installed"
+    )
+    def test_rows_string_value_counts_limit(self) -> None:
+        import pandas as pd
+
+        data = pd.DataFrame(
+            {"a": [str(i) for i in range(CHART_MAX_ROWS_STRING_VALUE_COUNTS)]}
+        )
+        table = ui.table(data)
+        summaries = table._get_column_summaries(ColumnSummariesArgs())
+        assert summaries.value_counts == {}  # too many unique values
+        assert summaries.data is None
+
+    def test_with_smaller_limit(self, table: ui.table) -> None:
+        value_counts = table._get_value_counts(
+            column="repeat", size=2, total_rows=self.total_rows
+        )
+        assert value_counts == [
+            ValueCount(value="1", count=2),
+            ValueCount(value="others", count=3),
+        ]
+
+    def test_with_search(self, table: ui.table) -> None:
+        result = table._search(
+            SearchTableArgs(query="1", page_size=10, page_number=0)
+        )
+        rows = table._searched_manager.get_num_rows(force=True)
+        assert rows is not None
+        assert result.total_rows == 2
+        value_counts = table._get_value_counts(
+            column="repeat", size=2, total_rows=rows
+        )
+        assert value_counts == [ValueCount(value="1", count=2)]
+
+
+def test_table_with_frozen_columns() -> None:
+    data = {
+        "a": list(range(20)),
+        "b": list(range(20)),
+        "c": list(range(20)),
+        "d": list(range(20)),
+        "e": list(range(20)),
+    }
+    table = ui.table(
+        data, freeze_columns_left=["a", "b"], freeze_columns_right=["d", "e"]
+    )
+    assert table._component_args["freeze-columns-left"] == ["a", "b"]
+    assert table._component_args["freeze-columns-right"] == ["d", "e"]
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="Pandas not installed"
+)
+class TestFrozenRowHeaders:
+    def test_freeze_unnamed_pandas_index(self) -> None:
+        import pandas as pd
+
+        # An unnamed index is exposed as the row header "Index0", so it has a
+        # stable name that can be frozen like any named index.
+        df = pd.DataFrame({"a": [1, 2, 3]}, index=["x", "y", "z"])
+        table = ui.table(df, freeze_columns_left=["Index0"])
+        assert table._component_args["freeze-columns-left"] == ["Index0"]
+
+    def test_freeze_named_pandas_index(self) -> None:
+        import pandas as pd
+
+        df = pd.DataFrame(
+            {"a": [1, 2]}, index=pd.Index(["x", "y"], name="foo")
+        )
+        table = ui.table(df, freeze_columns_left=["foo"])
+        assert table._component_args["freeze-columns-left"] == ["foo"]
+
+    def test_freeze_multiindex_levels(self) -> None:
+        import pandas as pd
+
+        df = pd.DataFrame(
+            {"v": [1, 2, 3, 4]},
+            index=pd.MultiIndex.from_tuples(
+                [("a", 1), ("a", 2), ("b", 1), ("b", 2)], names=["g", "n"]
+            ),
+        )
+        table = ui.table(df, freeze_columns_left=["g", "n"])
+        assert table._component_args["freeze-columns-left"] == ["g", "n"]
+
+    def test_freeze_collision_suffixed_index(self) -> None:
+        import pandas as pd
+
+        # Index name 'a' collides with a column named 'a'; the row-header
+        # name is suffixed to '_index' (see _resolve_index_name).
+        df = pd.DataFrame({"a": [1, 2]}, index=pd.Index(["x", "y"], name="a"))
+        table = ui.table(df, freeze_columns_left=["a_index"])
+        assert table._component_args["freeze-columns-left"] == ["a_index"]
+
+    def test_freeze_index_and_column_mixed(self) -> None:
+        import pandas as pd
+
+        df = pd.DataFrame(
+            {"a": [1, 2], "b": [3, 4]},
+            index=pd.Index(["x", "y"], name="foo"),
+        )
+        table = ui.table(
+            df,
+            freeze_columns_left=["foo", "a"],
+            freeze_columns_right=["b"],
+        )
+        assert table._component_args["freeze-columns-left"] == ["foo", "a"]
+        assert table._component_args["freeze-columns-right"] == ["b"]
+
+    def test_freeze_row_header_on_right_raises(self) -> None:
+        import pandas as pd
+
+        df = pd.DataFrame(
+            {"a": [1, 2]}, index=pd.Index(["x", "y"], name="foo")
+        )
+        with pytest.raises(
+            ValueError, match="row headers always render on the left"
+        ):
+            ui.table(df, freeze_columns_right=["foo"])
+
+    def test_freeze_unknown_column_still_raises(self) -> None:
+        import pandas as pd
+
+        df = pd.DataFrame(
+            {"a": [1, 2]}, index=pd.Index(["x", "y"], name="foo")
+        )
+        with pytest.raises(ValueError, match="not found in table"):
+            ui.table(df, freeze_columns_left=["nonexistent"])
+
+
+@pytest.mark.skipif(
+    not DependencyManager.polars.has(), reason="Polars not installed"
+)
+def test_freeze_columns_polars_regression() -> None:
+    import polars as pl
+
+    df = pl.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+    table = ui.table(df, freeze_columns_left=["a"])
+    assert table._component_args["freeze-columns-left"] == ["a"]
+
+
+def test_table_with_hidden_columns() -> None:
+    data = {"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9]}
+    table = ui.table(data, hidden_columns=["b"])
+    assert table._component_args["hidden-columns"] == ["b"]
+
+
+def test_table_with_visible_columns_normalizes_to_hidden() -> None:
+    data = {"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9]}
+    table = ui.table(data, visible_columns=["a"])
+    assert sorted(table._component_args["hidden-columns"]) == ["b", "c"]
+
+
+def test_table_hidden_columns_empty_list() -> None:
+    data = {"a": [1, 2, 3]}
+    table = ui.table(data, hidden_columns=[])
+    assert table._component_args["hidden-columns"] == []
+
+
+def test_table_no_visibility_kwargs_emits_empty_list() -> None:
+    data = {"a": [1, 2, 3]}
+    table = ui.table(data)
+    assert table._component_args["hidden-columns"] == []
+
+
+def test_table_hidden_and_visible_columns_mutually_exclusive() -> None:
+    data = {"a": [1, 2, 3], "b": [4, 5, 6]}
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        ui.table(data, hidden_columns=["a"], visible_columns=["b"])
+
+
+def test_table_hidden_columns_unknown_column_raises() -> None:
+    data = {"a": [1, 2, 3]}
+    with pytest.raises(ValueError, match="not found in table"):
+        ui.table(data, hidden_columns=["xyz"])
+
+
+def test_table_visible_columns_unknown_column_raises() -> None:
+    data = {"a": [1, 2, 3]}
+    with pytest.raises(ValueError, match="not found in table"):
+        ui.table(data, visible_columns=["xyz"])
+
+
+def test_table_hidden_columns_deduplicates() -> None:
+    data = {"a": [1, 2, 3], "b": [4, 5, 6]}
+    table = ui.table(data, hidden_columns=["a", "a"])
+    assert table._component_args["hidden-columns"] == ["a"]
+
+
+def test_table_hidden_columns_does_not_affect_value() -> None:
+    data = {"a": [1, 2, 3], "b": [4, 5, 6]}
+    table = ui.table(data, hidden_columns=["b"], selection="single")
+    payload_data = table._component_args["data"]
+    if isinstance(payload_data, str):
+        rows = json.loads(payload_data)
+    else:
+        rows = payload_data
+    assert all("b" in row for row in rows)
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="Pandas not installed"
+)
+def test_table_hidden_columns_row_header_raises() -> None:
+    import pandas as pd
+
+    name = "index"
+    df = pd.DataFrame(
+        {"a": [1, 2, 3]}, index=pd.Index(["x", "y", "z"], name=name)
+    )
+    with pytest.raises(
+        ValueError,
+        match=f"Cannot control visibility for row index '{name}'",
+    ):
+        ui.table(df, hidden_columns=[name])
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="Pandas not installed"
+)
+def test_get_data_url_includes_named_index() -> None:
+    import pandas as pd
+
+    from marimo._plugins.ui._impl.charts.altair_transformer import (
+        _data_to_csv_string,
+    )
+
+    df = pd.DataFrame(
+        {"v": [1, 2, 3]},
+        index=pd.Index(["a", "b", "c"], name="k"),
+    )
+    table = ui.table(df)
+    response = table._get_data_url(EmptyArgs())
+    assert response.data_url  # produced without error
+
+    # The flattened manager exposes the index as a column.
+    flattened = table._searched_manager.with_index_as_columns()
+    assert "k" in flattened.get_column_names()
+    csv = _data_to_csv_string(flattened.data)
+    assert "k" in csv.splitlines()[0]
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes({"a": [1, 2, 3], "b": ["abc", "def", None]}),
+)
+def test_table_with_filtered_columns(df: Any) -> None:
+    table = ui.table(df)
+    result = table._search(
+        SearchTableArgs(
+            filters=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="b",
+                        operator="contains",
+                        value="f",
+                    )
+                ],
+            ),
+            page_size=10,
+            page_number=0,
+        )
+    )
+    assert result.total_rows == 1
+
+
+def test_show_column_summaries_default():
+    # Test default behavior (True for < 40 columns, False otherwise)
+    small_data = {"col" + str(i): range(5) for i in range(39)}
+    table_small = ui.table(small_data)
+    assert table_small._show_column_summaries is True
+    assert table_small._component_args["show-column-summaries"] is True
+
+    large_data = {"col" + str(i): range(5) for i in range(41)}
+    table_large = ui.table(large_data)
+    assert table_large._show_column_summaries is False
+    assert table_large._component_args["show-column-summaries"] is False
+
+    # explicitly set to True
+    table_true = ui.table(large_data, show_column_summaries=True)
+    assert table_true._show_column_summaries is True
+
+
+def test_data_with_rich_components():
+    data = {
+        "a": [1, 2],
+        "b": [ui.text("foo"), ui.slider(start=0, stop=10)],
+    }
+    table = ui.table(data)
+    assert isinstance(table._component_args["data"], str)
+    assert isinstance(
+        json.loads(table._component_args["data"]),
+        list,
+    )
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {
+            "a": [1, 2],
+            "b": [ui.text("foo"), ui.slider(start=0, stop=10)],
+        },
+        exclude=["pyarrow", "ibis"],
+    ),
+)
+def test_data_with_rich_components_in_data_frames(df: Any) -> None:
+    table = ui.table(df)
+    assert isinstance(table._component_args["data"], str)
+    assert isinstance(
+        json.loads(table._component_args["data"]),
+        list,
+    )
+
+
+def test_show_column_summaries_explicit():
+    # Test explicit setting of show_column_summaries
+    data = {"a": [1, 2, 3], "b": [4, 5, 6]}
+    table_true = ui.table(data, show_column_summaries=True)
+    assert table_true._show_column_summaries is True
+    assert table_true._component_args["show-column-summaries"] is True
+
+    table_false = ui.table(data, show_column_summaries=False)
+    assert table_false._show_column_summaries is False
+    assert table_false._component_args["show-column-summaries"] is False
+
+
+def test_show_column_summaries_disabled():
+    # Test when show_column_summaries is explicitly set to False
+    table = ui.table(
+        {"a": [1, 2, 3], "b": [4, 5, 6]}, show_column_summaries=False
+    )
+
+    summaries = table._get_column_summaries(EmptyArgs())
+    assert summaries.is_disabled is False
+    assert len(summaries.stats) == 0
+
+
+@pytest.mark.skipif(
+    not DependencyManager.polars.has(), reason="Polars is required"
+)
+def test_polars_duration_column_summaries_do_not_warn() -> None:
+    import polars as pl
+
+    data = pl.DataFrame(
+        {"duration": [timedelta(days=day) for day in range(1, 13)]}
+    )
+    table = ui.table(data, show_column_summaries=True)
+
+    with patch("marimo._plugins.ui._impl.table.LOGGER") as logger:
+        table._get_column_summaries(ColumnSummariesArgs())
+
+    logger.warning.assert_not_called()
+
+
+@pytest.mark.skipif(
+    not DependencyManager.polars.has(), reason="Polars not installed"
+)
+def test_column_summaries_fallback(monkeypatch):
+    import polars as pl
+
+    data = pl.DataFrame(
+        {
+            "a": [1, 2, 3] * 200,
+            "b": [4, 5, 6] * 200,
+            "c": [7, 8, 9] * 200,
+        }
+    )
+    table = ui.table(data)
+
+    def always_fail_get_bin_values(*_args: Any, **_kwargs: Any) -> None:
+        raise RuntimeError("Intentional bin failure")
+
+    monkeypatch.setattr(
+        table._manager, "get_bin_values", always_fail_get_bin_values
+    )
+
+    summaries = table._get_column_summaries(ColumnSummariesArgs())
+    assert summaries.is_disabled is False
+    assert summaries.bin_values == {}
+    assert summaries.value_counts == {}
+    assert summaries.show_charts is True
+    # Should have chart data
+    assert summaries.data is not None
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"a": [1, 2, 3], "b": [4, 5, 6]},
+    ),
+)
+def test_show_download(df: Any) -> None:
+    table_default = ui.table(df)
+    assert table_default._component_args["show-download"] is True
+
+    table_true = ui.table(df, show_download=True)
+    assert table_true._component_args["show-download"] is True
+
+    table_false = ui.table(df, show_download=False)
+    assert table_false._component_args["show-download"] is False
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"a": [1, 2, 3], "b": [4, 5, 6]},
+    ),
+)
+def test_show_search(df: Any) -> None:
+    table_default = ui.table(df)
+    assert table_default._component_args["show-search"] is True
+
+    table_true = ui.table(df, show_search=True)
+    assert table_true._component_args["show-search"] is True
+
+    table_false = ui.table(df, show_search=False)
+    assert table_false._component_args["show-search"] is False
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"a": [1, 2, 3], "b": [4, 5, 6]},
+    ),
+)
+def test_display_config_unpacks(df: Any) -> None:
+    cfg = ui.table.Display(show_search=False, show_download=False)
+    assert cfg == {"show_search": False, "show_download": False}
+
+    t = ui.table(df, **cfg)
+    assert t._component_args["show-search"] is False
+    assert t._component_args["show-download"] is False
+
+    # Deriving a variant leaves the original untouched
+    variant = {**cfg, "show_column_summaries": False}
+    assert "show_column_summaries" not in cfg
+    t2 = ui.table(df, **variant)
+    assert t2._component_args["show-search"] is False
+    assert t2._component_args["show-column-summaries"] is False
+
+
+DOWNLOAD_FORMATS = ["csv", "tsv", "json", "parquet"]
+
+# Parquet export requires pandas+pyarrow or polars (see the `_download_as`
+# short-circuit in `table.py`). In environments without those — e.g. the
+# `test` group, which has only pyarrow — skip parquet in the round-trip.
+_CAN_EXPORT_PARQUET = DependencyManager.polars.has() or (
+    DependencyManager.pandas.has() and DependencyManager.pyarrow.has()
+)
+_TESTABLE_DOWNLOAD_FORMATS = (
+    DOWNLOAD_FORMATS if _CAN_EXPORT_PARQUET else ["csv", "tsv", "json"]
+)
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"cities": ["Newark", "New York", "Los Angeles"]},
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_download_as(df: Any) -> None:
+    """Test downloading table data as different formats with DataFrames."""
+    import io
+
+    import narwhals as nw
+
+    nw_df = nw.from_native(df)
+    table = ui.table(df)
+
+    def download_and_convert(
+        format_type: str, table_instance: ui.table
+    ) -> Any:
+        """Helper to download and convert table data to DataFrame."""
+        download_str = table_instance._download_as(
+            DownloadAsArgs(format=format_type)
+        ).url
+        data_bytes = from_data_uri(download_str)[1]
+        buffer = io.BytesIO(data_bytes)
+
+        # Convert back to native format using narwhals
+        if format_type == "json":
+            if DependencyManager.pandas.has():
+                import pandas as pd
+
+                return pd.read_json(buffer)
+            elif DependencyManager.polars.has():
+                import polars as pl
+
+                return pl.read_json(buffer)
+            elif DependencyManager.pyarrow.has():
+                import json
+
+                import pyarrow as pa
+
+                rows = json.loads(data_bytes)
+                assert isinstance(rows, list)
+                return pa.Table.from_pylist(rows)
+        elif format_type == "parquet":
+            if DependencyManager.pandas.has():
+                import pandas as pd
+
+                return pd.read_parquet(buffer)
+            elif DependencyManager.polars.has():
+                import polars as pl
+
+                return pl.read_parquet(buffer)
+            elif DependencyManager.pyarrow.has():
+                import pyarrow.parquet as pq
+
+                return pq.read_table(buffer)
+        elif format_type == "csv":
+            if DependencyManager.pandas.has():
+                import pandas as pd
+
+                return pd.read_csv(buffer)
+            elif DependencyManager.polars.has():
+                import polars as pl
+
+                return pl.read_csv(buffer)
+            elif DependencyManager.pyarrow.has():
+                import pyarrow.csv as pacsv
+
+                return pacsv.read_csv(buffer)
+        elif format_type == "tsv":
+            if DependencyManager.pandas.has():
+                import pandas as pd
+
+                return pd.read_csv(buffer, sep="\t")
+            elif DependencyManager.polars.has():
+                import polars as pl
+
+                return pl.read_csv(buffer, separator="\t")
+            elif DependencyManager.pyarrow.has():
+                import pyarrow.csv as pacsv
+
+                return pacsv.read_csv(
+                    buffer,
+                    parse_options=pacsv.ParseOptions(delimiter="\t"),
+                )
+        raise ValueError(f"Unsupported format: {format_type}")
+
+    # Test base downloads (full data)
+    for format_type in _TESTABLE_DOWNLOAD_FORMATS:
+        downloaded_df = download_and_convert(format_type, table)
+        downloaded_nw = nw.from_native(downloaded_df)
+        assert len(downloaded_nw) == len(nw_df)
+        assert downloaded_nw["cities"].to_list() == nw_df["cities"].to_list()
+
+    # Test downloads with search filter
+    table._search(SearchTableArgs(query="New", page_size=10, page_number=0))
+    for format_type in _TESTABLE_DOWNLOAD_FORMATS:
+        filtered_df = download_and_convert(format_type, table)
+        filtered_nw = nw.from_native(filtered_df)
+        assert len(filtered_nw) == 2
+        cities = filtered_nw["cities"].to_list()
+        assert all(city in ["Newark", "New York"] for city in cities)
+
+    # Test downloads with row selection (includes search from before)
+    table._convert_value(["1"])  # select one row of the filtered view
+    for format_type in _TESTABLE_DOWNLOAD_FORMATS:
+        selected_df = download_and_convert(format_type, table)
+        selected_nw = nw.from_native(selected_df)
+        # For row selection, selection is respected (single row)
+        assert len(selected_nw) == 1
+        assert selected_nw["cities"][0] == "New York"
+
+
+def test_get_size_bytes_rpc_extrapolates_from_sample() -> None:
+    from marimo._plugins.ui._impl.table import GetSizeBytesResponse
+    from marimo._plugins.ui._impl.tables.table_manager import (
+        SIZE_ESTIMATE_SAMPLE_ROWS,
+    )
+
+    small = ui.table([{"a": i} for i in range(SIZE_ESTIMATE_SAMPLE_ROWS)])
+    large = ui.table([{"a": i} for i in range(SIZE_ESTIMATE_SAMPLE_ROWS * 10)])
+
+    resp_small = small._get_size_bytes(EmptyArgs())
+    resp_large = large._get_size_bytes(EmptyArgs())
+
+    assert isinstance(resp_small, GetSizeBytesResponse)
+    assert isinstance(resp_large, GetSizeBytesResponse)
+    assert resp_small.size_bytes is not None
+    assert resp_large.size_bytes is not None
+    ratio = resp_large.size_bytes / resp_small.size_bytes
+    assert 7.5 < ratio < 12.5, f"unexpected ratio {ratio}"
+
+
+def test_get_size_bytes_rpc_uses_searched_manager() -> None:
+    data = [{"a": i, "b": "match" if i < 5 else "miss"} for i in range(50)]
+    t = ui.table(data)
+
+    full = t._get_size_bytes(EmptyArgs()).size_bytes
+    t._search(SearchTableArgs(query="match", page_size=5, page_number=0))
+    filtered = t._get_size_bytes(EmptyArgs()).size_bytes
+
+    assert full is not None
+    assert filtered is not None
+    assert filtered < full
+
+
+def test_get_size_bytes_rpc_returns_none_on_serialization_failure() -> None:
+    from unittest.mock import patch
+
+    from marimo._plugins.ui._impl.table import GetSizeBytesResponse
+
+    t = ui.table([{"a": 1}])
+    manager_cls = type(t._manager)
+
+    def _raise(*_args: object, **_kwargs: object) -> str:
+        raise RuntimeError("boom")
+
+    with patch.object(manager_cls, "to_json_str", _raise):
+        resp = t._get_size_bytes(EmptyArgs())
+
+    assert isinstance(resp, GetSizeBytesResponse)
+    assert resp.size_bytes is None
+
+
+def test_download_as_ignores_cell_selection() -> None:
+    # Download should ignore selection when in cell selection modes
+    data = {"a": [1, 2, 3]}
+    table = ui.table(data, selection="multi-cell")
+    table._search(SearchTableArgs(query="2", page_size=10, page_number=0))
+    # Make a cell selection; download should still include the filtered view
+    table._convert_value([{"rowId": "0", "columnName": "a"}])
+    # Use JSON format to avoid optional dependencies
+    url = table._download_as(DownloadAsArgs(format="json")).url
+    data_bytes = from_data_uri(url)[1]
+    rows = json.loads(data_bytes)
+    assert isinstance(rows, list)
+    assert len(rows) == 1
+    assert int(rows[0]["a"]) == 2
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has() and not DependencyManager.polars.has(),
+    reason="Pandas or Polars not installed",
+)
+def test_download_as_csv_request_options() -> None:
+    table = ui.table({"a": [1, 2], "b": ["こんにちは", "y"]})
+
+    default_url = table._download_as(DownloadAsArgs(format="csv")).url
+    default_bytes = from_data_uri(default_url)[1]
+    assert not default_bytes.startswith(b"\xef\xbb\xbf")
+    assert "a,b" in default_bytes.decode("utf-8")
+
+    url = table._download_as(
+        DownloadAsArgs(
+            format="csv",
+            options=DownloadAsOptions(separator=";", encoding="utf-8-sig"),
+        )
+    ).url
+    csv_bytes = from_data_uri(url)[1]
+    assert csv_bytes.startswith(b"\xef\xbb\xbf")
+    csv_text = csv_bytes.decode("utf-8-sig")
+    assert "a;b" in csv_text
+    assert "1;こんにちは" in csv_text
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="Pandas not installed"
+)
+def test_download_as_json_request_options() -> None:
+    import pandas as pd
+
+    table = ui.table(pd.DataFrame({"a": ["こんにちは"]}))
+
+    default_text = from_data_uri(
+        table._download_as(DownloadAsArgs(format="json")).url
+    )[1].decode("utf-8")
+    assert "こんにちは" not in default_text
+    assert json.loads(default_text)[0]["a"] == "こんにちは"
+
+    text = from_data_uri(
+        table._download_as(
+            DownloadAsArgs(
+                format="json",
+                options=DownloadAsOptions(ensure_ascii=False),
+            )
+        ).url
+    )[1].decode("utf-8")
+    assert "こんにちは" in text
+
+
+def test_download_as_parquet_without_libs_reports_missing_packages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(DependencyManager.pandas, "has", lambda: False)
+    monkeypatch.setattr(DependencyManager.polars, "has", lambda: False)
+    monkeypatch.setattr(DependencyManager.pyarrow, "has", lambda: False)
+
+    table = ui.table([{"a": 1}])
+    response = table._download_as(DownloadAsArgs(format="parquet"))
+
+    assert response.url == ""
+    assert response.filename == ""
+    assert response.missing_packages == ["polars"]
+    assert response.error is not None
+    assert "polars" in response.error
+
+
+def test_download_as_parquet_with_pandas_only_prompts_pyarrow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(DependencyManager.pandas, "has", lambda: True)
+    monkeypatch.setattr(DependencyManager.polars, "has", lambda: False)
+    monkeypatch.setattr(DependencyManager.pyarrow, "has", lambda: False)
+
+    table = ui.table([{"a": 1}])
+    response = table._download_as(DownloadAsArgs(format="parquet"))
+
+    assert response.url == ""
+    assert response.filename == ""
+    assert response.missing_packages == ["pyarrow"]
+    assert response.error is not None
+    assert "pyarrow" in response.error
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has() or not DependencyManager.polars.has(),
+    reason="Pandas or Polars not installed",
+)
+def test_download_as_for_supported_cell_selection() -> None:
+    # Assert that download works for other selection types
+    for selection in ["single", "multi", None]:
+        table = ui.table(data=[], selection=selection)
+        table._download_as(DownloadAsArgs(format="csv"))
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"a": [1, 2, 3], "b": ["x", "y", "z"]},
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+@pytest.mark.parametrize(
+    "fmt",
+    ["csv", "tsv", "json", "parquet"],
+)
+def test_download_as_for_dataframes(df: Any, fmt: str) -> None:
+    table = ui.table(df)
+    table._download_as(DownloadAsArgs(format=fmt))
+
+
+def test_pagination_behavior() -> None:
+    # Test with default page_size=10
+    data = {"a": list(range(8))}
+    table = ui.table(data)
+    assert table._component_args["pagination"] is False
+    assert table._component_args["page-size"] == 10
+    assert len(json.loads(table._component_args["data"])) == 8
+
+    # Test with custom page_size=5 and data <= page_size
+    data = {"a": list(range(5))}
+    table = ui.table(data, page_size=5)
+    assert table._component_args["pagination"] is False
+    assert table._component_args["page-size"] == 5
+    assert len(json.loads(table._component_args["data"])) == 5
+
+    # Test with custom page_size=5 and data > page_size
+    data = {"a": list(range(8))}
+    table = ui.table(data, page_size=5)
+    assert table._component_args["pagination"] is True
+    assert table._component_args["page-size"] == 5
+    assert len(json.loads(table._component_args["data"])) == 5
+
+    # Test with explicit pagination=True
+    data = {"a": list(range(5))}
+    table = ui.table(data, pagination=True, page_size=5)
+    assert table._component_args["pagination"] is True
+    assert table._component_args["page-size"] == 5
+    assert len(json.loads(table._component_args["data"])) == 5
+
+
+def test_column_clamping():
+    # Create data with many columns
+    data = {f"col{i}": [1, 2, 3] for i in range(100)}
+
+    # Test default max_columns
+    table = ui.table(data)
+    assert len(table._manager.get_column_names()) == 100
+    assert table._component_args["total-columns"] == 100
+    assert table._component_args["max-columns"] == DEFAULT_MAX_COLUMNS
+    assert (
+        len(json.loads(table._component_args["data"])[0].keys())
+        == DEFAULT_MAX_COLUMNS
+    )
+    assert table._component_args["field-types"] is None
+
+    # Test custom max_columns
+    table = ui.table(data, max_columns=20)
+    assert len(table._manager.get_column_names()) == 100
+    assert table._component_args["total-columns"] == 100
+    assert table._component_args["max-columns"] == 20
+    assert len(json.loads(table._component_args["data"])[0].keys()) == 20
+    assert table._component_args["field-types"] is None
+
+    # Test no clamping
+    table = ui.table(data, max_columns=None)
+    assert len(table._manager.get_column_names()) == 100
+    assert table._component_args["total-columns"] == 100
+    assert table._component_args["max-columns"] == "all"
+    assert len(json.loads(table._component_args["data"])[0].keys()) == 100
+    assert table._component_args["field-types"] is None
+
+
+def test_column_clamping_with_small_data():
+    data = {f"col{i}": [1, 2, 3] for i in range(10)}
+
+    # Should not clamp when under max_columns
+    table = ui.table(data)
+    assert len(table._manager.get_column_names()) == 10
+    assert table._component_args["total-columns"] == 10
+    assert table._component_args["max-columns"] == DEFAULT_MAX_COLUMNS
+    assert len(json.loads(table._component_args["data"])[0].keys()) == 10
+    assert table._component_args["field-types"] is None
+
+
+def test_search_clamping_columns():
+    data = {f"col{i}": [1, 2, 3] for i in range(100)}
+    table = ui.table(data, max_columns=20)
+
+    # Perform a search
+    search_args = SearchTableArgs(page_size=10, page_number=0, query="1")
+    response = table._search(search_args)
+
+    # Check that the search result is clamped
+    result_data = json.loads(response.data)
+    assert len(result_data[0].keys()) == 20
+
+    # Check that selection is not clamped
+    table._selected_manager = table._searched_manager.select_rows([0])
+    selected_data = table._selected_manager.data
+    assert len(selected_data) == 100
+
+
+def test_search_no_clamping_columns():
+    data = {f"col{i}": [1, 2, 3] for i in range(100)}
+    table = ui.table(data, max_columns=None)
+
+    # Perform a search
+    search_args = SearchTableArgs(page_size=10, page_number=0, query="1")
+    response = table._search(search_args)
+
+    # Check that the search result is not clamped
+    result_data = json.loads(response.data)
+    assert len(result_data[0].keys()) == 100
+
+    # Check that selection is not clamped
+    table._selected_manager = table._searched_manager.select_rows([0])
+    selected_data = table._selected_manager.data
+    assert len(selected_data) == 100
+
+
+def test_search_clamp_max_columns_in_search():
+    data = {f"col{i}": [1, 2, 3] for i in range(100)}
+    table = ui.table(data, max_columns=20)
+
+    response = table._search(
+        SearchTableArgs(page_size=10, page_number=0, query="1", max_columns=1)
+    )
+    result_data = json.loads(response.data)
+    # Only 1 column is shown
+    assert len(result_data[0].keys()) == 1
+
+    response = table._search(
+        SearchTableArgs(page_size=10, page_number=0, query="1", max_columns=30)
+    )
+    result_data = json.loads(response.data)
+    # Show 30 columns
+    assert len(result_data[0].keys()) == 30
+
+
+def test_column_clamping_with_exact_max_columns():
+    data = {f"col{i}": [1, 2, 3] for i in range(50)}
+    table = ui.table(data, max_columns=50)
+
+    # Check that the table is not clamped
+    assert len(table._manager.get_column_names()) == 50
+    assert table._component_args["total-columns"] == 50
+    assert table._component_args["max-columns"] == DEFAULT_MAX_COLUMNS
+    assert len(json.loads(table._component_args["data"])[0].keys()) == 50
+    assert table._component_args["field-types"] is None
+
+
+def test_column_clamping_with_more_than_max_columns():
+    data = {f"col{i}": [1, 2, 3] for i in range(60)}
+    table = ui.table(data, max_columns=50)
+
+    # Check that the table is clamped
+    assert len(table._manager.get_column_names()) == 60
+    assert table._component_args["total-columns"] == 60
+    assert table._component_args["max-columns"] == 50
+    assert len(json.loads(table._component_args["data"])[0].keys()) == 50
+    assert table._component_args["field-types"] is None
+
+
+def test_column_clamping_with_no_columns():
+    table = ui.table([], max_columns=50)
+
+    # Check that the table handles no columns gracefully
+    assert len(table._manager.get_column_names()) == 1
+    assert table._component_args["total-columns"] == 1
+    assert table._component_args["max-columns"] == 50
+    assert len(json.loads(table._component_args["data"])) == 0
+    assert table._component_args["field-types"] is None
+
+
+def test_column_clamping_with_single_column():
+    data = {"col1": [1, 2, 3]}
+    table = ui.table(data, max_columns=50)
+
+    # Check that the table handles a single column gracefully
+    assert len(table._manager.get_column_names()) == 1
+    assert table._component_args["total-columns"] == 1
+    assert table._component_args["max-columns"] == 50
+    assert len(json.loads(table._component_args["data"])[0].keys()) == 1
+    assert table._component_args["field-types"] is None
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {f"col{i}": [1, 2, 3] for i in range(60)},
+        exclude=NON_EAGER_LIBS
+        + ["pyarrow"],  # pyarrow doesn't have field-types
+    ),
+)
+def test_column_clamping_with_dataframes(df: Any):
+    table = ui.table(df)
+
+    # Check that the table is clamped
+    assert len(table._manager.get_column_names()) == 60
+    assert table._component_args["total-columns"] == 60
+    assert table._component_args["max-columns"] == DEFAULT_MAX_COLUMNS
+    json_data = json.loads(table._component_args["data"])
+    headers = json_data[0].keys()
+    assert (
+        len(headers) == DEFAULT_MAX_COLUMNS + 1
+    )  # 50 columns + _marimo_row_id
+    # Field types are not clamped
+    assert len(table._component_args["field-types"]) == 60
+
+    table = ui.table(df, max_columns=40)
+
+    # Check that the table is clamped
+    assert len(table._manager.get_column_names()) == 60
+    assert table._component_args["total-columns"] == 60
+    assert table._component_args["max-columns"] == 40
+    json_data = json.loads(table._component_args["data"])
+    headers = json_data[0].keys()
+    assert len(headers) == 41  # 40 columns + _marimo_row_id
+    # Field types aren't clamped
+    assert len(table._component_args["field-types"]) == 60
+
+    table = ui.table(df, max_columns=None)
+
+    # Check that the table is not clamped
+    assert len(table._manager.get_column_names()) == 60
+    assert table._component_args["total-columns"] == 60
+    assert table._component_args["max-columns"] == "all"
+    json_data = json.loads(table._component_args["data"])
+    headers = json_data[0].keys()
+
+    assert len(headers) == 61  # 60 columns + 1 selection column
+    assert len(table._component_args["field-types"]) == 60
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {
+            "person": ["Alice", "Bob", "Charlie"],
+            "age": [20, 30, 40],
+            **{f"col{i}": [1, 2, 3] for i in range(49)},
+        },
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_selection_with_clamped_columns_and_filter(df: Any):
+    """Regression test for #8029: selection returns wrong row when table
+    has more columns than max_columns and is filtered."""
+    import narwhals as nw
+
+    table = ui.table(df, max_columns=50)
+
+    # The data sent to frontend should include _marimo_row_id
+    # even when columns are clamped
+    json_data = json.loads(table._component_args["data"])
+    assert INDEX_COLUMN_NAME in json_data[0]
+
+    # Apply a filter to show only rows where age >= 30
+    # (should return Bob and Charlie, with _marimo_row_id 1 and 2)
+    search_args = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        filters=FilterGroup(
+            type="group",
+            operator="and",
+            children=[
+                FilterCondition(
+                    type="condition", column_id="age", operator=">=", value=30
+                )
+            ],
+        ),
+    )
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+
+    # Filtered data should still include _marimo_row_id
+    assert INDEX_COLUMN_NAME in result_data[0]
+    assert len(result_data) == 2  # Bob and Charlie
+
+    # Select row with _marimo_row_id=2 (Charlie)
+    value = table._convert_value(["2"])
+    assert not isinstance(value, nw.DataFrame)
+    nw_value = nw.from_native(value)
+    assert nw_value["person"][0] == "Charlie"
+    assert nw_value["age"][0] == 40
+
+    # Select row with _marimo_row_id=1 (Bob)
+    value = table._convert_value(["1"])
+    nw_value = nw.from_native(value)
+    assert nw_value["person"][0] == "Bob"
+    assert nw_value["age"][0] == 30
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="Pandas not installed"
+)
+def test_dataframe_with_int_column_names():
+    import warnings
+
+    import pandas as pd
+
+    data = pd.DataFrame([[1, 2, 3], [4, 5, 6]], columns=[0, 1, 2])
+    with warnings.catch_warnings(record=True) as w:
+        table = ui.table(data)
+        # Check that warnings were made
+        assert len(w) > 0
+        assert "DataFrame has integer column names" in str(w[0].message)
+
+    # Check that the table handles integer column names correctly
+    assert table._manager.get_column_names() == ["0", "1", "2"]
+    assert table._component_args["total-columns"] == 3
+    assert table._component_args["max-columns"] == DEFAULT_MAX_COLUMNS
+
+
+def test_cell_initial_style():
+    def always_green(_row, _col, _value):
+        return {"backgroundColor": "green"}
+
+    table = ui.table([1, 2, 3], style_cell=always_green)
+    assert "cell-styles" in table._args.args
+    cell_styles = table._args.args["cell-styles"]
+    assert len(cell_styles) == 3
+    assert "1" in cell_styles
+    assert "value" in cell_styles["1"]
+    assert "backgroundColor" in cell_styles["1"]["value"]
+    assert "green" == cell_styles["1"]["value"]["backgroundColor"]
+
+
+def test_cell_style_of_next_page():
+    def always_green(_row, _col, _value):
+        return {"backgroundColor": "green"}
+
+    data = [
+        {"a": 1, "b": 2},
+        {"a": 3, "b": 4},
+        {"a": 5, "b": 6},
+        {"a": 7, "b": 8},
+    ]
+
+    table = ui.table(data, page_size=2, style_cell=always_green)
+    last_page = table._search(SearchTableArgs(page_size=2, page_number=1))
+    cell_styles = last_page.cell_styles
+    assert len(cell_styles) == 2
+    assert "2" in cell_styles
+    assert "a" in cell_styles["2"]
+    assert "backgroundColor" in cell_styles["2"]["a"]
+    assert "green" in cell_styles["2"]["a"]["backgroundColor"]
+
+
+def test_cell_style_last_page():
+    def always_green(_row, _col, _value):
+        return {"backgroundColor": "green"}
+
+    data = [{"a": 1}, {"a": 2}, {"a": 3}]
+    table = ui.table(data, page_size=2, style_cell=always_green)
+    last_page = table._search(SearchTableArgs(page_size=2, page_number=1))
+    cell_styles = last_page.cell_styles
+    assert len(cell_styles) == 1
+    assert "2" in cell_styles
+    assert "a" in cell_styles["2"]
+    assert "backgroundColor" in cell_styles["2"]["a"]
+    assert "green" in cell_styles["2"]["a"]["backgroundColor"]
+
+
+def test_cell_style_edge_cases():
+    """Test cell styling with various edge cases around page sizes and row IDs."""
+
+    def style_cell(row: str, _col: str, _value: Any) -> dict[str, Any]:
+        return {"backgroundColor": "red" if int(row) % 2 == 0 else "blue"}
+
+    # Test with empty data
+    table = ui.table([], style_cell=style_cell)
+    response = table._search(SearchTableArgs(page_size=10, page_number=0))
+    assert response.cell_styles == {}
+
+    # Test with single row
+    table = ui.table([{"a": 1}], style_cell=style_cell)
+    response = table._search(SearchTableArgs(page_size=10, page_number=0))
+    assert response.cell_styles == {"0": {"a": {"backgroundColor": "red"}}}
+
+    # Test with page size larger than total rows
+    table = ui.table([{"a": 1}, {"a": 2}], style_cell=style_cell)
+    response = table._search(SearchTableArgs(page_size=10, page_number=0))
+    assert response.cell_styles == {
+        "0": {"a": {"backgroundColor": "red"}},
+        "1": {"a": {"backgroundColor": "blue"}},
+    }
+
+    # Test with skip beyond total rows
+    response = table._search(SearchTableArgs(page_size=10, page_number=1))
+    assert response.cell_styles == {}
+
+    # Test with "too_many" total rows
+    table = ui.table(
+        [{"a": 1}, {"a": 2}],
+        style_cell=style_cell,
+        _internal_total_rows="too_many",
+    )
+    response = table._search(SearchTableArgs(page_size=10, page_number=0))
+    assert response.cell_styles == {
+        "0": {"a": {"backgroundColor": "red"}},
+        "1": {"a": {"backgroundColor": "blue"}},
+    }
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {
+            "column_0": [
+                "apples",
+                "apples",
+                "bananas",
+                "bananas",
+                "carrots",
+                "carrots",
+            ]
+        },
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_cell_search_df_styles(df: Any):
+    def always_green(_row, _col, _value):
+        return {"backgroundColor": "green"}
+
+    table = ui.table(df, style_cell=always_green)
+    page = table._search(
+        SearchTableArgs(page_size=2, page_number=0, query="carrot")
+    )
+    assert page.cell_styles == {
+        "4": {"column_0": {"backgroundColor": "green"}},
+        "5": {"column_0": {"backgroundColor": "green"}},
+    }
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {
+            "column_0": [
+                "apples",
+                "apples",
+                "bananas",
+                "bananas",
+                "carrots",
+                "carrots",
+            ]
+        },
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_cell_search_df_styles_sorted(df: Any):
+    def always_green(_row, _col, _value):
+        return {"backgroundColor": "green"}
+
+    table = ui.table(df, style_cell=always_green)
+    page = table._search(
+        SearchTableArgs(
+            page_size=2,
+            page_number=0,
+            query="",
+            sort=[SortArgs(by="column_0", descending=True)],
+        )
+    )
+    # Sorted rows have reverse order of row_ids
+    assert page.cell_styles == {
+        "4": {"column_0": {"backgroundColor": "green"}},
+        "5": {"column_0": {"backgroundColor": "green"}},
+    }
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {
+            "Index": list(range(20)),
+            "Category": [f"Label {i % 5}" for i in range(20)],
+            "Value": [i * ((-1) ** i) for i in range(20)],
+        },
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_cell_styles_sorted_with_pagination(df: Any):
+    """Test that cell styles are correctly applied with sorting and pagination.
+
+    Regression test for issue #6223 - cell styles should work on all pages,
+    not just the last N rows of the entire dataset.
+    """
+
+    def cell_style(_row_id, _column_name, value):
+        # Handle both Python numbers and numpy numbers
+        try:
+            numeric_value = float(value)
+            return {"color": "black" if numeric_value > 0 else "red"}
+        except (TypeError, ValueError):
+            return {}
+
+    table = ui.table(df, style_cell=cell_style)
+
+    # Test page 0 (rows 19, 18, 17, 16, 15 when sorted descending by Index)
+    page0 = table._search(
+        SearchTableArgs(
+            page_size=5,
+            page_number=0,
+            query="",
+            sort=[SortArgs(by="Index", descending=True)],
+        )
+    )
+    assert "19" in page0.cell_styles
+    assert "18" in page0.cell_styles
+    assert "17" in page0.cell_styles
+    assert "16" in page0.cell_styles
+    assert "15" in page0.cell_styles
+    # Check that the style function was applied
+    # i=19: 19 * ((-1)**19) = 19 * -1 = -19 (negative, red)
+    assert page0.cell_styles["19"]["Value"] == {"color": "red"}
+    # i=18: 18 * ((-1)**18) = 18 * 1 = 18 (positive, black)
+    assert page0.cell_styles["18"]["Value"] == {"color": "black"}
+
+    # Test page 1 (rows 14, 13, 12, 11, 10 when sorted descending)
+    page1 = table._search(
+        SearchTableArgs(
+            page_size=5,
+            page_number=1,
+            query="",
+            sort=[SortArgs(by="Index", descending=True)],
+        )
+    )
+    assert "14" in page1.cell_styles
+    assert "13" in page1.cell_styles
+    assert "12" in page1.cell_styles
+    assert "11" in page1.cell_styles
+    assert "10" in page1.cell_styles
+    # i=13: 13 * ((-1)**13) = 13 * -1 = -13 (negative, red)
+    assert page1.cell_styles["13"]["Value"] == {"color": "red"}
+
+    # Test page 2 (rows 9, 8, 7, 6, 5 when sorted descending)
+    page2 = table._search(
+        SearchTableArgs(
+            page_size=5,
+            page_number=2,
+            query="",
+            sort=[SortArgs(by="Index", descending=True)],
+        )
+    )
+    assert "9" in page2.cell_styles
+    assert "8" in page2.cell_styles
+    assert "7" in page2.cell_styles
+    assert "6" in page2.cell_styles
+    assert "5" in page2.cell_styles
+    # i=9: 9 * ((-1)**9) = 9 * -1 = -9 (negative, red)
+    assert page2.cell_styles["9"]["Value"] == {"color": "red"}
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {
+            "Name": ["alpha", "beta", "gamma", "delta"],
+            "Score": [4.0, 1.0, 3.0, 2.0],
+        },
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_cell_styles_descending_non_index_column(df: Any):
+    """Test that cell styles work when sorting by a non-index column.
+
+    Regression test for issue #8847 - style_cell styles lost when sorting
+    in descending order. The root cause was that _style_cells generated
+    row IDs assuming index-column ordering rather than reading actual
+    _marimo_row_id values from the sorted data.
+
+    Uses non-monotonic scores so the sorted order [0, 2, 3, 1] does NOT
+    match a reversed-sequential pattern, which the old buggy range-based
+    logic would have generated.
+    """
+
+    def style(_row_id, _col, value):
+        try:
+            v = float(value)
+            return {"color": "green" if v >= 3.0 else "red"}
+        except (TypeError, ValueError):
+            return {}
+
+    table = ui.table(df, style_cell=style)
+
+    # Sort by Score descending: 4.0 (row 0), 3.0 (row 2), 2.0 (row 3), 1.0 (row 1)
+    # Row IDs on page should be [0, 2, 3, 1] - NOT reversed sequential [3, 2, 1, 0]
+    page = table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=0,
+            query="",
+            sort=[SortArgs(by="Score", descending=True)],
+        )
+    )
+    # All 4 original row IDs must be present
+    assert "0" in page.cell_styles
+    assert "1" in page.cell_styles
+    assert "2" in page.cell_styles
+    assert "3" in page.cell_styles
+    # alpha (row 0, score 4.0) should be green
+    assert page.cell_styles["0"]["Score"] == {"color": "green"}
+    # gamma (row 2, score 3.0) should be green
+    assert page.cell_styles["2"]["Score"] == {"color": "green"}
+    # delta (row 3, score 2.0) should be red
+    assert page.cell_styles["3"]["Score"] == {"color": "red"}
+    # beta (row 1, score 1.0) should be red
+    assert page.cell_styles["1"]["Score"] == {"color": "red"}
+
+    # Also test ascending - should produce identical styles
+    page_asc = table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=0,
+            query="",
+            sort=[SortArgs(by="Score", descending=False)],
+        )
+    )
+    assert page_asc.cell_styles["0"]["Score"] == {"color": "green"}
+    assert page_asc.cell_styles["1"]["Score"] == {"color": "red"}
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {
+            "Index": list(range(20)),
+            "Category": [f"Label {i % 5}" for i in range(20)],
+            "Value": [i * ((-1) ** i) for i in range(20)],
+        },
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_cell_styles_sorted_by_value_with_pagination(df: Any):
+    """Test styles when sorting by a non-index column with pagination.
+
+    Regression test for issue #8847 - when sorting by a column that does
+    not correlate with _marimo_row_id, the page's row IDs are arbitrary
+    and must be read from the sorted data, not generated sequentially.
+    """
+
+    def cell_style(_row_id, _col, value):
+        try:
+            v = float(value)
+            return {"color": "black" if v > 0 else "red"}
+        except (TypeError, ValueError):
+            return {}
+
+    table = ui.table(df, style_cell=cell_style)
+
+    # Sort by Value descending. Top values: 18 (row 18), 16 (row 16),
+    # 14 (row 14), 12 (row 12), 10 (row 10)
+    page0 = table._search(
+        SearchTableArgs(
+            page_size=5,
+            page_number=0,
+            query="",
+            sort=[SortArgs(by="Value", descending=True)],
+        )
+    )
+    # Page 0 should have row IDs for the top-5 values (even indices)
+    assert "18" in page0.cell_styles
+    assert "16" in page0.cell_styles
+    assert "14" in page0.cell_styles
+    assert "12" in page0.cell_styles
+    assert "10" in page0.cell_styles
+    # All top-5 values are positive, so all should be black
+    assert page0.cell_styles["18"]["Value"] == {"color": "black"}
+    assert page0.cell_styles["16"]["Value"] == {"color": "black"}
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(),
+    reason="Pandas not installed, only pandas has multi-col idx",
+)
+def test_json_multi_col_idx_table() -> None:
+    import pandas as pd
+
+    cols = pd.MultiIndex.from_arrays(
+        [["basic_amt"] * 2, ["NSW", "QLD"]], names=[None, "Faculty"]
+    )
+    idx = pd.Index(["All", "Full"])
+    data = pd.DataFrame([(1, 1), (0, 1)], index=idx, columns=cols)
+    table = ui.table(data)
+
+    json_data = json.loads(table._component_args["data"])
+    assert json_data == [
+        {
+            "Index0": "All",
+            INDEX_COLUMN_NAME: 0,
+            "basic_amt,NSW": 1,
+            "basic_amt,QLD": 1,
+        },
+        {
+            "Index0": "Full",
+            INDEX_COLUMN_NAME: 1,
+            "basic_amt,NSW": 0,
+            "basic_amt,QLD": 1,
+        },
+    ]
+
+    # If col name looks like a tuple
+    df = pd.DataFrame(
+        {
+            "('basic_amt', 'NSW')": [1],
+            "('basic_amt', 'QLD')": [2],
+        }
+    )
+    table = ui.table(df)
+    json_data = json.loads(table._component_args["data"])
+    assert json_data == [
+        {
+            INDEX_COLUMN_NAME: 0,
+            "('basic_amt', 'NSW')": 1,
+            "('basic_amt', 'QLD')": 2,
+        }
+    ]
+    assert type(table.value) is type(df)
+
+
+LAZY_DATAFRAMES = ["lazy-polars", "duckdb", "ibis"]
+
+
+# Test for lazy dataframes
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"col1": range(1000), "col2": [f"value_{i}" for i in range(1000)]},
+        include=LAZY_DATAFRAMES,
+    ),
+)
+def test_lazy_dataframe(df: Any) -> None:
+    import warnings
+
+    # Capture warnings that might be raised during lazy dataframe operations
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        num_rows = 21
+
+        # Create table with _internal_lazy=True to simulate lazy loading
+        table = ui.table.lazy(df, page_size=num_rows)
+
+        # Verify the lazy flag is set
+        assert table._lazy is True
+
+        # Check that the banner text indicates lazy loading
+        assert (
+            table._get_banner_text()
+            == f"Previewing only the first {num_rows} rows."
+        )
+
+        # Verify the component args are set
+        assert table._component_args["lazy"] is True
+        assert table._component_args["total-rows"] == "too_many"
+        assert table._component_args["page-size"] == num_rows
+        assert table._component_args["pagination"] is False
+        assert table._component_args["data"] == []
+        assert table._component_args["total-columns"] == 0
+        assert table._component_args["max-columns"] == DEFAULT_MAX_COLUMNS
+        assert table._component_args["field-types"] is None
+        assert table._component_args["show-page-size-selector"] is False
+        assert table._component_args["show-column-explorer"] is False
+        assert table._component_args["show-chart-builder"] is False
+        # Search is pushed down to the lazy backend, so it stays available.
+        assert table._component_args["show-search"] is True
+
+        # Verify that search response indicates "too_many" for total_rows
+        # but returns the preview rows
+        search_args = SearchTableArgs(page_size=num_rows, page_number=0)
+        search_response = table._search(search_args)
+        assert search_response.total_rows == "too_many"
+
+        # Check that only the preview rows are returned
+        json_data = json.loads(search_response.data)
+        assert len(json_data) == num_rows
+
+    assert len(recorded_warnings) == 0
+
+    # Select rows
+    value = table._convert_value([])
+    assert value is None
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"col1": range(1000), "col2": [f"value_{i}" for i in range(1000)]},
+        exclude=LAZY_DATAFRAMES,
+    ),
+)
+def test_lazy_dataframe_with_non_lazy_dataframe(df: Any):
+    with pytest.raises(ValueError):
+        table = ui.table.lazy(df)
+
+
+@pytest.mark.skipif(
+    DependencyManager.altair.has(),
+    reason="If altair is installed, it will trigger to_marimo_arrow()",
+)
+def test_get_data_url_no_deps() -> None:
+    table = ui.table([1, 2, 3])
+    response = table._get_data_url({})
+    # DefaultTableManager.to_csv_str uses the stdlib csv module and works
+    # without pandas/polars/pyarrow, so _to_chart_data_url returns CSV before
+    # falling through to JSON.
+    assert response.data_url.startswith("data:text/csv;base64,")
+    assert from_data_uri(response.data_url)[1].decode("utf-8") == (
+        "value\n1\n2\n3\n"
+    )
+    assert response.format == "csv"
+
+
+@pytest.mark.skipif(
+    not DependencyManager.altair.has(), reason="Altair not installed"
+)
+def test_get_data_url_with_altair() -> None:
+    table = ui.table([1, 2, 3])
+    response = table._get_data_url({})
+    assert response.data_url.startswith("data:text/csv;base64,")
+    assert response.format == "csv"
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(), reason="Pandas not installed"
+)
+def test_get_data_url_values() -> None:
+    table = ui.table([1, 2, 3])
+    response = table._get_data_url({})
+    initial_data_url = response.data_url
+    assert initial_data_url.startswith("data:text/csv;base64,")
+    assert response.format == "csv"
+
+    import pandas as pd
+    from pandas.testing import assert_frame_equal
+
+    df = _convert_data_bytes_to_pandas_df(response.data_url, response.format)
+    expected_df = pd.DataFrame({"value": [1, 2, 3]})
+    assert_frame_equal(df, expected_df)
+
+    # Test search
+    table._search(SearchTableArgs(query="2", page_size=3, page_number=0))
+    response = table._get_data_url({})
+
+    df = _convert_data_bytes_to_pandas_df(response.data_url, response.format)
+    expected_df = pd.DataFrame({"value": [2]})
+    assert_frame_equal(df, expected_df)
+
+
+def test_default_table_page_size():
+    assert get_default_table_page_size() == 10
+
+
+def test_default_table_max_columns():
+    assert get_default_table_max_columns() == DEFAULT_MAX_COLUMNS
+
+
+def test_table_max_height():
+    table = ui.table(
+        [{"a": i} for i in range(100)], pagination=False, max_height=300
+    )
+    # Backend should expose optional UI hints when max_height is set
+    assert table._component_args["max-height"] == 300
+
+    table_no_height = ui.table([1, 2, 3])
+    # Keys may be absent when not configured
+    assert table_no_height._component_args["max-height"] is None
+
+
+def test_calculate_top_k_rows():
+    table = ui.table({"A": [1, 3, 3, None, None]})
+    result = table._calculate_top_k_rows(
+        CalculateTopKRowsArgs(column="A", k=10)
+    )
+    assert result == CalculateTopKRowsResponse(
+        data=[(3, 2), (None, 2), (1, 1)],
+    )
+
+
+_TOP_K_DATA = {
+    "role": ["admin", "admin", "user", "user", "guest"],
+    "country": ["US", "UK", "US", "US", "UK"],
+}
+
+
+def _filter_role_in(values: list[str]) -> FilterGroup:
+    return FilterGroup(
+        type="group",
+        operator="and",
+        children=[
+            FilterCondition(
+                type="condition",
+                column_id="role",
+                operator="in",
+                value=values,
+            )
+        ],
+    )
+
+
+def _filter_country_eq(value: str) -> FilterGroup:
+    return FilterGroup(
+        type="group",
+        operator="and",
+        children=[
+            FilterCondition(
+                type="condition",
+                column_id="country",
+                operator="equals",
+                value=value,
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize("df", create_dataframes(_TOP_K_DATA))
+def test_top_k_ignores_same_column_filter(df: Any) -> None:
+    """Editing a filter on a column must not hide values the filter excludes."""
+    table = ui.table(df)
+    table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=0,
+            filters=_filter_role_in(["admin", "user"]),
+        )
+    )
+    result = table._calculate_top_k_rows(
+        CalculateTopKRowsArgs(column="role", k=10)
+    )
+    # `guest` is excluded by the active filter but must still appear,
+    # otherwise users can't broaden the filter back out.
+    assert result == CalculateTopKRowsResponse(
+        data=[("admin", 2), ("user", 2), ("guest", 1)],
+    )
+
+
+@pytest.mark.parametrize("df", create_dataframes(_TOP_K_DATA))
+def test_top_k_respects_other_column_filter(df: Any) -> None:
+    table = ui.table(df)
+    table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=0,
+            filters=_filter_country_eq("UK"),
+        )
+    )
+    result = table._calculate_top_k_rows(
+        CalculateTopKRowsArgs(column="role", k=10)
+    )
+    # Only UK rows survive: admin (UK) and guest (UK).
+    assert result == CalculateTopKRowsResponse(
+        data=[("admin", 1), ("guest", 1)],
+    )
+
+
+@pytest.mark.parametrize("df", create_dataframes(_TOP_K_DATA))
+def test_top_k_strips_self_filter_keeps_others(df: Any) -> None:
+    table = ui.table(df)
+    table._search(
+        SearchTableArgs(
+            page_size=10,
+            page_number=0,
+            filters=FilterGroup(
+                type="group",
+                operator="and",
+                children=[
+                    FilterCondition(
+                        type="condition",
+                        column_id="role",
+                        operator="in",
+                        value=["admin", "user"],
+                    ),
+                    FilterCondition(
+                        type="condition",
+                        column_id="country",
+                        operator="equals",
+                        value="UK",
+                    ),
+                ],
+            ),
+        )
+    )
+    result = table._calculate_top_k_rows(
+        CalculateTopKRowsArgs(column="role", k=10)
+    )
+    # `role` filter is stripped, `country == UK` still applies:
+    # UK rows are admin + guest. `guest` reappears because role filter is ignored.
+    assert result == CalculateTopKRowsResponse(
+        data=[("admin", 1), ("guest", 1)],
+    )
+
+
+def _convert_data_bytes_to_pandas_df(
+    data: str, data_format: str
+) -> pd.DataFrame:
+    import io
+
+    import pandas as pd
+
+    data_bytes = from_data_uri(data)[1]
+
+    if data_format == "csv":
+        df = pd.read_csv(io.BytesIO(data_bytes))
+        # Convert column names to integers if they represent integers
+        df.columns = pd.Index(
+            [
+                int(col) if isinstance(col, str) and col.isdigit() else col
+                for col in df.columns
+            ]
+        )
+        return df
+    elif data_format == "json":
+        return pd.read_json(io.BytesIO(data_bytes))
+    elif data_format == "parquet":
+        return pd.read_parquet(io.BytesIO(data_bytes))
+    else:
+        raise ValueError(f"Unsupported data_format: {data_format}")
+
+
+def test_max_columns_not_provided():
+    # Create data with many columns
+    data = {f"col{i}": [1, 2, 3] for i in range(100)}
+    table = ui.table(data)
+
+    # Test default behavior
+    search_args = SearchTableArgs(
+        page_size=10, page_number=0, max_columns=MAX_COLUMNS_NOT_PROVIDED
+    )
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+    assert len(result_data[0].keys()) == DEFAULT_MAX_COLUMNS
+
+    # Test when not set (uses MAX_COLUMNS_NOT_PROVIDED as the default)
+    search_args = SearchTableArgs(page_size=10, page_number=0)
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+    assert len(result_data[0].keys()) == DEFAULT_MAX_COLUMNS
+
+    # Test with explicit max_columns
+    search_args = SearchTableArgs(page_size=10, page_number=0, max_columns=20)
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+    assert len(result_data[0].keys()) == 20
+
+    # Test with max_columns=None (show all columns)
+    search_args = SearchTableArgs(
+        page_size=10, page_number=0, max_columns=None
+    )
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+    assert len(result_data[0].keys()) == 100
+
+
+def test_max_columns_not_provided_with_sort():
+    # Create data with many columns
+    data = {f"col{i}": [1, 2, 3] for i in range(100)}
+    table = ui.table(data)
+
+    # Test sort with default max_columns
+    search_args = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        sort=[SortArgs(by="col0", descending=True)],
+        max_columns=MAX_COLUMNS_NOT_PROVIDED,
+    )
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+    assert len(result_data[0].keys()) == DEFAULT_MAX_COLUMNS
+
+    # Test sort with explicit max_columns
+    search_args = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        sort=[SortArgs(by="col0", descending=True)],
+        max_columns=20,
+    )
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+    assert len(result_data[0].keys()) == 20
+
+    # Test sort with max_columns=None
+    search_args = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        sort=[SortArgs(by="col0", descending=True)],
+        max_columns=None,
+    )
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+    assert len(result_data[0].keys()) == 100
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {f"col{i}": [1, 2, 3] for i in range(100)},
+    ),
+)
+def test_max_columns_not_provided_with_filters(df: Any):
+    # Create data with many columns
+    table = ui.table(df, selection=None)
+
+    # Test filters with default max_columns
+    search_args = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        filters=FilterGroup(
+            type="group",
+            operator="and",
+            children=[
+                FilterCondition(
+                    type="condition", column_id="col0", operator="==", value=1
+                )
+            ],
+        ),
+        max_columns=MAX_COLUMNS_NOT_PROVIDED,
+    )
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+    # Pandas has an index column (empty string), others don't
+    assert len(result_data[0].keys()) in (50, 51)
+
+    # Test filters with explicit max_columns
+    search_args = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        filters=FilterGroup(
+            type="group",
+            operator="and",
+            children=[
+                FilterCondition(
+                    type="condition", column_id="col0", operator="==", value=1
+                )
+            ],
+        ),
+        max_columns=20,
+    )
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+    # Pandas has an index column (empty string), others don't
+    assert len(result_data[0].keys()) in (20, 21)
+
+    # Test filters with max_columns=None
+    search_args = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        filters=FilterGroup(
+            type="group",
+            operator="and",
+            children=[
+                FilterCondition(
+                    type="condition", column_id="col0", operator="==", value=1
+                )
+            ],
+        ),
+        max_columns=None,
+    )
+    response = table._search(search_args)
+    result_data = json.loads(response.data)
+    # Pandas has an index column (empty string), others have marimo_row_id
+    print(result_data[0].keys())
+    assert len(result_data[0].keys()) in (100, 101)
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9]},
+    ),
+)
+def test_filters_with_nonexistent_columns(df: Any):
+    """Test that filters for non-existent columns are filtered out gracefully."""
+    table = ui.table(df)
+
+    # Test with filters containing both existing and non-existent columns
+    search_args = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        filters=FilterGroup(
+            type="group",
+            operator="and",
+            children=[
+                FilterCondition(
+                    type="condition", column_id="a", operator="==", value=1
+                ),  # exists
+                FilterCondition(
+                    type="condition",
+                    column_id="nonexistent",
+                    operator="==",
+                    value=10,
+                ),  # doesn't exist
+                FilterCondition(
+                    type="condition", column_id="b", operator=">=", value=4
+                ),  # exists
+                FilterCondition(
+                    type="condition",
+                    column_id="missing_col",
+                    operator="!=",
+                    value=0,
+                ),  # doesn't exist
+            ],
+        ),
+    )
+
+    # Should not raise an error and should apply only the valid filters
+    response = table._search(search_args)
+
+    # Should return 1 row (where a==1 and b>=4)
+    assert response.total_rows == 1
+    result_data = json.loads(response.data)
+    assert len(result_data) == 1
+    assert result_data[0]["a"] == 1
+    assert result_data[0]["b"] == 4
+    assert result_data[0]["c"] == 7
+
+    # Test with all non-existent columns (should return all rows)
+    search_args_all_invalid = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        filters=FilterGroup(
+            type="group",
+            operator="and",
+            children=[
+                FilterCondition(
+                    type="condition",
+                    column_id="nonexistent1",
+                    operator="==",
+                    value=1,
+                ),
+                FilterCondition(
+                    type="condition",
+                    column_id="nonexistent2",
+                    operator="!=",
+                    value=2,
+                ),
+            ],
+        ),
+    )
+
+    response = table._search(search_args_all_invalid)
+    assert response.total_rows == 3  # All rows returned since no valid filters
+    result_data = json.loads(response.data)
+    assert len(result_data) == 3
+
+
+def test_show_page_size_selector_property():
+    """Test the show_page_size_selector property behavior."""
+    data = {"a": list(range(20))}  # 20 rows to ensure pagination
+
+    # Test default behavior
+    table_default = ui.table(data)
+    assert table_default._component_args["show-page-size-selector"] is True
+
+    # Test with small dataset (should disable automatically)
+    small_data = {"a": [1, 2, 3, 4]}  # Less than 5 rows
+    table_small = ui.table(small_data)
+    assert table_small._component_args["show-page-size-selector"] is False
+
+
+def test_show_toggles_app_mode():
+    data = {"a": [1, 2, 3], "b": [4, 5, 6]}
+
+    with patch("marimo._plugins.ui._impl.table.get_mode", return_value="edit"):
+        table_default = ui.table(data)
+        assert table_default._component_args["show-column-explorer"] is True
+        assert table_default._component_args["show-chart-builder"] is True
+
+    with patch("marimo._plugins.ui._impl.table.get_mode", return_value="run"):
+        table_default = ui.table(data)
+        assert table_default._component_args["show-column-explorer"] is True
+        assert table_default._component_args["show-chart-builder"] is False
+
+
+def test_base_exception_handling():
+    """Test that BaseException is caught and re-raised as TableSearchError."""
+    table = ui.table({"col": [1]})
+
+    search_args = SearchTableArgs(
+        page_size=10,
+        page_number=0,
+        query="test",
+        sort=None,
+        filters=None,
+    )
+
+    with patch(
+        "marimo._plugins.ui._impl.tables.default_table.DefaultTableManager.to_json_str"
+    ) as mock_to_json_str:
+        mock_to_json_str.side_effect = BaseException("to json panic")
+
+        # Should catch BaseException and re-raise as TableSearchError
+        with pytest.raises(TableSearchError) as exc_info:
+            table._search(search_args)
+
+    # Verify the error message is preserved
+    assert "to json panic" in str(exc_info.value)
+    assert exc_info.value.error == str(exc_info.value)
+
+
+def test_table_uses_default_max_columns():
+    # Create data with many columns
+    data = {f"col{i}": [1, 2, 3] for i in range(100)}
+
+    # Create table without specifying max_columns
+    table = ui.table(data)
+
+    # Should use the default max_columns (50)
+    assert table._max_columns == DEFAULT_MAX_COLUMNS
+
+
+@pytest.mark.skipif(
+    not DependencyManager.pandas.has(),
+    reason="Pandas not installed",
+)
+def test_table_with_timestamp_column_name():
+    # Create data with timestamps as columns
+    import pandas as pd
+
+    now = pd.Timestamp.now()
+    data = {now + pd.Timedelta(minutes=i): [i, i + 1, i + 2] for i in range(5)}
+
+    # Create table without specifying max_columns
+    table = ui.table(pd.DataFrame(data))
+
+    # Should use the default max_columns (50)
+    assert table._max_columns == DEFAULT_MAX_COLUMNS
+
+
+def test_cell_initial_hover_texts():
+    def hover_text(row: str, col: str, value: Any) -> str:
+        return f"{row}:{col}={value}"
+
+    table = ui.table([1, 2, 3], hover_template=hover_text)
+    assert "cell-hover-texts" in table._args.args
+    cell_hover = table._args.args["cell-hover-texts"]
+    assert len(cell_hover) == 3
+    assert "1" in cell_hover
+    assert "value" in cell_hover["1"]
+    assert cell_hover["1"]["value"] == "1:value=2"
+
+
+def test_hover_template_string_arg():
+    table = ui.table([1, 2], hover_template="Value: {{value}}")
+    # String template should pass through and per-cell map should be None
+    assert table._args.args["hover-template"] == "Value: {{value}}"
+    assert "cell-hover-texts" in table._args.args
+    assert table._args.args["cell-hover-texts"] is None
+
+
+def test_cell_hover_of_next_page():
+    def hover_text(row: str, col: str, value: Any) -> str:
+        return f"{row}:{col}={value}"
+
+    data = [
+        {"a": 1, "b": 2},
+        {"a": 3, "b": 4},
+        {"a": 5, "b": 6},
+        {"a": 7, "b": 8},
+    ]
+
+    table = ui.table(data, page_size=2, hover_template=hover_text)
+    last_page = table._search(SearchTableArgs(page_size=2, page_number=1))
+    cell_hover = last_page.cell_hover_texts
+    assert len(cell_hover) == 2
+    assert "2" in cell_hover
+    assert "a" in cell_hover["2"]
+    assert cell_hover["2"]["a"] == "2:a=5"
+
+
+def test_cell_hover_last_page():
+    def hover_text(row: str, col: str, value: Any) -> str:
+        return f"{row}:{col}={value}"
+
+    data = [{"a": 1}, {"a": 2}, {"a": 3}]
+    table = ui.table(data, page_size=2, hover_template=hover_text)
+    last_page = table._search(SearchTableArgs(page_size=2, page_number=1))
+    cell_hover = last_page.cell_hover_texts
+    assert len(cell_hover) == 1
+    assert "2" in cell_hover
+    assert "a" in cell_hover["2"]
+    assert cell_hover["2"]["a"] == "2:a=3"
+
+
+def test_cell_hover_edge_cases():
+    def hover_text(row: str, col: str, value: Any) -> str:
+        return f"{row}:{col}={value}"
+
+    # Empty data
+    table = ui.table([], hover_template=hover_text)
+    response = table._search(SearchTableArgs(page_size=10, page_number=0))
+    assert response.cell_hover_texts == {}
+
+    # Single row
+    table = ui.table([{"a": 1}], hover_template=hover_text)
+    response = table._search(SearchTableArgs(page_size=10, page_number=0))
+    assert response.cell_hover_texts == {"0": {"a": "0:a=1"}}
+
+    # Page size larger than total rows
+    table = ui.table([{"a": 1}, {"a": 2}], hover_template=hover_text)
+    response = table._search(SearchTableArgs(page_size=10, page_number=0))
+    assert response.cell_hover_texts == {
+        "0": {"a": "0:a=1"},
+        "1": {"a": "1:a=2"},
+    }
+
+    # Skip beyond total rows
+    response = table._search(SearchTableArgs(page_size=10, page_number=1))
+    assert response.cell_hover_texts == {}
+
+    # With too_many total rows
+    table = ui.table(
+        [{"a": 1}, {"a": 2}],
+        hover_template=hover_text,
+        _internal_total_rows="too_many",
+    )
+    response = table._search(SearchTableArgs(page_size=10, page_number=0))
+    assert response.cell_hover_texts == {
+        "0": {"a": "0:a=1"},
+        "1": {"a": "1:a=2"},
+    }
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {
+            "column_0": [
+                "apples",
+                "apples",
+                "bananas",
+                "bananas",
+                "carrots",
+                "carrots",
+            ]
+        },
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_cell_search_df_hover_texts(df: Any):
+    def hover_text(_row: str, _col: str, value: Any) -> str:
+        return f"hover:{value}"
+
+    table = ui.table(df, hover_template=hover_text)
+    page = table._search(
+        SearchTableArgs(page_size=2, page_number=0, query="carrot")
+    )
+    assert page.cell_hover_texts == {
+        "4": {"column_0": "hover:carrots"},
+        "5": {"column_0": "hover:carrots"},
+    }
+
+
+@pytest.mark.parametrize(
+    "df",
+    create_dataframes(
+        {
+            "column_0": [
+                "apples",
+                "apples",
+                "bananas",
+                "bananas",
+                "carrots",
+                "carrots",
+            ]
+        },
+        exclude=NON_EAGER_LIBS,
+    ),
+)
+def test_cell_search_df_hover_texts_sorted(df: Any):
+    def hover_text(_row: str, _col: str, value: Any) -> str:
+        return f"hover:{value}"
+
+    table = ui.table(df, hover_template=hover_text)
+    page = table._search(
+        SearchTableArgs(
+            page_size=2,
+            page_number=0,
+            query="",
+            sort=[SortArgs(by="column_0", descending=True)],
+        )
+    )
+    assert page.cell_hover_texts == {
+        "4": {"column_0": "hover:carrots"},
+        "5": {"column_0": "hover:carrots"},
+    }
+
+
+@pytest.mark.skipif(
+    not DependencyManager.polars.has(), reason="Polars not installed"
+)
+def test_polars_enums_in_list():
+    import polars as pl
+
+    class MyEnum(Enum):
+        A = 1
+        B = 2
+        C = 3
+        D = 4
+
+    # Create 10 rows cycling through enum values B, C, D, A...
+    enum_names = [e.name for e in MyEnum]
+    rows = [{"value": [enum_names[i % len(enum_names)]]} for i in range(1, 11)]
+
+    schema = {"value": pl.List(pl.Enum(enum_names))}
+    df = pl.DataFrame(rows, schema=schema)
+
+    table = ui.table(df, selection=None)
+
+    # First page
+    response = table._search(SearchTableArgs(page_size=5, page_number=0))
+    assert (
+        response.data
+        == '[{"value":["B"]},{"value":["C"]},{"value":["D"]},{"value":["A"]},{"value":["B"]}]'
+    )
+
+    # Second page
+    response_next_page = table._search(
+        SearchTableArgs(page_size=5, page_number=1)
+    )
+    assert (
+        response_next_page.data
+        == '[{"value":["C"]},{"value":["D"]},{"value":["A"]},{"value":["B"]},{"value":["C"]}]'
+    )
+
+
+def test_search_returns_raw_data_with_format_mapping() -> None:
+    data = {"a": [1, 2, 3], "b": [4, 5, 6]}
+    table = ui.table(
+        data,  # pyright: ignore[reportArgumentType]
+        format_mapping={"a": lambda x: f"formatted_{x}"},
+    )
+
+    result = table._search(SearchTableArgs(page_size=10, page_number=0))
+
+    assert json.loads(result.data) == [
+        {"a": "formatted_1", "b": 4},
+        {"a": "formatted_2", "b": 5},
+        {"a": "formatted_3", "b": 6},
+    ]
+
+    assert result.raw_data is not None
+    assert json.loads(result.raw_data) == [
+        {"a": 1, "b": 4},
+        {"a": 2, "b": 5},
+        {"a": 3, "b": 6},
+    ]
+
+
+def test_search_returns_no_raw_data_without_format_mapping() -> None:
+    data = {"a": [1, 2, 3]}
+    table = ui.table(data)  # pyright: ignore[reportArgumentType]
+
+    result = table._search(SearchTableArgs(page_size=10, page_number=0))
+
+    assert result.raw_data is None
+
+
+def test_initial_args_include_raw_data_with_format_mapping() -> None:
+    data = {"a": [10, 20], "b": ["x", "y"]}
+    table = ui.table(
+        data,
+        format_mapping={"a": lambda x: x * 10},
+    )
+
+    raw_data = table._component_args["raw-data"]
+    assert isinstance(raw_data, str)
+    assert json.loads(raw_data) == [
+        {"a": 10, "b": "x"},
+        {"a": 20, "b": "y"},
+    ]
+    formatted_data = table._component_args["data"]
+    assert isinstance(formatted_data, str)
+    assert json.loads(formatted_data) == [
+        {"a": 100, "b": "x"},
+        {"a": 200, "b": "y"},
+    ]
+
+
+def test_initial_args_no_raw_data_without_format_mapping() -> None:
+    data = {"a": [1, 2]}
+    table = ui.table(data)  # pyright: ignore[reportArgumentType]
+
+    assert table._component_args["raw-data"] is None
+
+
+def test_search_raw_data_with_query_and_format_mapping() -> None:
+    data = {"name": ["alice", "bob", "charlie"], "score": [10, 20, 30]}
+    table = ui.table(
+        data,
+        format_mapping={"score": lambda x: f"{x}%"},
+    )
+
+    result = table._search(
+        SearchTableArgs(query="bob", page_size=10, page_number=0)
+    )
+
+    assert json.loads(result.data) == [
+        {"name": "bob", "score": "20%"},
+    ]
+
+    assert result.raw_data is not None
+    assert json.loads(result.raw_data) == [
+        {"name": "bob", "score": 20},
+    ]
+
+
+def test_column_widths_valid():
+    t = ui.table({"a": [1, 2], "b": [3, 4]}, column_widths={"a": 100})
+    assert t._component_args["column-widths"] == {"a": 100}
+
+
+def test_column_widths_unknown_column():
+    with pytest.raises(ValueError, match="not found in table"):
+        ui.table({"a": [1, 2]}, column_widths={"missing": 100})
+
+
+def test_column_widths_non_positive():
+    with pytest.raises(ValueError, match="positive integer"):
+        ui.table({"a": [1, 2]}, column_widths={"a": 0})

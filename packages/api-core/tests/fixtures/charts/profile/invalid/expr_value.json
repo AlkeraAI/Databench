@@ -1,0 +1,20 @@
+{
+  "path": "mark.size",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "mark": {
+      "size": {
+        "expr": "width"
+      },
+      "type": "point"
+    }
+  },
+  "unsafe": true
+}

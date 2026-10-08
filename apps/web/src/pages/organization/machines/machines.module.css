@@ -1,0 +1,120 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace5);
+  max-width: 1100px;
+}
+
+.defaultMachine {
+  margin-top: var(--alkSpace4);
+  max-width: 360px;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace3);
+}
+
+.machineLink {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+/* The table keeps a reading on one line; a machine's name, its spec line and a starting
+   step wrap at word breaks instead, so nothing is clipped mid-word. */
+.wrapCell,
+.wrapCell :global(.alk-machine__name) {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* The row's menu key is a control, not text: a table cell's ellipsis would draw
+   a stray "…" beside it when anything in the cell runs past its narrow width.
+   Written to outrank the table's own `.alk-table td` clip-and-ellipsize rule. */
+:global(.alk-table) td.menuCell {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.machineLink:hover :global(.alk-machine__name) {
+  text-decoration: underline;
+}
+
+.use {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace1);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+}
+
+.fieldLabel {
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+  color: var(--alkPrimaryText);
+}
+
+.header {
+  padding: var(--alkSpace4);
+}
+
+.headerRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--alkSpace4);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--alkSpace5);
+  align-items: start;
+}
+
+.list {
+  margin: 0;
+  padding-left: var(--alkSpace5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: minmax(160px, auto) 1fr;
+  gap: var(--alkSpace4);
+}
+
+@media (max-width: 600px) {
+  .timeline li {
+    grid-template-columns: 1fr;
+    gap: var(--alkSpace1);
+  }
+}

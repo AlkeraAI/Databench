@@ -1,0 +1,190 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "0000000001": {
+        "defs": [
+          "alkera",
+          "pl"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000002": {
+        "defs": [],
+        "errors": [],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": []
+      },
+      "0000000003": {
+        "defs": [
+          "df"
+        ],
+        "errors": [],
+        "refs": [
+          "alkera"
+        ],
+        "sql_tables": [
+          "orders"
+        ]
+      },
+      "0000000004": {
+        "defs": [
+          "summary"
+        ],
+        "errors": [],
+        "refs": [
+          "df"
+        ],
+        "sql_tables": []
+      },
+      "0000000005": {
+        "defs": [
+          "double"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000006": {
+        "defs": [
+          "Point"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000007": {
+        "defs": [],
+        "errors": [
+          {
+            "code": "syntax_error"
+          }
+        ],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "0000000001",
+        "0000000002"
+      ],
+      [
+        "0000000001",
+        "0000000003"
+      ],
+      [
+        "0000000003",
+        "0000000004"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "import alkera\nimport polars as pl",
+        "config": {},
+        "extra": {},
+        "id": "0000000001",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "keyword",
+        "source": "import alkera\nimport polars as pl"
+      },
+      {
+        "code": "alkera.md(\n    r\"\"\"\n    # Orders\n    \"\"\"\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000002",
+        "kind": "markdown",
+        "meta": {
+          "quote": "r"
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "# Orders"
+      },
+      {
+        "code": "df = alkera.sql(\n    rf\"\"\"\n    SELECT * FROM orders\n    \"\"\",\n)",
+        "config": {},
+        "extra": {},
+        "id": "0000000003",
+        "kind": "sql",
+        "meta": {
+          "connection": null,
+          "engine": null,
+          "output_var": "df",
+          "show_output": true
+        },
+        "name": "_",
+        "resolution": "keyword",
+        "source": "SELECT * FROM orders"
+      },
+      {
+        "code": "summary = df.describe()\nsummary",
+        "config": {},
+        "extra": {},
+        "id": "0000000004",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "summary = df.describe()\nsummary"
+      },
+      {
+        "code": "def double(x):\n    return 2 * x",
+        "config": {},
+        "extra": {},
+        "id": "0000000005",
+        "kind": "function",
+        "meta": {},
+        "name": "double",
+        "resolution": "keyword",
+        "source": "def double(x):\n    return 2 * x"
+      },
+      {
+        "code": "class Point:\n    x: int = 0",
+        "config": {},
+        "extra": {},
+        "id": "0000000006",
+        "kind": "class",
+        "meta": {},
+        "name": "Point",
+        "resolution": "keyword",
+        "source": "class Point:\n    x: int = 0"
+      },
+      {
+        "code": "x = (",
+        "config": {},
+        "extra": {},
+        "id": "0000000007",
+        "kind": "unparsable",
+        "meta": {
+          "verbatim": "app._unparsable_cell(\n    r\"\"\"\n    x = (\n    \"\"\",\n    name=\"broken\", alkera_id=\"0000000007\"\n)"
+        },
+        "name": "broken",
+        "resolution": "keyword",
+        "source": "x = ("
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

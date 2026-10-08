@@ -1,0 +1,12 @@
+/* Full pop-out (editor tab): the same summary markdown as the transcript seam's
+   card, roomier. Owns its page ground — the panel IS the editor-tab document. */
+.alk-compaction {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: auto;
+  background: var(--alkPageBg);
+  color: var(--alkPrimaryText);
+  padding: var(--alkSpace6) var(--alkSpace7);
+}

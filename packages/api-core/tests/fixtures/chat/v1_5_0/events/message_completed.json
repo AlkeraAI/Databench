@@ -1,0 +1,19 @@
+{
+  "cost": 0.01,
+  "error": null,
+  "event_id": "01H_message_completed",
+  "event_type": "message.completed",
+  "finish_reason": "stop",
+  "message_id": "m1",
+  "metadata": {},
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z",
+  "tokens": {
+    "cache_read": 10,
+    "cache_write": 0,
+    "input": 100,
+    "output": 50
+  }
+}

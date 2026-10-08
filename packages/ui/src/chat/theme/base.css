@@ -1,0 +1,110 @@
+/* Base rules every concern relies on: the scoped reset, icon sizing policy,
+   focus treatment, the mono utilities, and the shared keyframes. Loaded with
+   tokens.css through the package's `styles` export. */
+
+/* The root is the PANEL-width query container (chat-panel). Organ-local rules
+   measure their own named containers instead: the composer's chat-composer, the
+   question card's chat-question, and each tool body's chat-toolwell. Named, so an unrelated ancestor
+   container in a host app can never be picked up. */
+.chat-root {
+  container-type: inline-size;
+  container-name: chat-panel;
+}
+
+/* Scoped reset: neutralize injected control styles, then opt back in. */
+.chat-root :is(button, input, select, textarea) {
+  appearance: none;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.chat-root *,
+.chat-root *::before,
+.chat-root *::after {
+  box-sizing: border-box;
+}
+
+/* An icon holds its design size at every panel width; the layout folds around it,
+   it never shrinks toward invisibility. The box that carries a glyph pins itself
+   with `flex: none` in its own concern's stylesheet; this rule pins the glyphs. */
+.chat-root svg {
+  flex: none;
+}
+
+.chat-root :focus-visible {
+  outline: 2px solid var(--chat-focus);
+  outline-offset: 2px;
+}
+
+.chat-root .chat-mono {
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+}
+
+.chat-root .chat-num {
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Shared motion. Concern stylesheets swap or disable these under
+   prefers-reduced-motion next to the rules that apply them.
+
+   Three rise distances, because the travel reads against the box that moves:
+   6px for a dock card arriving over the transcript, 5px for a menu or a
+   transcript block, 4px for a part settling inside a card that is already
+   there. Only chat-rise names its end state; the shorter two land on whatever
+   the element computes, so a carrier with a transform of its own keeps it. */
+@keyframes chat-rise {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes chat-rise-6 {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes chat-rise-4 {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes chat-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Host-default neutralization. The VS Code webview injects a default stylesheet that
+   paints every `code` with the editor's preformat ground and padding and grounds every
+   `blockquote`. That is a property of the host, not of markdown, so it is answered here
+   on the elements themselves rather than inside the renderer that first hit it. */
+.chat-root pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.chat-root blockquote {
+  background: none;
+}

@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "description": "Clear chat history",
+      "name": "/clear"
+    }
+  ],
+  "event_id": "01H_available_commands_update",
+  "event_type": "available_commands_update",
+  "metadata": {},
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

@@ -1,0 +1,122 @@
+/* Working indicators: the shared three-dot beat, the in-progress sheen, and
+   the streamed-word entrance. No cursor exists: streaming text arrives by
+   easing its new words in, and in-progress wording carries the sheen. */
+
+/* Shared working animation: the beat during a slash effect's run. */
+.chat-root .chat-dots {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+}
+
+.chat-root .chat-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--chat-forest-bright);
+  animation: chat-blink 1.2s ease-in-out infinite;
+}
+
+.chat-root .chat-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.chat-root .chat-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* The working sheen: a looping brightness pass over in-progress wording
+   ("Thinking…", "Compacting…", the turn's tail line). A label that already ends
+   in an ellipsis carries this alone, never the dots too. */
+.chat-root .chat-shimmer {
+  background: linear-gradient(90deg, var(--chat-ink-3) 0%, var(--chat-ink-3) 38%, var(--chat-ink) 50%, var(--chat-ink-3) 62%, var(--chat-ink-3) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  /* text-fill-color beats a same-specificity `color` from the carrier's own
+     rule (the thinking label, the slash outcome), whatever order the concern
+     stylesheets loaded in. */
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: chat-shimmer 1.8s linear infinite;
+}
+
+/* A word that just arrived eases in; mounted words keep stable keys, so only
+   the new tail of the stream ever animates. */
+.chat-root .chat-stream-w {
+  animation: chat-fade-in 300ms ease both;
+}
+
+@keyframes chat-blink {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes chat-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* The spinner: a quarter arc turning over a faint full track, all in
+   currentColor so the caller's ink decides. */
+.chat-root .chat-spin {
+  display: block;
+}
+
+.chat-root .chat-spin__track,
+.chat-root .chat-spin__arc {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+}
+
+.chat-root .chat-spin__track {
+  opacity: 0.25;
+}
+
+.chat-root .chat-spin__arc {
+  stroke-linecap: round;
+  stroke-dasharray: 28 72;
+  transform-origin: center;
+  animation: chat-spin-turn 900ms linear infinite;
+}
+
+@keyframes chat-spin-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* A reduced-motion reader keeps the carriers, not the pulse. */
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-dots span,
+  .chat-root .chat-stream-w {
+    animation: none;
+    transition: none;
+  }
+
+  /* The arc parks; the track still reads as "in progress" against the dot
+     and ask marks without turning. */
+  .chat-root .chat-spin__arc {
+    animation: none;
+  }
+
+  /* The sheen parks as steady secondary ink: the gradient and the transparent
+     fill both reset, or the glyphs would never be painted. */
+  .chat-root .chat-shimmer {
+    animation: none;
+    background: none;
+    color: var(--chat-ink-2);
+    -webkit-text-fill-color: currentcolor;
+  }
+}

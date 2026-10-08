@@ -1,0 +1,144 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import json
+import signal
+import threading
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+import click
+
+from marimo._environments.process import run_command
+from marimo._server.files.directory_scanner import DirectoryScanner
+from marimo._server.workspace import flatten_files
+from marimo._utils.http import HTTPException, HTTPStatus
+from marimo._utils.marimo_path import MarimoPath
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
+    from marimo._environments.sandbox import Backend
+
+
+def collect_notebooks(paths: Iterable[Path]) -> list[MarimoPath]:
+    notebooks: dict[str, MarimoPath] = {}
+
+    for path in paths:
+        if path.is_dir():
+            scanner = DirectoryScanner(str(path), include_markdown=True)
+            try:
+                file_infos = scanner.scan()
+            except HTTPException as e:
+                if e.status_code != HTTPStatus.REQUEST_TIMEOUT:
+                    raise
+                file_infos = scanner.partial_results
+
+            for file_info in flatten_files(file_infos):
+                if not file_info.is_marimo_file or file_info.is_directory:
+                    continue
+                absolute_path = str(Path(path) / file_info.path)
+                notebooks[absolute_path] = MarimoPath(absolute_path)
+        else:
+            notebooks[str(path)] = MarimoPath(str(path))
+
+    return [notebooks[k] for k in sorted(notebooks)]
+
+
+@contextlib.contextmanager
+def _export_termination_signals() -> Iterator[None]:
+    """Let termination unwind the runner so its isolated child is reaped."""
+    previous = {}
+    loop = asyncio.get_running_loop()
+    task = asyncio.current_task()
+    termination_signal: int | None = None
+    active = True
+
+    def cancel_export() -> None:
+        if active and task is not None:
+            task.cancel()
+
+    def terminate(signum: int, _frame: object) -> None:
+        nonlocal termination_signal
+        if termination_signal is not None:
+            return
+        termination_signal = signum
+        # Deliver cancellation at an await, after Popen has returned ownership
+        # of the child. Raising here can interrupt its constructor and leak it.
+        loop.call_soon_threadsafe(cancel_export)
+
+    try:
+        if threading.current_thread() is threading.main_thread():
+            for name in ("SIGINT", "SIGTERM", "SIGHUP"):
+                signum = getattr(signal, name, None)
+                # Python 3.10 raises KeyboardInterrupt synchronously; defer it
+                # past Popen just like termination. Python 3.11+ asyncio.run
+                # already installs a cancelling handler, which we preserve.
+                default_handler = (
+                    signal.default_int_handler
+                    if name == "SIGINT"
+                    else signal.SIG_DFL
+                )
+                if (
+                    signum is not None
+                    and signal.getsignal(signum) == default_handler
+                ):
+                    previous[signum] = signal.signal(signum, terminate)
+        yield
+    finally:
+        active = False
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
+        # The command may finish before queued cancellation is delivered.
+        if termination_signal == signal.SIGINT:
+            raise KeyboardInterrupt from None
+        if termination_signal is not None:
+            raise SystemExit(128 + termination_signal) from None
+
+
+async def run_python_subprocess(
+    *,
+    notebook_path: str,
+    backend: Backend,
+    script: str,
+    payload: dict[str, Any],
+    action: str,
+) -> str:
+    from marimo._environments.backends import (
+        launch,
+        launch_fallback,
+        sync_notebook_async,
+    )
+    from marimo._environments.errors import MissingScriptMetadataError
+    from marimo._environments.overlay import runtime_overlay
+
+    args = ["-c", script, json.dumps(payload)]
+    with _export_termination_signals():
+        try:
+            environment = await sync_notebook_async(
+                str(Path(notebook_path).resolve()),  # noqa: ASYNC240
+                backend=backend,
+            )
+        except MissingScriptMetadataError:
+            plan = launch_fallback(args)
+        else:
+            plan = launch(
+                environment, args, backend=backend, overlay=runtime_overlay()
+            )
+        completed = await run_command(
+            plan.argv,
+            env=plan.env,
+        )
+    if completed.returncode != 0:
+        # Identify the real launcher without exposing requirement URLs,
+        # credentials, notebook code, or the serialized request payload.
+        launcher = Path(plan.argv[0]).name
+        command = f"{launcher} <sandbox arguments> -c <script> <payload>"
+        raise click.ClickException(
+            f"Failed to {action} in sandbox.\n\n"
+            f"Command:\n\n  {command}\n\n"
+            f"Stderr:\n\n{completed.stderr.strip()}"
+        )
+    return completed.stdout

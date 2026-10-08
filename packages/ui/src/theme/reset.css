@@ -1,0 +1,66 @@
+/* Unified base reset — ONE box model for the portal, the extension, and the sandbox.
+ *
+ * Every surface gets the same reset, so a component built here lays out identically
+ * wherever it is dropped in. Pairs with tokens.css (the styles.css entry imports both).
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextLg);
+  line-height: var(--alkLeadingNormal);
+  color: var(--alkPrimaryText);
+  background: var(--alkPageBg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Media defaults to the content box so a dropped-in image never overflows its
+ * frame — the kind of cross-surface surprise this reset exists to kill. */
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* One focus ring for every surface. `:where()` holds it at
+ * zero specificity, so any existing rule still wins outright, and a component that sits
+ * flush against its container declares only the offset it needs. */
+:where(:focus-visible) {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 2px;
+}
+
+/* Present to a screen reader, absent to the eye. Five components spelled out the same
+ * six declarations because there was no shared rule to reach for. Zero specificity, so
+ * a component that needs to reveal one of these can say so in one line. */
+:where([data-vh]) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

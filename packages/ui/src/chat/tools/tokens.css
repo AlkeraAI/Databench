@@ -1,0 +1,181 @@
+/* The one color vocabulary every tool body shares.
+
+   Every color decision in the tool bodies lives in this file, under the
+   --chat-tool- prefix; the body stylesheets consume these names and decide nothing. Type is
+   NOT here: a tool body reads the published ladder (theme/tokens.css) directly,
+   at Record head to foot, so nothing between it and the seam can re-point it.
+
+   THE COLOR SYSTEM, in four roles.
+
+   IDENTITY. A tool belongs to a register: shell, search, file, web, data,
+   agent, plan. The register owns a hue, and that hue wears the badge glyph, the
+   well's edge, and the input band it leads with. Reading down a run of steps
+   the register is legible before a word is.
+
+   STATUS. good, warn, bad, info. A figure, a diff sign, a task mark, or an
+   edge's certainty takes the ink that says what it is, never what tool it came
+   from.
+
+   CATEGORY. cat-1 through cat-6, for peers a reader must tell apart at a
+   glance: a result grid's column heads, a graph's node kinds. Position in the
+   ramp carries no ranking.
+
+   NEUTRAL. The ink ladder, papers, and hairlines. ink-3 is the dimmest ink any
+   informational text may take; ink-4 draws boundaries only.
+
+   Every hue is oklch at a lightness and chroma pinned per theme, so all of them
+   land at the same contrast against paper: at or above 4.5:1 in both themes,
+   including on their own washes. Changing the two numbers below moves the whole
+   palette together and keeps that floor.
+
+   Syntax colors keep the host's --chat-sql-* seam so the extension port
+   remaps them onto the editor's theme at one place. */
+
+/* The step and the well carry the tokens too: a step's status line (the
+   harness failure, or the stop) renders under its head, outside the well and
+   every tool's own scope, and it reads the status family. */
+.chat-root :is([data-tool], .chat-activity-well, .chat-activity-step) {
+  --chat-tool-l: 0.46;
+  --chat-tool-c: 0.13;
+
+
+  /* The theme's ink-3 clears 4.5:1 on plain paper with nothing to spare, so a
+     tinted band would push every locator under the floor. The bodies take an
+     ink-3 with headroom instead: the secondary ink carried only a little way
+     back toward the paper, rather than the theme's full step. */
+  --chat-tool-ink-3: color-mix(in srgb, var(--chat-ink-2) 92%, var(--chat-paper));
+
+
+  /* Status. */
+  --chat-tool-good: oklch(var(--chat-tool-l) var(--chat-tool-c) 145);
+  --chat-tool-warn: oklch(var(--chat-tool-l) var(--chat-tool-c) 85);
+  --chat-tool-bad: oklch(var(--chat-tool-l) var(--chat-tool-c) 30);
+  --chat-tool-info: oklch(var(--chat-tool-l) var(--chat-tool-c) 250);
+
+  --chat-tool-good-wash: color-mix(in srgb, var(--chat-tool-good) 12%, transparent);
+  --chat-tool-warn-wash: color-mix(in srgb, var(--chat-tool-warn) 13%, transparent);
+  --chat-tool-bad-wash: color-mix(in srgb, var(--chat-tool-bad) 11%, transparent);
+  --chat-tool-info-wash: color-mix(in srgb, var(--chat-tool-info) 12%, transparent);
+
+  --chat-tool-good-line: color-mix(in srgb, var(--chat-tool-good) 38%, transparent);
+  --chat-tool-warn-line: color-mix(in srgb, var(--chat-tool-warn) 40%, transparent);
+  --chat-tool-bad-line: color-mix(in srgb, var(--chat-tool-bad) 38%, transparent);
+
+  /* Category, for peers that must be told apart rather than ranked. */
+  --chat-tool-cat-1: oklch(var(--chat-tool-l) var(--chat-tool-c) 250);
+  --chat-tool-cat-2: oklch(var(--chat-tool-l) var(--chat-tool-c) 145);
+  --chat-tool-cat-3: oklch(var(--chat-tool-l) var(--chat-tool-c) 315);
+  --chat-tool-cat-4: oklch(var(--chat-tool-l) var(--chat-tool-c) 85);
+  --chat-tool-cat-5: oklch(var(--chat-tool-l) var(--chat-tool-c) 195);
+  --chat-tool-cat-6: oklch(var(--chat-tool-l) var(--chat-tool-c) 300);
+
+  /* Identity. Each tool root sets its register's hue; everything else derives. */
+  --chat-tool-id-h: 240;
+  --chat-tool-id: oklch(var(--chat-tool-l) var(--chat-tool-c) var(--chat-tool-id-h));
+  /* The register is carried by the LINE and the badge glyph; the band's fill is
+     only enough to seat them. A wash strong enough to read as a colour of its
+     own turns a card into a slab of some other product's palette — cold violet
+     over the shell's warm ground — and the card stops belonging to the page it
+     is on. Seven percent seats the band and keeps the hue in the hairline. */
+  --chat-tool-id-wash: color-mix(in srgb, var(--chat-tool-id) 7%, transparent);
+  --chat-tool-id-line: color-mix(in srgb, var(--chat-tool-id) 30%, transparent);
+
+  /* Rails, washes, and marks derived from the same inks, so one remap moves
+     them with their hue. */
+  --chat-tool-rail: color-mix(in srgb, var(--chat-tool-ink-3) 40%, transparent);
+  --chat-tool-rail-firm: color-mix(in srgb, var(--chat-tool-ink-3) 78%, transparent);
+  --chat-tool-rail-weak: color-mix(in srgb, var(--chat-tool-warn) 55%, transparent);
+  --chat-tool-wash-quiet: color-mix(in srgb, var(--chat-tool-ink-3) 22%, transparent);
+  /* A highlight is a PAPER, not an ink. Mixing the warn INK toward paper landed on
+     a muddy tan, so the mark takes a light of its own: a highlighter yellow under
+     the body ink, which measures 14.6:1 on rendered pixels. */
+  --chat-tool-needle-bg: color-mix(in srgb, oklch(0.9 0.15 95) 70%, transparent);
+  --chat-tool-diff-add-bg: color-mix(in srgb, var(--chat-tool-good) 12%, transparent);
+  --chat-tool-diff-del-bg: color-mix(in srgb, var(--chat-tool-bad) 11%, transparent);
+
+  /* Syntax, through the host seam the extension port remaps. */
+  --chat-tool-tok-cmd: oklch(var(--chat-tool-l) var(--chat-tool-c) 145);
+  --chat-tool-tok-flag: oklch(var(--chat-tool-l) var(--chat-tool-c) 55);
+
+  /* The bash highlighter emits `chat-btok--*` spans that read the theme's
+     --chat-bash-* seam; inside a tool body the seam routes to this file's own
+     roles, keeping the lab's grouping (strings wear the flag ink, structure
+     stays muted). */
+  --chat-bash-cmd: var(--chat-tool-tok-cmd);
+  --chat-bash-flag: var(--chat-tool-tok-flag);
+  --chat-bash-string: var(--chat-tool-tok-flag);
+  --chat-bash-muted: var(--chat-tool-ink-3);
+
+  /* The metrics the settled geometry is measured from. A chip is the smallest
+     thing a body outlines, so its corner sits under the published micro radius:
+     4px on a 4px-padded word reads as a lozenge. */
+  --chat-tool-badge: 16px;
+  --chat-tool-gap: var(--chat-sp-2);
+  --chat-tool-pad-x: var(--chat-sp-3);
+  --chat-tool-radius-chip: 3px;
+
+  /* The scroll-edge shadow a capped body wears where content continues. */
+  --chat-cap-shadow: rgb(0 0 0 / 0.22);
+}
+
+/* Dark keeps the hues and flips the lightness, so the register a reader learned
+   in one theme is the same register in the other. The neutral seams need no
+   re-declaration here: they read the --chat-* vars, which follow the shell's own
+   token layer. Only --chat-tool-ink-3 gives up its headroom — on a dark ground
+   the theme's own third tier already clears the floor. */
+.chat-root[data-theme="dark"] :is([data-tool], .chat-activity-well, .chat-activity-step) {
+  --chat-tool-l: 0.84;
+  --chat-tool-c: 0.115;
+
+  --chat-tool-ink-3: var(--chat-ink-3);
+
+  /* A light hue over a dark ground carries further than a dark one over paper,
+     so the dark band runs LOWER, not higher. */
+  --chat-tool-id-wash: color-mix(in srgb, var(--chat-tool-id) 6%, transparent);
+  --chat-tool-id-line: color-mix(in srgb, var(--chat-tool-id) 34%, transparent);
+  --chat-tool-good-wash: color-mix(in srgb, var(--chat-tool-good) 15%, transparent);
+  --chat-tool-warn-wash: color-mix(in srgb, var(--chat-tool-warn) 16%, transparent);
+  --chat-tool-bad-wash: color-mix(in srgb, var(--chat-tool-bad) 14%, transparent);
+  --chat-tool-info-wash: color-mix(in srgb, var(--chat-tool-info) 15%, transparent);
+  --chat-tool-diff-add-bg: color-mix(in srgb, var(--chat-tool-good) 15%, transparent);
+  --chat-tool-diff-del-bg: color-mix(in srgb, var(--chat-tool-bad) 14%, transparent);
+  /* Dark lifts the same mark as far as the light ink allows: 42% measures 5.5:1,
+     where the ink would drop under 4.5:1 at 50%. */
+  --chat-tool-needle-bg: color-mix(in srgb, var(--chat-tool-warn) 42%, transparent);
+
+  /* A dark ground swallows a light shadow; deeper black keeps the edge. */
+  --chat-cap-shadow: rgb(0 0 0 / 0.5);
+}
+
+/* The register map. A tool sits in exactly one. The subagent's entry waits
+   here for its block, which renders as its own transcript block rather than a
+   group step and lands with the live-arrival reconciliation. */
+.chat-root [data-tool="bash"] {
+  --chat-tool-id-h: 55;
+}
+
+.chat-root :is([data-tool="grep"], [data-tool="glob"], [data-tool="websearch"], [data-tool="context_search"], [data-tool="context"], [data-tool="lsp"]) {
+  --chat-tool-id-h: 300;
+}
+
+.chat-root :is([data-tool="read"], [data-tool="write"], [data-tool="edit"], [data-tool="generic"]) {
+  --chat-tool-id-h: 240;
+}
+
+.chat-root [data-tool="webfetch"] {
+  --chat-tool-id-h: 195;
+}
+
+.chat-root :is([data-tool="sql_query"], [data-tool="lineage"], [data-tool="sql_schema"], [data-tool="sql_connections"], [data-tool="blob"], [data-tool="looker"], [data-tool="list_plugins"], [data-tool="fetch_result"], [data-tool="spec"]) {
+  --chat-tool-id-h: 270;
+}
+
+/* 330, not 315: fifteen degrees off the search register's 300 measured as the
+   same ground to the eye; thirty is the family's minimum legible spacing. */
+.chat-root :is([data-tool="spawn_agent"], [data-tool="skill"], [data-tool="search_tools"]) {
+  --chat-tool-id-h: 330;
+}
+
+.chat-root :is([data-tool="tasks"], [data-tool="todowrite"]) {
+  --chat-tool-id-h: 145;
+}

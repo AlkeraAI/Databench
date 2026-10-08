@@ -1,0 +1,17 @@
+/* ConfirmDialog — a Modal in one fixed shape. Only the tone mark and the body rhythm are its own;
+   the surface, scrim, head and action row all come from modal.css. */
+
+.alk-confirm .alk-modal__icon {
+  color: var(--alkSecondaryText);
+}
+/* The mark carries the tone so the dialog reads as warning/destructive before the words do. */
+.alk-confirm:has(.alk-confirm__body[data-tone="warning"]) .alk-modal__icon,
+.alk-confirm:has(.alk-confirm__body[data-tone="destructive"]) .alk-modal__icon {
+  color: var(--alkDangerText, var(--alkSecondaryText));
+}
+
+.alk-confirm__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace5);
+}

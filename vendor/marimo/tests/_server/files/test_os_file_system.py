@@ -1,0 +1,1170 @@
+from __future__ import annotations
+
+import sys
+from contextlib import nullcontext
+from pathlib import Path
+from typing import Literal
+from unittest.mock import Mock, patch
+
+import pytest
+
+from marimo._server.files.os_file_system import (
+    OSFileSystem,
+    UploadTooLargeError,
+    _claim_unique_path,
+    _generate_unique_path,
+    _is_allowed_paths,
+)
+from marimo._server.models.files import FileDetailsResponse, FileInfo
+from marimo._utils.files import natural_sort
+
+
+@pytest.fixture
+def test_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    temp_dir = tmp_path_factory.mktemp("marimo_test")
+    # pytest handles cleanup
+    return temp_dir
+
+
+@pytest.fixture
+def fs():
+    return OSFileSystem()
+
+
+def test_create_file(test_dir: Path, fs: OSFileSystem) -> None:
+    test_file_name = "test_file.txt"
+    fs.create_file_or_directory(str(test_dir), "file", test_file_name, None)
+    expected_path = test_dir / test_file_name
+    assert expected_path.exists()
+
+
+@pytest.mark.parametrize(
+    ("ext", "expected"),
+    [
+        ("py", "__generated_with"),
+        ("md", "marimo-version:"),
+        ("qmd", "```{marimo .python}"),
+    ],
+)
+def test_create_notebook(
+    test_dir: Path, fs: OSFileSystem, ext: str, expected: str
+) -> None:
+    test_notebook_name = f"test_notebook.{ext}"
+    fs.create_file_or_directory(
+        str(test_dir),
+        "notebook",
+        test_notebook_name,
+        None,
+    )
+    expected_path = test_dir / test_notebook_name
+    assert expected_path.exists()
+    notebook_code = expected_path.read_text("utf-8")
+    assert expected in notebook_code
+
+
+def test_create_notebook_with_contents(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    test_notebook_name = "test_notebook.py"
+    fs.create_file_or_directory(
+        str(test_dir), "notebook", test_notebook_name, b"marimo"
+    )
+    expected_path = test_dir / test_notebook_name
+    assert expected_path.exists()
+    notebook_code = expected_path.read_text("utf-8")
+    assert notebook_code == "marimo"
+
+
+def test_create_file_with_duplicate_name(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    test_file_name = "test_file.txt"
+    fs.create_file_or_directory(str(test_dir), "file", test_file_name, None)
+    fs.create_file_or_directory(str(test_dir), "file", test_file_name, None)
+    expected_path = test_dir / "test_file_1.txt"
+    assert expected_path.exists()
+
+
+@pytest.mark.parametrize("file_type", ["file", "notebook"])
+def test_create_file_and_parent_directories(
+    test_dir: Path, fs: OSFileSystem, file_type: Literal["file", "notebook"]
+) -> None:
+    test_file_name = "test_file.txt"
+    fs.create_file_or_directory(
+        str(test_dir / "parent"), file_type, test_file_name, None
+    )
+    expected_path = test_dir / "parent" / test_file_name
+    assert expected_path.exists()
+
+
+def test_create_directory(test_dir: Path, fs: OSFileSystem) -> None:
+    test_dir_name = "test_dir"
+    fs.create_file_or_directory(
+        str(test_dir), "directory", test_dir_name, None
+    )
+    expected_path = test_dir / test_dir_name
+    assert expected_path.is_dir()
+
+
+def test_create_with_empty_name(test_dir: Path, fs: OSFileSystem) -> None:
+    with pytest.raises(ValueError):
+        fs.create_file_or_directory(str(test_dir), "file", "", None)
+
+
+def test_create_with_disallowed_name(test_dir: Path, fs: OSFileSystem) -> None:
+    with pytest.raises(ValueError):
+        fs.create_file_or_directory(str(test_dir), "file", ".", None)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "../escaped.txt",
+        "../../escaped.txt",
+        "subdir/nested.txt",
+        "..",
+        ".",
+        "with\\backslash.txt",
+        "embed\x00null.txt",
+    ],
+)
+def test_create_rejects_path_traversal(
+    test_dir: Path, fs: OSFileSystem, name: str
+) -> None:
+    with pytest.raises(ValueError):
+        fs.create_file_or_directory(str(test_dir), "file", name, b"data")
+    # No file should have been written anywhere in or above test_dir
+    assert not (test_dir.parent / "escaped.txt").exists()
+
+
+class _ChunkedSource:
+    """Async byte source emitting predetermined chunks; optionally raises
+    after `fail_after` reads to simulate mid-stream failures."""
+
+    def __init__(
+        self, chunks: list[bytes], *, fail_after: int | None = None
+    ) -> None:
+        self._chunks = list(chunks)
+        self._fail_after = fail_after
+        self._reads = 0
+
+    async def read(self, size: int = -1, /) -> bytes:
+        if self._fail_after is not None and self._reads >= self._fail_after:
+            raise RuntimeError("stream failed")
+        if not self._chunks:
+            return b""
+        chunk = self._chunks[0]
+        if size < 0 or len(chunk) <= size:
+            out = self._chunks.pop(0)
+        else:
+            out, self._chunks[0] = chunk[:size], chunk[size:]
+        self._reads += 1
+        return out
+
+
+def _part_files(directory: Path) -> list[Path]:
+    return list(directory.glob("*.part"))
+
+
+async def test_stream_create_file_writes_chunks(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    source = _ChunkedSource([b"hello ", b"streamed ", b"world"])
+    info = await fs.stream_create_file(str(test_dir), "out.bin", source)
+    out_path = test_dir / "out.bin"
+    assert out_path.read_bytes() == b"hello streamed world"
+    assert info.path == str(out_path)
+    assert _part_files(test_dir) == []
+
+
+async def test_stream_create_file_writes_empty_file(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    info = await fs.stream_create_file(
+        str(test_dir), "empty.bin", _ChunkedSource([])
+    )
+    out_path = test_dir / "empty.bin"
+    assert out_path.exists()
+    assert out_path.read_bytes() == b""
+    assert info.path == str(out_path)
+    assert _part_files(test_dir) == []
+
+
+async def test_stream_create_file_generates_unique_path(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    (test_dir / "dup.bin").write_bytes(b"existing")
+    info = await fs.stream_create_file(
+        str(test_dir), "dup.bin", _ChunkedSource([b"new"])
+    )
+    assert info.path == str(test_dir / "dup_1.bin")
+    assert (test_dir / "dup.bin").read_bytes() == b"existing"
+    assert (test_dir / "dup_1.bin").read_bytes() == b"new"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "../escape.bin",
+        "../../escape.bin",
+        "subdir/nested.bin",
+        "..",
+        ".",
+        "with\\backslash.bin",
+        "embed\x00null.bin",
+        "",
+        "   ",
+    ],
+)
+async def test_stream_create_file_rejects_traversal(
+    test_dir: Path, fs: OSFileSystem, name: str
+) -> None:
+    with pytest.raises(ValueError):
+        await fs.stream_create_file(
+            str(test_dir), name, _ChunkedSource([b"x"])
+        )
+    assert not (test_dir.parent / "escape.bin").exists()
+    assert _part_files(test_dir) == []
+
+
+async def test_stream_create_file_cleans_up_on_immediate_failure(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    source = _ChunkedSource([], fail_after=0)
+    with pytest.raises(RuntimeError):
+        await fs.stream_create_file(str(test_dir), "no_file.bin", source)
+    assert not (test_dir / "no_file.bin").exists()
+    assert _part_files(test_dir) == []
+
+
+async def test_stream_create_file_cleans_up_on_mid_stream_failure(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    # Source fails after writes have already landed in the .part file.
+    source = _ChunkedSource([b"first ", b"second ", b"third"], fail_after=2)
+    with pytest.raises(RuntimeError):
+        await fs.stream_create_file(str(test_dir), "partial.bin", source)
+    assert not (test_dir / "partial.bin").exists()
+    assert _part_files(test_dir) == []
+
+
+async def test_stream_create_file_enforces_size_cap(
+    test_dir: Path, fs: OSFileSystem, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Shrink the cap so the test is fast; the production value is 1 GiB.
+    monkeypatch.setattr(
+        "marimo._server.files.os_file_system.MAX_UPLOAD_BYTES", 8
+    )
+    source = _ChunkedSource([b"aaaa", b"bbbb", b"too much"])
+    with pytest.raises(UploadTooLargeError, match="exceeds maximum size"):
+        await fs.stream_create_file(str(test_dir), "big.bin", source)
+    assert not (test_dir / "big.bin").exists()
+    assert _part_files(test_dir) == []
+
+
+async def test_stream_create_file_claims_path_atomically(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    # Concurrent file at the target name must not be clobbered by the
+    # streaming write — the atomic claim should bump to a new suffix.
+    (test_dir / "race.bin").write_bytes(b"existing")
+    info = await fs.stream_create_file(
+        str(test_dir), "race.bin", _ChunkedSource([b"new"])
+    )
+    assert info.path == str(test_dir / "race_1.bin")
+    assert (test_dir / "race.bin").read_bytes() == b"existing"
+    assert (test_dir / "race_1.bin").read_bytes() == b"new"
+
+
+def test_claim_unique_path_atomic_reservation(test_dir: Path) -> None:
+    claimed_a = _claim_unique_path(test_dir / "claim.bin")
+    assert claimed_a == test_dir / "claim.bin"
+    assert claimed_a.exists()
+    # An existing (even empty) reservation forces the next caller off the
+    # base name — this is what closes the TOCTOU window.
+    claimed_b = _claim_unique_path(test_dir / "claim.bin")
+    assert claimed_b == test_dir / "claim_1.bin"
+    assert claimed_b.exists()
+
+
+def test_list_files(test_dir: Path, fs: OSFileSystem) -> None:
+    test_create_file(test_dir, fs)
+    test_create_directory(test_dir, fs)
+    files = fs.list_files(str(test_dir))
+    assert len(files) == 2  # Expecting 1 file and 1 directory
+
+
+def test_get_info_reports_file_size(test_dir: Path, fs: OSFileSystem) -> None:
+    file_path = test_dir / "sized.txt"
+    file_path.write_bytes(b"12345")
+
+    info = fs.get_info(str(file_path))
+
+    assert info.size == 5
+    assert info.is_directory is False
+
+
+def test_get_info_directory_has_no_size(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    directory = test_dir / "folder"
+    directory.mkdir()
+
+    info = fs.get_info(str(directory))
+
+    assert info.size is None
+    assert info.is_directory is True
+
+
+def test_metadata_operations_do_not_call_get_details(
+    test_dir: Path,
+    fs: OSFileSystem,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = test_dir / "source.txt"
+    source.write_text("source", encoding="utf-8")
+
+    def fail_get_details(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise AssertionError("metadata operation read file contents")
+
+    monkeypatch.setattr(fs, "get_details", fail_get_details)
+
+    created = fs.create_file_or_directory(
+        str(test_dir), "file", "created.txt", b"created"
+    )
+    copied = fs.copy_file_or_directory(
+        str(source), str(test_dir / "copied.txt")
+    )
+    moved = fs.move_file_or_directory(copied.path, str(test_dir / "moved.txt"))
+    updated = fs.update_file(moved.path, "updated")
+
+    assert created.size == len("created")
+    assert copied.size == len("source")
+    assert moved.size == len("source")
+    assert updated.size == len("updated")
+
+
+def test_list_files_with_broken_directory_symlink(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    broken_symlink = test_dir / "broken_symlink"
+    broken_symlink.symlink_to("non_existent_file")
+    files = fs.list_files(str(test_dir))
+    assert len(files) == 0
+
+
+def test_get_details(test_dir: Path, fs: OSFileSystem) -> None:
+    test_file_name = "test_file.txt"
+    fs.create_file_or_directory(
+        str(test_dir),
+        "file",
+        test_file_name,
+        b"some content",
+    )
+    file_path = test_dir / test_file_name
+    file_info = fs.get_details(str(file_path))
+    assert isinstance(file_info, FileDetailsResponse)
+    assert file_info.file.name == test_file_name
+    assert file_info.mime_type == "text/plain"
+    assert file_info.contents == "some content"
+    file_info2 = fs.get_details(str(file_path), contents="direct content")
+    assert file_info2.contents == "direct content"
+
+
+def test_get_toml_details(test_dir: Path, fs: OSFileSystem) -> None:
+    file_path = test_dir / "pyproject.toml"
+    file_path.write_text('[project]\nname = "demo"')
+
+    result = fs.get_details(str(file_path))
+
+    assert result.mime_type == "application/toml"
+    assert result.contents == '[project]\nname = "demo"'
+
+
+def test_get_details_at_limit(test_dir: Path, fs: OSFileSystem) -> None:
+    file_path = test_dir / "exact.txt"
+    file_path.write_bytes(b"1234")
+
+    result = fs.get_details(str(file_path), max_bytes=4)
+
+    assert result.contents == "1234"
+    assert result.is_too_large is False
+
+
+def test_get_details_over_limit_does_not_open_file(
+    test_dir: Path,
+    fs: OSFileSystem,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    file_path = test_dir / "large.bin"
+    file_path.write_bytes(b"12345")
+
+    def fail_open(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise AssertionError("oversized file was opened")
+
+    monkeypatch.setattr(Path, "open", fail_open)
+
+    result = fs.get_details(str(file_path), max_bytes=4)
+
+    assert result.contents is None
+    assert result.is_base64 is False
+    assert result.is_too_large is True
+    assert result.file.size == 5
+
+
+def test_get_details_detects_file_growth_after_stat(
+    test_dir: Path,
+    fs: OSFileSystem,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    file_path = test_dir / "growing.txt"
+    file_path.write_bytes(b"12345")
+    stale_info = FileInfo(
+        id=str(file_path),
+        path=str(file_path),
+        name=file_path.name,
+        is_directory=False,
+        is_marimo_file=False,
+        size=4,
+    )
+    monkeypatch.setattr(fs, "get_info", lambda _path: stale_info)
+
+    result = fs.get_details(str(file_path), max_bytes=4)
+
+    assert result.contents is None
+    assert result.is_too_large is True
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "iso-8859-1"])
+def test_get_details_marimo_file(
+    test_dir: Path, fs: OSFileSystem, encoding: str
+) -> None:
+    test_file_name = "app.py"
+    content = """
+        import marimo
+        app = marimo.App()
+
+        @app.cell
+        def __():
+            import marimo as mo
+            return mo,
+
+        if __name__ == "__main__":
+            # mäin
+            app.run()
+        """
+    fs.create_file_or_directory(
+        str(test_dir),
+        "file",
+        test_file_name,
+        content.encode(encoding=encoding),
+    )
+    file_path = test_dir / test_file_name
+    file_info = fs.get_details(str(file_path))
+    assert isinstance(file_info, FileDetailsResponse)
+    assert file_info.file.is_marimo_file
+
+
+def test_open_file(test_dir: Path, fs: OSFileSystem) -> None:
+    test_file_name = "test_file.txt"
+    test_content = "Hello, World!"
+    file_path = test_dir / test_file_name
+    file_path.write_text(test_content)
+    result = fs.open_file(str(file_path))
+    assert result == test_content
+    assert isinstance(result, str)
+
+
+def test_open_file_binary(test_dir: Path, fs: OSFileSystem) -> None:
+    file_path = test_dir / "binary.bin"
+    raw_bytes = b"\xff\xfe\xfd"
+    file_path.write_bytes(raw_bytes)
+    result = fs.open_file(str(file_path))
+    assert result == raw_bytes
+    assert isinstance(result, bytes)
+
+
+def test_delete_file(test_dir: Path, fs: OSFileSystem) -> None:
+    test_file_name = "test_file.txt"
+    file_path = test_dir / test_file_name
+    file_path.write_text("")
+    fs.delete_file_or_directory(str(file_path))
+    assert not file_path.exists()
+
+
+def test_move_file(test_dir: Path, fs: OSFileSystem) -> None:
+    original_file_name = "original.txt"
+    new_file_name = "new.txt"
+    original_path = test_dir / original_file_name
+    new_path = test_dir / new_file_name
+    original_path.write_text("Test")
+    fs.move_file_or_directory(str(original_path), str(new_path))
+    assert new_path.exists()
+    assert not original_path.exists()
+
+
+def test_move_with_disallowed_name(test_dir: Path, fs: OSFileSystem) -> None:
+    original_file_name = "original.txt"
+    new_file_name = "."
+    original_path = test_dir / original_file_name
+    new_path = test_dir / new_file_name
+    original_path.write_text("")
+    with pytest.raises(ValueError):
+        fs.move_file_or_directory(str(original_path), str(new_path))
+
+
+def test_update_file(test_dir: Path, fs: OSFileSystem) -> None:
+    test_file_name = "test_file.txt"
+    file_path = test_dir / test_file_name
+    file_path.write_text("Initial content")
+    new_content = "Updated content"
+    fs.update_file(str(file_path), new_content)
+    assert file_path.read_text() == new_content
+
+
+def test_natural_sort_key() -> None:
+    filenames = [
+        "file1.txt",
+        "file10.txt",
+        "file2.txt",
+        "file20.txt",
+        "1.txt",
+        "10.txt",
+        "2.txt",
+        "20.txt",
+    ]
+    sorted_files = sorted(filenames, key=natural_sort)
+    expected_order = [
+        "1.txt",
+        "2.txt",
+        "10.txt",
+        "20.txt",
+        "file1.txt",
+        "file2.txt",
+        "file10.txt",
+        "file20.txt",
+    ]
+    assert sorted_files == expected_order
+
+
+def test_get_details_with_encoding_and_contents(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    test_file_name = "test_file.txt"
+    file_path = test_dir / test_file_name
+    file_path.write_text("should not see this", encoding="utf-8")
+    result = fs.get_details(
+        str(file_path), encoding="utf-8", contents="override"
+    )
+    assert result.contents == "override"
+
+
+def test_get_details_directory(test_dir: Path, fs: OSFileSystem) -> None:
+    dir_path = test_dir / "subdir"
+    dir_path.mkdir()
+    result = fs.get_details(str(dir_path))
+    assert result.file.is_directory
+    assert result.contents is None
+
+
+def test_get_details_nonexistent_file(fs: OSFileSystem) -> None:
+    from tempfile import gettempdir
+
+    non_existent = Path(gettempdir()) / "this_file_does_not_exist.txt"
+    with pytest.raises(FileNotFoundError):
+        fs.get_details(str(non_existent))
+
+
+def test_get_details_binary_file(test_dir: Path, fs: OSFileSystem) -> None:
+    file_path = test_dir / "binfile.bin"
+    # These bytes are valid UTF-8, so no base64 encoding needed
+    file_path.write_bytes(b"\x00\x01\x02\x03")
+    result = fs.get_details(str(file_path))
+
+    assert result.contents == "\x00\x01\x02\x03"
+    assert result.is_base64 is False
+
+
+def test_get_details_non_utf8_binary_file(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    """Binary files that can't be read as UTF-8 are base64-encoded."""
+    import base64
+
+    file_path = test_dir / "data.prof"
+    raw_bytes = b"\xff\xfe\xfd\x00\x01\x80\x81"
+    file_path.write_bytes(raw_bytes)
+    result = fs.get_details(str(file_path))
+
+    assert result.is_base64 is True
+    assert result.contents == base64.b64encode(raw_bytes).decode("utf-8")
+    # Verify round-trip: decoding base64 gives back original bytes
+    assert base64.b64decode(result.contents) == raw_bytes
+
+
+def test_get_details_empty_string_contents(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    test_file_name = "test_file.txt"
+    file_path = test_dir / test_file_name
+    file_path.write_text("should not see this", encoding="utf-8")
+    result = fs.get_details(str(file_path), contents="")
+    assert result.contents == ""
+
+
+def test_get_details_none_contents_reads_disk(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    test_file_name = "test_file.txt"
+    file_path = test_dir / test_file_name
+    file_path.write_text("disk content", encoding="utf-8")
+    result = fs.get_details(str(file_path), contents=None)
+    assert result.contents == "disk content"
+
+
+def test_get_details_contents_for_directory(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    dir_path = test_dir / "subdir"
+    dir_path.mkdir()
+    result = fs.get_details(str(dir_path), contents="should be ignored")
+    assert result.file.is_directory
+    assert result.contents is None
+
+
+def test_get_details_non_utf8_encoding_and_contents(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    test_file_name = "latin1.txt"
+    file_path = test_dir / test_file_name
+    content = "caf\xe9".encode("latin-1")
+    file_path.write_bytes(content)
+    result = fs.get_details(str(file_path), encoding="latin-1")
+    assert result.contents == "café"
+    assert result.is_base64 is False
+    base64_content = __import__("base64").b64encode(content).decode("utf-8")
+    result_utf8 = fs.get_details(str(file_path), encoding="utf-8")
+    assert result_utf8.contents == base64_content
+    assert result_utf8.is_base64 is True
+    result2 = fs.get_details(
+        str(file_path), encoding="utf-8", contents="override"
+    )
+    assert result2.contents == "override"
+    assert result2.is_base64 is False
+
+
+class TestIsMarimoFile:
+    """Tests for _is_marimo_file which delegates to is_marimo_app."""
+
+    def test_listing_reuses_detection_until_file_changes(
+        self, test_dir: Path, fs: OSFileSystem
+    ) -> None:
+        from marimo._server.files.directory_scanner import is_marimo_app
+
+        py_file = test_dir / "app.py"
+        py_file.write_text("print('hello')\n")
+        with patch(
+            "marimo._server.files.directory_scanner.is_marimo_app",
+            wraps=is_marimo_app,
+        ) as detect:
+            assert fs.list_files(str(test_dir))[0].is_marimo_file is False
+            assert fs.list_files(str(test_dir))[0].is_marimo_file is False
+            assert detect.call_count == 1
+
+            py_file.write_text("import marimo\napp = marimo.App()\n")
+            assert fs.list_files(str(test_dir))[0].is_marimo_file is True
+            assert detect.call_count == 2
+
+    def test_detection_expires_when_metadata_is_unchanged(
+        self, test_dir: Path, fs: OSFileSystem
+    ) -> None:
+        py_file = test_dir / "preserved.py"
+        notebook = "import marimo\napp = marimo.App()\n"
+        py_file.write_text("print(0)".ljust(len(notebook)))
+        unchanged_stat = py_file.stat()
+        with patch(
+            "marimo._server.files.os_file_system.time.monotonic",
+            return_value=100,
+        ) as clock:
+            assert fs._is_marimo_file(str(py_file), unchanged_stat) is False
+            py_file.write_text(notebook)
+            clock.return_value = 104
+            assert fs._is_marimo_file(str(py_file), unchanged_stat) is False
+            clock.return_value = 105
+            assert fs._is_marimo_file(str(py_file), unchanged_stat) is True
+
+    def test_python_marimo_file(
+        self, test_dir: Path, fs: OSFileSystem
+    ) -> None:
+        """Detects a Python marimo app."""
+        py_file = test_dir / "app.py"
+        py_file.write_text(
+            "import marimo\napp = marimo.App()\n"
+            "@app.cell\ndef __():\n    return\n"
+        )
+        assert fs._is_marimo_file(str(py_file)) is True
+
+    def test_python_non_marimo_file(
+        self, test_dir: Path, fs: OSFileSystem
+    ) -> None:
+        """Regular Python file is not a marimo app."""
+        py_file = test_dir / "script.py"
+        py_file.write_text("print('hello world')\n")
+        assert fs._is_marimo_file(str(py_file)) is False
+
+    def test_markdown_marimo_file(
+        self, test_dir: Path, fs: OSFileSystem
+    ) -> None:
+        """Detects a markdown marimo notebook."""
+        md_file = test_dir / "notebook.md"
+        md_file.write_text("---\nmarimo-version: 0.1.0\n---\n# Hello\n")
+        assert fs._is_marimo_file(str(md_file)) is True
+
+    def test_markdown_non_marimo_file(
+        self, test_dir: Path, fs: OSFileSystem
+    ) -> None:
+        """Regular markdown is not a marimo file."""
+        md_file = test_dir / "readme.md"
+        md_file.write_text("# Just a readme\nSome text.\n")
+        assert fs._is_marimo_file(str(md_file)) is False
+
+    def test_non_python_non_markdown_file(
+        self, test_dir: Path, fs: OSFileSystem
+    ) -> None:
+        """Non-Python/non-markdown file is not a marimo file."""
+        txt_file = test_dir / "data.txt"
+        txt_file.write_text("some data\n")
+        assert fs._is_marimo_file(str(txt_file)) is False
+
+    def test_nonexistent_file(self, test_dir: Path, fs: OSFileSystem) -> None:
+        """Nonexistent file returns False (no exception)."""
+        assert fs._is_marimo_file(str(test_dir / "nope.py")) is False
+
+    def test_list_files_shows_markdown_marimo(
+        self, test_dir: Path, fs: OSFileSystem
+    ) -> None:
+        """list_files marks markdown marimo files correctly."""
+        md_file = test_dir / "notebook.md"
+        md_file.write_text("---\nmarimo-version: 0.1.0\n---\n# Hello\n")
+        files = fs.list_files(str(test_dir))
+        marimo_files = [f for f in files if f.is_marimo_file]
+        assert len(marimo_files) == 1
+        assert marimo_files[0].name == "notebook.md"
+
+
+def test_search_basic(test_dir: Path, fs: OSFileSystem) -> None:
+    """Test basic search functionality."""
+    # Create test files
+    (test_dir / "hello.txt").write_text("content")
+    (test_dir / "world.txt").write_text("content")
+    (test_dir / "hello_world.py").write_text("print('hello')")
+
+    # Search for "hello"
+    results = fs.search(query="hello", path=str(test_dir))
+
+    # Should find hello.txt and hello_world.py
+    assert len(results) >= 2
+    file_names = {f.name for f in results}
+    assert "hello.txt" in file_names
+    assert "hello_world.py" in file_names
+    assert "world.txt" not in file_names
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Requires symlinks")
+def test_search_does_not_revisit_symlinked_directories(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    (test_dir / "result.txt").write_text("result")
+    (test_dir / "loop").symlink_to(test_dir, target_is_directory=True)
+    results = fs.search("result", path=str(test_dir), depth=20)
+    assert [result.path for result in results] == [
+        str(test_dir / "result.txt")
+    ]
+
+
+def test_search_filters_hidden_entries_before_limit(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    (test_dir / ".match").write_text("")
+    hidden = test_dir / ".cache"
+    hidden.mkdir()
+    (hidden / "match.txt").write_text("")
+    visible = test_dir / "visible"
+    visible.mkdir()
+    (visible / "match.txt").write_text("")
+
+    results = fs.search(
+        "match", path=str(test_dir), include_hidden=False, limit=1
+    )
+    assert [result.path for result in results] == [str(visible / "match.txt")]
+    assert (
+        len(fs.search("match", path=str(test_dir), include_hidden=True)) == 3
+    )
+
+
+def test_search_ranks_nested_matches_before_limiting(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    for index in range(250):
+        (test_dir / f"weak-report-{index}.txt").write_text("")
+    nested = test_dir / "nested"
+    nested.mkdir()
+    (nested / "report").write_text("")
+    (nested / "report-summary.txt").write_text("")
+
+    results = fs.search("report", path=str(test_dir), limit=2)
+    assert [result.name for result in results] == [
+        "report",
+        "report-summary.txt",
+    ]
+
+
+@pytest.mark.parametrize("disappears", [False, True])
+def test_search_reads_metadata_only_for_selected_matches(
+    test_dir: Path, fs: OSFileSystem, disappears: bool
+) -> None:
+    import os
+
+    entries = []
+    for name in ["weak-report.txt", "report-summary.txt", "report"]:
+        path = test_dir / name
+        path.write_text("")
+        entry = Mock(spec=os.DirEntry)
+        entry.configure_mock(name=name, path=str(path))
+        entry.is_dir.return_value = False
+        entry.stat.return_value = path.stat()
+        entries.append(entry)
+    if disappears:
+        entries[-1].stat.side_effect = FileNotFoundError
+
+    # Keep concurrent directory watchers on the real os.scandir.
+    with patch("marimo._server.files.os_file_system.os", wraps=os) as mock_os:
+        mock_os.scandir.return_value = nullcontext(iter(entries))
+        results = fs.search("report", path=str(test_dir), limit=1)
+
+    assert [result.name for result in results] == (
+        [] if disappears else ["report"]
+    )
+    assert [entry.stat.call_count for entry in entries] == [0, 0, 1]
+
+
+@pytest.mark.parametrize("limit", [0, -1])
+def test_search_nonpositive_limit(
+    test_dir: Path, fs: OSFileSystem, limit: int
+) -> None:
+    (test_dir / "match.txt").write_text("")
+    assert fs.search("match", path=str(test_dir), limit=limit) == []
+
+
+def test_search_empty_query(test_dir: Path, fs: OSFileSystem) -> None:
+    """Test search with empty query returns no results."""
+    (test_dir / "test.txt").write_text("content")
+
+    results = fs.search(query="", path=str(test_dir))
+    assert results == []
+
+    results = fs.search(query="   ", path=str(test_dir))
+    assert results == []
+
+
+def test_search_case_insensitive(test_dir: Path, fs: OSFileSystem) -> None:
+    """Test search is case insensitive."""
+    # Create files with mixed case
+    (test_dir / "CamelCase.txt").write_text("content")
+    (test_dir / "lowercase.txt").write_text("content")
+    (test_dir / "UPPERCASE.txt").write_text("content")
+
+    results = fs.search(query="case", path=str(test_dir))
+
+    file_names = {f.name for f in results}
+    assert "CamelCase.txt" in file_names
+    assert "lowercase.txt" in file_names
+    assert "UPPERCASE.txt" in file_names
+
+
+def test_search_with_depth_limit(test_dir: Path, fs: OSFileSystem) -> None:
+    """Test search respects depth limit."""
+    # Create files at different depths
+    (test_dir / "root_match.txt").write_text("content")
+
+    # Level 1
+    level1 = test_dir / "level1"
+    level1.mkdir()
+    (level1 / "level1_match.txt").write_text("content")
+
+    # Level 2
+    level2 = level1 / "level2"
+    level2.mkdir()
+    (level2 / "level2_match.txt").write_text("content")
+
+    # Level 3
+    level3 = level2 / "level3"
+    level3.mkdir()
+    (level3 / "level3_match.txt").write_text("content")
+
+    # Search with depth=1 - should find root and level1 files only
+    results = fs.search(query="match", path=str(test_dir), depth=1)
+    file_names = {f.name for f in results}
+    assert "root_match.txt" in file_names
+    assert "level1_match.txt" in file_names
+    assert "level2_match.txt" not in file_names
+    assert "level3_match.txt" not in file_names
+
+    # Search with depth=2 - should find up to level2
+    results = fs.search(query="match", path=str(test_dir), depth=2)
+    file_names = {f.name for f in results}
+    assert "root_match.txt" in file_names
+    assert "level1_match.txt" in file_names
+    assert "level2_match.txt" in file_names
+    assert "level3_match.txt" not in file_names
+
+
+def test_search_with_limit(test_dir: Path, fs: OSFileSystem) -> None:
+    """Test search respects result limit."""
+    # Create many matching files
+    for i in range(10):
+        (test_dir / f"test_{i}.txt").write_text("content")
+
+    # Search with limit=3
+    results = fs.search(query="test", path=str(test_dir), limit=3)
+    assert len(results) <= 3
+
+    # Search with limit=5
+    results = fs.search(query="test", path=str(test_dir), limit=5)
+    assert len(results) <= 5
+
+
+def test_search_result_ordering(test_dir: Path, fs: OSFileSystem) -> None:
+    """Test search results are ordered by relevance."""
+    # Create files with different match types
+    (test_dir / "test").mkdir()  # exact match (directory)
+    (test_dir / "test.txt").write_text("content")  # exact match (file)
+    (test_dir / "test_file.py").write_text("content")  # starts with
+    (test_dir / "my_test.txt").write_text("content")  # contains
+    (test_dir / "another_test_file.py").write_text("content")  # contains
+
+    results = fs.search(query="test", path=str(test_dir))
+
+    # Results should be ordered by relevance
+    file_names = [f.name for f in results]
+
+    # Exact matches should come first
+    exact_matches = [
+        name for name in file_names if name == "test" or name == "test.txt"
+    ]
+    assert len(exact_matches) >= 1
+
+    # "test.txt" should come before "my_test.txt"
+    test_txt_idx = file_names.index("test.txt")
+    my_test_idx = file_names.index("my_test.txt")
+    assert test_txt_idx < my_test_idx
+
+
+def test_search_include_directories(test_dir: Path, fs: OSFileSystem) -> None:
+    """Test search includes both files and directories."""
+    # Create matching directory and file
+    (test_dir / "testdir").mkdir()
+    (test_dir / "testfile.txt").write_text("content")
+
+    results = fs.search(query="test", path=str(test_dir))
+
+    has_directory = any(f.is_directory for f in results)
+    has_file = any(not f.is_directory for f in results)
+    assert has_directory
+    assert has_file
+
+
+def test_search_respects_ignore_list(test_dir: Path, fs: OSFileSystem) -> None:
+    """Test search respects the ignore list."""
+    # Create files that should be ignored
+    (test_dir / ".DS_Store").write_text("content")
+    (test_dir / "__pycache__").mkdir()
+    (test_dir / "node_modules").mkdir()
+    (test_dir / ".git").mkdir()
+    (test_dir / ".venv").mkdir()
+    (test_dir / "regular_file.txt").write_text("content")
+
+    # Search for anything - should not find ignored items
+    results = fs.search(
+        query="", path=str(test_dir)
+    )  # Empty query to test ignore functionality
+    # Since empty query returns empty list, let's search for a pattern that could match
+    results = fs.search(
+        query="_", path=str(test_dir)
+    )  # Should match __pycache__ if not ignored
+
+    file_names = {f.name for f in results}
+    assert ".DS_Store" not in file_names
+    assert "__pycache__" not in file_names
+    assert "node_modules" not in file_names
+
+    # .git and .venv must also be skipped by search to avoid traversing
+    # large object stores / site-packages trees.
+    results = fs.search(query=".", path=str(test_dir))
+    file_names = {f.name for f in results}
+    assert ".git" not in file_names
+    assert ".venv" not in file_names
+
+
+def test_list_files_includes_git_and_venv(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    """list_files surfaces .git/.venv so the frontend toggle can reveal them."""
+    (test_dir / ".git").mkdir()
+    (test_dir / ".venv").mkdir()
+    (test_dir / ".DS_Store").write_text("content")
+
+    files = fs.list_files(str(test_dir))
+    file_names = {f.name for f in files}
+    assert ".git" in file_names
+    assert ".venv" in file_names
+    # .DS_Store remains filtered at the API layer.
+    assert ".DS_Store" not in file_names
+
+
+def test_search_directory_and_file_filters(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    """Test directory and file filtering parameters work correctly."""
+    # Create test files and directories
+    (test_dir / "test_file.txt").write_text("content")
+    (test_dir / "test_file.py").write_text("# test content")
+    test_subdir = test_dir / "test_dir"
+    test_subdir.mkdir()
+    (test_subdir / "nested_file.txt").write_text("content")
+
+    # Test searching for files only
+    results = fs.search(
+        query="test",
+        path=str(test_dir),
+        include_files=True,
+        include_directories=False,
+    )
+    file_results = [f for f in results if not f.is_directory]
+    dir_results = [f for f in results if f.is_directory]
+    assert len(file_results) > 0, "Should find files when file=True"
+    assert len(dir_results) == 0, "Should not find directories when file=True"
+
+    # Test searching for directories only
+    results = fs.search(
+        query="test",
+        path=str(test_dir),
+        include_directories=True,
+        include_files=False,
+    )
+    file_results = [f for f in results if not f.is_directory]
+    dir_results = [f for f in results if f.is_directory]
+    assert len(dir_results) > 0, "Should find directories when directory=True"
+    assert len(file_results) == 0, "Should not find files when directory=True"
+
+    # Test searching for both (default behavior)
+    results = fs.search(query="test", path=str(test_dir))
+    file_results = [f for f in results if not f.is_directory]
+    dir_results = [f for f in results if f.is_directory]
+    assert len(file_results) > 0, "Should find files with no filter"
+    assert len(dir_results) > 0, "Should find directories with no filter"
+
+    results_no_filter = fs.search(query="test", path=str(test_dir))
+    results_both_true = fs.search(
+        query="test",
+        path=str(test_dir),
+        include_files=True,
+        include_directories=True,
+    )
+    assert len(results_no_filter) == len(results_both_true), (
+        "Both true should be same as no filter"
+    )
+
+
+def test_search_handles_permission_errors(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    """Test search gracefully handles permission errors."""
+    # Create a regular file that we can access
+    (test_dir / "accessible.txt").write_text("content")
+
+    # Search should not crash even if there are permission issues
+    results = fs.search(query="accessible", path=str(test_dir))
+    file_names = {f.name for f in results}
+    assert "accessible.txt" in file_names
+
+
+def test_search_nonexistent_path(fs: OSFileSystem) -> None:
+    """Test search with nonexistent path returns empty results."""
+    results = fs.search(query="test", path="/nonexistent/path")
+    assert results == []
+
+
+def test_search_default_path(fs: OSFileSystem, monkeypatch) -> None:
+    """Test search uses root path when path is None."""
+    # Mock get_root to return a known directory
+    test_root = "/tmp"
+    monkeypatch.setattr(fs, "get_root", lambda: test_root)
+
+    # This should not crash (though results may be empty)
+    results = fs.search(query="test", path=None)
+    assert isinstance(results, list)
+
+
+def test_search_includes_file_metadata(
+    test_dir: Path, fs: OSFileSystem
+) -> None:
+    """Test search results include proper file metadata."""
+    test_file = test_dir / "metadata_test.txt"
+    test_file.write_text("content")
+
+    results = fs.search(query="metadata", path=str(test_dir))
+
+    assert len(results) == 1
+    file_info = results[0]
+    assert file_info.name == "metadata_test.txt"
+    assert file_info.path == str(test_file)
+    assert file_info.id == str(test_file)
+    assert file_info.is_directory is False
+    assert file_info.is_marimo_file is False
+    assert file_info.last_modified is not None
+
+
+def test_generate_unique_path_new_path(tmp_path: Path) -> None:
+    base_path = tmp_path / "file.txt"
+    unique_path = _generate_unique_path(base_path)
+    assert unique_path == base_path
+
+
+def test_generate_unique_path_existing_path(tmp_path: Path) -> None:
+    base_path = tmp_path / "file.txt"
+    base_path.touch()
+    existing_path = tmp_path / "file_1.txt"
+    existing_path.touch()
+
+    unique_path = _generate_unique_path(base_path)
+    assert not unique_path.exists()
+    assert unique_path.name == "file_2.txt"
+
+
+@pytest.mark.parametrize("new_path", [".", "..", ""])
+def test_is_allowed_paths_disallowed_names(new_path: str) -> None:
+    assert not _is_allowed_paths("path/to/file.txt", f"path/to/{new_path}")
+
+
+def test_is_allowed_paths_subdirectory(tmp_path: Path) -> None:
+    base_path = tmp_path / "subdir"
+    base_path.mkdir()
+    assert not _is_allowed_paths(tmp_path, base_path)
+    assert not _is_allowed_paths(base_path, base_path)
+    assert not _is_allowed_paths(base_path, base_path / "../subdir/subsubdir")
+    assert _is_allowed_paths(base_path, base_path / "../subdir2")
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Symlinks on Windows require Admin privileges",
+)
+def test_is_allowed_paths_recursive_symlink(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    dst_link = tmp_path / "link_to_src"
+    dst_link.symlink_to(src)
+    assert not _is_allowed_paths(src, dst_link / "child")

@@ -1,0 +1,99 @@
+/* Notices: one geometry, level-colored. */
+
+:global(.chat-root) .notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--chat-sp-3);
+  padding: var(--chat-sp-3);
+  border: 1px solid var(--chat-hairline-strong);
+  border-left-width: 3px;
+  border-radius: var(--chat-radius-control);
+  background: var(--chat-wash);
+}
+
+/* The mark centers on the FIRST line of text, never on the whole body: the
+   box takes the title line's height and pins to the grid's top. */
+:global(.chat-root) .icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  align-self: start;
+  height: var(--chat-lh-text);
+  color: var(--chat-ink-3);
+}
+
+:global(.chat-root) .notice[data-level="danger"] {
+  border-color: var(--chat-danger-line);
+  border-left-color: var(--chat-danger);
+  background: var(--chat-danger-wash);
+}
+
+:global(.chat-root) .notice[data-level="danger"] .icon {
+  color: var(--chat-danger);
+}
+
+:global(.chat-root) .notice[data-level="warning"] {
+  border-color: var(--chat-warn-line);
+  border-left-color: var(--chat-warn);
+  background: var(--chat-warn-wash);
+}
+
+:global(.chat-root) .notice[data-level="warning"] .icon {
+  color: var(--chat-warn);
+}
+
+:global(.chat-root) .notice[data-level="neutral"] {
+  border-left-color: var(--chat-ink-3);
+}
+
+:global(.chat-root) .title {
+  margin: 0 0 var(--chat-sp-1);
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+  overflow-wrap: anywhere;
+}
+
+:global(.chat-root) .body {
+  margin: 0;
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink-2);
+  /* A statement keeps its lines — a shared note, a multi-line command — where
+     a paragraph would run them together. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The banner's own way out; sized to the title line so it reads with it. */
+:global(.chat-root) .close {
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--chat-radius-micro);
+  color: var(--chat-ink-3);
+  cursor: pointer;
+}
+
+:global(.chat-root) .close:hover {
+  color: var(--chat-ink);
+  background: var(--chat-wash);
+}
+
+/* The next step, on its own line under the body so it is never mistaken for
+   part of the sentence. A link and a button read identically here: the
+   difference is only whether the shell navigates or acts. */
+:global(.chat-root) .action {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}

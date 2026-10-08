@@ -1,0 +1,50 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.4.1.json",
+  "config": {
+    "view": {
+      "continuousHeight": 300,
+      "continuousWidth": 300,
+      "stroke": null
+    }
+  },
+  "data": {
+    "format": {
+      "type": "csv"
+    },
+    "url": "data:text/csv;base64,ZmxvYXRfY29sCjEuMQoyLjIKMy4zCg=="
+  },
+  "encoding": {
+    "tooltip": [
+      {
+        "bin": true,
+        "field": "float_col",
+        "format": ",.2f",
+        "title": "float_col",
+        "type": "quantitative"
+      },
+      {
+        "aggregate": "count",
+        "format": ",.0f",
+        "title": "Number of records",
+        "type": "quantitative"
+      }
+    ],
+    "x": {
+      "bin": true,
+      "field": "float_col",
+      "title": "float_col",
+      "type": "quantitative"
+    },
+    "y": {
+      "aggregate": "count",
+      "title": "Number of records",
+      "type": "quantitative"
+    }
+  },
+  "mark": {
+    "color": "#be93e4",
+    "stroke": "#8e4ec6",
+    "type": "bar"
+  },
+  "width": "container"
+}

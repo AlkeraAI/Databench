@@ -1,0 +1,69 @@
+{#
+  Shared shell for every transactional email. Jinja2 fills the blocks + `{{ tokens.* }}`
+  brand values, then MRML compiles the result to Outlook-safe HTML. Light/parchment
+  scheme. The header shows a hosted wordmark image when `logo_url` is set (email clients
+  can't render SVG or the web fonts, so it's a PNG the client fetches); when it's unset —
+  as on a self-hosted deployment that hasn't configured one — it degrades to the
+  product-name text wordmark. No web font is loaded, so the design must read in the
+  Georgia/Arial fallbacks.
+#}
+<mjml>
+  <mj-head>
+    <mj-title>{% block title %}{{ product_name }}{% endblock %}</mj-title>
+    <mj-preview>{% block preview %}{% endblock %}</mj-preview>
+    <mj-attributes>
+      <mj-all font-family="{{ tokens.FONT_UI }}" />
+      <mj-text font-size="15px" line-height="1.6" color="{{ tokens.TEXT }}" />
+    </mj-attributes>
+    <mj-style>a { color: {{ tokens.CTA_BG }}; }</mj-style>
+    <mj-raw>
+      <meta name="color-scheme" content="light dark" />
+      <meta name="supported-color-schemes" content="light dark" />
+    </mj-raw>
+  </mj-head>
+  <mj-body background-color="{{ tokens.PAGE_BG }}" width="600px">
+    <mj-section padding="32px 24px 28px">
+      <mj-column>
+        {% if logo_url %}
+        <mj-image
+          src="{{ logo_url }}"
+          alt="{{ product_name }}"
+          width="180px"
+          align="center"
+          padding="0"
+        />
+        {% else %}
+        <mj-text
+          align="center"
+          font-family="{{ tokens.FONT_DISPLAY }}"
+          font-size="26px"
+          font-weight="600"
+          letter-spacing="0.5px"
+          color="{{ tokens.TEXT }}"
+        >
+          {{ product_name }}
+        </mj-text>
+        {% endif %}
+      </mj-column>
+    </mj-section>
+
+    <mj-section
+      background-color="{{ tokens.CARD_BG }}"
+      border="1px solid {{ tokens.HAIRLINE }}"
+      border-radius="{{ tokens.RADIUS }}"
+      padding="32px"
+    >
+      <mj-column>
+        {% block content %}{% endblock %}
+      </mj-column>
+    </mj-section>
+
+    <mj-section padding="16px 24px 32px">
+      <mj-column>
+        <mj-text align="center" font-size="12px" line-height="1.5" color="{{ tokens.MUTED }}">
+          {% block footer %}You're receiving this because of activity tied to your email on {{ product_name }}.{% endblock %}
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

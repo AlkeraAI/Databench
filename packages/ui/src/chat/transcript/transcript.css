@@ -1,0 +1,183 @@
+/* The transcript block: gutter-dot mechanism, per-kind first-row metrics, the
+   user block's right anchor, the tear-line, and the live-arrival rise. */
+
+.chat-root .chat-block {
+  position: relative;
+  /* The gutter mark's vertical centre = this block's first-row centre (from the
+     per-kind --chat-dot-lead / --chat-first-row-lh below). Content reads this for the lone
+     or first mark; a grouped step reuses --chat-gutter-mark-x and computes its own row y. */
+  --chat-gutter-mark-y: calc(var(--chat-dot-lead, 0px) + var(--chat-first-row-lh, 24px) / 2);
+}
+
+/* GUTTER-SHARE CONTRACT.
+   The gutter (the reading column's left band) holds ONE mark per block row, on a
+   single column. The host owns the geometry as tokens; content reuses them so a
+   status badge lands in the exact same column and row as the dot:
+
+     --chat-gutter-mark-x   the mark centre's x, relative to the block's content-left:
+                         -16px (exactly 16px into the gutter). Shared by the dot and
+                         by every content badge.
+     --chat-gutter-mark-y   the mark centre's y for the block's FIRST row. Set on
+                         .chat-block above; a grouped step computes its own row y.
+     --chat-dot-size        the readability dot's diameter.
+
+   Place a content mark (a status badge) inside the block (which is position:relative)
+   centred on the column:
+       position: absolute;
+       left: var(--chat-gutter-mark-x); top: var(--chat-gutter-mark-y);
+       transform: translate(-50%, -50%);
+
+   Suppress the dot: put [data-gutter-mark] on any element inside the block and the
+   dot does not render; the content's badge REPLACES it (a lone tool card's badge
+   takes the dot's exact spot). ONE mechanism, defined once; no hand-styled dot. */
+.chat-root .chat-block:not([data-block="user"]):not(:has([data-gutter-mark]))::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--chat-gutter-mark-x) - var(--chat-dot-size) / 2);
+  top: calc(var(--chat-gutter-mark-y) - var(--chat-dot-size) / 2);
+  width: var(--chat-dot-size);
+  height: var(--chat-dot-size);
+  border-radius: 50%;
+  background: var(--chat-ink-4);
+  opacity: 0.6;
+}
+
+/* First-row line box per kind, the DEFAULT (font-size x line-height off the
+   published ladder): thinking is its 24px toggle, prose a Text paragraph or a
+   Display leading heading, slash / activity / notice carry a leading pad before
+   their first line.
+
+   These defaults are wrapped in :where() so they carry ZERO specificity: a slotted
+   surface's override (see TranscriptBlock) always wins, whatever order the
+   stylesheets load in. */
+:where(.chat-root .chat-block[data-block="thinking"]) {
+  --chat-first-row-lh: 24px;
+}
+
+:where(.chat-root .chat-block[data-block="prose"]) {
+  --chat-first-row-lh: var(--chat-lh-text);
+}
+
+:where(.chat-root .chat-block[data-block="prose"]:has(h2:first-child)) {
+  --chat-first-row-lh: var(--chat-lh-display);
+}
+
+:where(.chat-root .chat-block[data-block="slash"]) {
+  --chat-dot-lead: 4px;
+  --chat-first-row-lh: var(--chat-lh-record);
+}
+
+:where(.chat-root .chat-block[data-block="activity"]) {
+  --chat-dot-lead: 13px;
+  --chat-first-row-lh: 20px;
+}
+
+:where(.chat-root .chat-block[data-block="notice"]) {
+  --chat-dot-lead: 13px;
+  --chat-first-row-lh: 20px;
+}
+
+/* The user turn owns the right edge; placement is its differentiator. */
+.chat-root .chat-block[data-block="user"] {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* The time the message was said, stamped under the ticket's lower-right corner
+   at the record step -- a notch under the mono utility it would otherwise take,
+   which reads at the size of the message itself. It is not what the reader came
+   back for, so it holds its space and stays invisible until the pointer or the
+   keyboard reaches the message it belongs to: opacity rather than display, so
+   revealing it moves nothing, and a screen reader hears it either way. The
+   selector outranks .chat-num deliberately -- that utility sets the size too. */
+.chat-root .chat-ticket-wrap .chat-ticket__at {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  opacity: 0;
+  transition: opacity var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+.chat-root .chat-ticket-wrap:hover .chat-ticket__at,
+.chat-root .chat-ticket-wrap:focus-within .chat-ticket__at {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-ticket-wrap .chat-ticket__at {
+    transition: none;
+  }
+}
+
+/* A message that was taken and then dropped reads as spent: the words stay
+   legible but stop claiming the turn's weight, and the line under them says
+   what became of them. Unlike the stamp this is always visible -- it is
+   exactly what the reader came back for. */
+.chat-root .chat-ticket[data-cancelled] {
+  opacity: 0.62;
+}
+
+.chat-root .chat-ticket-wrap .chat-ticket__cancelled {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--chat-sp-2, 0.5rem);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--alk-text-muted, inherit);
+}
+
+.chat-root .chat-ticket-wrap .chat-ticket__resend {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--alk-accent, inherit);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Perforated tear-line, the turn separator, quiet: the tape's 24px default
+   gap on each side centers the perforation in the turn break. It carries no
+   margin of its own so the tape's owl rule spaces it like any child. */
+.chat-root .chat-tear {
+  height: 1px;
+  background-image: radial-gradient(circle, var(--chat-ink-4) 0.7px, transparent 1px);
+  background-size: 9px 1px;
+  background-repeat: repeat-x;
+  background-position: center;
+  opacity: 0.5;
+}
+
+/* Live arrival: a new block rises into place. */
+.chat-root .chat-block--live {
+  animation: chat-rise 220ms var(--chat-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Movement swaps for a plain fade rather than a teleport. */
+  .chat-root .chat-block--live {
+    animation: chat-fade-in var(--chat-dur-fast) ease;
+  }
+}
+
+/* A compaction's own block: the ruled band the CompactionCard draws sits on
+   the record step, like the slash row it replaces. */
+:where(.chat-root .chat-block[data-block="compaction"]) {
+  --chat-dot-lead: 13px;
+  --chat-first-row-lh: var(--chat-lh-record);
+}
+
+/* History the agent no longer holds. Readable and scrollable — the weight
+   drops, nothing is hidden, and the reason rides the first block of the run. */
+.chat-root .chat-block[data-dim] {
+  opacity: 0.55;
+}
+
+.chat-root .chat-block-dimnote {
+  margin: 0 0 var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-3);
+  text-transform: lowercase;
+}

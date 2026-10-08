@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    // Python
+    "charliermarsh.ruff",
+
+    // TypeScript/JavaScript/React
+    "void-zero.vite-plus-extension-pack",
+    "ms-vscode.vscode-typescript-next",
+  ],
+}

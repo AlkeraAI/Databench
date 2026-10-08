@@ -1,0 +1,37 @@
+/* The auth background — a few independent vine systems that draw themselves in, with
+ * sparse leaves sprouting along each as the draw passes them. A quiet botanical specimen
+ * plate: thin engraved lines, faint vine ink, ambient behind the card. Path lengths +
+ * tangents are measured in JS, so leaf placement and timing are applied imperatively;
+ * this file owns the static look and the reduced-motion fallback.
+ *
+ * Classes use the portal's own pa-auth-vine* prefix. The vine ink is a portal-scoped token (set in auth.css) keyed
+ * off the warm-bone scheme, so it stays faint in light and barely-there in dark. */
+
+.pa-auth-vine {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Branch offshoots (tendrils) thin the stroke to 1.5 via an inline style on their path. */
+.pa-auth-vine__stem {
+  fill: none;
+  stroke: var(--pa-auth-vine, #d9d0bf);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Leaves: the layout effect seats each group on the vine (translate/rotate/size) and
+   sprouts the inner shape (scale 0→1, opacity 0→1). fill-box keeps the scale growing
+   from the leaf's attach point (its local origin) regardless of the ancestor transform.
+   Without JS the leaves stay hidden — unpositioned, they'd pile at the SVG origin — while
+   the vines still render, since their full stroke is the default with no dasharray set. */
+.pa-auth-vine__leaf-shape {
+  fill: var(--pa-auth-vine, #d9d0bf);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 0% 50%;
+}

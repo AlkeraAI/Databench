@@ -1,0 +1,8 @@
+{
+  "$model": "alkera_core.schemas.files.item.NameFlagsWire",
+  "display_warning": "reserved on Windows",
+  "macos_safe": true,
+  "metadata": {},
+  "schema_version": "1.0.0",
+  "windows_safe": false
+}

@@ -1,0 +1,29 @@
+/* The admin registers' loading skeletons — shimmer bars laid over the @alkera/ui Card surface
+   (which owns the frame: border, radius, --alkCardBg, padding), so only the internal shimmer rhythm
+   lives here and it matches the final table / stat layouts (the page doesn't jump when data lands). */
+
+/* KEEP: the skeleton table's header band — its lower rule separates it from the shimmer rows (the
+   rows themselves are Stack/Inline primitives in the TSX). */
+.tableSkelHead {
+  padding-bottom: var(--alkSpace5);
+  border-bottom: 1px solid var(--alkBorder);
+}
+
+/* The stat strip — four tiles on a folding grid (4→2), matching the overview KPI row. A grid (two
+   even tracks fold cleanly where a flex-basis + gap wraps a tile early). */
+.statSkel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--alkSpace7);
+}
+@media (max-width: 1100px) {
+  .statSkel {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+/* KEEP: pins the tile's body to the KPI tile's height so the strip doesn't jump when data lands
+   (the shimmer column inside is a Stack in the TSX). Single declaration, but Card's bodyClassName
+   is the only handle to the body box — there is no bodyStyle seam to inline it through. */
+.statSkelTile {
+  min-height: 116px;
+}

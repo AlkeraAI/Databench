@@ -1,0 +1,136 @@
+/* The notebook's tokens. The open core carries its own, each reading the
+   host's Alkera token (@alkera/ui's theme/tokens.css) when one is defined, so
+   it draws standalone and blends into the portal and the VS Code webview
+   alike. The host's tokens fork per colour scheme one layer up, so inside a
+   host the notebook follows the app's theme with nothing to switch here.
+
+   Standalone, the `--nb-own-*` values below are the palette: light by
+   default, dark under `[data-nb-theme="dark"]`, which the editor stamps on
+   its root from the theme it is given. */
+:root,
+.nb-root {
+  --nb-own-bg: #ffffff;
+  --nb-own-surface: #fafaf9;
+  --nb-own-surface-sunken: #f4f4f2;
+  --nb-own-text: #1c1b19;
+  --nb-own-text-muted: #6b6a66;
+  --nb-own-text-faint: #8a8881;
+  --nb-own-border: #e3e2de;
+  --nb-own-border-strong: #c9c7c1;
+  --nb-own-accent: #2f5bd3;
+  --nb-own-accent-text: #2449b0;
+  --nb-own-on-accent: #ffffff;
+  --nb-own-danger: #c0392b;
+  --nb-own-warning: #b7791f;
+  --nb-own-success: #2f855a;
+  --nb-own-scrim: rgb(0 0 0 / 0.32);
+  --nb-own-shadow: rgb(0 0 0 / 0.14);
+  --nb-own-syntax-string: #1d6b43;
+  --nb-own-syntax-number: #835a12;
+}
+
+.nb-root[data-nb-theme="dark"] {
+  --nb-own-bg: #1b1a17;
+  --nb-own-surface: #25231e;
+  --nb-own-surface-sunken: #211f1b;
+  --nb-own-text: #ece9e2;
+  --nb-own-text-muted: #a39d92;
+  --nb-own-text-faint: #807b72;
+  --nb-own-border: rgb(231 226 216 / 0.11);
+  --nb-own-border-strong: rgb(231 226 216 / 0.2);
+  --nb-own-accent: #3f6fe0;
+  --nb-own-accent-text: #8fb0ff;
+  --nb-own-on-accent: #ffffff;
+  --nb-own-danger: #ec9580;
+  --nb-own-warning: #e2b557;
+  --nb-own-success: #74cf99;
+  --nb-own-scrim: rgb(0 0 0 / 0.55);
+  --nb-own-shadow: rgb(0 0 0 / 0.4);
+  --nb-own-syntax-string: #74cf99;
+  --nb-own-syntax-number: #e2b557;
+}
+
+:root,
+.nb-root {
+  --nb-bg: var(--alkPageBg, var(--nb-own-bg));
+  --nb-surface: var(--alkCardBg, var(--nb-own-surface));
+  --nb-surface-sunken: var(--alkInsetBg, var(--nb-own-surface-sunken));
+  --nb-text: var(--alkPrimaryText, var(--nb-own-text));
+  --nb-text-muted: var(--alkSecondaryText, var(--nb-own-text-muted));
+  --nb-text-faint: var(--alkTertiaryText, var(--nb-own-text-faint));
+  --nb-border: var(--alkBorder, var(--nb-own-border));
+  --nb-border-strong: var(--alkBorderStrong, var(--nb-own-border-strong));
+  /* A fill (a primary button, a status dot) and the text drawn on it. */
+  --nb-accent: var(--alkBrand, var(--nb-own-accent));
+  --nb-on-accent: var(--alkOnBrand, var(--nb-own-on-accent));
+  /* Accent-coloured text and marks on the notebook's own grounds. */
+  --nb-accent-text: var(--alkLinkText, var(--nb-own-accent-text));
+  --nb-focus: var(--alkFocusRing, var(--nb-own-accent-text));
+  --nb-danger: var(--alkDangerText, var(--nb-own-danger));
+  --nb-warning: var(--alkWarningText, var(--nb-own-warning));
+  --nb-success: var(--alkSuccessText, var(--nb-own-success));
+  --nb-scrim: var(--alkScrim, var(--nb-own-scrim));
+  --nb-shadow: var(--nb-own-shadow);
+  --nb-font-ui: var(--alkFontUi, "IBM Plex Sans", system-ui, sans-serif);
+  --nb-font-mono: var(--alkFontMono, "IBM Plex Mono", ui-monospace, monospace);
+  --nb-radius: 6px;
+  --nb-gutter: 16px;
+
+  /* Code in a cell: the same roles @alkera/ui's code block colours. */
+  --nb-syntax-keyword: var(--nb-accent-text);
+  --nb-syntax-string: var(--alkSuccessText, var(--nb-own-syntax-string));
+  --nb-syntax-number: var(--alkWarningText, var(--nb-own-syntax-number));
+  --nb-syntax-comment: var(--nb-text-faint);
+  --nb-syntax-punct: var(--nb-text-muted);
+  --nb-syntax-name: var(--nb-text);
+}
+
+/* Output tokens: the output box and the sixteen ANSI colors (the 256-color
+   cube and truecolor are computed). Dark values apply when an output is drawn
+   for the dark theme. */
+:root,
+.nb-root {
+  --nb-output-bg: var(--nb-bg);
+  --nb-output-max-height: 640px;
+  --nb-output-text-max-height: 480px;
+  --nb-callout-info: var(--nb-accent);
+  --nb-callout-warn: var(--nb-warning);
+  --nb-callout-danger: var(--nb-danger);
+  --nb-callout-success: var(--nb-success);
+  --nb-callout-neutral: var(--nb-border-strong);
+  --nb-ansi-0: #1c1b19;
+  --nb-ansi-1: #b3261e;
+  --nb-ansi-2: #2e7d32;
+  --nb-ansi-3: #8a6100;
+  --nb-ansi-4: #1f5bc4;
+  --nb-ansi-5: #8e3aa8;
+  --nb-ansi-6: #00796b;
+  --nb-ansi-7: #6b6a66;
+  --nb-ansi-8: #55534e;
+  --nb-ansi-9: #d93a2f;
+  --nb-ansi-10: #3d9a42;
+  --nb-ansi-11: #a87a00;
+  --nb-ansi-12: #3a78e0;
+  --nb-ansi-13: #a855c4;
+  --nb-ansi-14: #0e9a88;
+  --nb-ansi-15: #a8a69f;
+}
+
+[data-nb-theme="dark"] {
+  --nb-ansi-0: #4a4842;
+  --nb-ansi-1: #f2766b;
+  --nb-ansi-2: #7cc77f;
+  --nb-ansi-3: #e2b84b;
+  --nb-ansi-4: #7aa7f5;
+  --nb-ansi-5: #d18ee6;
+  --nb-ansi-6: #5ccfc0;
+  --nb-ansi-7: #d6d3cb;
+  --nb-ansi-8: #807d75;
+  --nb-ansi-9: #ff968c;
+  --nb-ansi-10: #9fe0a2;
+  --nb-ansi-11: #f5d27a;
+  --nb-ansi-12: #a3c4ff;
+  --nb-ansi-13: #e6b3f5;
+  --nb-ansi-14: #8ae6da;
+  --nb-ansi-15: #f4f2ec;
+}

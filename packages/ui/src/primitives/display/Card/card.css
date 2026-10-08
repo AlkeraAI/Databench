@@ -1,0 +1,278 @@
+/* ── Card (alk-card) ─────────────────────────────────────────────────────────
+ * The titled surface: a bordered, rounded --alkCardBg panel with an optional IconChip + title +
+ * actions header over a body. `size` scales the padding, the title type, and the chip together; the
+ * header keeps the chip optically centred with the title. Every value is a role token. */
+
+.alk-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--alkCardBg);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusLg);
+}
+
+/* sizes — padding · title type · header gap · serif optical nudge, scaled together. The chip rides
+   the same size (md ≈ the section-header chip). */
+/* --alk-card-line == the IconChip box at each size, so the title's line box is chip-tall and a
+   top-aligned chip lands centred on the title's first line (even when a subtitle follows). */
+.alk-card--sm {
+  --alk-card-pad: var(--alkSpace5);
+  --alk-card-title: var(--alkTextLg);
+  --alk-card-gap: var(--alkSpace3);
+  --alk-card-line: 24px;
+  --alk-card-body-gap: var(--alkSpace3);
+}
+.alk-card--md {
+  --alk-card-pad: var(--alkSpace7);
+  --alk-card-title: var(--alkTextXl);
+  --alk-card-gap: var(--alkSpace4);
+  --alk-card-line: 28px;
+  --alk-card-body-gap: var(--alkSpace5);
+}
+.alk-card--lg {
+  --alk-card-pad: var(--alkSpace8);
+  --alk-card-title: var(--alkText2xl);
+  --alk-card-gap: var(--alkSpace5);
+  --alk-card-line: 34px;
+  --alk-card-body-gap: var(--alkSpace7);
+}
+
+.alk-card__head {
+  flex: 0 0 auto;
+  display: flex;
+  /* A header whose actions outgrow the row beside the title (a phone-width console card with a
+     toggle and two buttons) drops them to a line of their own, instead of crushing the title to
+     zero width and pushing the last button past a clipped edge. */
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace5);
+  padding: var(--alk-card-pad);
+}
+
+/* The identity cluster: the chip top-aligns to the title's (chip-tall) first line, so it stays
+   centred on the title whether or not a subtitle follows below. It claims at least 10rem of the
+   row before the actions may share it (the basis the wrap measures against), then takes whatever
+   the actions leave; a short action (a menu, a pill) stays beside the title and the title
+   ellipsises as before. */
+.alk-card__id {
+  flex: 1 1 10rem;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--alk-card-gap);
+}
+
+/* A single-line header (no eyebrow, no subtitle): optically centre the title's ink on the chip.
+   The chip-tall line box (matched to the chip for the subtitle case) leaves a serif title's visible
+   ink sitting high in its box, so a flush box-to-box alignment reads as un-centred; a compact title
+   line box centred against the chip lands the ink on the chip's centre. */
+.alk-card__id--center {
+  align-items: center;
+}
+.alk-card__id--center .alk-card__title {
+  line-height: 1.15;
+  /* A serif cap rides high in its line box, so a line-box-centered title lands its visible ink
+     ~0.155em ABOVE the chip's centre (measured across sm/md/lg: the cap sat 2-2.8px high). Nudge
+     the title block down by that optical offset so the cap centres on the chip -- paint only, the
+     chip and layout don't move. The panel variant resets this below (its sans small-caps title
+     doesn't ride high). */
+  transform: translateY(0.155em);
+}
+
+/* A small-caps eyebrow stacked over the title (a date range, a section label) — the scholar's-plate
+ * label. The chip centres against the pair. */
+.alk-card__heading {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace1);
+}
+.alk-card__eyebrow {
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--alkSecondaryText);
+}
+
+.alk-card__title {
+  min-width: 0;
+  margin: 0;
+  /* Serif, matching the brand's other titled surfaces (Modal + the section plates this consolidates). */
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alk-card-title);
+  font-weight: var(--alkWeightSemibold);
+  /* A chip-tall line box centres the serif ink on the icon chip beside it — no translate hack, and
+     it holds whether the title stands alone or has a subtitle stacked under it. Owned here once, so
+     a consuming page never re-tunes its own (and never drifts). */
+  line-height: var(--alk-card-line);
+  letter-spacing: -0.01em;
+  color: var(--alkPrimaryText);
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Once wrapped onto its own line the action row may shrink to the header's width, and its own
+   children (and a wrapping Inline inside it) wrap within that, so no control runs past the card. */
+.alk-card__actions {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--alkSpace3);
+}
+
+/* The body stacks its children with a per-size gap, so an input row over a table, or a
+   checkbox / code block / button, carry rhythm without each page re-spacing them. A single-child
+   body is unaffected (gap only acts between siblings); --divided and flush bodies zero it below,
+   since those own their own spacing. */
+.alk-card__body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--alk-card-body-gap);
+  padding: var(--alk-card-pad);
+}
+
+/* A header above the body would double the padding between them (head bottom + body top); drop the
+   body's top pad so the body content sits one pad below the header, not two. */
+.alk-card__head + .alk-card__body {
+  padding-top: 0;
+}
+
+/* The footer — pinned to the card's bottom (the body flexes, the auto margin takes any slack when a
+   grid row stretches the card taller than its content), parted from it by the lighter hairline, on
+   the same pad as the body. */
+.alk-card__foot {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: var(--alk-card-pad);
+  border-top: 1px solid var(--alkDivider);
+}
+
+/* A ruled header — a hairline parting the header from the body (a config / settings section). The
+   body then sits a full pad BELOW the divider rather than pulled up against it. */
+.alk-card--ruled .alk-card__head {
+  border-bottom: 1px solid var(--alkBorder);
+}
+.alk-card--ruled .alk-card__head + .alk-card__body {
+  padding-top: var(--alk-card-pad);
+}
+
+/* A ruled body — a hairline between consecutive rows (a settings / list section), spaced one pad
+   on each side of the divider. It owns its own row spacing, so the body's flex gap is zeroed here
+   (else the two would stack). */
+.alk-card__body--divided {
+  gap: 0;
+}
+.alk-card__body--divided > * + * {
+  margin-top: var(--alk-card-pad);
+  padding-top: var(--alk-card-pad);
+  border-top: 1px solid var(--alkBorder);
+}
+
+/* ── panel variant ─────────────────────────────────────────────────────────────
+ * The lighter labelled-panel header: a plain brand glyph + a small-caps eyebrow title (no IconChip,
+ * no serif), and a flex-column body with a gap. */
+.alk-card--panel .alk-card__head {
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace5) var(--alkSpace7);
+}
+.alk-card__glyph {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--alkBrand);
+}
+.alk-card--panel .alk-card__title {
+  font-family: var(--alkFontUi);
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--alkSecondaryText);
+  transform: none;
+}
+/* The body already stacks with a gap; the panel keeps its own explicit value. */
+.alk-card--panel .alk-card__body {
+  gap: var(--alkSpace5);
+}
+/* The eyebrow panel takes the lighter hairline under its header (the heavier --alkBorder reads too
+   strong against the quieter small-caps title). */
+.alk-card--panel.alk-card--ruled .alk-card__head {
+  border-bottom-color: var(--alkDivider);
+}
+
+/* ── bare header ──────────────────────────────────────────────────────────────
+ * A standalone header — a UI-font title over an optional sub, with an optional trailing control —
+ * with NO card surface, for a header sitting inside a page-styled panel. Card absorbed CardHead. */
+.alk-card--bare {
+  display: block;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+.alk-card--bare .alk-card__head {
+  align-items: flex-start;
+  gap: var(--alkSpace7);
+  padding: 0;
+  margin-bottom: var(--alkSpace7);
+}
+.alk-card--bare .alk-card__title {
+  /* Serif — a bare panel header is a titled surface, so it keeps the brand's display voice (matches
+     the default Card title + the .alk-h* heading scale), not the sans it used to drift to. */
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alkTextXl);
+  font-weight: var(--alkWeightSemibold);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--alkPrimaryText);
+}
+@media (max-width: 560px) {
+  .alk-card--bare .alk-card__head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--alkSpace5);
+  }
+}
+
+/* The subtitle under the title — CardHead's `sub`, now a Card feature. The heading's flex column
+   already spaces it below the title, so it carries no margin of its own (a margin would double it). */
+.alk-card__sub {
+  margin: 0;
+  font-size: var(--alkTextMd);
+  color: var(--alkSecondaryText);
+}
+
+/* A flush body: ledger rows / edge-to-edge tables own their inset — no pad, no inter-child gap. */
+.alk-card__body[data-padding="none"] {
+  padding: 0;
+  gap: 0;
+}
+/* Center the body's content vertically (bodyAlign="center") — a lone empty state in a card stretched
+   taller than its content sits in the middle instead of pinned to the top. */
+.alk-card__body[data-align="center"] {
+  justify-content: center;
+}
+/* ...unless the table inside has reflowed into stacked record cards (narrow): those need a gutter so
+   they inset from the card edge instead of sitting flush against it. The flush body is for the WIDE
+   ledger's full-width dividers; once it stacks, restore a card gutter around the cards. */
+.alk-card__body[data-padding="none"]:has(.alk-table-block[data-stacked]) {
+  padding: var(--alkSpace6);
+}
+/* ...and that gutter already insets the whole stacked block (cards + footer) from the card edge, so the
+   footer's own left/right/bottom padding would stack a SECOND inset on top of it. Drop those three;
+   keep the footer's top padding (its gap from the last stacked card is internal rhythm the gutter's
+   top doesn't reach). Scoped to the flush+stacked case, so the wide flush ledger and default-padded
+   cards keep the footer's full self-padding. */
+.alk-card__body[data-padding="none"]:has(.alk-table-block[data-stacked]) .alk-table__foot {
+  padding-right: 0;
+  padding-bottom: 0;
+  padding-left: 0;
+}

@@ -1,0 +1,26 @@
+{
+  "agent": null,
+  "cost_total": 0.0,
+  "created_at": null,
+  "cwd": null,
+  "harness": {},
+  "harness_type": "agent",
+  "metadata": {},
+  "model": {},
+  "parent_session_id": null,
+  "permission_mode": "default",
+  "provider_metadata": {},
+  "schema_version": "1.1.0",
+  "session_id": "s1",
+  "title": null,
+  "tokens_total": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 0,
+    "metadata": {},
+    "output": 0,
+    "provider_metadata": {},
+    "schema_version": "1.0.0"
+  },
+  "updated_at": null
+}

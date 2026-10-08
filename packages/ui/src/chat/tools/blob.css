@@ -1,0 +1,72 @@
+@import "./tokens.css";
+
+/* The blob family's shared interior: the handle band, the fact line, the column
+   list. Every blob tool renders into this one scope, so the register, the band,
+   and the column treatment are declared once here and the per-design sheets add
+   only what their own answer needs. */
+
+/* The sha reads as an address: the marker locates, the digits identify. */
+.chat-root [data-tool="blob"] .chat-blob-hash {
+  color: var(--chat-ink-3);
+}
+
+.chat-root [data-tool="blob"] .chat-blob-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--chat-sp-1) var(--chat-sp-3);
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-1);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-tool-ink-3);
+}
+
+/* The kind decides which tools can act on the result at all, so it reads as the
+   one named fact rather than one more measurement. */
+.chat-root [data-tool="blob"] .chat-blob-kind {
+  --chat-tool-chip-line: var(--chat-tool-id-line);
+  background: var(--chat-tool-id-wash);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-tool-id);
+}
+
+.chat-root [data-tool="blob"] .chat-blob-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--chat-sp-1) var(--chat-sp-1);
+  margin: 0;
+  max-height: 130px;
+  overflow: auto;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-2);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+.chat-root [data-tool="blob"] .chat-blob-col {
+  color: var(--chat-ink-2);
+}
+
+/* The opening of an authored text: enough to recognize what was stashed, and no
+   more, because the result itself opens elsewhere. */
+.chat-root [data-tool="blob"] .chat-blob-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-2);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-root [data-tool="blob"] .chat-blob-outcome {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+}

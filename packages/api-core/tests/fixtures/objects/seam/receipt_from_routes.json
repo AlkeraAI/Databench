@@ -1,0 +1,95 @@
+{
+  "connection_id": null,
+  "connection_name": "Tideline Postgres",
+  "definitions_referenced": [],
+  "duration_ms": 412,
+  "engine": "postgres",
+  "event_id": "call-7-result",
+  "executed_at": "2026-09-07T10:04:23.675989Z",
+  "metadata": {},
+  "params": {
+    "customer": "acme"
+  },
+  "principal": {
+    "agent_id": "6ef6c6fb-7b86-4584-8b92-5a83b1c5fb7b",
+    "chain": [],
+    "metadata": {},
+    "schema_version": "1.0.0",
+    "user_id": "9eeafb2f-197e-49e2-9171-80ae7eafa3db"
+  },
+  "principal_chain": {
+    "promoted_by": {
+      "acting": {
+        "credential": "jwt",
+        "id": "9eeafb2f-197e-49e2-9171-80ae7eafa3db",
+        "kind": "user",
+        "label": "admin-668034a24583@alkera.dev",
+        "metadata": {},
+        "org_id": "1dd9c738-0247-4649-94d8-3df9b11a7f8c",
+        "schema_version": "1.0.0"
+      },
+      "agent_id_asserted_by": null,
+      "chain": [
+        {
+          "credential": "jwt",
+          "id": "9eeafb2f-197e-49e2-9171-80ae7eafa3db",
+          "kind": "user",
+          "label": "admin-668034a24583@alkera.dev",
+          "metadata": {},
+          "org_id": "1dd9c738-0247-4649-94d8-3df9b11a7f8c",
+          "schema_version": "1.0.0"
+        }
+      ],
+      "delegating_user": null,
+      "metadata": {},
+      "schema_version": "1.0.0"
+    },
+    "uploaded_by": {
+      "acting": {
+        "credential": "agent_header",
+        "id": "6ef6c6fb-7b86-4584-8b92-5a83b1c5fb7b",
+        "kind": "agent",
+        "label": "6ef6c6fb-7b86-4584-8b92-5a83b1c5fb7b",
+        "metadata": {},
+        "org_id": "1dd9c738-0247-4649-94d8-3df9b11a7f8c",
+        "schema_version": "1.0.0"
+      },
+      "agent_id_asserted_by": "client",
+      "chain": [
+        {
+          "credential": "jwt",
+          "id": "9eeafb2f-197e-49e2-9171-80ae7eafa3db",
+          "kind": "user",
+          "label": "admin-668034a24583@alkera.dev",
+          "metadata": {},
+          "org_id": "1dd9c738-0247-4649-94d8-3df9b11a7f8c",
+          "schema_version": "1.0.0"
+        },
+        {
+          "credential": "agent_header",
+          "id": "6ef6c6fb-7b86-4584-8b92-5a83b1c5fb7b",
+          "kind": "agent",
+          "label": "6ef6c6fb-7b86-4584-8b92-5a83b1c5fb7b",
+          "metadata": {},
+          "org_id": "1dd9c738-0247-4649-94d8-3df9b11a7f8c",
+          "schema_version": "1.0.0"
+        }
+      ],
+      "delegating_user": {
+        "credential": "jwt",
+        "id": "9eeafb2f-197e-49e2-9171-80ae7eafa3db",
+        "kind": "user",
+        "label": "admin-668034a24583@alkera.dev",
+        "metadata": {},
+        "org_id": "1dd9c738-0247-4649-94d8-3df9b11a7f8c",
+        "schema_version": "1.0.0"
+      },
+      "metadata": {},
+      "schema_version": "1.0.0"
+    }
+  },
+  "role": "analytics_readonly",
+  "row_count": 1,
+  "schema_version": "1.1.0",
+  "sql": "select day, count(*) from orders where customer = %(customer)s group by day"
+}

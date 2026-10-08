@@ -1,0 +1,367 @@
+/* The chat chrome: a dashed header rule (a paper-tape identity marker) under an
+   identity bar and, below it, the rail of quick links. Two rows so the chat's
+   name and its work objects each get their own width instead of bidding for
+   one row's. */
+
+/* One 8px rhythm above the identity row, between the rows, and under the
+   rail (the rail's margin-top matches these paddings). */
+.chat-root .chat-chrome {
+  flex: none;
+  padding: var(--chat-sp-2) var(--chat-sp-3);
+  background: var(--chat-paper);
+  border-bottom: 1px dashed var(--chat-divider);
+}
+
+/* The identity row: the title/workspace breadcrumb and the actions. */
+.chat-root .chat-chrome__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  /* The opened chat's 20px title line carries 4px block padding in Breadcrumbs. Reserve that
+     measured 28px on home too, so replacing the title with the trail moves no row below it. */
+  min-height: 28px;
+}
+
+/* The chat name leads (the surface's identity); the workspace trails as a
+   subordinate dim breadcrumb, never leading. The name takes the room and
+   ellipsizes. */
+.chat-root .chat-chrome__id {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--chat-sp-2);
+}
+
+/* A trail is the whole identity rather than a word on the row's baseline, so it
+   centers on the bar. */
+
+/* The level you are on is still this chat's name, so it keeps the size the name
+   has anywhere else; only the history above it reads as meta. */
+
+/* The id row aligns on the baseline, which a glyph has none of, so the mark
+   centers on the title's line instead. Its 2px margin steps the id row's 6px
+   gap up to 8px, the bar's own gap between the row's items: a mark is part of
+   the title, so it sits at the title's gap rather than a control's wider one. */
+.chat-root .chat-chrome__title-icon {
+  flex: none;
+  display: inline-flex;
+  align-self: center;
+  margin-right: var(--chat-sp-1);
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-chrome__title {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--chat-fs-text);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The name doubles as the control that renames it, so it has to keep reading as
+   the name: the key inherits the heading's type and ink and shows only a quiet
+   hover ground, and the clipping moves onto the key so `tooltip="truncate"`
+   still measures the element that is actually cut off. */
+.chat-root .chat-chrome__title-button {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 var(--chat-sp-1);
+  margin-left: calc(-1 * var(--chat-sp-1));
+  border: 0;
+  border-radius: var(--chat-radius-micro);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+  transition: var(--chat-control-transition);
+}
+
+.chat-root .chat-chrome__title-button:hover,
+.chat-root .chat-chrome__title-button:focus-visible {
+  background: var(--chat-wash);
+}
+
+/* The identity row is the name and nothing beside it; a right-click anywhere
+   across it reaches the chat's own actions. */
+.chat-root .chat-chrome__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  min-width: 0;
+}
+
+.chat-root .chat-chrome__title-plain {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Editing takes the whole identity row: the name being retyped is the one thing
+   on this line that matters, and a field squeezed by the breadcrumb beside it
+   cannot be read to its end. */
+.chat-root .chat-chrome__title-edit {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+}
+
+.chat-root .chat-chrome__title-field {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--chat-sp-1);
+  margin-left: calc(-1 * var(--chat-sp-1));
+  border: 1px solid var(--chat-edge);
+  border-radius: var(--chat-radius-micro);
+  background: var(--chat-paper-inset);
+  font-family: inherit;
+  font-size: var(--chat-fs-text);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink);
+  /* One line that scrolls under the caret rather than clipping it: a 300-
+     character name is editable end to end without the field growing the row. */
+  text-overflow: clip;
+}
+
+.chat-root .chat-chrome__title-field:focus-visible {
+  outline: 2px solid var(--chat-focus);
+  outline-offset: 1px;
+}
+
+.chat-root .chat-chrome__title-error {
+  flex: none;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-danger);
+}
+
+.chat-root .chat-chrome__crumb {
+  flex: none;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-4);
+}
+
+.chat-root .chat-chrome__ws {
+  flex: none;
+  min-width: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-root .chat-chrome__actions {
+  flex: none;
+  display: flex;
+  /* The old top bar tucks its actions tighter than the bar's own gap. */
+  gap: var(--chat-sp-1);
+}
+
+.chat-root .chat-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--chat-radius-control);
+  color: var(--chat-ink-3);
+  cursor: pointer;
+}
+
+.chat-root .chat-icon:hover {
+  color: var(--chat-ink);
+  background: var(--chat-wash);
+}
+
+/* The working rail: quick links to the project's work objects, each with a
+   tinted count badge. It owns the row under the identity bar, so it is sized by
+   the panel's full width. It never wraps: labels show while they fit, fold to
+   icon + count below that, and where even those overflow the links move into
+   the three-dot popover. The chips stand on the composer's fill, the same
+   ground the open cluster takes. */
+.chat-root .chat-chrome__rail {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  margin-top: var(--chat-sp-2);
+}
+
+.chat-root .chat-link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  min-height: 24px;
+  padding: var(--chat-sp-1) var(--chat-sp-1) var(--chat-sp-1) var(--chat-sp-2);
+  border: 1px solid var(--chat-divider);
+  border-radius: var(--chat-radius-control);
+  background: var(--chat-composer-fill);
+  color: var(--chat-ink-2);
+  cursor: pointer;
+  transition:
+    color 100ms ease,
+    border-color 100ms ease,
+    background-color 100ms ease;
+}
+
+/* The hover ground rides the chip's own fill; a bare alpha would swap the
+   ground back to the paper behind it. */
+.chat-root .chat-link:hover {
+  color: var(--chat-ink);
+  border-color: var(--chat-edge);
+  background: linear-gradient(var(--chat-hover), var(--chat-hover))
+    var(--chat-composer-fill);
+}
+
+.chat-root .chat-link__icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  margin-left: -1px;
+  color: var(--chat-ink-4);
+}
+
+.chat-root .chat-link:hover .chat-link__icon {
+  color: var(--chat-ink-2);
+}
+
+.chat-root .chat-link__label {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  font-weight: var(--chat-w-medium);
+}
+
+/* Tinted count badge; a brief brightening flash when its value increments. */
+.chat-root .chat-link__count {
+  flex: none;
+  min-width: 18px;
+  padding: 0 var(--chat-sp-1);
+  border-radius: var(--chat-radius-micro);
+  background: var(--chat-count-bg);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  text-align: center;
+  color: var(--chat-count-ink);
+}
+
+.chat-root .chat-link__count[data-flash] {
+  animation: chat-count-flash 800ms var(--chat-ease-out);
+}
+
+@keyframes chat-count-flash {
+  0% {
+    background: var(--chat-count-flash);
+  }
+  100% {
+    background: var(--chat-count-bg);
+  }
+}
+
+/* The chrome's ONE overflow: the three-dot menu in the actions group. It is the
+   quick links' final fold target and holds nothing else, so it appears only
+   once the rail has folded them out (see the ladder's last rung). While the
+   rail is up the links are already one press away and a menu repeating them
+   would be a second door to the same three things. Two classes, so it outranks
+   the menu frame's own display whichever stylesheet the host loads first. */
+.chat-root .chat-menu.chat-chrome__more {
+  display: none;
+}
+
+/* Who you are signed in as, in the settings menu's caption slot. */
+.chat-root .chat-chrome__acct-name {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-chrome__acct-email {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-chrome__acct-plan {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-4);
+}
+
+/* The fold ladder, measured against the rail on its own row.
+
+   Rung 1: the three labeled links measure ~354px, so they hold down to a ~386px
+   panel; only below that do they fold to icon + count. */
+@container chat-panel (max-width: 385px) {
+  .chat-root .chat-link__label {
+    display: none;
+  }
+
+  .chat-root .chat-link {
+    padding: var(--chat-sp-1) var(--chat-sp-2);
+  }
+}
+
+/* Rung 2: tighter still, and the subordinate workspace breadcrumb folds out. */
+@container chat-panel (max-width: 359px) {
+  .chat-root .chat-chrome__crumb,
+  .chat-root .chat-chrome__ws {
+    display: none;
+  }
+}
+
+/* The trail's history folds out before it becomes a stub. Squeezed to about
+   40px a crumb is its own 10px padding plus three characters, which names no
+   chat, and those 40px come out of the name you are actually reading. Only the
+   chrome may do this -- a stacked page carries the trail as its own way up, so
+   there the history always stands. */
+
+/* Rung 3: three folded icon + count links measure 169px and the rail's width is
+   the panel minus 32px of chrome padding, so 204px is the last width that holds
+   them. Below it the rail folds out and the three-dot menu, which appears here
+   and nowhere else, becomes the links' only home. */
+@container chat-panel (max-width: 204px) {
+  .chat-root .chat-chrome__rail {
+    display: none;
+  }
+
+  .chat-root .chat-menu.chat-chrome__more {
+    display: inline-flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The count-increment flash swaps its pulse for a plain color step. */
+  .chat-root .chat-link__count[data-flash] {
+    animation: none;
+    background: var(--chat-count-flash);
+  }
+}

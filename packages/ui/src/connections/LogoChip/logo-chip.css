@@ -1,0 +1,11 @@
+/* The square tile an integration's brand mark sits in. Neutral by design: the mark
+   carries the colour, so a row of them reads as one set rather than a paint chart. */
+.alk-logochip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkControlBg);
+  border: 1px solid var(--alkBorder);
+}

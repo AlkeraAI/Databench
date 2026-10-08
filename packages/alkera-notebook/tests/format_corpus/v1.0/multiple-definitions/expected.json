@@ -1,0 +1,110 @@
+{
+  "canonical": true,
+  "graph": {
+    "cells": {
+      "0000000081": {
+        "defs": [
+          "x"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000081",
+              "0000000082"
+            ],
+            "code": "multiple_definitions",
+            "name": "x"
+          }
+        ],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000082": {
+        "defs": [
+          "x"
+        ],
+        "errors": [
+          {
+            "cells": [
+              "0000000081",
+              "0000000082"
+            ],
+            "code": "multiple_definitions",
+            "name": "x"
+          }
+        ],
+        "refs": [],
+        "sql_tables": []
+      },
+      "0000000083": {
+        "defs": [],
+        "errors": [],
+        "refs": [
+          "x"
+        ],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "0000000081",
+        "0000000083"
+      ],
+      [
+        "0000000082",
+        "0000000083"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "x = 1",
+        "config": {},
+        "extra": {},
+        "id": "0000000081",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "x = 1"
+      },
+      {
+        "code": "x = 2",
+        "config": {},
+        "extra": {},
+        "id": "0000000082",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "x = 2"
+      },
+      {
+        "code": "print(x)",
+        "config": {},
+        "extra": {},
+        "id": "0000000083",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "print(x)"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "polars",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

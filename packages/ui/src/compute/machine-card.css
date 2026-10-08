@@ -1,0 +1,115 @@
+/* MachineCardView: a machine's name over its spec line, or a compact chip. Every value is a
+   role token (tokens.css). */
+
+.alk-machine {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--alkSpace1);
+  min-width: 0;
+}
+
+.alk-machine__name {
+  font-weight: var(--alkWeightSemibold);
+  color: var(--alkPrimaryText);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-machine__spec {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--alkSpace2);
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+
+.alk-machine__parts {
+  font-variant-numeric: tabular-nums;
+}
+
+.alk-machine__step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace1);
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+  max-width: 320px;
+}
+
+/* Compact: one line, the state as a dot, for a header or a rail. */
+/* Two classes, so a host's control reset (the chat panel zeroes every
+   button's padding and border) cannot flatten the chip. */
+.alk-machine.alk-machine--compact {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--alkSpace2);
+  padding: var(--alkSpace0) var(--alkSpace4);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkControlBg);
+  font: inherit;
+  font-size: var(--alkTextSm);
+  color: var(--alkPrimaryText);
+  max-width: 280px;
+}
+
+.alk-machine--compact .alk-machine__name {
+  font-weight: var(--alkWeightMedium);
+}
+
+.alk-machine--compact .alk-machine__icon {
+  flex: none;
+  color: var(--alkSecondaryText);
+}
+
+.alk-machine--interactive {
+  cursor: pointer;
+}
+
+.alk-machine--interactive:hover {
+  background: var(--alkHoverBg);
+}
+
+.alk-machine--compact:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 2px;
+}
+
+.alk-machine__status {
+  color: var(--alkSecondaryText);
+  white-space: nowrap;
+}
+
+.alk-machine__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkBadgeMark);
+}
+
+.alk-machine__dot[data-tone="success"] {
+  background: var(--alkSuccess);
+}
+.alk-machine__dot[data-tone="warning"] {
+  background: var(--alkWarning);
+}
+.alk-machine__dot[data-tone="danger"] {
+  background: var(--alkDanger);
+}
+.alk-machine__dot[data-tone="catNeutral"],
+.alk-machine__dot[data-tone="muted"] {
+  background: var(--alkCatNeutralSolid);
+}
+.alk-machine__dot[data-tone="info"] {
+  background: var(--alkInfo);
+}
+
+.alk-machine__state {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--alkSpace1);
+}

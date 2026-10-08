@@ -1,0 +1,45 @@
+/* Tabular + textual blob rendering (hover preview + full view). Surface-neutral:
+   base --alk* tokens only, with in-var() literal fallbacks inside every
+   color-mix() on a non-inherited property (a host-remapped token with no
+   --vscode-* value is guaranteed-invalid and would drop the declaration). */
+
+.alk-blobv-table {
+  border-collapse: collapse;
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  font-variant-numeric: tabular-nums;
+}
+
+.alk-blobv-table th,
+.alk-blobv-table td {
+  padding: 1px var(--alkSpace2);
+  border: 1px solid color-mix(in srgb, var(--alkPrimaryText, #ece9e2) 10%, transparent);
+  text-align: left;
+  white-space: nowrap;
+  max-width: 24rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.alk-blobv-table th {
+  color: var(--alkSecondaryText);
+  font-weight: 650;
+  background: color-mix(in srgb, var(--alkPrimaryText, #ece9e2) 4%, transparent);
+}
+
+.alk-blobv-table__more {
+  color: var(--alkSecondaryText);
+}
+
+.alk-blobv-text {
+  margin: 0;
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.alk-blobv-text.is-preview {
+  max-height: 14rem;
+  overflow: auto;
+}

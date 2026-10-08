@@ -1,0 +1,1325 @@
+from __future__ import annotations
+
+import datetime
+import json
+import string
+import unittest
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+import pytest
+from hypothesis import given, settings, strategies as st
+
+from marimo._dependencies.dependencies import DependencyManager
+from marimo._output.hypertext import Html
+from marimo._plugins.ui._impl.table import SortArgs, _validate_header_tooltip
+from marimo._plugins.ui._impl.tables.default_table import DefaultTableManager
+from marimo._plugins.ui._impl.tables.table_manager import (
+    TableCell,
+    TableCoordinate,
+)
+
+HAS_DEPS = DependencyManager.pandas.has()
+
+
+class TestDefaultTable(unittest.TestCase):
+    def setUp(self) -> None:
+        self.data = [
+            {"name": "Alice", "age": 30, "birth_year": date(1994, 5, 24)},
+            {"name": "Bob", "age": 25, "birth_year": date(1999, 7, 14)},
+            {"name": "Charlie", "age": 35, "birth_year": date(1989, 12, 1)},
+            {"name": "Dave", "age": 28, "birth_year": date(1996, 3, 5)},
+            {"name": "Eve", "age": 22, "birth_year": date(2002, 1, 30)},
+        ]
+        self.manager = DefaultTableManager(self.data)
+
+    def test_select_rows(self) -> None:
+        indices = [0, 2]
+        selected_manager = self.manager.select_rows(indices)
+        expected_data = [
+            {"name": "Alice", "age": 30, "birth_year": date(1994, 5, 24)},
+            {"name": "Charlie", "age": 35, "birth_year": date(1989, 12, 1)},
+        ]
+        assert selected_manager.data == expected_data
+
+    def test_select_rows_empty(self) -> None:
+        selected_manager = self.manager.select_rows([])
+        assert selected_manager.data == []
+
+    def test_select_columns(self) -> None:
+        columns = ["birth_year"]
+        selected_manager = self.manager.select_columns(columns)
+        expected_data = [
+            {"birth_year": date(1994, 5, 24)},
+            {"birth_year": date(1999, 7, 14)},
+            {"birth_year": date(1989, 12, 1)},
+            {"birth_year": date(1996, 3, 5)},
+            {"birth_year": date(2002, 1, 30)},
+        ]
+        assert selected_manager.data == expected_data
+
+    def test_select_cells(self) -> None:
+        cells = [
+            TableCoordinate(row_id=0, column_name="name"),
+            TableCoordinate(row_id=1, column_name="age"),
+            TableCoordinate(row_id=2, column_name="birth_year"),
+        ]
+        selected_cells = self.manager.select_cells(cells)
+        expected_cells = [
+            TableCell(row=0, column="name", value="Alice"),
+            TableCell(row=1, column="age", value=25),
+            TableCell(row=2, column="birth_year", value=date(1989, 12, 1)),
+        ]
+        assert selected_cells == expected_cells
+
+    def test_drop_columns(self) -> None:
+        columns = ["name"]
+        dropped_manager = self.manager.drop_columns(columns)
+        expected_data = [
+            {"age": 30, "birth_year": date(1994, 5, 24)},
+            {"age": 25, "birth_year": date(1999, 7, 14)},
+            {"age": 35, "birth_year": date(1989, 12, 1)},
+            {"age": 28, "birth_year": date(1996, 3, 5)},
+            {"age": 22, "birth_year": date(2002, 1, 30)},
+        ]
+        assert dropped_manager.data == expected_data
+
+    def test_get_row_headers(self) -> None:
+        expected_headers = []
+        assert self.manager.get_row_headers() == expected_headers
+
+    def test_is_type(self) -> None:
+        assert self.manager.is_type(self.data)
+        assert not self.manager.is_type("not a dataframe")
+
+    def test_limit(self) -> None:
+        limited_manager = self.manager.take(1, 0)
+        expected_data = [
+            {"name": "Alice", "age": 30, "birth_year": date(1994, 5, 24)},
+        ]
+        assert limited_manager.data == expected_data
+
+    def test_take_out_of_bounds(self) -> None:
+        # Too large of page
+        limited_manager = self.manager.take(10, 0)
+        assert limited_manager.data == self.data
+
+        # Too large of page and offset
+        limited_manager = self.manager.take(10, 10)
+        assert limited_manager.data == []
+
+    def test_sort(self) -> None:
+        sorted_data = self.manager.sort_values(
+            [SortArgs(by="name", descending=True)]
+        ).data
+        expected_data = [
+            {"name": "Eve", "age": 22, "birth_year": date(2002, 1, 30)},
+            {"name": "Dave", "age": 28, "birth_year": date(1996, 3, 5)},
+            {"name": "Charlie", "age": 35, "birth_year": date(1989, 12, 1)},
+            {"name": "Bob", "age": 25, "birth_year": date(1999, 7, 14)},
+            {"name": "Alice", "age": 30, "birth_year": date(1994, 5, 24)},
+        ]
+        assert sorted_data == expected_data
+        # reverse sort
+        sorted_data = self.manager.sort_values(
+            [SortArgs(by="name", descending=False)]
+        ).data
+        expected_data = [
+            {"name": "Alice", "age": 30, "birth_year": date(1994, 5, 24)},
+            {"name": "Bob", "age": 25, "birth_year": date(1999, 7, 14)},
+            {"name": "Charlie", "age": 35, "birth_year": date(1989, 12, 1)},
+            {"name": "Dave", "age": 28, "birth_year": date(1996, 3, 5)},
+            {"name": "Eve", "age": 22, "birth_year": date(2002, 1, 30)},
+        ]
+        assert sorted_data == expected_data
+
+    def test_sort_null_values(self) -> None:
+        data_with_nan = self.data.copy()
+        data_with_nan[1]["age"] = None
+        manager_with_nan = DefaultTableManager(data_with_nan)
+        sorted_data = manager_with_nan.sort_values(
+            [SortArgs(by="age", descending=False)]
+        ).data
+        last_row = sorted_data[-1]
+
+        expected_last_row = {
+            "name": "Bob",
+            "age": None,
+            "birth_year": date(1999, 7, 14),
+        }
+
+        # ascending
+        assert last_row == expected_last_row
+
+        # descending
+        sorted_data = manager_with_nan.sort_values(
+            [SortArgs(by="age", descending=False)]
+        ).data
+        last_row = sorted_data[-1]
+        assert last_row == expected_last_row
+
+        # strings ascending
+        data_with_strings = self.data.copy()
+        data_with_strings[1]["name"] = None
+        manager_with_strings = DefaultTableManager(data_with_strings)
+        sorted_data = manager_with_strings.sort_values(
+            [SortArgs(by="name", descending=False)]
+        ).data
+        assert sorted_data[-1]["name"] is None
+
+        # strings descending
+        sorted_data = manager_with_strings.sort_values(
+            [SortArgs(by="name", descending=False)]
+        ).data
+        assert sorted_data[-1]["name"] is None
+
+    def test_sort_single_values(self) -> None:
+        manager = DefaultTableManager([1, 3, 2])
+        sorted_data = manager.sort_values(
+            [SortArgs(by="value", descending=True)]
+        ).data
+        expected_data = [{"value": 3}, {"value": 2}, {"value": 1}]
+        assert sorted_data == expected_data
+        # reverse sort
+        sorted_data = manager.sort_values(
+            [SortArgs(by="value", descending=False)]
+        ).data
+        expected_data = [{"value": 1}, {"value": 2}, {"value": 3}]
+        assert sorted_data == expected_data
+
+    def test_mixed_values(self) -> None:
+        manager = DefaultTableManager([1, "foo", 2, False])
+        sorted_data = manager.sort_values(
+            [SortArgs(by="value", descending=True)]
+        ).data
+        expected_data = [
+            {"value": "foo"},
+            {"value": False},
+            {"value": 2},
+            {"value": 1},
+        ]
+        assert sorted_data == expected_data
+        # reverse sort
+        sorted_data = manager.sort_values(
+            [SortArgs(by="value", descending=False)]
+        ).data
+        expected_data = [
+            {"value": 1},
+            {"value": 2},
+            {"value": False},
+            {"value": "foo"},
+        ]
+        assert sorted_data == expected_data
+
+    def test_multi_column_sort_integers_then_strings(self) -> None:
+        """Test multi-column sorting with integers then strings."""
+        data = [
+            {"category": 1, "name": "Charlie"},
+            {"category": 1, "name": "Alice"},
+            {"category": 2, "name": "Bob"},
+        ]
+        manager = DefaultTableManager(data)
+
+        sorted_data = manager.sort_values(
+            by=[
+                SortArgs(by="category", descending=False),
+                SortArgs(by="name", descending=False),
+            ]
+        ).data
+        expected_data = [
+            {"category": 1, "name": "Alice"},
+            {"category": 1, "name": "Charlie"},
+            {"category": 2, "name": "Bob"},
+        ]
+        assert sorted_data == expected_data
+
+    def test_multi_column_sort_mixed_directions(self) -> None:
+        """Test multi-column sorting with mixed ascending/descending directions."""
+        data = [
+            {"priority": 1, "score": 85},
+            {"priority": 1, "score": 90},
+            {"priority": 2, "score": 70},
+        ]
+        manager = DefaultTableManager(data)
+
+        sorted_data = manager.sort_values(
+            by=[
+                SortArgs(by="priority", descending=False),
+                SortArgs(by="score", descending=True),
+            ]
+        ).data
+        expected_data = [
+            {"priority": 1, "score": 90},
+            {"priority": 1, "score": 85},
+            {"priority": 2, "score": 70},
+        ]
+        assert sorted_data == expected_data
+
+    def test_multi_column_sort_with_none_values(self) -> None:
+        """Test multi-column sorting with None values in secondary column."""
+        data = [
+            {"group": 1, "value": None},
+            {"group": 1, "value": 10},
+            {"group": 2, "value": 5},
+        ]
+        manager = DefaultTableManager(data)
+
+        sorted_data = manager.sort_values(
+            by=[
+                SortArgs(by="group", descending=False),
+                SortArgs(by="value", descending=False),
+            ]
+        ).data
+        expected_data = [
+            {"group": 1, "value": 10},
+            {"group": 1, "value": None},
+            {"group": 2, "value": 5},
+        ]
+        assert sorted_data == expected_data
+
+    def test_multi_column_sort_mixed_types_in_column(self) -> None:
+        """Test multi-column sorting with mixed types in a single column."""
+        data = [
+            {"id": 1, "value": "string"},
+            {"id": 1, "value": 42},
+            {"id": 2, "value": True},
+        ]
+        manager = DefaultTableManager(data)
+
+        # Should fall back to string comparison for mixed types
+        sorted_data = manager.sort_values(
+            by=[
+                SortArgs(by="id", descending=False),
+                SortArgs(by="value", descending=False),
+            ]
+        ).data
+        expected_data = [
+            {"id": 1, "value": 42},
+            {"id": 1, "value": "string"},
+            {"id": 2, "value": True},
+        ]
+        assert sorted_data == expected_data
+
+    def test_multi_column_sort_empty_list(self) -> None:
+        """Test that empty sort parameters return original data."""
+        manager = DefaultTableManager(self.data)
+        sorted_data = manager.sort_values(by=[]).data
+        assert sorted_data == self.data
+
+    def test_search(self) -> None:
+        searched_manager = self.manager.search("alice")
+        expected_data = [
+            {"name": "Alice", "age": 30, "birth_year": date(1994, 5, 24)},
+        ]
+        assert searched_manager.data == expected_data
+
+        searched_manager = self.manager.search("1994")
+        expected_data = [
+            {"name": "Alice", "age": 30, "birth_year": date(1994, 5, 24)},
+        ]
+        assert searched_manager.data == expected_data
+
+    def test_apply_formatting(self) -> None:
+        format_mapping = {
+            "name": lambda x: x.upper(),
+            "age": lambda x: x + 1,
+            "birth_year": lambda x: x.year,
+        }
+        formatted_manager = self.manager.apply_formatting(format_mapping).data
+        expected_data = [
+            {"name": "ALICE", "age": 31, "birth_year": 1994},
+            {"name": "BOB", "age": 26, "birth_year": 1999},
+            {"name": "CHARLIE", "age": 36, "birth_year": 1989},
+            {"name": "DAVE", "age": 29, "birth_year": 1996},
+            {"name": "EVE", "age": 23, "birth_year": 2002},
+        ]
+        assert formatted_manager == expected_data
+
+    def test_apply_formatting_partial(self) -> None:
+        format_mapping = {
+            "age": lambda x: x + 1,
+        }
+        formatted_manager = self.manager.apply_formatting(format_mapping).data
+        expected_data = [
+            {"name": "Alice", "age": 31, "birth_year": date(1994, 5, 24)},
+            {"name": "Bob", "age": 26, "birth_year": date(1999, 7, 14)},
+            {"name": "Charlie", "age": 36, "birth_year": date(1989, 12, 1)},
+            {"name": "Dave", "age": 29, "birth_year": date(1996, 3, 5)},
+            {"name": "Eve", "age": 23, "birth_year": date(2002, 1, 30)},
+        ]
+        assert formatted_manager == expected_data
+
+    def test_apply_formatting_empty(self) -> None:
+        format_mapping = {}
+        formatted_manager = self.manager.apply_formatting(format_mapping).data
+        assert formatted_manager == self.data
+
+    def test_apply_formatting_invalid_column(self) -> None:
+        format_mapping = {
+            "invalid_column": lambda x: x * 2,
+        }
+        formatted_manager = self.manager.apply_formatting(format_mapping).data
+        assert formatted_manager == self.data
+
+    def test_apply_formatting_with_nan(self) -> None:
+        data_with_nan = self.data.copy()
+        data_with_nan[1]["age"] = None
+        manager_with_nan = DefaultTableManager(data_with_nan)
+        format_mapping = {
+            "age": lambda x: x + 1 if x is not None else x,
+        }
+        formatted_manager = manager_with_nan.apply_formatting(
+            format_mapping
+        ).data
+        expected_data = [
+            {"name": "Alice", "age": 31, "birth_year": date(1994, 5, 24)},
+            {"name": "Bob", "age": None, "birth_year": date(1999, 7, 14)},
+            {"name": "Charlie", "age": 36, "birth_year": date(1989, 12, 1)},
+            {"name": "Dave", "age": 29, "birth_year": date(1996, 3, 5)},
+            {"name": "Eve", "age": 23, "birth_year": date(2002, 1, 30)},
+        ]
+        assert formatted_manager == expected_data
+
+    def test_apply_formatting_with_mixed_types(self) -> None:
+        data = [
+            {"name": "Alice", "value": 1},
+            {"name": "Bob", "value": "foo"},
+            {"name": "Charlie", "value": 2},
+            {"name": "Dave", "value": False},
+        ]
+        manager = DefaultTableManager(data)
+        format_mapping = {
+            "value": str,
+        }
+        formatted_manager = manager.apply_formatting(format_mapping).data
+        expected_data = [
+            {"name": "Alice", "value": "1"},
+            {"name": "Bob", "value": "foo"},
+            {"name": "Charlie", "value": "2"},
+            {"name": "Dave", "value": "False"},
+        ]
+        assert formatted_manager == expected_data
+
+    def test_apply_formatting_with_complex_data(self) -> None:
+        data = [
+            {
+                "name": "Alice",
+                "age": 30,
+                "birth_year": date(1994, 5, 24),
+                "score": 1.5,
+            },
+            {
+                "name": "Bob",
+                "age": 25,
+                "birth_year": date(1999, 7, 14),
+                "score": 2.5,
+            },
+            {
+                "name": "Charlie",
+                "age": 35,
+                "birth_year": date(1989, 12, 1),
+                "score": 3.5,
+            },
+        ]
+        manager = DefaultTableManager(data)
+        format_mapping = {
+            "name": lambda x: x.upper(),
+            "age": lambda x: x + 1,
+            "birth_year": lambda x: x.year,
+            "score": lambda x: f"{x:.1f}",
+        }
+        formatted_manager = manager.apply_formatting(format_mapping).data
+        expected_data = [
+            {"name": "ALICE", "age": 31, "birth_year": 1994, "score": "1.5"},
+            {"name": "BOB", "age": 26, "birth_year": 1999, "score": "2.5"},
+            {"name": "CHARLIE", "age": 36, "birth_year": 1989, "score": "3.5"},
+        ]
+        assert formatted_manager == expected_data
+
+    def test_apply_formatting_with_none_values(self) -> None:
+        data = [
+            {"name": "Alice", "score": None, "grade": "A"},
+            {"name": "Bob", "score": 85, "grade": None},
+            {"name": "Charlie", "score": None, "grade": None},
+        ]
+        manager = DefaultTableManager(data)
+
+        format_mapping = {
+            "name": lambda x: x.upper(),
+            "score": lambda x: "No Score" if x is None else f"{x}%",
+            "grade": lambda x: "Pending" if x is None else x,
+        }
+
+        formatted_manager = manager.apply_formatting(format_mapping).data
+        expected_data = [
+            {"name": "ALICE", "score": "No Score", "grade": "A"},
+            {"name": "BOB", "score": "85%", "grade": "Pending"},
+            {"name": "CHARLIE", "score": "No Score", "grade": "Pending"},
+        ]
+        assert formatted_manager == expected_data
+
+    def test_calculate_top_k_rows(self) -> None:
+        data = [
+            {"name": "Alice", "score": 46, "grade": "A"},
+            {"name": "Bob", "score": 85, "grade": "A"},
+            {"name": "Charlie", "score": 32, "grade": None},
+        ]
+        manager = DefaultTableManager(data)
+        result = manager.calculate_top_k_rows("grade", 10)
+        expected_data = [("A", 2), (None, 1)]
+        assert result == expected_data
+
+        # test with single value and conflicting column name
+        data = [{"name": "Alice", "age": 31, "count": date(1994, 5, 24)}]
+        manager = DefaultTableManager(data)
+        result = manager.calculate_top_k_rows("count", 10)
+        expected_data = [(date(1994, 5, 24), 1)]
+        assert result == expected_data
+
+    def test_calculate_top_k_rows_nulls(self) -> None:
+        data = [
+            {"name": "Alice", "age": 31, "birth_year": date(1994, 5, 24)},
+            {"name": "Bob", "age": 25, "birth_year": None},
+            {"name": "Charlie", "age": 35, "birth_year": None},
+            {"name": "Dave", "age": 28, "birth_year": date(1994, 5, 24)},
+        ]
+        manager = DefaultTableManager(data)
+        result = manager.calculate_top_k_rows("birth_year", 10)
+        # Nulls should be sorted to the end
+        expected_data = [(date(1994, 5, 24), 2), (None, 2)]
+        assert result == expected_data
+
+    def test_supports_download(self) -> None:
+        assert self.manager.supports_download() is True
+
+    def test_to_csv(self) -> None:
+        manager = DefaultTableManager([{"a": 1, "b": 2}, {"a": 3, "b": 4}])
+        assert manager.to_csv() == b"a,b\n1,2\n3,4\n"
+
+    def test_to_csv_with_separator(self) -> None:
+        manager = DefaultTableManager([{"a": 1, "b": 2}])
+        assert manager.to_csv(separator="\t") == b"a\tb\n1\t2\n"
+
+    def test_to_csv_handles_none_and_nested(self) -> None:
+        manager = DefaultTableManager(
+            [{"a": None, "b": {"k": "v"}, "c": [1, 2]}]
+        )
+        result = manager.to_csv().decode()
+        # None renders as an empty cell; nested values render as JSON
+        # strings (quoted/escaped by the csv module).
+        assert result == 'a,b,c\n,"{""k"":""v""}","[1,2]"\n'
+
+
+class TestColumnarDefaultTable(unittest.TestCase):
+    def setUp(self) -> None:
+        self.data: dict[str, Any] = {
+            "name": ["Alice", "Bob", "Charlie", "Dave", "Eve"],
+            "age": [30, 25, 35, 28, 22],
+            "birth_year": [
+                date(1994, 5, 24),
+                date(1999, 7, 14),
+                date(1989, 12, 1),
+                date(1996, 3, 5),
+                date(2002, 1, 30),
+            ],
+        }
+        self.manager = DefaultTableManager(self.data)
+
+    def test_select_rows(self) -> None:
+        indices = [1, 3]
+        selected_manager = self.manager.select_rows(indices)
+        expected_data = {
+            "name": ["Bob", "Dave"],
+            "age": [25, 28],
+            "birth_year": [
+                date(1999, 7, 14),
+                date(1996, 3, 5),
+            ],
+        }
+        assert selected_manager.data == expected_data
+
+    def test_select_rows_empty(self) -> None:
+        selected_manager = self.manager.select_rows([])
+        assert selected_manager.data == {
+            "name": [],
+            "age": [],
+            "birth_year": [],
+        }
+
+    def test_select_columns(self) -> None:
+        columns = ["age"]
+        selected_manager = self.manager.select_columns(columns)
+        expected_data = {
+            "age": [30, 25, 35, 28, 22],
+        }
+        assert selected_manager.data == expected_data
+
+    def test_select_cells(self) -> None:
+        cells = [
+            TableCoordinate(row_id=0, column_name="name"),
+            TableCoordinate(row_id=1, column_name="age"),
+            TableCoordinate(row_id=2, column_name="birth_year"),
+        ]
+        selected_cells = self.manager.select_cells(cells)
+        expected_cells = [
+            TableCell(row=0, column="name", value="Alice"),
+            TableCell(row=1, column="age", value=25),
+            TableCell(row=2, column="birth_year", value=date(1989, 12, 1)),
+        ]
+        assert selected_cells == expected_cells
+
+    def test_drop_columns(self) -> None:
+        columns = ["name", "birth_year"]
+        dropped_manager = self.manager.drop_columns(columns)
+        expected_data = {
+            "age": [30, 25, 35, 28, 22],
+        }
+        assert dropped_manager.data == expected_data
+
+    def test_get_row_headers(self) -> None:
+        expected_headers = []
+        assert self.manager.get_row_headers() == expected_headers
+
+    def test_is_type(self) -> None:
+        assert self.manager.is_type(self.data)
+        assert not self.manager.is_type("not a dataframe")
+
+    def test_get_field_types(self) -> None:
+        assert self.manager.get_field_types() == []
+
+    def test_limit(self) -> None:
+        limited_manager = self.manager.take(1, 0)
+        expected_data = {
+            "name": ["Alice"],
+            "age": [30],
+            "birth_year": [date(1994, 5, 24)],
+        }
+        assert limited_manager.data == expected_data
+
+    def test_take_out_of_bounds(self) -> None:
+        # Too large of page
+        limited_manager = self.manager.take(10, 0)
+        assert limited_manager.data == self.data
+
+        # Too large of page and offset
+        limited_manager = self.manager.take(10, 10)
+        assert limited_manager.data["age"] == []
+        assert limited_manager.data["name"] == []
+
+    def test_sort(self) -> None:
+        sorted_data = self.manager.sort_values(
+            [SortArgs(by="name", descending=True)]
+        ).data
+        expected_data = {
+            "name": ["Eve", "Dave", "Charlie", "Bob", "Alice"],
+            "age": [22, 28, 35, 25, 30],
+            "birth_year": [
+                date(2002, 1, 30),
+                date(1996, 3, 5),
+                date(1989, 12, 1),
+                date(1999, 7, 14),
+                date(1994, 5, 24),
+            ],
+        }
+        assert sorted_data == expected_data
+
+    def test_sort_null_values(self) -> None:
+        data_with_nan = self.data.copy()
+        data_with_nan["age"][1] = None
+        manager_with_nan = DefaultTableManager(data_with_nan)
+        sorted_data = manager_with_nan.sort_values(
+            [SortArgs(by="age", descending=False)]
+        ).data
+
+        assert sorted_data["age"][-1] is None
+        assert sorted_data["name"][-1] == "Bob"
+
+        # ascending
+        sorted_data = manager_with_nan.sort_values(
+            [SortArgs(by="age", descending=False)]
+        ).data
+        assert sorted_data["age"][-1] is None
+        assert sorted_data["name"][-1] == "Bob"
+
+        # strings ascending
+        data_with_strings = self.data.copy()
+        data_with_strings["name"][1] = None
+        manager_with_strings = DefaultTableManager(data_with_strings)
+        sorted_data = manager_with_strings.sort_values(
+            by=[SortArgs(by="name", descending=False)]
+        ).data
+        assert sorted_data["name"][-1] is None
+
+        # strings descending
+        sorted_data = manager_with_strings.sort_values(
+            by=[SortArgs(by="name", descending=False)]
+        ).data
+        assert sorted_data["name"][-1] is None
+
+    def test_multi_column_sort_columnar_integers_then_strings(self) -> None:
+        """Test multi-column sorting with columnar data - integers then strings."""
+        data = {
+            "category": [2, 1, 1],
+            "name": ["Alice", "Charlie", "Bob"],
+        }
+        manager = DefaultTableManager(data)
+
+        sorted_data = manager.sort_values(
+            by=[
+                SortArgs(by="category", descending=False),
+                SortArgs(by="name", descending=False),
+            ]
+        ).data
+        expected_data = {
+            "category": [1, 1, 2],
+            "name": ["Bob", "Charlie", "Alice"],
+        }
+        assert sorted_data == expected_data
+
+    def test_multi_column_sort_columnar_with_none_values(self) -> None:
+        """Test multi-column sorting with columnar data containing None values."""
+        data = {
+            "group": [1, 1, 2],
+            "value": [None, 10, 5],
+        }
+        manager = DefaultTableManager(data)
+
+        sorted_data = manager.sort_values(
+            by=[
+                SortArgs(by="group", descending=False),
+                SortArgs(by="value", descending=False),
+            ]
+        ).data
+        expected_data = {
+            "group": [1, 1, 2],
+            "value": [10, None, 5],
+        }
+        assert sorted_data == expected_data
+
+    def test_multi_column_sort_empty_list_columnar(self) -> None:
+        """Test that empty sort parameters return original data for columnar."""
+        manager = DefaultTableManager(self.data)
+        sorted_data = manager.sort_values(by=[]).data
+        assert sorted_data == self.data
+
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_get_unique_column_values(self) -> None:
+        unique_values = self.manager.get_unique_column_values("age")
+        assert unique_values == [22, 25, 28, 30, 35]
+
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_get_sample_values(self) -> None:
+        data = {
+            "age": [22, 25, 28, 30, 35],
+            "name": ["Alice", "Bob", "Charlie", "Dave", "Eve"],
+        }
+        manager = DefaultTableManager(data)
+        sample_values = manager.get_sample_values("age")
+        assert sample_values == [22, 25, 28]
+        sample_values = manager.get_sample_values("name")
+        assert sample_values == ["Alice", "Bob", "Charlie"]
+
+    def test_search(self) -> None:
+        searched_manager = self.manager.search("alice")
+        expected_data = {
+            "name": ["Alice"],
+            "age": [30],
+            "birth_year": [date(1994, 5, 24)],
+        }
+        assert searched_manager.data == expected_data
+
+        searched_manager = self.manager.search("1994")
+        expected_data = {
+            "name": ["Alice"],
+            "age": [30],
+            "birth_year": [date(1994, 5, 24)],
+        }
+        assert searched_manager.data == expected_data
+
+    def test_apply_formatting(self) -> None:
+        format_mapping = {
+            "name": lambda x: x.upper(),
+            "age": lambda x: x + 1,
+            "birth_year": lambda x: x.year,
+        }
+        formatted_manager = self.manager.apply_formatting(format_mapping).data
+        expected_data = {
+            "name": ["ALICE", "BOB", "CHARLIE", "DAVE", "EVE"],
+            "age": [31, 26, 36, 29, 23],
+            "birth_year": [1994, 1999, 1989, 1996, 2002],
+        }
+        assert formatted_manager == expected_data
+
+    def test_apply_formatting_partial(self) -> None:
+        format_mapping = {
+            "age": lambda x: x + 1,
+        }
+        formatted_manager = self.manager.apply_formatting(format_mapping).data
+        expected_data = {
+            "name": ["Alice", "Bob", "Charlie", "Dave", "Eve"],
+            "age": [31, 26, 36, 29, 23],
+            "birth_year": [
+                date(1994, 5, 24),
+                date(1999, 7, 14),
+                date(1989, 12, 1),
+                date(1996, 3, 5),
+                date(2002, 1, 30),
+            ],
+        }
+        assert formatted_manager == expected_data
+
+    def test_apply_formatting_empty(self) -> None:
+        format_mapping = {}
+        formatted_manager = self.manager.apply_formatting(format_mapping).data
+        assert formatted_manager == self.data
+
+    def test_apply_formatting_invalid_column(self) -> None:
+        format_mapping = {
+            "invalid_column": lambda x: x * 2,
+        }
+        formatted_manager = self.manager.apply_formatting(format_mapping).data
+        assert formatted_manager == self.data
+
+    def test_apply_formatting_with_nan(self) -> None:
+        data_with_nan = self.data.copy()
+        data_with_nan["age"][1] = None
+        manager_with_nan = DefaultTableManager(data_with_nan)
+        format_mapping = {
+            "age": lambda x: x + 1 if x is not None else x,
+        }
+        formatted_manager = manager_with_nan.apply_formatting(
+            format_mapping
+        ).data
+        expected_data = {
+            "name": ["Alice", "Bob", "Charlie", "Dave", "Eve"],
+            "age": [31, None, 36, 29, 23],
+            "birth_year": [
+                date(1994, 5, 24),
+                date(1999, 7, 14),
+                date(1989, 12, 1),
+                date(1996, 3, 5),
+                date(2002, 1, 30),
+            ],
+        }
+        assert formatted_manager == expected_data
+
+    def test_apply_formatting_with_mixed_types(self) -> None:
+        data = {
+            "name": ["Alice", "Bob", "Charlie", "Dave"],
+            "value": [1, "foo", 2, False],
+        }
+        manager = DefaultTableManager(data)
+        format_mapping = {
+            "value": str,
+        }
+        formatted_manager = manager.apply_formatting(format_mapping).data
+        expected_data = {
+            "name": ["Alice", "Bob", "Charlie", "Dave"],
+            "value": ["1", "foo", "2", "False"],
+        }
+        assert formatted_manager == expected_data
+
+    def test_apply_formatting_with_complex_data(self) -> None:
+        data = {
+            "name": ["Alice", "Bob", "Charlie"],
+            "age": [30, 25, 35],
+            "birth_year": [
+                date(1994, 5, 24),
+                date(1999, 7, 14),
+                date(1989, 12, 1),
+            ],
+            "score": [1.5, 2.5, 3.5],
+        }
+        manager = DefaultTableManager(data)
+        format_mapping = {
+            "name": lambda x: x.upper(),
+            "age": lambda x: x + 1,
+            "birth_year": lambda x: x.year,
+            "score": lambda x: f"{x:.1f}",
+        }
+        formatted_manager = manager.apply_formatting(format_mapping).data
+        expected_data = {
+            "name": ["ALICE", "BOB", "CHARLIE"],
+            "age": [31, 26, 36],
+            "birth_year": [1994, 1999, 1989],
+            "score": ["1.5", "2.5", "3.5"],
+        }
+        assert formatted_manager == expected_data
+
+    def test_apply_formatting_with_none_values(self) -> None:
+        data_with_none = {
+            "name": ["Alice", None, "Charlie"],
+            "age": [30, 25, None],
+            "score": [None, 85.5, 90.0],
+        }
+        manager = DefaultTableManager(data_with_none)
+
+        format_mapping = {
+            "name": lambda x: "UNKNOWN" if x is None else x.upper(),
+            "age": lambda x: "N/A" if x is None else f"Age: {x}",
+            "score": lambda x: "Missing" if x is None else f"{x:.1f}%",
+        }
+
+        formatted_manager = manager.apply_formatting(format_mapping).data
+        expected_data = {
+            "name": ["ALICE", "UNKNOWN", "CHARLIE"],
+            "age": ["Age: 30", "Age: 25", "N/A"],
+            "score": ["Missing", "85.5%", "90.0%"],
+        }
+        assert formatted_manager == expected_data
+
+    def test_calculate_top_k_rows(self) -> None:
+        data = {
+            "grade": ["A", "A", None],
+            "name": ["Alice", "Bob", "Charlie"],
+        }
+        manager = DefaultTableManager(data)
+        result = manager.calculate_top_k_rows("grade", 10)
+        expected_data = [
+            ("A", 2),
+            (None, 1),
+        ]
+        assert result == expected_data
+
+        # Single value
+        data = {"grade": ["A", "A", "A"]}
+        manager = DefaultTableManager(data)
+        result = manager.calculate_top_k_rows("grade", 10)
+        expected_data = [("A", 3)]
+        assert result == expected_data
+
+    def test_calculate_top_k_rows_nulls(self) -> None:
+        data = {"grade": ["A", "A", None, None]}
+        manager = DefaultTableManager(data)
+        result = manager.calculate_top_k_rows("grade", 10)
+        expected_data = [
+            ("A", 2),
+            (None, 2),
+        ]
+        assert result == expected_data
+
+    def test_to_csv(self) -> None:
+        manager = DefaultTableManager(
+            {
+                "a": [1, 2],
+                "b": [3, 4],
+            }
+        )
+        assert manager.to_csv() == b"a,b\n1,3\n2,4\n"
+
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_to_json(self) -> None:
+        manager = DefaultTableManager(
+            {
+                "a": [1, 2],
+                "b": [3, 4],
+            }
+        )
+        assert manager.to_json() == b'[{"a":1,"b":3},{"a":2,"b":4}]'
+
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_to_parquet(self) -> None:
+        assert isinstance(self.manager.to_parquet(), bytes)
+
+
+class TestDictionaryDefaultTable(unittest.TestCase):
+    def setUp(self) -> None:
+        self.manager = DefaultTableManager(
+            {
+                "a": 1,
+                "b": 2,
+            }
+        )
+
+    def test_select_rows(self) -> None:
+        selected_manager = self.manager.select_rows([0])
+        assert selected_manager.data == [{"key": "a", "value": 1}]
+
+    def test_select_rows_empty(self) -> None:
+        selected_manager = self.manager.select_rows([])
+        assert selected_manager.data == []
+
+    def test_select_columns(self) -> None:
+        selected_manager = self.manager.select_columns(["a"])
+        assert selected_manager.data == {"a": 1}
+
+    def test_select_cells(self) -> None:
+        selected_cells = self.manager.select_cells(
+            [
+                TableCoordinate(row_id=0, column_name="key"),
+                TableCoordinate(row_id=1, column_name="value"),
+            ]
+        )
+        assert selected_cells == [
+            TableCell(row=0, column="key", value="a"),
+            TableCell(row=1, column="value", value=2),
+        ]
+
+    @pytest.mark.xfail(
+        reason="get_column_names() doesn't work properly for row-oriented dicts"
+    )
+    def test_drop_columns(self) -> None:
+        dropped_manager = self.manager.drop_columns(["a"])
+        assert dropped_manager.data == {"b": 2}
+
+    def test_get_rows_headers(self) -> None:
+        headers = self.manager.get_row_headers()
+        assert headers == []
+
+    def test_limit(self) -> None:
+        limited_manager = self.manager.take(1, 0)
+        assert limited_manager.data == [{"key": "a", "value": 1}]
+
+    def test_take_out_of_bounds(self) -> None:
+        # Too large of page
+        limited_manager = self.manager.take(10, 0)
+        assert limited_manager.data == [
+            {"key": "a", "value": 1},
+            {"key": "b", "value": 2},
+        ]
+
+        # Too large of page and offset
+        limited_manager = self.manager.take(10, 10)
+        assert limited_manager.data == []
+
+    def test_sort(self) -> None:
+        sorted_manager = self.manager.sort_values(
+            [SortArgs(by="value", descending=True)]
+        )
+        expected_data = [{"key": "b", "value": 2}, {"key": "a", "value": 1}]
+        assert sorted_manager.data == expected_data
+
+    def test_sort_null_values(self) -> None:
+        data = self.manager.data.copy()
+        data["b"] = None
+        manager_with_nan = DefaultTableManager(data)
+        sorted_data = manager_with_nan.sort_values(
+            [SortArgs(by="value", descending=False)]
+        ).data
+        assert sorted_data == [
+            {"key": "a", "value": 1},
+            {"key": "b", "value": None},
+        ]
+
+        # descending
+        sorted_data = manager_with_nan.sort_values(
+            [SortArgs(by="value", descending=False)]
+        ).data
+        assert sorted_data == [
+            {"key": "a", "value": 1},
+            {"key": "b", "value": None},
+        ]
+
+        # strings ascending
+        data_with_strings = DefaultTableManager(
+            {"a": "foo", "b": None, "c": "bar"}
+        )
+        sorted_data = data_with_strings.sort_values(
+            [SortArgs(by="value", descending=False)]
+        ).data
+        assert sorted_data == [
+            {"key": "c", "value": "bar"},
+            {"key": "a", "value": "foo"},
+            {"key": "b", "value": None},
+        ]
+
+        # strings descending
+        sorted_data = data_with_strings.sort_values(
+            [SortArgs(by="value", descending=True)]
+        ).data
+        assert sorted_data == [
+            {"key": "a", "value": "foo"},
+            {"key": "c", "value": "bar"},
+            {"key": "b", "value": None},
+        ]
+
+    def test_search(self) -> None:
+        searched_manager = self.manager.search("a")
+        assert searched_manager.data == [{"key": "a", "value": 1}]
+
+    def test_apply_formatting(self) -> None:
+        # Doesn't format when dictionary
+        assert self.manager.apply_formatting(
+            {"value": lambda x: x + 1}
+        ).data == {
+            "a": 1,
+            "b": 2,
+        }
+
+    def test_apply_formatting_empty(self) -> None:
+        formatted_manager = self.manager.apply_formatting({})
+        assert formatted_manager.data == self.manager.data
+
+    def test_apply_formatting_invalid_column(self) -> None:
+        formatted_manager = self.manager.apply_formatting(
+            {"invalid_column": lambda x: x * 2}
+        )
+        assert formatted_manager.data == self.manager.data
+
+    def test_apply_formatting_with_none_values(self) -> None:
+        manager = DefaultTableManager(
+            {
+                "a": None,
+                "b": 2,
+                "c": None,
+            }
+        )
+
+        # Test raw dictionary formatting
+        assert manager.apply_formatting(
+            {"value": lambda x: "N/A" if x is None else x * 2}
+        ).data == {
+            "a": None,
+            "b": 2,
+            "c": None,
+        }
+
+        # Test converted to rows formatting
+        formatted_data = (
+            DefaultTableManager(json.loads(manager.to_json_str()))
+            .apply_formatting(
+                {"value": lambda x: "N/A" if x is None else x * 2}
+            )
+            .data
+        )
+
+        expected_data = [
+            {"key": "a", "value": "N/A"},
+            {"key": "b", "value": 4},
+            {"key": "c", "value": "N/A"},
+        ]
+        assert formatted_data == expected_data
+
+    def test_calculate_top_k_rows(self) -> None:
+        data = {"grade": "A", "name": "Alice", "another_grade": "A"}
+        manager = DefaultTableManager(data)
+        result = manager.calculate_top_k_rows("value", 10)
+        expected_data = [("A", 2), ("Alice", 1)]
+        assert result == expected_data
+
+        result = manager.calculate_top_k_rows("key", 10)
+        expected_data = [("grade", 1), ("name", 1), ("another_grade", 1)]
+        assert result == expected_data
+
+    def test_calculate_top_k_rows_nulls(self) -> None:
+        data = {"grade": "A", "name": None, "another_grade": None}
+        manager = DefaultTableManager(data)
+        result = manager.calculate_top_k_rows("value", 10)
+        expected_data = [(None, 2), ("A", 1)]
+        assert result == expected_data
+
+    def test_to_csv(self) -> None:
+        assert self.manager.to_csv() == b"key,value\na,1\nb,2\n"
+
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_to_json(self) -> None:
+        assert (
+            self.manager.to_json()
+            == b'[{"key":"a","value":1},{"key":"b","value":2}]'
+        )
+
+
+class TestListDefaultTable(unittest.TestCase):
+    def setUp(self) -> None:
+        self.manager = DefaultTableManager([4, 5, 6])
+
+    def test_select_cells(self) -> None:
+        selected_cells = self.manager.select_cells(
+            [
+                TableCoordinate(row_id=2, column_name="value"),
+            ]
+        )
+        assert selected_cells == [
+            TableCell(row=2, column="value", value=6),
+        ]
+
+    def test_to_csv(self) -> None:
+        assert self.manager.to_csv() == b"value\n4\n5\n6\n"
+
+    @pytest.mark.skipif(
+        not HAS_DEPS, reason="optional dependencies not installed"
+    )
+    def test_to_parquet(self) -> None:
+        assert isinstance(self.manager.to_parquet(), bytes)
+
+
+class TestDefaultTableWithComplexData(unittest.TestCase):
+    def setUp(self) -> None:
+        self.manager = DefaultTableManager(
+            [
+                {
+                    "inf": float("inf"),
+                    "nan": float("nan"),
+                    "timedelta": datetime.timedelta(
+                        days=1, hours=2, minutes=3
+                    ),
+                    "path": Path("test.txt"),
+                    "complex": 1 + 2j,
+                    "bytes": b"hello",
+                    "memoryview": memoryview(b"hello"),
+                    "range": range(10),
+                    "html": Html("<h1>Hello World</h1>"),
+                }
+            ]
+        )
+
+    def test_to_json(self) -> None:
+        assert (
+            self.manager.to_json_str()
+            == '[{"inf":"Infinity","nan":"NaN","timedelta":"1 day, 2:03:00","path":"test.txt","complex":"(1+2j)","bytes":"hello","memoryview":"hello","range":[0,1,2,3,4,5,6,7,8,9],"html":{"mimetype":"text/html","data":"<h1>Hello World</h1>"}}]'
+        )
+
+
+class TestHeterogeneousRowData(unittest.TestCase):
+    """Row-oriented data where rows have differing key sets."""
+
+    def test_get_column_names_unions_keys(self) -> None:
+        mgr = DefaultTableManager([{"a": 1}, {"a": 2, "b": 3}])
+        assert mgr.get_column_names() == ["a", "b"]
+
+    def test_get_column_names_disjoint_keys(self) -> None:
+        mgr = DefaultTableManager([{"a": 1}, {"b": 2}])
+        assert mgr.get_column_names() == ["a", "b"]
+
+    def test_get_column_names_preserves_first_seen_order(self) -> None:
+        mgr = DefaultTableManager([{"b": 1}, {"a": 2, "b": 3}])
+        assert mgr.get_column_names() == ["b", "a"]
+
+    def test_get_column_names_empty_dict_rows(self) -> None:
+        assert DefaultTableManager([{}, {}]).get_column_names() == []
+
+    def test_to_csv_str_includes_all_columns(self) -> None:
+        mgr = DefaultTableManager([{"a": 1}, {"a": 2, "b": 3}])
+        assert mgr.to_csv_str() == "a,b\n1,\n2,3\n"
+
+    def test_to_json_str_preserves_per_row_keys(self) -> None:
+        mgr = DefaultTableManager([{"a": 1}, {"a": 2, "b": 3}])
+        assert json.loads(mgr.to_json_str()) == [
+            {"a": 1},
+            {"a": 2, "b": 3},
+        ]
+
+    def test_select_columns_fills_missing_keys_with_none(self) -> None:
+        mgr = DefaultTableManager([{"a": 1}, {"a": 2, "b": 3}])
+        assert mgr.select_columns(["a", "b"]).data == [
+            {"a": 1, "b": None},
+            {"a": 2, "b": 3},
+        ]
+
+
+class TestMismatchedColumnLengths(unittest.TestCase):
+    """Column-oriented data where columns have differing lengths."""
+
+    def test_get_num_rows_is_max_column_length(self) -> None:
+        mgr = DefaultTableManager({"a": [1, 2, 3], "b": [4, 5]})
+        assert mgr.get_num_rows() == 3
+
+    def test_to_csv_str_pads_short_columns(self) -> None:
+        mgr = DefaultTableManager({"a": [1, 2, 3], "b": [4, 5]})
+        assert mgr.to_csv_str() == "a,b\n1,4\n2,5\n3,\n"
+
+    def test_to_json_str_pads_short_columns_with_null(self) -> None:
+        mgr = DefaultTableManager({"a": [1, 2, 3], "b": [4, 5]})
+        assert json.loads(mgr.to_json_str()) == [
+            {"a": 1, "b": 4},
+            {"a": 2, "b": 5},
+            {"a": 3, "b": None},
+        ]
+
+
+def test_validate_header_tooltip_valid() -> None:
+    columns = {"name", "age", "birth_year"}
+    mapping = {"name": "Name of person", "age": "Age in years"}
+    _validate_header_tooltip(mapping, columns)
+
+
+def test_validate_header_tooltip_invalid() -> None:
+    columns = {"name", "age", "birth_year"}
+    mapping = {"does_not_exist": "oops"}
+    with pytest.raises(ValueError):
+        _validate_header_tooltip(mapping, columns)
+
+
+_column_name = st.text(
+    alphabet=string.ascii_letters + string.digits + "_",
+    min_size=1,
+    max_size=10,
+)
+_column_names = st.lists(_column_name, min_size=1, max_size=10, unique=True)
+
+
+@settings(deadline=1000)
+@given(cols=_column_names, data=st.data())
+def test_drop_columns_preserves_order_row_major(
+    cols: list[str], data: st.DataObject
+) -> None:
+    to_drop = data.draw(
+        st.lists(st.sampled_from(cols), unique=True, max_size=len(cols))
+    )
+    mgr = DefaultTableManager(
+        [
+            {c: i for i, c in enumerate(cols)},
+            {c: i + 1 for i, c in enumerate(cols)},
+        ]
+    )
+    to_drop_set = set(to_drop)
+    expected = [c for c in cols if c not in to_drop_set]
+    assert mgr.drop_columns(to_drop).get_column_names() == expected
+
+
+@settings(deadline=1000)
+@given(cols=_column_names, data=st.data())
+def test_drop_columns_preserves_order_column_major(
+    cols: list[str], data: st.DataObject
+) -> None:
+    to_drop = data.draw(
+        st.lists(st.sampled_from(cols), unique=True, max_size=len(cols))
+    )
+    mgr = DefaultTableManager({c: [i, i + 1] for i, c in enumerate(cols)})
+    to_drop_set = set(to_drop)
+    expected = [c for c in cols if c not in to_drop_set]
+    assert mgr.drop_columns(to_drop).get_column_names() == expected
+
+
+@settings(deadline=1000)
+@given(cols=_column_names, data=st.data())
+def test_select_columns_preserves_caller_order_row_major(
+    cols: list[str], data: st.DataObject
+) -> None:
+    subset = data.draw(
+        st.lists(
+            st.sampled_from(cols), unique=True, min_size=1, max_size=len(cols)
+        )
+    )
+    mgr = DefaultTableManager(
+        [
+            {c: i for i, c in enumerate(cols)},
+            {c: i + 1 for i, c in enumerate(cols)},
+        ]
+    )
+    assert mgr.select_columns(subset).get_column_names() == subset
+
+
+@settings(deadline=1000)
+@given(cols=_column_names, data=st.data())
+def test_select_columns_preserves_caller_order_column_major(
+    cols: list[str], data: st.DataObject
+) -> None:
+    subset = data.draw(
+        st.lists(
+            st.sampled_from(cols), unique=True, min_size=1, max_size=len(cols)
+        )
+    )
+    mgr = DefaultTableManager({c: [i, i + 1] for i, c in enumerate(cols)})
+    assert mgr.select_columns(subset).get_column_names() == subset

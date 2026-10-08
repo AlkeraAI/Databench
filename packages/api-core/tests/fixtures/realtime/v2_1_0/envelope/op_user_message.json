@@ -1,0 +1,25 @@
+{
+  "doc_id": "sess-01J7Q3M8",
+  "doc_type": "chat",
+  "epoch": 2,
+  "kind": "op",
+  "metadata": {},
+  "payload": {
+    "events": [
+      {
+        "event_id": "e3",
+        "event_type": "message.created",
+        "text": "hello"
+      }
+    ],
+    "fields": {},
+    "intent": "user_message",
+    "meta": {},
+    "metadata": {},
+    "op_id": "op-user-1",
+    "schema_version": "1.0.0"
+  },
+  "peer_id": "p:a1b2c3d4e5f6",
+  "schema_version": "2.1.0",
+  "seq": 0
+}

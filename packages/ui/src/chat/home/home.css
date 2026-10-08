@@ -1,0 +1,377 @@
+/* The chat home's list. A chat that spawned subagents fuses with them, while
+   open, into one framed cluster on the composer's fill; a childless chat is a
+   plain row with no reserved columns. The frame is an absolutely positioned
+   backdrop painted 3px into the list's air, out of layout entirely, so opening
+   a cluster moves no mark, title, freshness, or menu pixel. Title axes at 44,
+   70, 96 -- 26px per level; every line keeps 6px of right padding so the
+   freshness and menu clear the panel edge. */
+
+.chat-root .chat-home {
+  list-style: none;
+  margin: 0;
+  /* Air above the first row: the list is content, not a continuation of the
+     chrome it hangs under. Horizontal padding is the chrome bar's own 12px,
+     so the list's content aligns with the bar above it. */
+  padding: var(--chat-sp-3) var(--chat-sp-3) var(--chat-sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-2);
+}
+
+.chat-root .chat-home__empty {
+  padding: var(--chat-sp-5) var(--chat-sp-4);
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink-3);
+}
+
+/* The open cluster. One frame holds the whole family however deep it runs;
+   a collapsed parent stays a plain row. The row takes no border, padding, or
+   margin for it, so open and closed geometry are identical by construction. */
+.chat-root .chat-hrow--cluster {
+  position: relative;
+  /* Keeps the backdrop's negative z-index inside this row instead of dropping
+     it behind an ancestor's ground. */
+  isolation: isolate;
+}
+
+/* The frame itself: a backdrop painted 3px into the list's air, behind the
+   rows. The ground is the composer's own fill, so an open family reads as the
+   active surface the way the composer does. */
+.chat-root .chat-hrow--cluster::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  z-index: -1;
+  border: 1px solid var(--chat-divider);
+  border-radius: var(--chat-radius-control);
+  background: var(--chat-composer-fill);
+  pointer-events: none;
+}
+
+/* The whole line is the chat's door (the capsule and the menu outrank it), so
+   the pointer reads press across its full width. */
+.chat-root .chat-hrow__line {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  min-height: 30px;
+  padding-right: var(--chat-sp-2);
+  border-radius: var(--chat-radius-control);
+  cursor: pointer;
+  /* This duration is the row LEAVING hover, and it is the shorter of the pair
+     on purpose: sweeping down a list must not leave a trail of rows still
+     cooling behind the pointer. Arriving takes the longer step below. */
+  transition: background-color 80ms ease, box-shadow 80ms ease;
+}
+
+/* The lift, plus the rule that gives a bare row an edge. */
+.chat-root .chat-hrow__line:hover {
+  background: var(--chat-hover);
+  box-shadow: inset 0 0 0 1px var(--chat-hover-rule);
+  transition-duration: var(--chat-dur-medium);
+}
+
+/* Concentric with the frame: the control radius less the 2px air to the
+   frame's inner edge. */
+.chat-root .chat-hrow--cluster > .chat-hrow__line {
+  border-radius: 6px;
+}
+
+.chat-root .chat-hrow__open {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  min-height: 30px;
+  padding: var(--chat-sp-1) 0 var(--chat-sp-1) var(--chat-sp-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* One column for every mark, sized to the widest of them. An idle chat's mark
+   is empty and still holds the column, which is what keeps the titles aligned. */
+.chat-root .chat-hrow__mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 14px;
+}
+
+/* A finished turn is news, so it takes the vibrant done blue rather than the
+   reading blue or a warning. */
+.chat-root .chat-hrow__done {
+  width: var(--chat-dot-size);
+  height: var(--chat-dot-size);
+  border-radius: 50%;
+  background: var(--chat-done);
+}
+
+/* Once read, the news is spent: the dot steps down to the quiet reading blue. */
+.chat-root .chat-hrow__done[data-read="true"] {
+  background: var(--chat-blue);
+}
+
+/* An ask stops the chat, so the demand ink carries it -- except the plan ask,
+   which wears the composer's own plan blue: approving a plan is the same
+   gesture the plan mode chip names, not a warning. */
+.chat-root .chat-hrow__ask {
+  display: inline-flex;
+  align-items: center;
+  color: var(--chat-warn);
+}
+
+.chat-root .chat-hrow__ask[data-kind="plan"] {
+  color: var(--chat-mode-plan);
+}
+
+.chat-root .chat-hrow__work {
+  display: inline-flex;
+  align-items: center;
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-hrow__title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--chat-fs-text);
+  line-height: var(--chat-lh-text);
+  color: var(--chat-ink);
+}
+
+/* The disclosure capsule: the subagent count and its caret ride one
+   full-radius pill, one press target trailing the title. The caret turns in
+   place on expand; the ground answers the pointer. The inset ring bounds the
+   capsule over a hovered row's wash, where the tint alone sinks in; a shadow
+   ring so the 18px box holds. */
+.chat-root .chat-hrow__count {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  height: 18px;
+  padding: 0 var(--chat-sp-2) 0 var(--chat-sp-2);
+  margin-left: var(--chat-sp-1);
+  border-radius: 999px;
+  background: var(--chat-count-bg);
+  box-shadow: inset 0 0 0 1px var(--chat-count-edge);
+  color: var(--chat-count-ink);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  font-weight: var(--chat-w-medium);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--chat-dur-fast) ease;
+}
+
+/* The badge hovers the shared ground -- exactly the menu key's -- and its
+   edge ring keeps bounding it there. */
+.chat-root .chat-hrow__count:hover {
+  background: var(--chat-hover);
+}
+
+.chat-root .chat-hrow__count svg {
+  transition: transform var(--chat-dur-fast) ease;
+}
+
+.chat-root .chat-hrow__count[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* Holds the freshness and the actions key to the right edge, whatever the
+   title and capsule left behind. */
+.chat-root .chat-hrow__spacer {
+  flex: 1 1 0;
+  min-width: 8px;
+}
+
+.chat-root .chat-hrow__fresh {
+  flex: none;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  /* ink-4 measures 3.22:1 on the dark paper at 12px, under the 4.5:1 text
+     floor (found independently by all three home-row variant builds); the
+     label is text, so it takes the lowest tier that clears the floor. */
+  color: var(--chat-ink-3);
+  transition: color var(--chat-dur-medium) ease;
+}
+
+/* The hover ground pulls ink-3 under the 4.5:1 text floor (3.82 light, 4.49
+   dark), so the label lifts one tier while the ground is beneath it (5.59
+   light, 6.38 dark on the hover ground). */
+.chat-root :is(.chat-hrow__line, .chat-hrow__sline):hover .chat-hrow__fresh {
+  color: var(--chat-ink-2);
+}
+
+/* The actions key. Two classes so its box holds whichever stylesheet the host
+   loads first, and quiet at rest so a list of them never reads as a column of
+   buttons. */
+.chat-root .chat-icon.chat-hrow__more {
+  width: 22px;
+  height: 22px;
+  color: var(--chat-ink-4);
+  transition: color var(--chat-dur-fast) ease, background-color var(--chat-dur-fast) ease, box-shadow var(--chat-dur-fast) ease;
+}
+
+.chat-root .chat-icon.chat-hrow__more:hover,
+.chat-root .chat-hrow__line:hover .chat-icon.chat-hrow__more {
+  color: var(--chat-ink-2);
+}
+
+/* Its own press takes the shared hover ground (the badge's exact color),
+   outranking the chrome icons' quieter wash. Like the row, it carries no rule
+   of its own, so the lift supplies one. */
+.chat-root .chat-icon.chat-hrow__more:hover {
+  background: var(--chat-hover);
+  box-shadow: inset 0 0 0 1px var(--chat-hover-rule);
+}
+
+/* An 8px step off the freshness label (the line's 2px gap plus this 6px), so
+   the menu never crowds the timestamp. */
+.chat-root .chat-hrow__menu {
+  margin-left: var(--chat-sp-2);
+  margin-right: var(--chat-sp-1);
+}
+
+/* A menu-less line reserves the menu key's exact box (6px lead + 22px key +
+   2px trail), so on every row the freshness ends 32px in from the line's
+   content edge (2px flex gap + the 30px column) and the key 2px in. */
+.chat-root .chat-hrow__menu-slot {
+  flex: none;
+  width: 22px;
+  margin-left: var(--chat-sp-2);
+  margin-right: var(--chat-sp-1);
+}
+
+/* The subagent chats, one 26px step in from the parent's title axis. Each sub
+   line carries the root line's own 6px lead, so the list steps 26 and the
+   title axes hold at 44, 70, 96. */
+.chat-root .chat-hrow__subs {
+  list-style: none;
+  position: relative;
+  margin: var(--chat-sp-1) 0 0;
+  padding: 0 0 0 26px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-1);
+}
+
+/* The first level hangs from the same thread the deeper levels use, dropped
+   from the center of the parent's mark column (its 6px lead plus half the 18px
+   column). The stop sits 3px above the last row, the nested thread's own
+   offset. */
+.chat-root .chat-hrow__subs::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 1px;
+  bottom: 3px;
+  width: 1px;
+  background: var(--chat-rail);
+}
+
+.chat-root .chat-hrow__subs .chat-hrow__title {
+  color: var(--chat-ink-2);
+}
+
+/* The sub line's own box is the root line's: same height, same paddings, same
+   6px lead. Only the list's 26px step indents it. */
+.chat-root .chat-hrow__sline {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  min-height: 30px;
+  padding-right: var(--chat-sp-2);
+  border-radius: var(--chat-radius-micro);
+  cursor: pointer;
+  transition: background-color 80ms ease, box-shadow 80ms ease;
+}
+
+.chat-root .chat-hrow__sline:hover {
+  background: var(--chat-hover);
+  box-shadow: inset 0 0 0 1px var(--chat-hover-rule);
+  transition-duration: var(--chat-dur-medium);
+}
+
+/* The capsule and the menu outrank the door for the pointer too: while either
+   holds the hover, the row's wash stands down. The menu's popover lives inside
+   .chat-menu, so an open menu keeps the wash off as well. */
+.chat-root .chat-hrow__line:hover:has(.chat-hrow__count:hover, .chat-menu:hover),
+.chat-root .chat-hrow__sline:hover:has(.chat-hrow__count:hover, .chat-menu:hover) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.chat-root .chat-hrow__sopen {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-2);
+  min-height: 30px;
+  padding: var(--chat-sp-1) 0 var(--chat-sp-1) var(--chat-sp-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* A nested family: one more 26px step, hung from a thread dropped from the
+   center of its parent's mark column (the same 6px lead plus half the 18px
+   column the level-1 thread hangs from). The frame never repeats. */
+.chat-root .chat-hrow__subs2 {
+  list-style: none;
+  position: relative;
+  margin: var(--chat-sp-1) 0 0;
+  padding: 0 0 0 26px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-1);
+}
+
+.chat-root .chat-hrow__subs2::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 1px;
+  bottom: 3px;
+  width: 1px;
+  background: var(--chat-rail);
+}
+
+/* ── Expanding a cluster ─────────────────────────────────────────────────────
+   The family drops out from under its parent as the caret turns. Only the
+   revealed rows move: the parent line, its title, and its freshness are already
+   where they belong, and animating the list's height would drag every row below
+   it through a reflow to say something the caret already said. */
+@media (prefers-reduced-motion: no-preference) {
+  .chat-root :is(.chat-hrow__subs, .chat-hrow__subs2) {
+    animation: chat-unfold var(--chat-dur-slow) var(--chat-ease-out);
+    transform-origin: top;
+  }
+}
+
+@keyframes chat-unfold {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-hrow__count svg {
+    transition: none;
+  }
+
+  /* Movement swaps for a plain fade rather than a teleport, the tape's own
+     reduced-motion trade. */
+  .chat-root :is(.chat-hrow__subs, .chat-hrow__subs2) {
+    animation: chat-fade-in var(--chat-dur-fast) ease;
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "brief": "Pull the weekly mentions for the region the reader names, chart them, and write the two paragraphs of commentary underneath.",
+  "metadata": {},
+  "model": {
+    "context_window": 200000,
+    "display_name": "Claude Opus 4.5",
+    "effort": "high",
+    "efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "id": "claude-opus-4.5",
+    "max_output_tokens": 64000,
+    "metadata": {},
+    "schema_version": "1.0.0",
+    "wire": "anthropic"
+  },
+  "permission_mode": "plan",
+  "saved_from_seq": 17,
+  "schema_version": "1.0.0",
+  "source_chat_id": "5f1f0a3c-2f0e-4a2b-9d5c-71a3c9f0b111"
+}

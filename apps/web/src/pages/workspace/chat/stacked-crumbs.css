@@ -1,0 +1,9 @@
+/* The chat-ui scope inside a stacked page's header. It carries the trail and
+   nothing else, so it takes the row's width and paints none of its own ground
+   (the header already has one). */
+
+.chat-root.chat-crumbs-crumbs {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+}

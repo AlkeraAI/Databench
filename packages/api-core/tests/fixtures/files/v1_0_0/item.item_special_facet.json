@@ -1,0 +1,7 @@
+{
+  "$model": "alkera_core.schemas.files.item.SpecialFacet",
+  "metadata": {},
+  "rdev": 8631,
+  "schema_version": "1.0.0",
+  "type": "chardev"
+}

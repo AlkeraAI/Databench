@@ -1,0 +1,117 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, TypeAlias, Union
+
+from marimo._config.config import MarimoConfig, OnCellChangeType
+from marimo._messaging.errors import Error
+from marimo._types.ids import CellId_t
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping, Sequence
+    from contextlib import AbstractContextManager
+
+    from marimo._runtime.context.types import ExecutionContext
+    from marimo._runtime.dataflow.graph import DirectedGraph
+
+ExceptionOrError = Union[BaseException, Error]
+
+ExecutionContextManager: TypeAlias = Callable[
+    [CellId_t], "AbstractContextManager[ExecutionContext]"
+]
+
+
+class CancelledCells:
+    """Tracks cancelled cells with both structured and flat views.
+
+    Maintains a mapping from raising cell -> cancelled descendants,
+    and a flat set for O(1) membership checks.
+    """
+
+    def __init__(self) -> None:
+        self._by_raising_cell: dict[CellId_t, set[CellId_t]] = {}
+        self._all: set[CellId_t] = set()
+
+    def add(self, raising_cell: CellId_t, descendants: set[CellId_t]) -> None:
+        """Record that raising_cell caused descendants to be cancelled."""
+        if raising_cell in self._by_raising_cell:
+            self._by_raising_cell[raising_cell].update(descendants)
+        else:
+            self._by_raising_cell[raising_cell] = descendants
+        self._all.update(descendants)
+
+    def discard(self, cell_id: CellId_t) -> None:
+        """Un-cancel a cell
+
+        That is remove it from the cancelled set and any descendant sets."""
+        self._by_raising_cell.pop(cell_id, None)
+        for raising_cell in list(self._by_raising_cell):
+            descendants = self._by_raising_cell[raising_cell]
+            descendants.discard(cell_id)
+            # A raiser with no cancelled descendants left is no longer a
+            # cancellation record.
+            if not descendants:
+                del self._by_raising_cell[raising_cell]
+        # Rebuild the flat view from what remains; otherwise popping a raiser
+        # above strands its descendants in _all, breaking the union invariant.
+        self._all = (
+            set().union(*self._by_raising_cell.values())
+            if self._by_raising_cell
+            else set()
+        )
+
+    def __contains__(self, cell_id: object) -> bool:
+        """O(1) check if a cell has been cancelled."""
+        return cell_id in self._all
+
+    def __iter__(self) -> Iterator[CellId_t]:
+        """Iterate over raising cells."""
+        return iter(self._by_raising_cell)
+
+    def __getitem__(self, raising_cell: CellId_t) -> set[CellId_t]:
+        """Get descendants cancelled by a specific raising cell."""
+        return self._by_raising_cell[raising_cell]
+
+    def __bool__(self) -> bool:
+        return bool(self._by_raising_cell)
+
+
+@dataclass(frozen=True)
+class PreparationHookContext:
+    graph: DirectedGraph
+    execution_mode: OnCellChangeType
+    cells_to_run: Sequence[CellId_t]
+
+
+@dataclass(frozen=True)
+class PreExecutionHookContext:
+    graph: DirectedGraph
+    execution_mode: OnCellChangeType
+
+
+@dataclass(frozen=True)
+class PostExecutionHookContext:
+    graph: DirectedGraph
+    glbls: dict[str, Any]
+    execution_context: ExecutionContextManager | None
+    # Dict, because errors get mutated (formatted) by hooks.
+    exceptions: dict[CellId_t, ExceptionOrError]
+    cancelled_cells: CancelledCells
+    # Pre-computed union of all cell temporaries
+    all_temporaries: frozenset[str]
+    # Whether data (variables, datasets, etc.) should be broadcast
+    # to the frontend. Computed once per run to avoid repeated checks.
+    should_broadcast_data: bool = False
+    # User configuration, for hooks that need access to runtime settings
+    user_config: MarimoConfig | None = None
+
+
+@dataclass(frozen=True)
+class OnFinishHookContext:
+    graph: DirectedGraph
+    cells_to_run: Sequence[CellId_t]
+    interrupted: bool
+    cancelled_cells: CancelledCells
+    exceptions: Mapping[CellId_t, ExceptionOrError]

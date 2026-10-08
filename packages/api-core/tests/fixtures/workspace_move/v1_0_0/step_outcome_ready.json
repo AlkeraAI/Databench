@@ -1,0 +1,9 @@
+{
+  "grace_seconds": 0,
+  "metadata": {},
+  "origin": {},
+  "ready": true,
+  "schema_version": "1.0.0",
+  "state": "done",
+  "wake_timeout_seconds": 0
+}

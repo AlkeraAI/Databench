@@ -1,0 +1,95 @@
+/* motion — the shared animation vocabulary for @alkera/ui.
+ *
+ * One home for every reusable @keyframes so components AND app pages animate from the same set
+ * instead of each redefining "fade in" / "wipe" locally. Pair the keyframes with the duration +
+ * easing tokens from tokens.css at the call site (durations are often per-surface, so they stay on
+ * the consumer; the curve + the shape live here). A ready-made entrance utility is provided for the
+ * common case. Loaded by theme/styles.css. */
+
+/* THE single hover/state transition every interactive control rides — background, border, and ink
+ * cross-fade together. Defined once here and referenced (never re-spelled) by every control with a
+ * hover wash: Button, Tree rows, Dropdown, Table rows, page-local buttons, list rows. A
+ * control that changes background/border/colour on hover, focus, active, or selection MUST set
+ * `transition: var(--alk-control-transition)` so the change eases instead of snapping.
+ *
+ * The duration is the SLOW step (180ms), not the 120ms normal: a 120ms wash reads as an instant
+ * snap — the ease is imperceptible — so the hover felt un-animated. 180ms ease-out is still snappy
+ * but the easing actually reads. It's a state cross-fade, not a keyframe, so it lives here as one
+ * value that moves with the tokens. A control that also MOVES (a transform) appends its own
+ * transform transition: `transition: var(--alk-control-transition), transform … ;`. */
+:root {
+  --alk-control-transition:
+    background-color var(--alkDurationSlow) var(--alkEaseStandard),
+    border-color var(--alkDurationSlow) var(--alkEaseStandard),
+    color var(--alkDurationSlow) var(--alkEaseStandard);
+}
+
+/* Entrance: fade in from transparent. */
+@keyframes alk-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Reveal: a left-to-right wipe via a compositor-only horizontal scale (for clip rects, bars). */
+@keyframes alk-reveal {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Entrance: rise in from below with a fade — a staggered list cascade, an item settling into place.
+   The start offset is `--alk-rise-from` (default 16px) so a surface can tune the travel. */
+@keyframes alk-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--alk-rise-from, 16px));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Skeleton placeholder pulse. */
+@keyframes alk-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Indeterminate spinner. */
+@keyframes alk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Ready-made entrance — apply to fade a block in on mount. Tune the duration by overriding the
+   animation on the element if a surface needs a slower reveal. */
+.alk-fade-in {
+  animation: alk-fade-in var(--alkDurationSlow) var(--alkEaseStandard) both;
+}
+
+/* Ready-made entrance — rise in from below with a fade. Tune the travel with `--alk-rise-from` (a
+   detail swap wants a short 4px settle; a list cascade the default 16px). */
+.alk-rise-in {
+  animation: alk-rise-in var(--alkDurationSlow) var(--alkEaseStandard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-fade-in,
+  .alk-rise-in {
+    animation: none;
+  }
+}

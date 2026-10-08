@@ -1,0 +1,250 @@
+# Alkera SPA + reverse-proxy nginx config.
+#
+# Rendered by `docker-entrypoint.sh` at container start. The only variables
+# substituted are `${ALKERA_BACKEND_URL}` (defaults to http://backend:8000
+# inside the prod compose stack) and `${ALKERA_CSP}`. The gateway's location is
+# its own template, rendered only when ALKERA_GATEWAY_UPSTREAM is set. All other `$...`
+# references are nginx variables and must NOT be expanded by envsubst.
+
+# Websocket upgrades through the proxy below: when a client sends
+# `Upgrade: websocket` the hop-by-hop Connection header must say "upgrade";
+# for every other request it must not, or nginx would hold the upstream
+# connection open. `map` is legal only in the http context, which this file
+# is included from (conf.d/*.conf sits inside http {}).
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# Access log without credentials. The base image's `main` format writes
+# `$request` (the path AND the query string) and `$http_referer`, and both carry
+# live single-use credentials here: `?invite_token=` on the OAuth start,
+# `?ticket=` on the register-context read, `?invite=` / `?oauth_ticket=` on the
+# SPA entry links, and a Referer holding any of those page URLs. This format
+# logs the path without the query, never the Referer, and swaps the token
+# segment of the credential-bearing paths for `[redacted]`. Status, bytes,
+# duration, the request id and the backend's trace id stay, so a line still
+# joins to the app's own `http.access` event.
+#
+# The path is cut from the ORIGINAL request line rather than taken from `$uri`,
+# which an SPA route's `try_files` rewrites to /index.html. The 16-character
+# floor keeps the fixed sibling routes (`/password-reset/request`,
+# `/verify-email/resend`) readable, as the backend's own scrubber does.
+map $request_uri $alkera_request_path {
+    default "";
+    "~^(?<alkera_path>[^?]*)" $alkera_path;
+}
+map $alkera_request_path $alkera_log_path {
+    default $alkera_request_path;
+    "~^(?<alkera_route>.*/(?:reset-password|password-reset|verify-email|invitations/by-token))/[^/]{16,}" "$alkera_route/[redacted]";
+}
+
+# The Files content origin is served under its own hostname
+# (FILES_CONTENT_BASE_URL), which can be long: a tunnel or a cloud load
+# balancer name passes 50 characters. nginx's default bucket is the CPU cache
+# line (often 64 bytes), and a name that does not fit stops nginx at start with
+# "could not build server_names_hash". A bucket also holds a pointer and the
+# name's length, so 512 is the size that holds any DNS name (253 at most).
+server_names_hash_bucket_size 512;
+
+log_format alkera_access '$remote_addr - [$time_iso8601] "$request_method $alkera_log_path $server_protocol" '
+                         '$status $body_bytes_sent $request_time '
+                         'request_id=$request_id trace_id=$upstream_http_x_trace_id '
+                         '"$http_user_agent"';
+
+server {
+    listen      8080 default_server;
+    listen      [::]:8080 default_server;
+    server_name _;
+
+    root  /usr/share/nginx/html;
+    index index.html;
+
+    # Replaces the inherited `main` log for everything this server answers.
+    access_log /var/log/nginx/access.log alkera_access;
+
+    # Security response headers. Applied to every response via inheritance (the
+    # /assets/ block re-declares them because its own add_header would otherwise
+    # suppress these). CSP is operator-overridable via ALKERA_CSP (rendered by
+    # docker-entrypoint.sh); the default is a strict same-origin policy that works
+    # out of the box for the same-origin SPA (API is reverse-proxied below). HSTS
+    # is intentionally NOT set here — this listens on plain HTTP 8080 behind the
+    # operator's TLS terminator, which owns HSTS.
+    add_header Content-Security-Policy "${ALKERA_CSP}" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    # Reasonable client-side caching for fingerprinted Vite assets.
+    location /assets/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        # Re-declare the security headers: a location's own add_header suppresses
+        # the inherited server-level ones, so repeat them for asset responses.
+        add_header Content-Security-Policy "${ALKERA_CSP}" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    }
+
+    # SPA: every non-asset path falls through to index.html so React
+    # Router handles it client-side.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Alkera Files upload + content bodies. Their own locations because nginx's
+    # defaults refuse them: client_max_body_size is 1 MiB (below even one
+    # upload part, so every part PUT would be a 413 the client cannot explain)
+    # and proxy_request_buffering is on (nginx would spool the whole part to
+    # disk before the backend saw a byte, N concurrent uploads x the part size
+    # of disk and latency for nothing). A part is PROXIED -- the client PUTs it
+    # to /api/v1/files/uploads/<session>/parts/<n> and this hop carries it --
+    # so every ceiling on the way to the store has to be raised together:
+    #
+    #   * app constants: files_max_file_bytes, files_max_upload_parts,
+    #     files_part_max_bytes, files_single_put_max_bytes (config.py), and the
+    #     pre-buffer Content-Length guard that twins them
+    #     (backend/api/body_limit.py, GUARDED_PREFIXES);
+    #   * the SaaS edge: the WAF body exemption for these prefixes and the
+    #     per-IP budget on them (the AWS
+    #     managed CRS body rules see only the first 8 KB and would block the
+    #     rest);
+    #   * these body sizes, and the matching Kubernetes annotations
+    #     (proxy-body-size / proxy-request-buffering) on the Kubernetes ingresses;
+    #   * a CDN, if one is ever put in front of the API: CloudFront refuses a
+    #     request body over 30 GB, which bounds the part rather than the file;
+    #   * the store itself: S3 multipart accepts at most 10,000 parts of at
+    #     most 5 GiB, so the largest file is parts x part size -- a 1 TB file
+    #     needs parts of at least ~100 MB.
+    #
+    # The relaxation is scoped to the exact patterns GUARDED_PREFIXES bounds --
+    # NOT to /api/v1/files/ as a whole. FastAPI buffers the ENTIRE body into
+    # memory before the auth dependency runs, so on a Files route the guard does
+    # not cover (the item POSTs, the lease heartbeats, the permission and copy
+    # writes) the cap below is the only thing between an anonymous caller and an
+    # unbounded write. Those routes keep the default by falling through to the
+    # general API location; a prefix-wide location here would claim them and lift
+    # it for all of them at once.
+    #
+    # The caps restate the guard's own maxima instead of disabling the check:
+    # at or above the app ceiling the app always answers first -- the typed 4xx
+    # it publishes on POST /uploads, refused from the Content-Length before it
+    # buffers anything -- so nginx's unexplained 413 stays unreachable.
+    location ~ ^/api/v1/files/uploads/ {
+        proxy_pass         ${ALKERA_BACKEND_URL};
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $http_cookie;
+        proxy_set_header   Upgrade           $http_upgrade;
+        proxy_set_header   Connection        $connection_upgrade;
+        # One proxied part (files_part_max_bytes, 128 MiB) plus the 8 MiB of
+        # envelope headroom the guard allows, so a part the upload route would
+        # accept is never refused here first.
+        client_max_body_size    136m;
+        proxy_request_buffering off;
+        proxy_buffering         off;
+        proxy_cache             off;
+        # A part on a slow link outlives an ordinary request. These are read/send
+        # IDLE timeouts, not a cap on the transfer, so a transfer that keeps
+        # moving is never cut.
+        client_body_timeout 300s;
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+    }
+
+    # The five drives patterns the guard bounds: the single-call content PUT and
+    # the bulk batch (64 MiB each), plus the tree / snapshots / lease-release
+    # request bodies (8 MiB each), which ride this larger cap because the guard is
+    # what enforces the per-pattern number -- from the Content-Length, before a
+    # byte is read. The suffix is anchored, so `.../content-grants` and every
+    # other drives route stay on the general location's default cap.
+    location ~ ^/api/v1/files/drives/.+/(content|bulk|tree|snapshots|lease/release)$ {
+        proxy_pass         ${ALKERA_BACKEND_URL};
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $http_cookie;
+        proxy_set_header   Upgrade           $http_upgrade;
+        proxy_set_header   Connection        $connection_upgrade;
+        client_max_body_size    64m;
+        proxy_request_buffering off;
+        proxy_buffering         off;
+        proxy_cache             off;
+        client_body_timeout 300s;
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+    }
+
+    # A typed chat turn and the answer to an agent's question. A message may run
+    # to `chat_message_max_chars` (1,000,000 characters, so a pasted log or
+    # schema fits), which is far past nginx's 1 MiB default -- without this the
+    # general API location below turns a long paste into a 413 and the typed text
+    # is lost. 8m is the cap the pre-buffer guard applies to the same two
+    # patterns (backend/api/body_limit.py, GUARDED_PREFIXES), so the app always
+    # answers first and nginx's unexplained 413 stays unreachable. The suffix is
+    # anchored: every other chats route keeps the general location's default.
+    location ~ ^/api/v1/chats/.+/(messages|answer)$ {
+        proxy_pass         ${ALKERA_BACKEND_URL};
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $http_cookie;
+        proxy_set_header   Upgrade           $http_upgrade;
+        proxy_set_header   Connection        $connection_upgrade;
+        client_max_body_size 8m;
+        proxy_buffering      off;
+        proxy_cache          off;
+        proxy_read_timeout   3600s;
+        proxy_send_timeout   3600s;
+    }
+
+    # API + admin + health probes proxied to the backend container. `/admin/v1/*`
+    # is the platform-staff admin API, mounted at the root (not under /api). Match
+    # only `/admin/v1/` — NOT bare `/admin*`, which are SPA client routes
+    # (/admin, /admin/orgs, …) that must fall through to index.html above.
+    location ~ ^/(api|admin/v1)/ {
+        proxy_pass         ${ALKERA_BACKEND_URL};
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $http_cookie;
+        # Websocket handshake (/api/v1/ws): forward the client's Upgrade and the
+        # mapped Connection value so the upstream sees a real upgrade request.
+        proxy_set_header   Upgrade           $http_upgrade;
+        proxy_set_header   Connection        $connection_upgrade;
+        # Server-sent events (/api/v1/events) are written frame by frame; a
+        # buffered or cached response would hold them back until the stream
+        # ends, so neither is allowed on this path.
+        proxy_buffering    off;
+        proxy_cache        off;
+        # An idle event stream or websocket must outlive an ordinary request:
+        # the backend keepalives every 15s and closes its own streams by
+        # deadline, so an hour here only ever cuts a connection that is
+        # already dead. Also covers slow LLM-backed endpoints.
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location /health/ {
+        proxy_pass       ${ALKERA_BACKEND_URL};
+        proxy_set_header Host $host;
+    }
+
+    # The model gateway at /gateway/, present only when the entrypoint rendered
+    # it (ALKERA_GATEWAY_UPSTREAM set; see nginx.gateway.template). The bracket
+    # makes this a pattern, which nginx lets match nothing.
+    include /etc/nginx/conf.d/alkera-gateway.locatio[n];
+}

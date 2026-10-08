@@ -1,0 +1,6 @@
+{
+  "about": "A new notebook as every tool that creates one writes it: the setup block importing the runtime module, then one empty cell. `alkera-notebook new` and the web client's newNotebookText are each tested against `text` with these ids in place.",
+  "setup_id": "0000000001",
+  "cell_id": "0000000002",
+  "text": "# >>> alkera\n# format = \"1.0\"\n# dataframe = \"polars\"\n# <<< alkera\n\nimport marimo\n\n__generated_with = \"0.25.1\"\napp = marimo.App()\n\nwith app.setup(alkera_id=\"0000000001\"):\n    import alkera\n\n\n@app.cell(alkera_id=\"0000000002\")\ndef _():\n    return\n\n\nif __name__ == \"__main__\":\n    app.run()\n"
+}

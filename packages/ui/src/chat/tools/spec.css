@@ -1,0 +1,223 @@
+@import "./tokens.css";
+
+/* The spec sheet's interior. Two references carry the setting.
+
+   `kubectl describe`: a field is a name set against a value in a shared column,
+   a sub-list indents under its own head, and an absent value prints a word
+   rather than a blank.
+
+   The Nutrition Facts panel: thin rules separate peers, a heavier rule marks a
+   section break, and the leading grows with the rule above it, so the break is
+   felt before the head is read. Rank comes from rule weight, ink, case, and air
+   -- never a second type size. */
+
+.chat-root [data-tool="spec"] {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+}
+
+/* The call's own arguments are a specification too, so the well opens with them
+   in the same name-against-value setting as the result. */
+.chat-root [data-tool="spec"] .chat-spec-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--chat-sp-4);
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x);
+}
+
+.chat-root [data-tool="spec"] .chat-spec-arg {
+  display: flex;
+  gap: var(--chat-sp-2);
+  min-width: 0;
+}
+
+.chat-root [data-tool="spec"] .chat-spec-arg__v {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--chat-ink);
+}
+
+.chat-root [data-tool="spec"] .chat-spec-out {
+  padding: 0;
+}
+
+/* A block of fields against one label column. The column takes the width of its
+   own longest label and no more, capped so a value always keeps the larger
+   half; the cap counts the 12px lead and the 12px trail, leaving the label
+   itself 136px. */
+.chat-root [data-tool="spec"] .chat-spec-spec {
+  display: grid;
+  grid-template-columns: fit-content(160px) minmax(0, 1fr);
+}
+
+.chat-root [data-tool="spec"] .chat-spec-f__k {
+  padding: var(--chat-sp-1) var(--chat-sp-3) var(--chat-sp-1) var(--chat-tool-pad-x);
+  border-bottom: 1px solid var(--chat-hairline);
+  color: var(--chat-tool-ink-3);
+}
+
+.chat-root [data-tool="spec"] .chat-spec-f__v {
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1) 0;
+  border-bottom: 1px solid var(--chat-hairline);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--chat-ink);
+}
+
+.chat-root [data-tool="spec"] .chat-spec-f:last-child :is(.chat-spec-f__k, .chat-spec-f__v) {
+  border-bottom: 0;
+}
+
+/* A section head is a head by case, weight, air, and the rule above it: the
+   nutrition panel's thick break, drawn in ink rather than in points. */
+.chat-root [data-tool="spec"] .chat-spec-sec + .chat-spec-sec {
+  margin-top: var(--chat-sp-3);
+}
+
+.chat-root [data-tool="spec"] .chat-spec-sec__h {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-1);
+  border-top: 1px solid var(--chat-ink-4);
+  font-weight: var(--chat-w-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--chat-track-caps);
+  color: var(--chat-tool-ink-3);
+}
+
+.chat-root [data-tool="spec"] .chat-spec-sec:first-child > .chat-spec-sec__h {
+  border-top: 0;
+  padding-top: var(--chat-sp-1);
+}
+
+/* The scalars that qualify a collection close it, under the same break. The
+   rows carry their own seats, so the tail adds none: a seat of its own stacked
+   on the row's and sat the closing text lower off its rule than off the edge. */
+.chat-root [data-tool="spec"] .chat-spec-tail {
+  margin-top: var(--chat-sp-2);
+  border-top: 1px solid var(--chat-ink-4);
+}
+
+/* A run of mini specs: an ordinal gutter, then the labels and values the whole
+   run shares, so a field reads straight down. */
+.chat-root [data-tool="spec"] .chat-spec-run {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(30px, max-content) fit-content(160px) minmax(0, 1fr);
+}
+
+.chat-root [data-tool="spec"] .chat-spec-n {
+  grid-column: 1;
+  padding: var(--chat-sp-1) var(--chat-sp-2) var(--chat-sp-1) var(--chat-tool-pad-x);
+  text-align: right;
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.chat-root [data-tool="spec"] .chat-spec-rule {
+  grid-column: 1 / -1;
+  height: 0;
+  margin: var(--chat-sp-2) 0;
+  border-top: 1px solid var(--chat-ink-4);
+}
+
+/* A nested list needs a full-width name when no section head already gives it
+   one. */
+.chat-root [data-tool="spec"] .chat-spec-blockk {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) 0;
+  color: var(--chat-tool-ink-3);
+}
+
+/* An array is an inline run of small items. Small means tight, never smaller.
+   The run centers in its cell the way the boolean mark does: a bordered box on
+   the text baseline hangs low against the row's dividers. */
+.chat-root [data-tool="spec"] .chat-spec-f__v:has(> .chat-spec-chips) {
+  display: flex;
+  align-items: center;
+}
+
+.chat-root [data-tool="spec"] .chat-spec-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--chat-sp-1);
+}
+
+/* The frame is the shared chip's; this only lets a long value wrap inside it. */
+.chat-root [data-tool="spec"] .chat-spec-chip {
+  overflow-wrap: anywhere;
+}
+
+/* A boolean is a check for yes and an X for no. The mark is the whole value,
+   so its cell centers it against the field name instead of hanging it off a
+   text baseline it shares with nothing -- a fixed baseline step only lands at
+   one type size. A no reads quieter than a yes, the way None reads quieter
+   than a value. */
+.chat-root [data-tool="spec"] .chat-spec-f__v:has(> .chat-spec-mk) {
+  display: flex;
+  align-items: center;
+}
+
+.chat-root [data-tool="spec"] .chat-spec-mk {
+  display: inline-flex;
+  align-items: center;
+}
+
+.chat-root [data-tool="spec"] .chat-spec-mk[data-on="1"] {
+  color: var(--chat-tool-good);
+}
+
+.chat-root [data-tool="spec"] .chat-spec-mk[data-on="0"] {
+  color: var(--chat-tool-bad);
+}
+
+/* Below this the label column cannot hold a host name without starving the
+   value, so every pair sets as a run that wraps instead, and the ordinal takes
+   a line above the record it counts. */
+@container chat-toolwell (max-width: 339px) {
+  .chat-root [data-tool="spec"] :is(.chat-spec-spec, .chat-spec-run, .chat-spec-rec) {
+    display: block;
+  }
+
+  .chat-root [data-tool="spec"] .chat-spec-f {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: var(--chat-sp-2);
+    padding: var(--chat-sp-1) var(--chat-tool-pad-x);
+    border-bottom: 1px solid var(--chat-hairline);
+  }
+
+  .chat-root [data-tool="spec"] :is(.chat-spec-f__k, .chat-spec-f__v) {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .chat-root [data-tool="spec"] .chat-spec-f__k {
+    flex: none;
+  }
+
+  .chat-root [data-tool="spec"] .chat-spec-n {
+    display: block;
+    padding: var(--chat-sp-1) var(--chat-tool-pad-x) 0;
+    text-align: left;
+  }
+
+  .chat-root [data-tool="spec"] .chat-spec-n:empty {
+    display: none;
+  }
+}
+
+/* A statement keeps its own lines inside a field's value, so a wrapped clause
+   never reads as a new one. The painter's own inks carry the tokens. */
+.chat-root .chat-spec-sql {
+  display: grid;
+}
+
+.chat-root .chat-spec-sql__l {
+  white-space: pre-wrap;
+  word-break: break-word;
+}

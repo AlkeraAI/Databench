@@ -1,0 +1,531 @@
+/* The activity group's frame. A step is worth exactly as much room as its
+   payload has meaning.
+
+   THE COLLAPSED ROW reads as a sentence: the verb line, then the result figure
+   and a worded disclosure. OPENNESS BELONGS TO THE PAYLOAD: the adapter marks a
+   bounded answer open, an unbounded stream waits behind its word.
+
+   THE WELL is the full-width recess carved into the transcript's own recessed
+   paper. Its interior is the tool's own (src/tools); the frame, the status
+   ground, and the extent line under a sampled body are the group's. Steps are
+   separated by hairline dividers so a run reads as one ledger, and the well
+   takes the micro radius so a shallow carve sits square against those
+   dividers.
+
+   TYPE: the card is ONE ledger head to foot. The digest, the step heads, the
+   result figures, the disclosure word, and every tool interior read at the
+   transcript's body size, 14 on a 20px line, the tool glyph a step under it.
+   The machine register the card once used read too small beside the prose it
+   sits among. Rank inside the card is
+   the head verb at 500 against its payload at 400, plus the well's own top rule
+   and recessed ground -- never a size step, because a frame that outgrows the
+   content it introduces is what made these cards read wrong. Mono appears only
+   where the content is code: a path, a command, a pattern. INK: machine rows
+   sit at ink-3, below prose. CHROMA is semantic only: forest for an addition
+   and a pass, danger for a removal, a failure, and a failed well, data blue for
+   a lineage subject. */
+
+.chat-root .chat-activity-group {
+  /* The card reads at the transcript's body size, head to foot. Re-seating the
+     Record register here carries the whole card -- digest, step heads, figures,
+     the disclosure word, and every tool interior nested in a well -- in one
+     declaration, so the card stays ONE register wherever that register lands.
+     Tracking goes to 0 with it: the +0.014em is calibrated for 12px. */
+  --chat-fs-record: var(--chat-fs-text);
+  --chat-lh-record: var(--chat-lh-text);
+  --chat-track-record: 0;
+
+  /* The badge and the row metrics its centre is computed from. */
+  --chat-activity-badge: 16px;
+  --chat-activity-gap: var(--chat-sp-2);
+  --chat-activity-pad-x: var(--chat-sp-3);
+
+  /* The verb line's bash palette: the command ink is the theme's accent, and its
+     arguments and strings share one warm step of the shell's categorical ramp,
+     which is pinned per scheme. Tool interiors re-seat the same seam in their
+     own scope. */
+  --chat-bash-cmd: var(--chat-forest);
+  --chat-bash-flag: var(--chat-sql-number);
+  --chat-bash-string: var(--chat-sql-number);
+  --chat-bash-muted: var(--chat-ink-3);
+
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-root .chat-activity-group .chat-activity-mono {
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  font-feature-settings: "liga" 0;
+}
+
+/* ── Readability dot ──────────────────────────────────────────────────────────
+   The dot comes from the host's standard block mechanism. A block that holds a
+   group feeds the host its first-row metric, so the dot centres on the digest
+   row (a 24px row). */
+.chat-root .chat-block:has(.chat-activity-group) {
+  --chat-dot-lead: 0px;
+  --chat-first-row-lh: 24px;
+}
+
+/* ── The digest: the quiet header that names the outcome and toggles the run ── */
+
+/* One row wherever the panel affords it. Under a hard squeeze the failure
+   phrase folds to a second line whole: the tokens keep their size and never
+   wrap inside themselves. */
+.chat-root .chat-activity-digest {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: var(--chat-sp-3);
+  row-gap: var(--chat-sp-1);
+  width: 100%;
+  min-height: 24px;
+  cursor: pointer;
+  user-select: text;
+  -webkit-user-select: text;
+  text-align: left;
+}
+
+.chat-root .chat-activity-digest__fail {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+}
+
+/* The header names what a run did; it does not announce it. Muted ink at the
+   running-text weight is the whole of its rank, because a header set heavier
+   than the prose it interrupts reads louder than the answer the reader came
+   for. Size stays the card's own register. It wraps as one rather than pushing
+   the run past the panel; the failure phrase beside it is a token and never
+   breaks. */
+.chat-root .chat-activity-digest__stat {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  font-weight: var(--chat-w-regular);
+  color: var(--chat-ink-3);
+  font-variant-numeric: tabular-nums;
+  transition: var(--chat-control-transition);
+}
+
+.chat-root .chat-activity-digest:hover .chat-activity-digest__stat {
+  color: var(--chat-ink-2);
+}
+
+/* A stopped or a refused call is counted apart from a failure, in the header's
+   own quiet ink: the reader's Stop, or a no, is not something that went wrong. */
+.chat-root .chat-activity-digest__stopped,
+.chat-root .chat-activity-digest__refused {
+  white-space: nowrap;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-root .chat-activity-digest__x {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--chat-danger);
+}
+
+.chat-root .chat-activity-digest__count {
+  white-space: nowrap;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-danger);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── The log: one ledger, its rows separated by hairlines ───────────────────── */
+
+.chat-root .chat-activity-log {
+  border-top: 1px solid var(--chat-hairline);
+}
+
+/* The head's seat never changes, so a toggle never moves the step's own text;
+   an open body earns a deeper 16px seat before the next divider. */
+.chat-root .chat-activity-step {
+  padding: var(--chat-sp-2) 0;
+}
+
+.chat-root .chat-activity-step[data-open] {
+  padding-bottom: var(--chat-sp-4);
+}
+
+.chat-root .chat-activity-step + .chat-activity-step {
+  border-top: 1px solid var(--chat-hairline);
+}
+
+.chat-root .chat-activity-head {
+  display: grid;
+  grid-template-columns: var(--chat-activity-badge) 1fr;
+  column-gap: var(--chat-activity-gap);
+  align-items: start;
+  width: 100%;
+  text-align: left;
+}
+
+/* The head is a button, and a button suppresses selection by default -- but its
+   content is the step's own words, so a drag across them selects text the way it
+   would anywhere else. The toggle stands down for a drag that left a selection
+   (see the click handler). */
+.chat-root button.chat-activity-head {
+  cursor: pointer;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* The badge: the tool's own glyph at the transcript body edge, centred on the
+   verb row. Success is quiet and unmarked; a failure tints danger and carries
+   a small X. The box runs wider than the glyph so the failure mark attaches
+   inside it, into the gap rather than over the words. */
+.chat-root .chat-activity-badge {
+  position: relative;
+  width: calc(var(--chat-activity-badge) + 4px);
+  height: var(--chat-lh-record);
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-activity-badge[data-status="error"] {
+  color: var(--chat-danger);
+}
+
+.chat-root .chat-activity-badge[data-status="running"] {
+  color: var(--chat-forest);
+}
+
+.chat-root .chat-activity-badge[data-status="pending"] {
+  opacity: 0.5;
+}
+
+/* The glyph runs under the verb row's line box rather than filling it. Filling
+   it edge to edge is what read as a glyph sitting off its line: the box centres
+   exactly, but the icon's ink then rises above the cap line and drops below the
+   baseline of the text beside it. The box keeps its own column so the failure X
+   still attaches into the gap. */
+.chat-root .chat-activity-badge > svg {
+  width: 14px;
+  height: 14px;
+}
+
+.chat-root .chat-activity-badge__x {
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px;
+  border-radius: 50%;
+  background: var(--chat-paper);
+  color: var(--chat-danger);
+}
+
+/* Two Record rows: the verb line, then the figure and the disclosure under it.
+   The result stays a row of its own at every width, so a step's outcome always
+   reads in the same place instead of moving with the argument's length. */
+.chat-root .chat-activity-say {
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--chat-sp-1);
+  min-width: 0;
+}
+
+/* The verb line: verb-first, one row, ellipsized at the edge. The well
+   restates the input in full, in the tool's own band. */
+.chat-root .chat-activity-line1 {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+}
+
+.chat-root .chat-activity-verb {
+  flex: 0 0 auto;
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink-3);
+  transition: var(--chat-control-transition);
+}
+
+.chat-root .chat-activity-arg {
+  min-width: 0;
+  margin-left: 0.42em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--chat-mono);
+  font-size: var(--chat-fs-mono, inherit);
+  font-feature-settings: "liga" 0;
+  font-weight: var(--chat-w-regular);
+  letter-spacing: 0;
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-activity-arg--graph {
+  color: var(--chat-blue);
+}
+
+/* The filename carries the step's identity, so it reads a tier brighter than
+   a pattern or a command argument. */
+.chat-root .chat-activity-arg--path {
+  color: var(--chat-ink-2);
+}
+
+/* ── The result row: figure and worded disclosure ───────────────────────────── */
+
+/* The row packs left: the disclosure reads as the sentence's last word,
+   immediately after the figure, never pushed to the far edge. Every token
+   holds its own width and none of them ever wraps inside itself. */
+/* Wrapping is driven by the content, not by a width: the disclosure drops under
+   the figure the moment the two stop fitting, at any panel size. */
+.chat-root .chat-activity-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--chat-sp-3);
+  row-gap: var(--chat-sp-1);
+  min-width: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+}
+
+/* A figure with many terms ("1 snowflake, 1 duckdb, 1 sigma, ...") outgrows even
+   its own row, so it ellipsizes like the verb line above it rather than running
+   past the panel edge. */
+.chat-root .chat-activity-fig {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--chat-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-root .chat-activity-fig[data-tone="pass"] {
+  color: var(--chat-forest);
+  font-weight: var(--chat-w-medium);
+}
+
+.chat-root .chat-activity-fig[data-tone="fail"] {
+  color: var(--chat-danger);
+  font-weight: var(--chat-w-medium);
+}
+
+.chat-root .chat-activity-add {
+  color: var(--chat-forest);
+}
+
+.chat-root .chat-activity-del {
+  color: var(--chat-danger);
+}
+
+/* The sole expansion cue since carets died, so it names what opens. */
+.chat-root .chat-activity-disclose {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink-3);
+  transition: var(--chat-control-transition);
+}
+
+.chat-root .chat-activity-head:hover .chat-activity-disclose {
+  color: var(--chat-ink-2);
+}
+
+.chat-root .chat-activity-head:hover .chat-activity-verb {
+  color: var(--chat-ink-2);
+}
+
+/* A step with its own control: the head takes the row, the control sits at the
+   end of the verb row, worded like the disclosure. */
+.chat-root .chat-activity-headrow {
+  display: flex;
+  align-items: start;
+  gap: var(--chat-activity-gap);
+}
+
+.chat-root .chat-activity-headrow > .chat-activity-head {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.chat-root .chat-activity-action {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  line-height: var(--chat-lh-record);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink-3);
+  cursor: pointer;
+  transition: var(--chat-control-transition);
+}
+
+.chat-root .chat-activity-action:hover,
+.chat-root .chat-activity-action:focus-visible {
+  color: var(--chat-ink-2);
+}
+
+/* ── The well: the full-width recess carved under an opened step ────────────── */
+
+/* The slot a well or a log animates inside: a one-row grid whose track runs
+   0fr to 1fr, so open and close move the surrounding layout WITH the motion
+   instead of jumping it at either end. The slot owns the well's block margins,
+   because a margin left on the clipped item would survive the collapse as a
+   14px hop. */
+.chat-root :is(.chat-activity-wellslot, .chat-activity-logslot) {
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+}
+
+.chat-root .chat-activity-wellslot {
+  /* 8px under the well plus the open step's 16px seat leaves the body 24px
+     clear of the next row's divider, so an opened payload is not read as
+     touching what follows it. */
+  margin: var(--chat-sp-2) 0;
+}
+
+.chat-root :is(.chat-activity-wellslot, .chat-activity-logslot) > * {
+  min-height: 0;
+}
+
+.chat-root .chat-activity-well {
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-micro);
+  background: var(--chat-paper-inset);
+  overflow: hidden;
+}
+
+/* The in-flight well: no payload yet, one looping sweep says the call works. */
+.chat-root .chat-activity-well[data-status="running"] {
+  padding: var(--chat-sp-3) var(--chat-sp-3);
+}
+
+.chat-root .chat-activity-well__work {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--chat-ink-4) 24%, transparent);
+}
+
+.chat-root .chat-activity-well__work::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--chat-forest),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: chat-activity-sweep 1.3s ease-in-out infinite;
+}
+
+@keyframes chat-activity-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-activity-well__work::after {
+    animation: none;
+    transform: none;
+    opacity: 0.5;
+  }
+}
+
+.chat-root .chat-activity-well[data-status="error"] {
+  background: var(--chat-danger-wash);
+  border-color: var(--chat-danger-line);
+}
+
+/* A body that samples a larger whole closes with the extent the backend
+   reported. A payload shown whole carries none. */
+.chat-root .chat-activity-well__foot {
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-activity-pad-x);
+  border-top: 1px solid var(--chat-hairline);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  letter-spacing: var(--chat-track-record);
+  color: var(--chat-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Motion ─────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  .chat-root .chat-activity-well {
+    animation: chat-activity-reveal 170ms var(--chat-ease-out);
+  }
+
+  .chat-root :is(.chat-activity-wellslot, .chat-activity-logslot) {
+    animation: chat-activity-swell 170ms var(--chat-ease-out);
+  }
+
+  /* Exit accelerates and runs shorter than the enter, per the motion ladder.
+     Under reduced motion no conceal runs; the component's timer still takes
+     the node down. */
+  .chat-root
+    :is(.chat-activity-wellslot, .chat-activity-logslot)[data-closing] {
+    animation: chat-activity-conceal 150ms cubic-bezier(0.3, 0, 1, 1) forwards;
+  }
+
+  .chat-root .chat-activity-badge[data-status="running"] {
+    animation: chat-activity-pulse 1200ms ease-in-out infinite;
+  }
+}
+
+@keyframes chat-activity-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* The size runs on the slot's grid track, so the page under the well slides
+   with the same curve the well fades on. */
+@keyframes chat-activity-swell {
+  from {
+    grid-template-rows: 0fr;
+    margin-top: 0;
+    margin-bottom: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes chat-activity-conceal {
+  to {
+    grid-template-rows: 0fr;
+    margin-top: 0;
+    margin-bottom: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes chat-activity-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-activity-well {
+    animation: chat-fade-in var(--chat-dur-fast) ease-out;
+  }
+}

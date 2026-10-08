@@ -1,0 +1,924 @@
+/* App-local layout for the new portal. Component styling comes from @alkera/ui;
+ * this is only the shell + page chrome, on the same token layer. */
+/* Concept tokens (origin pigments, mono util) ride here so they load with the portal in BOTH
+ * entries — the standalone main.tsx AND the preview, which mounts AppContent + this sheet directly
+ * (bypassing main.tsx). */
+@import "./concept-tokens.css";
+
+#root {
+  min-height: 100vh;
+}
+
+/* The auth gate's holding state while the session resolves — a centered placeholder on the page
+   ground, so the shell never flashes before we know who the user is. */
+.alk-authgate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--alkPageBg);
+}
+
+/* A shared link into another org: switch, or stay. */
+.alk-orglink__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The strip above the shell when the session read is failing but a session is still in force. It
+   is a notice, not a gate: the app underneath stays usable, so it takes one line and no more. */
+.alk-sessionnotice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--alkSpace2, 8px);
+  padding: 6px 16px;
+  background: var(--alkWarningSoft);
+  color: var(--alkSecondaryText);
+  font-size: 13px;
+}
+
+/* A link-styled button (in-place actions like resend / reload). `.alk-link` styles an
+   anchor's text but doesn't strip native button chrome, so reset it here portal-wide. */
+button.alk-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+/* ===== email-verification banner ===== */
+/* A full-width notice pinned above the app shell while the signed-in account is unverified
+   (the grace window); it scrolls with the page and the full-screen gate takes over once the
+   grace lapses. Warm warning tones, the outcome carried by an icon + text (never color alone). */
+.alk-verify-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--alkSpace3);
+  padding: 10px var(--alkSpace6);
+  background: var(--alkWarningSoft);
+  border-bottom: 1px solid color-mix(in srgb, var(--alkWarning) 34%, var(--alkBorder));
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextSm);
+  line-height: var(--alkLeadingSnug);
+}
+.alk-verify-banner__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--alkWarningText);
+}
+.alk-verify-banner__msg {
+  margin: 0;
+}
+.alk-verify-banner__msg strong {
+  font-weight: var(--alkWeightMedium);
+}
+.alk-verify-banner__action {
+  font-weight: var(--alkWeightMedium);
+  white-space: nowrap;
+}
+.alk-verify-banner__note {
+  color: var(--alkSecondaryText);
+}
+.alk-verify-banner__err {
+  color: var(--alkDangerText);
+}
+
+/* ===== app shell ===== */
+/* The viewport-height column: the verify banner (when present) sits at the top and the app
+   shell fills the rest, so the sidebar fills the remaining height instead of being pushed
+   below the fold. The page scrolls inside .alk-content, not the document. */
+.alk-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* The bypass stop. Off-canvas until it takes focus, then it lands over the masthead's top-left so
+   the reader sees where the first Tab went. It sits outside the grid flow (absolute) so it never
+   reserves a row, and it offsets from the page itself: `.alk-shell` is the full viewport and is
+   deliberately unpositioned, so this resolves against the initial containing block. Give `.alk-shell`
+   a `position` and these offsets follow it instead — which is fine, but check the reveal. */
+.alk-skip {
+  position: absolute;
+  top: var(--alkSpace4);
+  left: var(--alkSpace4);
+  z-index: calc(var(--alkZModal) + 1);
+  transform: translateY(calc(-100% - var(--alkSpace5)));
+  padding: var(--alkSpace3) var(--alkSpace5);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkCardBg);
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightMedium);
+  text-decoration: none;
+  transition: transform var(--alkDurationNormal) var(--alkEaseStandard);
+}
+.alk-skip:focus {
+  transform: translateY(0);
+}
+/* The skipped-to region takes focus programmatically; it is a destination, not a control, so it
+   does not wear a ring of its own. */
+.alk-main:focus {
+  outline: none;
+}
+
+.alk-app {
+  display: grid;
+  grid-template-columns: 256px 1fr;
+  flex: 1;
+  min-height: 0;
+  background: var(--alkPageBg);
+  /* Animate the rail collapse/expand — the grid track is the page-level layout, so the column
+     width is what slides (the sidebar fills it, the content reflows). */
+  transition: grid-template-columns var(--alkDurationSlow) var(--alkEaseStandard);
+}
+@media (prefers-reduced-motion: reduce) {
+  .alk-app {
+    transition: none;
+  }
+}
+.alk-app[data-collapsed] {
+  grid-template-columns: 72px 1fr;
+}
+
+.alk-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: var(--alkCardBg);
+  border-right: 1px solid var(--alkBorder);
+  overflow-y: auto;
+}
+/* The brand sits in a head row the height of the topbar, with the matching bottom hairline — so
+   the logo lands on the page header's row, not below it. Its left edge lines up with everything
+   below it: the nav's inset (alkSpace7) plus an item's own padding (alkSpace3), the column the
+   section labels, the nav icons and the account avatar start on. */
+.alk-sidebar__head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace3);
+  height: 64px;
+  padding: 0 var(--alkSpace7) 0 calc(var(--alkSpace7) + var(--alkSpace3));
+  border-bottom: 1px solid var(--alkBorder);
+}
+/* The account menu's pending orgs, under a label like the theme picker's. */
+.alk-accmenu__group {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--alkSpace3);
+}
+.alk-accmenu__group > .alk-theme__label {
+  padding-left: var(--alkSpace3);
+}
+/* A pending org's action word, set apart from its name. */
+.alk-accmenu__hint {
+  font-size: var(--alkTextSm);
+  color: var(--alkBrand);
+}
+.alk-accmenu__error {
+  padding: 0 var(--alkSpace3) var(--alkSpace2);
+  font-size: var(--alkTextSm);
+  color: var(--alkDangerText);
+}
+.alk-sidebar__new {
+  flex: 0 0 auto;
+  margin: var(--alkSpace7) var(--alkSpace7) var(--alkSpace1);
+}
+.alk-wordmark {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  /* A doorway home, not a piece of text: no selection, no drag ghost, no underline. */
+  user-select: none;
+  -webkit-user-drag: none;
+  text-decoration: none;
+  /* The mark + wordmark render in ink (currentColor) — identity, not the action accent. */
+  color: var(--alkPrimaryText);
+}
+.alk-wordmark__logo {
+  display: block;
+}
+.alk-iconbtn,
+.alk-menubtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--alkRadiusMd);
+  background: none;
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+  transition: var(--alk-control-transition);
+}
+.alk-iconbtn:hover,
+.alk-menubtn:hover {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+.alk-iconbtn:focus-visible,
+.alk-menubtn:focus-visible {
+  outline-offset: -2px;
+}
+.alk-menubtn {
+  display: none;
+}
+
+.alk-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace7);
+  /* Bottom padding matters: the nav scrolls, and without it the last item's edge kisses the divider
+     above the account row when scrolled to the end. */
+  padding: var(--alkSpace5) var(--alkSpace7) var(--alkSpace7);
+  overflow-y: auto;
+}
+.alk-nav__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.alk-nav__label {
+  padding: 0 var(--alkSpace3) var(--alkSpace1);
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--alkSecondaryText);
+}
+.alk-navitem {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace5);
+  width: 100%;
+  padding: var(--alkSpace3);
+  border: 0;
+  border-radius: var(--alkRadiusMd);
+  background: none;
+  color: var(--alkSecondaryText);
+  font: inherit;
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightMedium);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: var(--alk-control-transition);
+}
+/* The neutral hover wash only applies to a NON-active item; an active item keeps its brand cue (see
+   the active-hover rule below) instead of flipping to the grey wash. */
+.alk-navitem:not(.alk-navitem--active):hover {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+.alk-navitem--active {
+  background: var(--alkBrandSubtle);
+  color: var(--alkBrandText);
+  font-weight: var(--alkWeightSemibold);
+}
+/* Hovering the selected tab deepens its OWN brand wash for feedback — never the neutral grey, which
+   would erase the "current page" cue. */
+.alk-navitem--active:hover {
+  background: var(--alkSelectedHoverBg);
+}
+/* The active item's glyph rides the solid brand; the trail parent (a child is active) reads ink +
+   brand glyph without taking the filled pill. */
+.alk-navitem--active .alk-navitem__ic {
+  color: var(--alkBrand);
+}
+.alk-navitem--parent[data-trail] {
+  color: var(--alkPrimaryText);
+  font-weight: var(--alkWeightSemibold);
+}
+.alk-navitem--parent[data-trail] .alk-navitem__ic {
+  color: var(--alkBrand);
+}
+.alk-navitem:focus-visible {
+  outline-offset: -2px;
+}
+.alk-navitem__ic {
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+.alk-navitem__label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alk-navitem--sub {
+  color: var(--alkSecondaryText);
+}
+.alk-navitem--sub.alk-navitem--active {
+  color: var(--alkBrandText);
+}
+.alk-navitem__caret {
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+  transition: transform var(--alkDurationNormal) var(--alkEaseStandard);
+}
+.alk-navitem__caret[data-open] {
+  transform: rotate(180deg);
+}
+.alk-nav__children {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--alkDurationSlow) var(--alkEaseStandard);
+}
+.alk-nav__disc[data-open] .alk-nav__children {
+  grid-template-rows: 1fr;
+}
+.alk-nav__children-inner {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* The descent rail — a hairline under the parent's icon centre (8px pad + 9px half-icon), the
+     children indented past it (structure, not colour). */
+  margin: var(--alkSpace0) 0 0 17px;
+  padding-left: 11px;
+  border-left: 1px solid var(--alkBorder);
+}
+
+/* collapsed rail */
+.alk-app[data-collapsed] .alk-navitem__label,
+.alk-app[data-collapsed] .alk-nav__label,
+.alk-app[data-collapsed] .alk-navitem__caret,
+.alk-app[data-collapsed] .alk-wordmark,
+.alk-app[data-collapsed] .alk-sidebar__new .alk-btn__label {
+  display: none;
+}
+/* The icon strip: the head toggle, new-chat, every nav item, and the account avatar become
+   centered squares on the 72px rail (labels + section headers are hidden above). */
+.alk-app[data-collapsed] .alk-sidebar__head {
+  justify-content: center;
+  padding: 0;
+}
+.alk-app[data-collapsed] .alk-sidebar__new {
+  margin: var(--alkSpace7) 0 var(--alkSpace1);
+  display: flex;
+  justify-content: center;
+}
+.alk-app[data-collapsed] .alk-sidebar__new .alk-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 0;
+  padding: 0;
+}
+.alk-app[data-collapsed] .alk-nav {
+  padding: var(--alkSpace5) var(--alkSpace3) 0;
+  gap: var(--alkSpace5);
+  align-items: center;
+}
+.alk-app[data-collapsed] .alk-nav__group {
+  gap: var(--alkSpace1);
+  align-items: center;
+  width: 100%;
+}
+.alk-app[data-collapsed] .alk-navitem,
+.alk-app[data-collapsed] .alk-navitem--sub {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  justify-content: center;
+}
+/* A parent with subtabs (Analytics): center the disclosure so the parent icon aligns on the rail's
+   axis instead of being pushed left by the children block, and replace the big children indent with
+   a centered column behind a short rail — the rail is the only subgroup cue. */
+.alk-app[data-collapsed] .alk-nav__disc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.alk-app[data-collapsed] .alk-nav__children {
+  width: 100%;
+}
+.alk-app[data-collapsed] .alk-nav__children-inner {
+  margin: 0;
+  padding-left: 0;
+  border-left: 0;
+  width: 100%;
+  align-items: center;
+  position: relative;
+}
+/* The subgroup rail: a short vertical hairline to the LEFT of the centered sub-icons, drawn as a
+   zero-layout pseudo-element so the sub-icons stay on the same vertical axis as every other rail
+   icon (the rail is the only subgroup cue; it never pushes the icons off-center). */
+.alk-app[data-collapsed] .alk-nav__children-inner::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-24px);
+  top: var(--alkSpace1);
+  bottom: var(--alkSpace1);
+  width: 1px;
+  background: var(--alkBorder);
+}
+.alk-app[data-collapsed] .alk-sidebar__foot {
+  margin-left: var(--alkSpace3);
+  margin-right: var(--alkSpace3);
+}
+.alk-app[data-collapsed] .alk-account {
+  justify-content: center;
+  padding: var(--alkSpace3) 0;
+}
+
+/* account — pinned to the rail's foot under its own hairline (the divider above the avatar),
+   matching the head's bottom hairline. */
+.alk-sidebar__foot {
+  flex: 0 0 auto;
+  margin: 0 var(--alkSpace7) var(--alkSpace7);
+  padding-top: var(--alkSpace7);
+  border-top: 1px solid var(--alkBorder);
+}
+/* The account button is a Popover trigger, whose wrapper is content-width by default; stretch it
+   so the button fills the foot. */
+.alk-sidebar__foot .alk-popover-wrap {
+  display: block;
+}
+.alk-account {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace5);
+  width: 100%;
+  padding: var(--alkSpace3);
+  border: 0;
+  border-radius: var(--alkRadiusMd);
+  background: none;
+  color: var(--alkPrimaryText);
+  cursor: pointer;
+  transition: var(--alk-control-transition);
+}
+.alk-account:hover {
+  background: var(--alkHoverBg);
+}
+.alk-account:focus-visible {
+  outline-offset: -2px;
+}
+/* The account button's avatar + name + role is the shared Identity; only the trailing chevron is local. */
+.alk-account__chev {
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+  transition: transform var(--alkDurationNormal) var(--alkEaseStandard);
+}
+.alk-account__chev[data-open] {
+  transform: rotate(180deg);
+}
+
+/* account menu (Popover content) — ported from the preview's dr-menu. Width follows the trigger
+   (the account button) via the Popover's matchWidth, like the preview's left:8/right:8 anchor. */
+.alk-accmenu {
+  display: flex;
+  flex-direction: column;
+  /* Keep the menu usable when the trigger is the narrow collapsed avatar (no matchWidth then), so
+     the theme swatches stay square instead of squishing to the rail width. Sized to the
+     dashboard-r1 reference menu so the three swatches sit tight, not spread. */
+  min-width: 208px;
+}
+.alk-accmenu__email {
+  padding: var(--alkSpace3);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+.alk-accmenu__item {
+  appearance: none;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: var(--alkSpace3);
+  border-radius: var(--alkRadiusSm);
+  font: inherit;
+  font-size: var(--alkTextMd);
+  color: var(--alkPrimaryText);
+  cursor: pointer;
+  transition: var(--alk-control-transition);
+}
+.alk-accmenu__item:hover,
+.alk-accmenu__item[data-open] {
+  background: var(--alkHoverBg);
+}
+/* The org this browser is in, listed in the switch flyout but not offered: greyed, with a check. */
+.alk-accmenu__item--current {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  color: var(--alkTertiaryText);
+  cursor: default;
+}
+.alk-accmenu__item--current:hover {
+  background: none;
+}
+.alk-accmenu__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* "Manage plan" row: label on the left, the current tier pill pushed to the right. */
+.alk-accmenu__item--plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace3);
+}
+.alk-accmenu__item--danger {
+  color: var(--alkDangerText);
+}
+.alk-accmenu__item--danger:hover {
+  background: var(--alkDangerSoft);
+}
+.alk-accmenu__sep {
+  height: 1px;
+  margin: var(--alkSpace1) 0;
+  background: var(--alkDivider);
+}
+
+/* theme picker — each option is a tiny preview of that theme's own material (ground, card, pine
+   line), so the swatch hexes are literal per-theme colors, NOT scheme-responsive tokens. */
+.alk-theme {
+  padding: var(--alkSpace3) var(--alkSpace3) var(--alkSpace1);
+}
+.alk-theme__label {
+  display: block;
+  padding-bottom: var(--alkSpace3);
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--alkSecondaryText);
+}
+.alk-theme__opts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--alkSpace3);
+}
+.alk-swatch {
+  display: flex;
+  flex-direction: column;
+  /* Center the fixed-size chip in its column so it reads as a SQUARE tile (the dashboard-r1
+     reference), not a chip stretched landscape across a wide column. */
+  align-items: center;
+  gap: var(--alkSpace2);
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.alk-swatch__chip {
+  position: relative;
+  /* A SQUARE tile — equal width and height, fixed so it never stretches landscape with the menu
+     width. */
+  width: 40px;
+  height: 40px;
+  border-radius: var(--alkRadiusMd);
+  /* A SOLID hairline, not the translucent --alkBorder: the swatch bg is a fixed light/dark split
+     (the Auto preview), so a translucent border composites dark over the light half and vanishes
+     over the dark half. A solid scheme-neutral reads evenly on all three chips. */
+  border: 1px solid color-mix(in srgb, var(--alkPrimaryText) 14%, var(--alkCardBg));
+  overflow: hidden;
+  transition:
+    box-shadow var(--alkDurationNormal) var(--alkEaseStandard),
+    border-color var(--alkDurationNormal) var(--alkEaseStandard);
+}
+.alk-swatch__chip::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: var(--alkRadiusSm);
+}
+.alk-swatch__chip::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  bottom: 10px;
+  width: 56%;
+  height: 2px;
+  border-radius: 2px;
+}
+.alk-swatch__chip--light {
+  background: #f4f3f0;
+}
+.alk-swatch__chip--light::before {
+  background: #fff;
+}
+.alk-swatch__chip--light::after {
+  background: #1c7064;
+}
+.alk-swatch__chip--dark {
+  background: #1b1a17;
+}
+.alk-swatch__chip--dark::before {
+  background: #25231e;
+}
+.alk-swatch__chip--dark::after {
+  background: #63bcae;
+}
+.alk-swatch__chip--system {
+  background: linear-gradient(118deg, #f4f3f0 0 50%, #1b1a17 50% 100%);
+}
+.alk-swatch__chip--system::before {
+  background: linear-gradient(118deg, #fff 0 50%, #25231e 50% 100%);
+}
+.alk-swatch__chip--system::after {
+  background: linear-gradient(90deg, #1c7064 0 50%, #63bcae 50% 100%);
+}
+.alk-swatch[data-on] .alk-swatch__chip {
+  border-color: var(--alkBrand);
+  box-shadow: 0 0 0 2px var(--alkBrand);
+}
+.alk-swatch__name {
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+  text-align: center;
+}
+.alk-swatch[data-on] .alk-swatch__name {
+  color: var(--alkPrimaryText);
+  font-weight: var(--alkWeightSemibold);
+}
+
+/* main + topbar */
+.alk-main {
+  grid-column: 2;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.alk-top {
+  /* Page-frame gutter — wider than the 16px content inset so the header text sits in from the cards'
+     edge (the dashboard-r1 reference masthead). Off the space scale, so a named local. On narrow
+     layouts it drops to the body's own inset (see the max-width: 900px block) so the header reclaims
+     width in lockstep with the page body instead of staying deeply inset. */
+  --alkTopGutter: 32px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace5);
+  height: 64px;
+  padding: 0 var(--alkTopGutter);
+  background: color-mix(in srgb, var(--alkPageBg) 82%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--alkBorder);
+}
+/* Title + subtitle read side by side on the masthead row, baseline-aligned (the serif title, then
+ * the muted sub) — not stacked. */
+.alk-top__title {
+  /* Takes the row's free width and yields it FIRST when the row gets tight: the title truncates and
+     the subtitle drops (see the narrow block) before a control ever loses size. Header controls
+     (the actions slot) stay content-width and never shrink, so the text gives way, not the buttons. */
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--alkSpace5);
+  overflow: hidden;
+  /* Optical centering: the serif title has no descenders, so in a line box that reserves descender
+     space it reads ~2px high; nudge the block down so it looks centered in the masthead. */
+  transform: translateY(2px);
+}
+.alk-top__title h1 {
+  /* Shrinkable + truncating so a wide search (or a long title) makes the title ellipsize rather
+     than collide — only kicks in when the row is too tight; full width when there's room. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alkText3xl);
+  font-weight: var(--alkWeightSemibold);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--alkPrimaryText);
+  white-space: nowrap;
+}
+/* Per-page subtitle portaled in via the masthead slot; collapses when no page supplies one, and
+ * truncates before the title does at a tight width. */
+.alk-top__sub {
+  /* The supporting line yields FIRST under squeeze (the narrow block drops it entirely); the
+     higher shrink factor keeps the H1 whole while the subtitle ellipsizes. */
+  flex: 0 4 auto;
+  min-width: 0;
+  font-size: var(--alkTextMd);
+  color: var(--alkSecondaryText);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alk-top__sub:empty {
+  display: none;
+}
+.alk-top__actions {
+  /* Content-width but not immovable: it never grows into the title, and it keeps its controls at
+     full size whenever the row has the room — but it may fall below them rather than carry the page
+     past the viewport. Held at a zero shrink factor it sized to the sum of its controls at EVERY
+     width, which is how the usage page's window switch put its right edge at 1134 in a 1024-wide
+     viewport. The search action expands as its own self-contained overlay (the collapsible search
+     field), so the slot does not need to flex-grow to host it. */
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--alkSpace3);
+}
+/* A masthead search (TextInput type="search" collapsible): a comfortable field while wide, and —
+   while collapsed-and-expanded on a narrow row — the overlay fills the whole masthead (edge gutter
+   to edge gutter), taking over the header the way the reference search does. The overlay is
+   absolute, so this width never reflows the row; it just governs how far the reveal grows. Any
+   page's masthead search inherits this. */
+.alk-top__actions .alk-input-collapse {
+  --alk-search-w: 17rem;
+}
+.alk-top__actions .alk-input-collapse[data-narrow][data-expanded] .alk-input-affix {
+  width: calc(100vw - 2 * var(--alkTopGutter));
+}
+.alk-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--alkSpace7);
+}
+.alk-content:has(> [data-content-fill]) {
+  overflow: hidden;
+  padding: 0;
+}
+
+/* scrim (mobile drawer backdrop) */
+.alk-scrim {
+  display: none;
+}
+
+.alk-notfound {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--alkSpace3);
+  min-height: 60vh;
+  color: var(--alkSecondaryText);
+}
+.alk-notfound__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusLg);
+  background: var(--alkCardBg);
+  color: var(--alkBrand);
+}
+.alk-notfound__title {
+  margin: 0;
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alkText2xl);
+  font-weight: var(--alkWeightMedium);
+  color: var(--alkPrimaryText);
+}
+.alk-notfound__note {
+  margin: 0;
+  max-width: 44ch;
+  font-size: var(--alkTextLg);
+  line-height: var(--alkLeadingNormal);
+}
+
+@media (max-width: 900px) {
+  .alk-app,
+  .alk-app[data-collapsed] {
+    grid-template-columns: 1fr;
+  }
+  .alk-main {
+    grid-column: 1;
+  }
+  /* Narrow: the header gutter shrinks to the body's content inset (--alkSpace7), so the masthead
+     gives content the same width the page body does instead of staying inset by the wide gutter. */
+  .alk-top {
+    --alkTopGutter: var(--alkSpace7);
+    /* When a page's actions are wider than the row (e.g. the models model-picker + New model button on
+       a phone), let them wrap below the title instead of overflowing the viewport — the controls keep
+       full size, the header just grows a row. No page horizontal-scrolls at any width. */
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 64px;
+    padding-block: var(--alkSpace4);
+    row-gap: var(--alkSpace4);
+  }
+  .alk-top__actions {
+    flex-wrap: wrap;
+  }
+  /* The page description gives way FIRST on a narrow row: it's a supporting line, not the thing the
+     user came for, so it drops here while the title (menu-button + name — the canonical mobile
+     masthead) truncates but stays and the controls keep full size. This is the shell rule, so every
+     page reads the same way narrow: a title and its controls, never a control crushed by a
+     description. */
+  .alk-top__sub {
+    display: none;
+  }
+  .alk-menubtn {
+    display: inline-flex;
+  }
+  .alk-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(280px, 82vw);
+    height: auto;
+    z-index: var(--alkZModal);
+    transform: translateX(-101%);
+    transition: transform var(--alkDurationSlow) var(--alkEaseStandard);
+  }
+  .alk-app[data-mobile-open] .alk-sidebar {
+    transform: translateX(0);
+  }
+  .alk-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--alkZModal) - 1);
+    background: var(--alkScrim);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--alkDurationSlow) var(--alkEaseStandard);
+  }
+  .alk-app[data-mobile-open] .alk-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-sidebar,
+  .alk-scrim,
+  .alk-nav__children,
+  .alk-navitem__caret,
+  .alk-account__chev {
+    transition: none;
+  }
+}
+
+/* View transitions (the knowledge ledger's re-sort): only the NAMED rows travel — the
+   root snapshot swaps instantly, so the page never crossfades over a closing drawer. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+/* ===== org audit log — filter bar ===== */
+/* One aligned rail of narrowing controls over the table. A grid, not a wrapping flex row: tracks
+   shrink together so the rail can never shed one trailing field onto its own ragged line. Wide,
+   all four fields share one row (the trailing 1fr seats Clear at the rail's end); at the medium
+   break the rail SNAPS to a 2x2 of equal cells — Action + Actor, then the From/To date pair kept
+   on one row — with Clear as a right-aligned footer; narrow stacks one per row. */
+.alk-audit-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 300px) minmax(0, 150px) minmax(0, 150px) 1fr;
+  align-items: end;
+  gap: var(--alkSpace3) var(--alkSpace4);
+  margin-bottom: var(--alkSpace4);
+}
+.alk-audit-filters__clear {
+  justify-self: end;
+}
+
+@media (max-width: 900px) {
+  .alk-audit-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .alk-audit-filters__clear {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .alk-audit-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

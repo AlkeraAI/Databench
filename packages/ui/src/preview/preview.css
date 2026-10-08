@@ -1,0 +1,295 @@
+/* preview — the pane a file is shown in, wherever it is shown: a tab beside a
+ * chat, the large modal on the Files page, the page a share link lands on.
+ *
+ * The surface fills whatever box it is given and never scrolls the page: every
+ * renderer scrolls inside itself. Colour comes from the token layer only, so a
+ * preview follows the scheme the host is in.
+ */
+
+.alk-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--alkPageBg);
+  color: var(--alkPrimaryText);
+}
+
+.alk-preview__notice {
+  margin: 0;
+  padding: var(--alkSpace5);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+  line-height: var(--alkLeadingNormal);
+  text-align: center;
+}
+
+/* The one line over a copy the drive served while the machine holds a newer one. */
+.alk-preview__stale {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--alkSpace2) var(--alkSpace4);
+  border-bottom: 1px solid var(--alkBorder);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+  line-height: var(--alkLeadingNormal);
+}
+
+/* The card: no renderer, too large, gone, pending, failed. */
+.alk-preview-fallback {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--alkSpace2);
+  padding: var(--alkSpace6);
+  text-align: center;
+}
+
+.alk-preview-fallback__glyph {
+  color: var(--alkTertiaryText);
+}
+
+.alk-preview-fallback__name {
+  margin: 0;
+  font-weight: var(--alkWeightMedium);
+  word-break: break-word;
+}
+
+.alk-preview-fallback__facts {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}
+
+.alk-preview-fallback__reason {
+  margin: 0 0 var(--alkSpace2);
+  max-width: 44ch;
+  color: var(--alkTertiaryText);
+  font-size: var(--alkTextSm);
+  line-height: var(--alkLeadingNormal);
+}
+
+/* A framed document — html, pdf. The frame is the whole pane; the pulse sits over
+   its corner so a reload announces itself without moving the content. */
+.alk-preview-frame {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.alk-preview-frame__frame {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--alkCardBg);
+}
+
+/* The frame could not be reached: a sentence and the two things left to do,
+   centred where the document would have been. */
+.alk-preview-frame--unreachable {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace5);
+  text-align: center;
+}
+
+.alk-preview-frame__actions {
+  display: flex;
+  gap: var(--alkSpace2);
+}
+
+.alk-preview-frame__pulse {
+  position: absolute;
+  top: var(--alkSpace3);
+  right: var(--alkSpace3);
+  padding: var(--alkSpace1) var(--alkSpace3);
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkSuccessSoft);
+  color: var(--alkSuccessText);
+  font-size: var(--alkTextXs);
+  font-weight: var(--alkWeightMedium);
+  animation: alk-preview-pulse var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+@keyframes alk-preview-pulse {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-preview-frame__pulse {
+    animation: none;
+  }
+}
+
+/* Images. The stage scrolls when the picture is bigger than the pane, so a zoom
+   pans instead of clipping. */
+.alk-preview-image {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.alk-preview-image__bar,
+.alk-preview-text__bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--alkSpace2);
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border-bottom: 1px solid var(--alkBorder);
+  background: var(--alkCardBg);
+}
+
+.alk-preview-image__stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: var(--alkSpace3);
+  background: var(--alkInsetBg);
+  scrollbar-color: var(--alkScrollbarThumb) transparent;
+}
+
+.alk-preview-image__img {
+  transform-origin: center center;
+}
+
+.alk-preview-image__img[data-mode="fit"] {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.alk-preview-image__img[data-mode="actual"] {
+  max-width: none;
+  max-height: none;
+}
+
+/* Video and audio. */
+.alk-preview-media {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: var(--alkSpace3);
+  background: var(--alkInsetBg);
+}
+
+.alk-preview-media__player {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* A spreadsheet. The pane is the column — the grid, which owns the only
+   scroller, then the line a partly loaded file ends on. Nothing here is sticky:
+   a bar pinned to `bottom: 0` or `top: 0` answers to the nearest ancestor that
+   scrolls, and the three surfaces that embed a preview each offer a different
+   one, so the bar landed mid-table in one of them. A flex item cannot land
+   anywhere but its place in the column. */
+.alk-preview-csv {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The line a text file that has not all arrived ends on: how much is here, and
+   the button that brings the next window. In plain text and a spreadsheet it is
+   the last item of the pane's column; in source and a note it is the last thing
+   inside the scroller, after the text. */
+.alk-preview-more {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border-top: 1px solid var(--alkBorder);
+  background: var(--alkRaisedBg);
+}
+
+.alk-preview-more__line {
+  margin: 0;
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextXs);
+}
+
+/* Source, and the marked-up document. Both draw a body as tall as the file and
+   have no bar of their own, so the pane is the bound and the body is the
+   scroller. With neither, they were plain blocks that grew past a pane whose own
+   `overflow: hidden` then simply cut the file off — a 600-line script showed its
+   first fifty lines and nothing would move. */
+.alk-preview-code,
+.alk-preview-markdown {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-color: var(--alkScrollbarThumb) transparent;
+}
+
+/* A rendered document reads like a page, not like a pane: prose set flush
+   against the frame is what made the report in the file tab jarring. The
+   margin is the scroller's padding, so it scrolls with the text and the last
+   line ends the same distance from the bottom as the first from the top. */
+.alk-preview-markdown {
+  padding: var(--alkSpace8) var(--alkSpace2xl) var(--alkSpace2xl);
+}
+
+/* The document is a flex column (`.alk-markdown`) inside a scroller of bounded
+   height, so any child that can scroll on its own — a table's wrapper, a code
+   block — would rather shrink than overflow, and a table read as a two-pixel
+   line. Nothing here shrinks: the scroller scrolls. */
+.alk-preview-markdown > * {
+  flex-shrink: 0;
+}
+
+/* Plain text. */
+.alk-preview-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.alk-preview-text__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: var(--alkSpace4);
+  overflow: auto;
+  background: var(--alkCardBg);
+  color: var(--alkPrimaryText);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  line-height: var(--alkLeadingNormal);
+  tab-size: 2;
+  scrollbar-color: var(--alkScrollbarThumb) transparent;
+}
+
+.alk-preview-text__body[data-wrap="off"] {
+  white-space: pre;
+}
+
+.alk-preview-text__body[data-wrap="on"] {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

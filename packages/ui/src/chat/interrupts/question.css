@@ -1,0 +1,577 @@
+/* The question card, a sibling of the permission card: same frame family, its
+   own anatomy. The shell arrives from dialog.css and the ramp from
+   theme/tokens.css; the base reset, icon sizing, and default focus come from
+   the package base. */
+
+/* --- The card: the one elevated performer while it holds the dock --------- */
+
+/* The measuring frame. An element cannot answer a query on the container it
+   establishes, so the card's own padding keys off this wrapper. */
+.chat-root .chat-question-frame {
+  container: chat-question / inline-size;
+}
+
+/* The shell is the dock family's (dialog.css). This card runs one step wider
+   inside, because its sections are an ask and a list rather than a line and a
+   row of buttons. */
+.chat-root .chat-question-card {
+  gap: var(--chat-sp-4);
+  animation: chat-rise-6 var(--chat-dur-medium) var(--chat-ease-out);
+}
+
+/* The ask: meta line, question, answer rows. Keyed on the question index, so a
+   move replays the entrance and the new question reads as new content. */
+.chat-root .chat-question-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-4);
+  /* The scrolling half of the card's height cap: the ask gives before the foot. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  animation: chat-rise-4 var(--chat-dur-slow) var(--chat-ease-out);
+}
+
+/* --- Meta line: the prompt's header and the derived position -------------- */
+
+/* The meta line labels the question under it, so the pair binds tighter than
+   the card's sections bind to each other. */
+.chat-root .chat-question-ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-1);
+}
+
+.chat-root .chat-question-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--chat-sp-1);
+  margin: 0;
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  color: var(--chat-ink-2);
+}
+
+/* The header, when the wire sends one, names the ask below it. It reads at the
+   question's own size: a label and the sentence it labels are one thought, and
+   a size step between them was read as the pair disagreeing. Rank comes from
+   weight and ink instead. */
+.chat-root .chat-question-meta__head {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: var(--chat-w-regular);
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-question-meta__sep {
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-question-meta__count {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- The question: the card's apex while it is up ------------------------- */
+
+.chat-root .chat-question-question {
+  margin: 0;
+  font-size: var(--chat-fs-display, 18px);
+  font-weight: var(--chat-w-semi);
+  line-height: var(--chat-lh-display, 24px);
+  color: var(--chat-ink);
+  overflow-wrap: break-word;
+}
+
+/* Under a header the pair reads at one size: the header names the ask, the
+   question is the sentence, and the question outranks it by weight and ink. */
+.chat-root .chat-question-ask:has(.chat-question-meta__head) .chat-question-question {
+  font-size: var(--chat-fs-text, 14px);
+  font-weight: var(--chat-w-medium);
+  line-height: var(--chat-lh-text, 20px);
+}
+
+/* --- Answer rows ---------------------------------------------------------- */
+
+.chat-root .chat-question-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-1);
+  /* The dock must leave the transcript on screen. In a squeezed panel the rows
+     wrap to four and five lines apiece, so the list is the part that yields: it
+     scrolls at 344px, which every layout from 320px up clears without a
+     scrollbar. */
+  max-height: min(46vh, 344px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* The platform hides overlay scrollbars at rest, so a capped list would look
+   finished at its last visible row. The fade is the affordance, set only while
+   rows remain below the fold. */
+.chat-root .chat-question-options[data-more] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent);
+}
+
+.chat-root :is(.chat-question-opt, .chat-question-other) {
+  display: flex;
+  padding: var(--chat-sp-1) var(--chat-sp-2);
+  border-radius: var(--chat-radius-control);
+  transition: background-color var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+.chat-root .chat-question-opt {
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  cursor: pointer;
+}
+
+.chat-root .chat-question-other {
+  flex-direction: column;
+  gap: var(--chat-sp-1);
+}
+
+/* The wash spans the row, which already sits inside the card's padding, so it
+   never reaches the card edge. */
+.chat-root .chat-question-opt:hover,
+.chat-root .chat-question-other:hover {
+  background: var(--chat-dialog-wash);
+}
+
+/* Selection reads off the row itself, not only the glyph: a forest wash plus a
+   forest edge, with the mark as the second, non-color carrier. */
+.chat-root :is(.chat-question-opt, .chat-question-other)[data-picked] {
+  background: var(--chat-dialog-forest-wash);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chat-forest) 42%, transparent);
+}
+
+.chat-root :is(.chat-question-opt, .chat-question-other)[data-picked]:hover {
+  background: color-mix(in srgb, var(--chat-forest) 16%, transparent);
+}
+
+/* A committed set is a record: the inputs are disabled, so the rows drop their
+   pointer affordances with them. Picked rows keep their resting wash. */
+.chat-root .chat-question-card[data-settled] :is(.chat-question-opt, .chat-question-other, .chat-question-other__row, .chat-question-box) {
+  cursor: default;
+}
+
+.chat-root .chat-question-card[data-settled] :is(.chat-question-opt, .chat-question-other):hover {
+  background: none;
+}
+
+.chat-root .chat-question-card[data-settled] :is(.chat-question-opt, .chat-question-other)[data-picked],
+.chat-root .chat-question-card[data-settled] :is(.chat-question-opt, .chat-question-other)[data-picked]:hover {
+  background: var(--chat-dialog-forest-wash);
+}
+
+.chat-root .chat-question-opt__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-1);
+  min-width: 0;
+}
+
+.chat-root .chat-question-opt__label {
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+  overflow-wrap: break-word;
+}
+
+/* An answer's gloss reads at the label's own size and separates by weight and
+   ink; shrinking it would make the choice harder to read, not quieter. */
+.chat-root .chat-question-opt__desc {
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  color: var(--chat-ink-2);
+  overflow-wrap: break-word;
+}
+
+/* --- The marks: native radio and checkbox, restyled ----------------------- */
+
+.chat-root .chat-question-box {
+  position: relative;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  /* 2px lands the 16px box on the 20px label line's cap height. */
+  margin-top: var(--chat-sp-1);
+  border: 1.5px solid var(--chat-ink-3);
+  border-radius: var(--chat-radius-micro);
+  background: var(--chat-paper-raised);
+  cursor: pointer;
+}
+
+.chat-root .chat-question-box[type="radio"] {
+  border-radius: 50%;
+}
+
+.chat-root .chat-question-box:checked {
+  border-color: var(--chat-forest);
+}
+
+.chat-root .chat-question-box[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--chat-forest);
+  transform: translate(-50%, -50%);
+}
+
+.chat-root .chat-question-box[type="checkbox"]:checked {
+  /* The solid accent, not the reading tier: this one is a FILL under the tick's
+     own ink, and the reading tier inverts with the scheme. */
+  background: var(--chat-forest-bright);
+  color: var(--chat-dialog-primary-ink);
+}
+
+.chat-root .chat-question-box[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4.4px;
+  top: 1.4px;
+  width: 4px;
+  height: 8px;
+  border: 1.6px solid currentcolor;
+  border-top: 0;
+  border-left: 0;
+  transform: rotate(42deg);
+}
+
+/* --- The Other row: label above, borderless field under it ---------------- */
+
+.chat-root .chat-question-other__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  cursor: pointer;
+}
+
+/* The field indents to the label's text column, so the row reads as one answer. */
+.chat-root .chat-question-other__field {
+  width: calc(100% - 24px);
+  margin-left: var(--chat-sp-5);
+  padding: var(--chat-sp-1) 0;
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  color: var(--chat-ink);
+  text-overflow: ellipsis;
+}
+
+.chat-root .chat-question-other__field::placeholder {
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-question-other__field:focus {
+  outline: none;
+}
+
+/* The card is the bounded surface, so the field carries no resting edge; focus
+   lands on the row instead, a ring over a wash. */
+.chat-root .chat-question-other:has(.chat-question-other__field:focus) {
+  background: var(--chat-dialog-wash);
+  outline: 2px solid var(--chat-forest-bright);
+  outline-offset: -2px;
+}
+
+/* --- Action bar: pager and one filled primary ----------------------------- */
+
+.chat-root .chat-question-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-2);
+}
+
+.chat-root .chat-question-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+}
+
+/* The row metric is the dock family's; these two center their content, because
+   one is a bare arrow and the other a label with no accessory beside it. */
+.chat-root :is(.chat-question-page, .chat-question-primary) {
+  justify-content: center;
+  border-radius: var(--chat-radius-control);
+  transition: background-color var(--chat-dur-fast) var(--chat-ease-soft);
+}
+
+/* An arrow is a square: its width equals the bar-control height. */
+.chat-root .chat-question-page {
+  width: 34px;
+  color: var(--chat-ink-2);
+}
+
+.chat-root .chat-question-page:hover:not(:disabled) {
+  background: var(--chat-dialog-wash);
+  color: var(--chat-ink);
+}
+
+.chat-root .chat-question-page:disabled {
+  color: var(--chat-ink-3);
+  opacity: 0.45;
+  cursor: default;
+}
+
+.chat-root .chat-question-chev {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chat-root .chat-question-primary {
+  padding: 0 var(--chat-sp-3);
+  background: var(--chat-dialog-primary);
+  color: var(--chat-dialog-primary-ink);
+  font-weight: var(--chat-w-semi);
+}
+
+.chat-root .chat-question-primary:hover:not(:disabled) {
+  background: var(--chat-dialog-primary-hover);
+}
+
+.chat-root .chat-question-primary:disabled {
+  background: var(--chat-dialog-wash-2);
+  color: var(--chat-ink-3);
+  cursor: default;
+}
+
+/* --- Focus: the bar's ring is the family's; the row draws its own ------------ */
+
+/* The row is the control a user sees, and the ring draws inside it so a
+   scrolled list never clips it. */
+.chat-root :is(.chat-question-opt, .chat-question-other__row):has(.chat-question-box:focus-visible) {
+  outline: 2px solid var(--chat-forest-bright);
+  outline-offset: -2px;
+  border-radius: var(--chat-radius-control);
+}
+
+/* --- Width: the bar folds before any label does --------------------------- */
+
+/* Below a 270px card the pager and the primary stop fitting one row, so the
+   primary takes a full row and the pager sits under it. The spacer goes: a
+   growing item on a wrapped line would push the pager to a third row. */
+@container chat-question (max-width: 269px) {
+  .chat-root .chat-question-bar {
+    flex-wrap: wrap;
+  }
+
+  .chat-root .chat-question-bar__gap {
+    display: none;
+  }
+
+  .chat-root .chat-question-primary {
+    order: -1;
+    width: 100%;
+  }
+}
+
+/* The narrowest panels buy the folded row its last few pixels from the padding. */
+@container chat-question (max-width: 189px) {
+  .chat-root .chat-question-card {
+    padding: var(--chat-sp-3);
+  }
+}
+
+/* --- Reduced motion: swap every move for a fade --------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-question-card,
+  .chat-root .chat-question-body {
+    animation-name: chat-fade-in;
+  }
+
+  .chat-root :is(.chat-question-opt, .chat-question-other, .chat-question-page, .chat-question-primary) {
+    transition: none;
+  }
+}
+
+/* --- The transcript's record: the moment the run turned to the reader -------
+   Neither a tool group nor a document. It is an EXCHANGE: a framed block whose
+   verdict line says whether the reader answered, then each ask with the reply
+   it drew hanging under it on a turn arm. The frame joins the plan sheet and
+   the subagent report at the same edge, radius, and interior; what makes it
+   its own block is the ask-and-reply shape nothing else in the tape has. Ink
+   stops at ink-2, the machine ceiling, so the register stays below prose. */
+
+.chat-root .chat-asked-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-3);
+  min-width: 0;
+  padding: var(--chat-sp-3);
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--chat-radius-control);
+}
+
+/* Open, the block reads provisional the way a pending plan does: the edge is
+   dashed until the reader has answered. */
+.chat-root .chat-asked-card[data-state="open"] {
+  border-style: dashed;
+}
+
+/* The dot comes from the host's block mechanism; this feeds it the first row's
+   metric. The 12px pad plus half the 24px verdict row puts it on that row. */
+.chat-root .chat-block:has(.chat-asked-card) {
+  --chat-dot-lead: 12px;
+  --chat-first-row-lh: 24px;
+}
+
+/* --- The verdict line: did the reader answer ------------------------------ */
+
+.chat-root .chat-asked-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0;
+  min-height: 24px;
+  column-gap: var(--chat-sp-1);
+  row-gap: var(--chat-sp-1);
+  font-size: var(--chat-fs-record, 12px);
+  line-height: var(--chat-lh-record, 16px);
+  letter-spacing: var(--chat-track-record, 0.014em);
+}
+
+.chat-root .chat-asked-status__text {
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink-2);
+}
+
+/* Answered is stated in the theme's own green, the tier the plan's approval
+   uses; an open ask stays quiet rather than alarming. */
+.chat-root .chat-asked-card[data-state="answered"] .chat-asked-status__text,
+.chat-root .chat-asked-ask[data-answered] .chat-asked-mark {
+  color: var(--chat-forest);
+}
+
+.chat-root[data-theme="dark"] .chat-asked-card[data-state="answered"] .chat-asked-status__text,
+.chat-root[data-theme="dark"] .chat-asked-ask[data-answered] .chat-asked-mark {
+  color: var(--chat-mode-default);
+}
+
+/* The count only appears for a set, and it never breaks inside itself. */
+.chat-root .chat-asked-status__count {
+  margin-left: var(--chat-sp-1);
+  white-space: nowrap;
+  color: var(--chat-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-root .chat-asked-glyph {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --- The asks, each with the reply it drew -------------------------------- */
+
+.chat-root .chat-asked-asks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+/* The mark column holds its width at every panel width; the text column is the
+   one that yields. The mark's box is the first text row's line box, so the ring
+   centres on the question it marks. */
+.chat-root .chat-asked-ask {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  column-gap: var(--chat-sp-2);
+  align-items: start;
+  min-width: 0;
+}
+
+.chat-root .chat-asked-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: var(--chat-lh-text, 20px);
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-asked-say {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-sp-1);
+  min-width: 0;
+}
+
+.chat-root .chat-asked-q {
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  color: var(--chat-ink-3);
+  overflow-wrap: break-word;
+}
+
+/* The reply hangs off the ask on a turn arm, indented under it. The answer is
+   what the exchange recorded, so it outranks the question by weight and ink. */
+.chat-root .chat-asked-reply {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  margin-left: var(--chat-sp-1);
+  min-width: 0;
+  font-size: var(--chat-fs-text, 14px);
+  line-height: var(--chat-lh-text, 20px);
+  animation: chat-asked-reply-in var(--chat-dur-slow) var(--chat-ease-out);
+}
+
+.chat-root .chat-asked-turn {
+  flex: none;
+  width: 14px;
+  height: var(--chat-lh-text, 20px);
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--chat-ink-3);
+}
+
+.chat-root .chat-asked-reply__text {
+  min-width: 0;
+  font-weight: var(--chat-w-medium);
+  color: var(--chat-ink);
+  overflow-wrap: break-word;
+}
+
+/* An ask still waiting says so in the reply's own slot, quiet: the shape of
+   the exchange holds even before there is an answer to put in it. */
+.chat-root .chat-asked-ask:not([data-answered]) .chat-asked-reply__text {
+  font-weight: var(--chat-w-regular);
+  font-style: italic;
+  color: var(--chat-ink-3);
+}
+
+@keyframes chat-asked-reply-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-root .chat-asked-reply {
+    animation-name: chat-fade-in;
+  }
+}

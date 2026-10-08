@@ -1,0 +1,716 @@
+{
+  "description": "Notebook ops and what every applier (the file store, the platform's live document, the browser editor) must make of them. `cells` are the live cells before; `expect` is either the live cells after as [id, kind, source] or the refusal as {error, index}. Rules: alkera_notebook.format.op_rules.",
+  "cases": [
+    {
+      "name": "edit_replaces_the_one_match",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "x = 1\ny = 2"
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "y = 2",
+              "new": "y = 3"
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "python",
+            "x = 1\ny = 3"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "edit_refuses_an_ambiguous_match",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "a\na"
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "a",
+              "new": "b"
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "error": "edit_ambiguous",
+        "index": 0
+      }
+    },
+    {
+      "name": "edit_picks_an_occurrence",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "a\na"
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "a",
+              "new": "b",
+              "occurrence": 2
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "python",
+            "a\nb"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "edit_refuses_a_missing_occurrence",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "a\na"
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "a",
+              "new": "b",
+              "occurrence": 3
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "error": "edit_not_found",
+        "index": 0
+      }
+    },
+    {
+      "name": "edit_refuses_missing_text",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "x = 1"
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "y",
+              "new": "z"
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "error": "edit_not_found",
+        "index": 0
+      }
+    },
+    {
+      "name": "edit_counts_matches_without_overlap",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "aaa"
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "aa",
+              "new": "b"
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "python",
+            "ba"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "edit_with_empty_old_fills_an_empty_cell",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": ""
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "",
+              "new": "x = 1"
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "python",
+            "x = 1"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "edit_with_empty_old_is_ambiguous_in_text",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "x = 1"
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "",
+              "new": "y"
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "error": "edit_ambiguous",
+        "index": 0
+      }
+    },
+    {
+      "name": "edits_apply_in_order",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "x = 1"
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "1",
+              "new": "2"
+            },
+            {
+              "old": "x = 2",
+              "new": "y = 2"
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "python",
+            "y = 2"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "a_refused_op_changes_nothing",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "x = 1"
+        },
+        {
+          "id": "f6g7h8j9k0",
+          "kind": "python",
+          "source": "y = 1"
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "1",
+              "new": "2"
+            }
+          ]
+        },
+        {
+          "op": "edit",
+          "cell_id": "f6g7h8j9k0",
+          "edits": [
+            {
+              "old": "nope",
+              "new": "z"
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "error": "edit_not_found",
+        "index": 1
+      }
+    },
+    {
+      "name": "sql_made_python_runs_the_same_query",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "sql",
+          "source": "SELECT 1",
+          "meta": {
+            "output_var": "_df"
+          }
+        }
+      ],
+      "ops": [
+        {
+          "op": "set_kind",
+          "cell_id": "a1b2c3d4e5",
+          "kind": "python"
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "python",
+            "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n)"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "a_sql_template_made_sql_reads_as_its_query",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n)"
+        }
+      ],
+      "ops": [
+        {
+          "op": "set_kind",
+          "cell_id": "a1b2c3d4e5",
+          "kind": "sql"
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "sql",
+            "SELECT 1"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "python_made_markdown_keeps_its_text",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "x = 1"
+        }
+      ],
+      "ops": [
+        {
+          "op": "set_kind",
+          "cell_id": "a1b2c3d4e5",
+          "kind": "markdown"
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "markdown",
+            "x = 1"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "an_unparsable_cell_cannot_be_inserted",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "x = 1"
+        }
+      ],
+      "ops": [
+        {
+          "op": "insert",
+          "kind": "unparsable",
+          "source": "x = ("
+        }
+      ],
+      "expect": {
+        "error": "unknown_kind",
+        "index": 0
+      }
+    },
+    {
+      "name": "a_cell_cannot_be_made_unparsable",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "x = 1"
+        }
+      ],
+      "ops": [
+        {
+          "op": "set_kind",
+          "cell_id": "a1b2c3d4e5",
+          "kind": "unparsable"
+        }
+      ],
+      "expect": {
+        "error": "unknown_kind",
+        "index": 0
+      }
+    },
+    {
+      "name": "a_sql_cell_cannot_be_inserted_holding_three_quotes",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "s = \"\"\"a\"\"\""
+        }
+      ],
+      "ops": [
+        {
+          "op": "insert",
+          "kind": "sql",
+          "source": "SELECT '\"\"\"'"
+        }
+      ],
+      "expect": {
+        "error": "not_representable",
+        "index": 0
+      }
+    },
+    {
+      "name": "a_markdown_cell_cannot_be_inserted_holding_three_quotes",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "s = \"\"\"a\"\"\""
+        }
+      ],
+      "ops": [
+        {
+          "op": "insert",
+          "kind": "markdown",
+          "source": "Use \"\"\"docstrings\"\"\"."
+        }
+      ],
+      "expect": {
+        "error": "not_representable",
+        "index": 0
+      }
+    },
+    {
+      "name": "an_edit_cannot_give_a_sql_cell_three_quotes",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "sql",
+          "source": "SELECT 1",
+          "meta": {
+            "output_var": "_df",
+            "connection": "pg"
+          }
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "1",
+              "new": "'\"\"\"'"
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "error": "not_representable",
+        "index": 0
+      }
+    },
+    {
+      "name": "a_replace_cannot_give_a_markdown_cell_three_quotes",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "markdown",
+          "source": "# Notes",
+          "meta": {
+            "quote": "r"
+          }
+        }
+      ],
+      "ops": [
+        {
+          "op": "replace",
+          "cell_id": "a1b2c3d4e5",
+          "source": "# \"\"\""
+        }
+      ],
+      "expect": {
+        "error": "not_representable",
+        "index": 0
+      }
+    },
+    {
+      "name": "python_holding_three_quotes_cannot_be_made_markdown",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "s = \"\"\"a\"\"\""
+        }
+      ],
+      "ops": [
+        {
+          "op": "set_kind",
+          "cell_id": "a1b2c3d4e5",
+          "kind": "markdown"
+        }
+      ],
+      "expect": {
+        "error": "not_representable",
+        "index": 0
+      }
+    },
+    {
+      "name": "a_sql_cell_edited_keeps_its_kind",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "sql",
+          "source": "SELECT 1",
+          "meta": {
+            "output_var": "_df",
+            "connection": "pg"
+          }
+        }
+      ],
+      "ops": [
+        {
+          "op": "edit",
+          "cell_id": "a1b2c3d4e5",
+          "edits": [
+            {
+              "old": "1",
+              "new": "2"
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "sql",
+            "SELECT 2"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "a_markdown_cell_takes_single_quotes",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "markdown",
+          "source": "# Notes",
+          "meta": {
+            "quote": "r"
+          }
+        }
+      ],
+      "ops": [
+        {
+          "op": "replace",
+          "cell_id": "a1b2c3d4e5",
+          "source": "Say ''' or \"\"."
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "markdown",
+            "Say ''' or \"\"."
+          ]
+        ]
+      }
+    },
+    {
+      "name": "set_meta_changes_a_sql_cells_connection_and_keeps_its_query",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "sql",
+          "source": "SELECT 1",
+          "meta": {
+            "output_var": "_df",
+            "connection": "pg"
+          }
+        }
+      ],
+      "ops": [
+        {
+          "op": "set_meta",
+          "cell_id": "a1b2c3d4e5",
+          "meta": {
+            "connection": "warehouse"
+          }
+        }
+      ],
+      "expect": {
+        "cells": [
+          [
+            "a1b2c3d4e5",
+            "sql",
+            "SELECT 1"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "set_meta_refuses_a_python_cell",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "python",
+          "source": "x = 1"
+        }
+      ],
+      "ops": [
+        {
+          "op": "set_meta",
+          "cell_id": "a1b2c3d4e5",
+          "meta": {
+            "connection": "pg"
+          }
+        }
+      ],
+      "expect": {
+        "error": "invalid_config",
+        "index": 0
+      }
+    },
+    {
+      "name": "set_config_refuses_a_sql_setting",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "sql",
+          "source": "SELECT 1"
+        }
+      ],
+      "ops": [
+        {
+          "op": "set_config",
+          "cell_id": "a1b2c3d4e5",
+          "config": {
+            "show_output": false
+          }
+        }
+      ],
+      "expect": {
+        "error": "invalid_config",
+        "index": 0
+      }
+    },
+    {
+      "name": "set_config_refuses_an_unknown_key",
+      "cells": [
+        {
+          "id": "a1b2c3d4e5",
+          "kind": "sql",
+          "source": "SELECT 1"
+        }
+      ],
+      "ops": [
+        {
+          "op": "set_config",
+          "cell_id": "a1b2c3d4e5",
+          "config": {
+            "colour": "red"
+          }
+        }
+      ],
+      "expect": {
+        "error": "invalid_config",
+        "index": 0
+      }
+    }
+  ]
+}

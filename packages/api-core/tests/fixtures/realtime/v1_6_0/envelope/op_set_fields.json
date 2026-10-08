@@ -1,0 +1,26 @@
+{
+  "doc_id": "0f2b6c1e-6d1a-4a6d-9f1e-2c3b4a5d6e7f",
+  "doc_type": "artifact",
+  "epoch": 1,
+  "kind": "op",
+  "metadata": {},
+  "payload": {
+    "events": [],
+    "fields": {
+      "title": {
+        "metadata": {},
+        "schema_version": "1.0.0",
+        "ts": 1757073660.5,
+        "value": "Orders fact, revised"
+      }
+    },
+    "intent": "set_fields",
+    "meta": {},
+    "metadata": {},
+    "op_id": "op-fields-1",
+    "schema_version": "1.0.0"
+  },
+  "peer_id": "p:3f9a1c2b4d6e",
+  "schema_version": "1.1.0",
+  "seq": 3
+}

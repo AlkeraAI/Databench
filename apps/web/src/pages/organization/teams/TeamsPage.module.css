@@ -1,0 +1,17 @@
+/* The Teams page shell on the portal surface. */
+.body {
+  position: relative;
+  min-height: calc(100vh - 96px);
+}
+
+.treePanel :global(.alk-sidepanel__body) {
+  padding: var(--alkSpace5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ptm *,
+  .ptm *::before {
+    transition: none !important;
+    animation: none !important;
+  }
+}

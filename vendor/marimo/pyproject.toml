@@ -1,0 +1,612 @@
+[build-system]
+requires = ["uv_build>=0.8.3,<0.13.0"]
+build-backend = "uv_build"
+
+[project]
+name = "marimo"
+version = "0.25.1"
+description = "A library for making reactive notebooks and apps"
+# We try to keep dependencies to a minimum, to avoid conflicts with
+# user environments; we need a very compelling reason for each dependency added.
+# Dependencies should have lower bounds, which should be as loose as possible.
+dependencies = [
+    # For maintainable cli
+    "click>=8.0,<9; sys_platform != 'emscripten'",
+    # code completion (upper bound applied temporarily for resolution)
+    "jedi>=0.18.0,<0.21.0",
+    # compile markdown to html
+    "markdown>=3.6,<4",
+    # add features to markdown
+    # - 10.11.2 introduced the codeblock handling we rely on
+    # - 10.21.2 stopped passing `filename=None` to pygments (broken on
+    #   pygments>=2.20)
+    "pymdown-extensions>=10.21.2,<12",
+    # syntax highlighting of code in markdown
+    "pygments>=2.19,<3",
+    # for reading, writing configs
+    "tomlkit>=0.12.0",
+    # for managing frontmatter headers in markdown
+    "pyyaml>=6.0.1",
+    # web server
+    # - 0.22.0 introduced timeout-graceful-shutdown, which we use
+    "uvicorn>=0.22.0; sys_platform != 'emscripten'",
+    # web framework
+    # - 0.29.0 introduced Middleware kwargs, which we use
+    # - starlette 0.36.0 introduced a bug
+    # - starlette 0.37.2 fixed httpx 0.28 compatibility
+    "starlette>=0.37.2; sys_platform != 'emscripten'",
+    # multipart form parsing for file uploads (Starlette's request.form() requires it)
+    "python-multipart>=0.0.18",
+    # websockets for use with starlette, and for lsp
+    "websockets >= 14.2.0; sys_platform != 'emscripten'",
+    # loro for collaborative editing (native extension; server-only)
+    "loro>=1.10.0; sys_platform != 'emscripten' and sys_platform != 'android'",
+    # python <=3.10 compatibility
+    "typing_extensions>=4.4.0; python_version < '3.12'",
+    # for rst parsing; lowerbound determined by awscli requiring < 0.17,
+    "docutils>=0.16.0",
+    # to show RAM, CPU usage, other system utilities
+    "psutil>=5.0; sys_platform != 'emscripten' and sys_platform != 'android'",
+    # required dependency in Starlette for SessionMiddleware support
+    "itsdangerous>=2.0.0",
+    # for dataframe support
+    "narwhals>=2.0.0",
+    # for packaging.version; not sure what the lower bound is.
+    "packaging",
+    "msgspec>=0.20.0",
+    # for IPC, required for marimo edit --sandbox, marimo run <multiple notebooks>
+    "pyzmq>=27.1.0; python_version < '3.15' and sys_platform != 'emscripten'",
+]
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+classifiers = [
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+[project.scripts]
+marimo = "marimo._cli.cli:main"
+
+[project.urls]
+homepage = "https://github.com/marimo-team/marimo"
+
+[project.entry-points."docstring_to_markdown"]
+marimo_converter = "marimo._utils.docs:MarimoConverter"
+
+[project.optional-dependencies]
+sql = [
+    "duckdb>=1.0.0",           # SQL cells
+    "polars[pyarrow]>=1.9.0",  # SQL output back in Python
+    "sqlglot[c]>=26.8.0"       # SQL cells parsing;
+]
+
+# For per-notebook sandboxed kernels. pyzmq moved to the core
+# dependencies; the extra remains for the uv wheel.
+sandbox = [
+    "uv>=0.9.21",              # for sandbox management and local html-wasm exports
+]
+
+# List of deps that are recommended for most users
+# in order to unlock all features in marimo
+recommended = [
+    "marimo[sql]",
+    "marimo[sandbox]",                           # For `marimo edit --sandbox DIRECTORY`
+    "marimo-lens>=0.2.3",                        # Inspect and select notebook outputs
+    "cryptography>=42.0.0",                      # Ed25519 signing of persistent cache manifests
+    "altair>=5.4.0",                             # Plotting in datasource viewer
+    "pydantic-ai-slim[openai]>=1.107.0,<3.0.0",  # AI features
+    "ruff",                                      # Formatting
+    "nbformat>=5.7.0",                           # Export as IPYNB
+]
+
+lsp = [
+    "python-lsp-server>=1.13.0",
+    "python-lsp-ruff>=2.0.0",
+]
+
+mcp = [
+    "httpx2>=2.5.0,<3",
+    "mcp>=2.0.0,<3",
+]
+
+otel = [
+    "opentelemetry-api~=1.28.0",
+    "opentelemetry-sdk~=1.28.0",
+    "opentelemetry-exporter-otlp-proto-http~=1.28.0",
+    "opentelemetry-exporter-otlp-proto-grpc~=1.28.0",
+]
+
+[dependency-groups]
+dev = [
+    # Typo checking
+    "typos~=1.23.6",
+    # For tracing debugging
+    "opentelemetry-api~=1.28.0",
+    "opentelemetry-sdk~=1.28.0",
+    "opentelemetry-exporter-otlp-proto-http~=1.28.0",
+    "opentelemetry-exporter-otlp-proto-grpc~=1.28.0",
+    # For SQL
+    "duckdb>=1.0.0",
+    "sqlglot[c]>=26.8.0",
+    # Stubs for optional dataframe backends
+    "pyarrow-stubs",
+    # For linting
+    "ruff>=0.16.6",
+    # For AI
+    "pydantic-ai-slim[openai]>=1.107.0,<3.0.0",
+]
+
+test = [
+    # For server testing
+    "httpx~=0.28.0",
+    "urllib3~=2.5.0",
+    # Pytest and plugins
+    "pytest~=9.0.2",
+    "pytest-timeout~=2.4.0",
+    "pytest-codecov~=0.7.0",
+    "pytest-rerunfailures~=16.1",
+    "pytest-asyncio~=1.3.0",
+    "pytest-picked>=0.5.1",
+    "pytest-sugar~=1.1.1",
+    "pytest-xdist~=3.5",
+    # Comparison testing
+    "inline-snapshot~=0.29.0",
+    "hypothesis~=6.102.1",
+    "dirty-equals~=0.9.0",
+    # Forced for modern matplotlib.
+    "matplotlib~=3.10.7",
+    "pillow>=9",
+    "zstandard>=0.21.0",
+    "cffi>=1.16.0",
+]
+
+test-optional = [
+    {include-group = "test"},
+    # For testing ADBC driver-based SQL connections
+    "adbc_driver_manager",
+    "adbc_driver_sqlite",
+    "python-lsp-server>=1.10.0",
+    # For testing mo.ui.chart, table, ...
+    "vl-convert-python",
+    "vegafusion",
+    "pyarrow>=19.0.1",
+    "pyarrow_hotfix",
+    "altair>=5.4.0",
+    "plotly>=5.14.0",
+    "polars>=1.32.2",
+    "sqlglot[c]>=26.8.0",
+    "sqlalchemy>=2.0.40,!=2.1.0",
+    "obstore>=0.8.2",
+    "huggingface-hub>=1.24.0",
+    "fsspec>=2026.2.0",
+    "pyiceberg>=0.9.0",
+    "cloudpathlib>=0.23.0",
+    # For testing clickhouse
+    "chdb>=3; platform_system != 'Windows'", # there is no suitable wheel for windows
+    "clickhouse-connect>=0.8.18",
+    "redshift-connector[full]>=2.1.7",
+    # For testing starrocks
+    "starrocks>=1.3.0",
+    "pandas>=1.5.3",
+    "hvplot~=0.11.3",
+    "geopandas>=1.1.0",
+    "duckdb>=1.0.0",
+    "ibis-framework[duckdb]>=10.3.0",
+    # For testing mo.image
+    "pillow~=12.0.0",
+    "anywidget~=0.9.21",
+    "ipython~=8.12.3",
+    # testing gen ai
+    "pydantic-ai-slim[google,anthropic,bedrock,openai]>=1.107.0,<3.0.0",
+    # - google-auth uses cachetools, and cachetools<5.0.0 uses collections.MutableMapping (removed in Python 3.10)
+    "cachetools>=5.0.0",
+    "boto3>=1.38.46",
+    # for bedrock ui chat
+    # exporting as ipynb
+    "nbformat>=5.10.4",
+    "nbconvert>=7.17.0",
+    "sympy>=1.13.3",
+    "jupytext>=1.17.2",
+    # For standard scientific computing/ ML
+    # flax 0.10 requires jax>=0.4.27, so keep the floors compatible.
+    # TODO: Remove <0.11.2 after Flax 0.12.10 enters CI's 7-day window (2026-10-01).
+    "jax>=0.4.27,<0.11.2; python_version == '3.12'",
+    "flax>=0.10.0; python_version == '3.12'",
+    "torch>=2.4.0; python_version == '3.12'",
+    "scikit-bio>=0.6.3; python_version == '3.12'",
+    "mcp>=2.0.0,<3",
+    # zeromq
+    "pyzmq>=27.1.0",
+    # weave tracing integration
+    "weave>=0.51.0",
+    # For type-checking tests
+    "basedpyright>=1.28.0",
+]
+
+typecheck = [
+    "mypy~=1.15.0",
+    # Types for mypy
+    "altair>=5.4.0",
+    "leafmap~=0.39.2",
+    "panel>=1.5.3",
+    "polars>=1.9.0",
+    "pytest>=9.0.2",
+    "duckdb>=1.0.0",
+    "narwhals>=2.0.0",
+    "matplotlib>=3.8.0",
+    "sqlglot[c]>=26.8.0",
+    "sqlalchemy>=2.0.40,!=2.1.0",
+    "obstore>=0.8.2",
+    "huggingface_hub>=1.24.0",
+    "fsspec>=2026.2.0",
+    "pydantic-ai-slim[google,anthropic,bedrock,openai]>=1.107.0,<3.0.0",
+    "loro>=1.5.0",
+    "boto3-stubs>=1.38.46",
+    "pandas-stubs>=1.5.3.230321",
+    "pyiceberg>=0.9.0",
+    "python-dotenv>=1.0.1",
+    "jupytext>=1.17.2",
+    "types-Pillow>=10.2.0.20240520",
+    "types-Pygments>=2.18.0.20240506",
+    "types-psutil>=5.9.5.20240516",
+    "types-redis>=4.6.0.20241004",
+    "types-Markdown>=3.6.0.20240316",
+    "types-PyYAML>=6.0.12.20240808",
+    "types-docutils>=0.21.0.20241128",
+    "mcp>=2.0.0,<3",
+    # zeromq
+    "pyzmq>=27.1.0",
+    "pyarrow-stubs",
+]
+
+docs = [
+    "marimo_docs",
+    "ruff>=0.16.6",
+    "mkdocs>=1.6.1",
+    # `mkdocs serve` silently loses live reload on click 8.3.x: MkDocs declares
+    # --no-livereload/--livereload as a feature switch group, and click 8.3
+    # dropped the explicit `default=True` on the second option. Fixed in click
+    # 8.4.0, so require that here rather than pinning mkdocs-material back to
+    # 9.6.20 (the last release that capped click<8.2.2, which used to mask it).
+    # https://github.com/squidfunk/mkdocs-material/issues/8478
+    "click>=8.4",
+    # 9.7.5+ drops the `pymdown-extensions~=10.2` cap and caps `mkdocs<2`.
+    "mkdocs-material>=9.7.5",
+    "mkdocstrings[python]>=0.27.0",
+    "mkdocs-material-extensions>=1.3.1",
+    "mkdocs-autorefs>=1.2.2",
+    "mkdocs-git-revision-date-localized-plugin>=1.3.0",
+    "mkdocs-minify-plugin>=0.8.0",
+    "mkdocs-glightbox>=0.4.0",
+    "mkdocs-macros-plugin>=1.3.7",
+    "mkdocs-redirects>=1.2.2",
+    "mkdocs-click>=0.8.1",
+    "mike>=2.0.0",  # for versioning
+    "pillow>=10.2.0,!=11.3.0",  # for social cards, 11.3.0 doesn't have manylinux wheels
+    "cairosvg>=2.7.1",  # for social cards
+    "mdx-include>=1.4.2",
+    "pymdown-extensions>=10.21.2",
+    "lzstring>=1.0.4",
+    "beautifulsoup4>=4.12.0",
+    "markdownify>=0.13.0",
+]
+
+
+[tool.uv]
+# Mirror CI's dependency window (UV_EXCLUDE_NEWER in .github/workflows) so local
+# resolution reproduces what CI resolves at setup time, including the ruff version.
+exclude-newer = "7 days"
+exclude-newer-package = { agent-plugins = false, marimo-lens = false }
+
+[tool.uv.sources]
+marimo_docs = { path = "./docs", editable = true }
+
+[tool.uv.build-backend]
+module-name = "marimo"
+module-root = ""
+source-include = ["third_party.txt", "third_party_licenses.txt"]
+wheel-exclude = ["marimo/_smoke_tests/**"]
+
+[tool.ruff]
+line-length = 79
+include = ["marimo/**/*.py", "tests/**/*.py", "dagger/**/*.py"]
+exclude = [
+    "build",
+    "docs",
+    "examples",
+    "frontend",
+    "marimo/_smoke_tests",
+    "marimo/_snippets/data",
+    "marimo/_static/export_demos/wasm-intro.py",
+    "marimo/_test_utils/_tutorials",
+    "marimo/_test_utils/codegen_data",
+    "marimo/_tutorials",
+    "scripts",
+    "tests/_ast/app_data",
+    "tests/_ast/cell_data",
+    "tests/_ast/codegen_data",
+    "tests/_ast/test_app.py",
+    "tests/_cli/cli_data",
+    "tests/**/fixtures",
+    "tests/_lint/test_files",
+    "tests/_runtime/runtime_data",
+]
+
+[tool.ruff.lint]
+preview = true
+ignore = [
+    "G004",   # Logging statement uses f-string
+    "TC001", # Move application import into a type-checking block
+    "TC006", # Add quotes to type expression in typing.cast()
+    "PERF203", # try-except within a loop incurs performance overhead; not always possible
+    "PERF401", # Use {message_str} to create a transformed list; at the cost of readability
+    # TODO: we should fix these, and enable this rule
+    "PT011", # `pytest.raises(ValueError)` is too broad, set the `match` parameter or use a more specific exception
+    "E501",  # Line too long, we still trim
+    "D415", # First line should end with a period, question mark, or exclamation point
+    "PLR1711", # Useless returns. We use this currently to delimit the end of a cell.
+    "ASYNC119", # Yield in context manager in async generator; required for streaming generators (LLM/SSE), no clean refactor
+
+    # From new version of Ruff: We should fix these, but it raises too many errors
+    "BLE001", # Do not catch blind exception: `Exception`
+    "DTZ001", # `datetime.datetime()` called without a `tzinfo` argument
+    "PLW1510", # `subprocess.run` without explicit `check`
+    "S110", # `try`-`except`-`pass`
+    "TRY004", # Type check without `TypeError`
+    "SIM102", # Use a single `if` statement instead of nested `if` statements
+    "SIM117", # Use a single `with` statement with multiple contexts instead of nested `with` statements
+    "RUF012", # Mutable class default
+    "S102", # Use of `exec`
+    "DTZ005", # `datetime.now()` called without `tzinfo`
+    "DTZ006", # `datetime.fromtimestamp()` called without `tzinfo`
+    "DTZ011", # `date.today()` used
+    "UP007", # Use `X | Y` for type annotations
+    "DTZ012", # `date.fromtimestamp()` called without `tzinfo`
+    "DTZ901", # `datetime.min` / `datetime.max` used
+    "D421", # Property docstring should not start with a verb (preview rule)
+
+    # Restored to Ruff's default rule set in 0.16.6; enable incrementally
+    "RUF069", # Float equality comparison
+    "PLW0108", # Unnecessary lambda
+    "PLC2801", # Unnecessary dunder call
+    "FURB189", # Subclassing built-in collections
+    "FURB152", # Replace literal with a math constant
+    "FURB110", # Replace ternary with an `or` expression
+    "FURB113", # Repeated `append` calls
+    "NPY002", # Legacy NumPy random API
+    "RUF100", # Unused `noqa` directive
+]
+
+extend-select = [
+    # pyflakes
+    "F",
+    # pycodestyle
+    "E",
+    # warning
+    "W",
+    # flake8 builtin-variable-shadowing
+    "A001",
+    # flake8 builtin-argument-shadowing
+    "A002",
+    # flake8-unused-arguments
+    "ARG",
+    # flake8-bugbear
+    "B",
+    # Performance
+    "PERF",
+    "ANN002", # missing-type-args
+    "ANN003", # missing-type-kwargs
+    "ANN201", # missing-return-type-undocumented-public-function
+    "ANN202", # missing-return-type-private-function
+    "ANN205", # missing-return-type-static-method
+    "ANN206", # missing-return-type-class-method
+    # Enable entire ruff rule section
+    "ASYNC", # subset of flake8-async rules
+    "TCH",   # Rules around TYPE_CHECKING blocks
+    "G",     # flake8-logging-format rules
+    "LOG",   # flake8-logging rules, most of them autofixable
+    "PT",    # flake8-pytest-style rules
+    "TID25", # flake8-tidy-imports rules
+    # Per rule enables
+    # "RUF100", # Unused noqa (auto-fixable)
+    # We ignore more pydocstyle than we enable, so be more selective at what we enable
+    # "D101", # Missing docstring in public class
+    "D106",
+    # "D2",
+    "D3",
+    # "D400", # First line should end with a period
+    # "D401", # First line of docstring should be in imperative mood
+    "PGH004", # Use specific rule codes when using noqa
+    "RUF006", # Store a reference to the return value of asyncio.create_task
+    # "S101", # Checks use `assert` outside the test cases, test cases should be added into the exclusions
+    "T201",   # No print statements
+    "D4",  # pydocstyle Docstring Content Issues
+    "D207",  # Docstring is under-indented
+    "D208",  # Docstring is over-indented
+    "D210",  # No whitespaces allowed surrounding docstring text
+    "D211",  # No blank lines allowed before class docstring
+    "D214",  # Section is over-indented
+    "D215",  # Section underline is over-indented
+    "PLW1514", # Unspecified encoding in open()
+    "UP",  # Upgrades
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests}/*" = ["ANN201", "ANN202", "T201", "D", "F841", "PLW1514"]
+"dagger/*" = ["TID252"]
+"marimo/_runtime/patches.py" = ["T100"]
+# Prefer multi-line "\n".join([...]) expected strings in codegen tests.
+"tests/_ast/test_codegen.py" = ["FLY002"]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+combine-as-imports = true
+
+[tool.ruff.lint.flake8-type-checking]
+exempt-modules = ["typing", "typing_extensions"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
+# Ban certain modules from being imported at module level, instead requiring
+# that they're imported lazily (e.g., within a function definition).
+banned-module-level-imports = [
+    "altair",
+    "anywidget",
+    "chdb",
+    "clickhouse_connect",
+    "duckdb",
+    "ipython",
+    "numpy",
+    "packaging",
+    "pandas",
+    "polars",
+    "psutil",
+    "pyarrow",
+    "redis",
+    "sqlalchemy",
+    "obstore",
+    "huggingface_hub",
+    "fsspec",
+    "sqlglot",
+    "tomlkit",
+    "typing_extensions",
+    "pyiceberg",
+    "redshift_connector",
+    "starrocks",
+    "pydantic_ai",
+    # a top-level import of zmq may break WASM
+    "zmq"
+]
+
+[tool.ruff.lint.flake8-pytest-style]
+mark-parentheses = false
+fixture-parentheses = false
+
+[tool.mypy]
+strict = true
+exclude = [
+    'examples',
+    'tests/_ast/app_data',
+    'tests/_ast/codegen_data',
+    'tests/_ast/cell_data',
+    'tests/_cli/cli_data',
+    'tests/_runtime/runtime_data',
+    'marimo/_snippets/data/',
+    'marimo/_smoke_tests/',
+]
+warn_unused_ignores = false
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q -v --ignore tests/_cli/fixtures --ignore tests/_ast/codegen_data --ignore tests/_ast/app_data"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+timeout = 120 # seconds, per test (Windows CI needs extra headroom)
+faulthandler_timeout = 120 # seconds, during collection
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "flaky: marks tests that are known to be flaky",
+    "requires(dep1, dep2, ...): requires one or more dependencies to be installed",
+    "network: requires internet access to package indexes (deselect with '-m \"not network\"')",
+]
+
+[tool.coverage.run]
+omit = ["marimo/_tutorials/*"]
+
+[tool.typos.default]
+extend-ignore-re = ["[0-9a-zA-Z_-]{43}"]
+
+[tool.typos.default.extend-words]
+wheres = "wheres"
+Ue = "Ue"         # Used in one of the cell IDs
+Nd = "Nd"         # Confused with And
+pn = "pn"         # Panel
+caf = "caf"       # cafe
+ser = "ser"       # Used in pydantic-core package as part of a function name
+oint = "oint"     # Contour integrals in markdown completions
+
+[tool.typos.files]
+extend-exclude = [
+    "MultiSelectPlugin.test.ts",
+    "module_name_to_pypi_name.py",
+    "**/pnpm-lock.yaml",
+    "**/snapshots/*",
+    "**/__demo__/*",
+    "base64.test.ts",
+    "SECURITY.md", # Contains usernames that trigger typos
+    "patches/*", # Patches may contain typos from source code,
+    "frontend/dist/assets/*", # Assets may contain typos from source code
+    "tests/_sql/test_sql_parse.py", # Contains intentional invalid SQL for testing
+]
+
+
+[tool.marimo.ai]
+rules = "- prefer polars over pandas\n- make charts using altair"
+
+[tool.marimo.save]
+autosave_delay = 1000
+autosave = "after_delay"
+format_on_save = true
+
+[tool.marimo.experimental]
+multi_column = true
+cache_panel = true
+isolate_apps = true
+
+[tool.marimo.display]
+dataframes = "rich"
+
+[tool.marimo.runtime]
+auto_instantiate = false
+watcher_on_save = "autorun"
+output_max_bytes = 10_000_000
+std_stream_max_bytes = 2_000_000
+dotenv = [".env"]
+
+[tool.marimo.package_management]
+manager = "uv"
+
+[tool.marimo.keymap]
+vimrc = "configs/.vimrc"
+
+[tool.basedpyright]
+reportUnusedCallResult = false
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64", "linux-aarch64"]
+
+[tool.pixi.dependencies]
+nodejs = "22.*"
+pnpm = "10.*"
+make = ">=4.4.1,<5"
+pre_commit = ">=4.2.0,<5"
+uv = ">=0.6.12,<0.7"
+python = "3.12.*"
+pip = ">=25.0.1,<26"
+
+[tool.pixi.pypi-dependencies]
+marimo = {path = ".", editable = true}

@@ -1,0 +1,189 @@
+# ============================================================
+# Databench local infrastructure only.
+#
+# This file runs Postgres, Temporal (+ its UI), Mailpit and SeaweedFS (the Files
+# object store) on your host. App code (API, worker, web) does NOT run in
+# Docker: it runs on the host for fast hot-reload. See the root README.
+#
+# Usage: `make infra-up` / `make infra-down`.
+#
+# Project name + published ports come from COMPOSE_PROJECT_NAME and *_PORT,
+# generated per-worktree into .env.workspace by ops/scripts/workspace-env.sh
+# (the Makefile exports them). The `:-` fallbacks below are the defaults a
+# checkout of `main` uses, so invoking compose directly (no env) still works.
+#
+# Every port is published on 127.0.0.1 only. These services run with published
+# development credentials (Postgres alkera/alkera, the SeaweedFS dev key pair),
+# Temporal and Mailpit have no authentication at all, and Mailpit holds every
+# password-reset and verification email. Docker publishes on every interface by
+# default, which puts all of that on the local network of whatever cafe the
+# laptop sits in. Set INFRA_BIND_ADDRESS=0.0.0.0 only on a machine whose network
+# you control.
+# ============================================================
+
+name: ${COMPOSE_PROJECT_NAME:-alkera}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-alkera}-postgres
+    restart: unless-stopped
+    # One dev server holds the whole worktree's stack AND every suite run against
+    # it. `make test` runs one xdist worker per core, and each worker can hold 32
+    # connections (a 20 + 10 pool, one alembic, one maintenance), the figure CI
+    # sizes its Postgres by. 1100 fits 24 workers (24 x 32 + 150 of headroom)
+    # beside the dev stack's own pools (about 100). At 300 an 18-core machine's
+    # default run hit "sorry, too many clients already". A development
+    # number only; the deployed database is sized separately.
+    command:
+      - postgres
+      - -c
+      - max_connections=1100
+    environment:
+      POSTGRES_USER: alkera
+      POSTGRES_PASSWORD: alkera
+      POSTGRES_DB: alkera
+    ports:
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alkera -d alkera"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  temporal:
+    # The local Temporal server: the same single-node `auto-setup` image, tag and
+    # digest as the production Compose example, so a job that runs here runs
+    # there. On first start it creates and migrates its own two databases
+    # (`temporal`, `temporal_visibility`) on the Postgres above; `alkera` is that
+    # instance's superuser, so CREATE DATABASE just works. Published on
+    # TEMPORAL_PORT so the host-run backend and worker reach it at TEMPORAL_ADDRESS
+    # (localhost:<port>, written to .env.workspace next to the port).
+    image: temporalio/auto-setup:1.29.7@sha256:f14912b699cf73015ad5c4fc18d522d4b014db90e794039214dfb7c022c2644f
+    container_name: ${COMPOSE_PROJECT_NAME:-alkera}-temporal
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_SEEDS: postgres
+      POSTGRES_USER: alkera
+      POSTGRES_PWD: alkera
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      DEFAULT_NAMESPACE: default
+      DEFAULT_NAMESPACE_RETENTION: 72h
+      # auto-setup waits for its own frontend and registers the namespace through
+      # this address; the service name resolves from inside the container too.
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+    ports:
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${TEMPORAL_PORT:-7233}:7233"
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "temporal:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  temporal-ui:
+    # The operator console for the local server: every workflow, its input and
+    # history, the schedules and what they skipped. UNAUTHENTICATED (it can signal
+    # and terminate workflows), so it is published on loopback only, never 0.0.0.0.
+    image: temporalio/ui:2.53.3@sha256:eef301146e60fad34b47adaecfae4149016e34b2d44ba94fca5fd8e5441f182a
+    container_name: ${COMPOSE_PROJECT_NAME:-alkera}-temporal-ui
+    restart: unless-stopped
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:${TEMPORAL_UI_PORT:-8233}
+    ports:
+      - "127.0.0.1:${TEMPORAL_UI_PORT:-8233}:8080"
+
+  seaweedfs:
+    # The local S3-compatible object store for Files. One binary runs the
+    # master, a volume server, the filer and the S3 gateway; the filer web UI on
+    # 8888 is the browsable explorer over every bucket (what Mailpit is for mail).
+    # Credentials come from a committed development-only identity file mounted
+    # read-only, never real ones. Published on SEAWEEDFS_S3_PORT / SEAWEEDFS_UI_PORT from
+    # .env.workspace, so worktrees do not collide (main keeps 8333 / 8888).
+    image: chrislusf/seaweedfs:3.99@sha256:8d5b323911a996d5ea152115306bed468d9a849d72bcbb3800ea8d91b7728563
+    container_name: ${COMPOSE_PROJECT_NAME:-alkera}-seaweedfs
+    restart: unless-stopped
+    # Volumes are sized for a DEV store, not a deployment: a bucket here holds a
+    # handful of small fixtures, and SeaweedFS grows a collection by several
+    # volumes at once, so a 1 GB limit costs every test run's bucket gigabytes
+    # of volume file and can fill the Docker VM's disk. 256 MB is still far more
+    # than any local workload needs, and preallocation stays off so an empty
+    # volume costs bytes rather than its whole limit.
+    command: server -dir=/data -s3 -filer -ip.bind=0.0.0.0 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256 -master.volumePreallocate=false
+    ports:
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${SEAWEEDFS_S3_PORT:-8333}:8333"
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${SEAWEEDFS_UI_PORT:-8888}:8888"
+      # The master's HTTP API. Removing a bucket over S3 leaves its collection
+      # (and the collection's volume files) behind, and the master is the only
+      # thing that drops one, so the test suite needs to reach it to clean up
+      # after itself.
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${SEAWEEDFS_MASTER_PORT:-9333}:9333"
+    volumes:
+      - seaweedfs_data:/data
+      - ./seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      # An anonymous GET on the S3 root answers 403 once the gateway is serving, so
+      # grepping for the status line proves the S3 API is up without needing a
+      # signed request or a version-specific health endpoint.
+      test: ["CMD-SHELL", "wget -q -S -O /dev/null http://localhost:8333/ 2>&1 | grep -q 'HTTP/1.1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  seaweedfs-init:
+    # One-shot bucket creation, so `make infra-up` is the only step between a fresh
+    # clone and a working Files store. The name comes from FILES_STORE_BUCKET in
+    # .env.workspace (per-worktree; `main` keeps the plain `alkera-files`), which is
+    # the same value the app reads, so the bucket that gets created is always the
+    # bucket the backend writes to. Idempotent by construction: it creates the
+    # bucket only when `s3.bucket.list` does not already name it, so re-running
+    # `make infra-up` never errors and never wipes an existing bucket. The listing
+    # is split on whitespace and matched whole, because a substring test would see
+    # `alkera-files` inside `alkera-files-<slug>-<sum>` and skip the create.
+    image: chrislusf/seaweedfs:3.99@sha256:8d5b323911a996d5ea152115306bed468d9a849d72bcbb3800ea8d91b7728563
+    container_name: ${COMPOSE_PROJECT_NAME:-alkera}-seaweedfs-init
+    restart: "no"
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        bucket='${FILES_STORE_BUCKET:-alkera-files}';
+        echo 's3.bucket.list' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888 2>/dev/null
+        | tr -s '[:space:]' '\n' | grep -Fxq "$$bucket"
+        || echo "s3.bucket.create -name $$bucket" | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+
+  mailpit:
+    # Local SMTP server with a web UI for reading the mail the app sends.
+    image: axllent/mailpit:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-alkera}-mailpit
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    ports:
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${SMTP_PORT:-1025}:1025"
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${MAILPIT_UI_PORT:-8025}:8025"
+
+# Volumes are project-scoped (compose names them "<project>_pg_data" etc.), so
+# each worktree gets its own data. For `main` (project "alkera") this resolves
+# to "alkera_pg_data". Temporal keeps its state
+# in its two databases on that same Postgres volume.
+volumes:
+  pg_data:
+  seaweedfs_data:

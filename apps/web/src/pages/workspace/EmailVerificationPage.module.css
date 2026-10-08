@@ -1,0 +1,6 @@
+/* A single readable column — the page is one explanation + two actions, so it
+ * must not stretch across the full shell width. */
+.doc {
+  max-width: 560px;
+  padding: var(--alkSpace6) var(--alkSpace5);
+}

@@ -1,0 +1,49 @@
+/* Stat card internals — the whole card is one link to the metric's page. The card surface, its
+   label/value/note/viz layout, and the in-card viz come from @alkera/ui (StatCard + viz); the
+   trend chip is a Pill, the viz decode is a Tooltip, and the link's cursor + focus ring ride the
+   shared `alk-rowlink`. This file owns only the link's block/reset + hover tint and the viz's inert
+   cursor. */
+
+/* Clickable stat card: the whole card is one link. Hover tints the card a light gray — no lift, no
+   shadow. Cursor + focus ring come from the shared .alk-rowlink applied alongside. */
+.statLink {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--alkRadiusLg);
+}
+.statLink > :global(.alk-statcard) {
+  height: 100%;
+  transition: var(--alk-control-transition);
+}
+.statLink:hover > :global(.alk-statcard) {
+  background: var(--alkHoverBg);
+}
+
+/* The note area stacks: the plain note, the gauge that reads against a ceiling, the caption lines
+   that say what a percentage covers, and any consequence the reader has to know now. */
+.statLink :global(.alk-statcard__note) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+}
+.meter {
+  width: 100%;
+}
+.caption {
+  font-size: var(--alkTextSm);
+  color: var(--alkTertiaryText);
+}
+/* The over-limit line is a consequence, not decoration — the alert ink comes from the shared
+   `.alk-danger` status role at the call site, and the line says what happens in words, so it never
+   depends on colour alone. */
+.notice {
+  font-size: var(--alkTextSm);
+}
+
+/* The viz is a hover-read, not the click target — an inert cursor tells the eye the glyph decodes
+   (via its Tooltip) rather than navigating (the surrounding card link does). */
+.viz {
+  display: inline-flex;
+  cursor: default;
+}

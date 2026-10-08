@@ -1,0 +1,42 @@
+/* ── Floating surface (alk-floating-surface) ──────────────────────────────────
+ * The shared look + open/close animation for an anchored, portaled overlay panel. The menu
+ * (Dropdown), the listbox (Select), and the arbitrary-content container (Popover) all wear it, so
+ * the surface (border · overlay ground · shadow) and the rise-and-scale animation live in ONE place
+ * instead of three copies. Position (top/left/z-index) is set inline by useFloating; a consumer
+ * keeps only its own padding, width bounds, type, and inner rows. Drive it with `data-side` +
+ * `data-state` on the same element (usePresence supplies the state; useFloating the side). */
+
+.alk-floating-surface {
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkOverlayBg);
+  box-shadow: var(--alkShadowLg);
+  /* useFloating caps the panel height to the room available (an inline max-height); honor it by
+     scrolling a taller body inside, so a long panel never spills past its card out of reach. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Enter/exit: fade + a small rise-and-scale from the anchored side. usePresence commits the closed
+     start-state before flipping to open, so it animates in rather than teleporting, and stays
+     mounted through the exit so it animates out too. */
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  transform-origin: top center;
+  transition:
+    opacity var(--alkDurationNormal) var(--alkEaseStandard),
+    transform var(--alkDurationNormal) var(--alkEaseStandard);
+}
+.alk-floating-surface[data-side="top"] {
+  transform-origin: bottom center;
+  transform: translateY(-4px) scale(0.98);
+}
+.alk-floating-surface[data-state="open"] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-floating-surface {
+    transition: opacity var(--alkDurationNormal) var(--alkEaseStandard);
+    transform: none;
+  }
+}

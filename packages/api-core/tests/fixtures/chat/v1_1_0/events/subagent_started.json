@@ -1,0 +1,13 @@
+{
+  "agent_name": "explorer",
+  "child_session_id": "child_s2",
+  "description": "explore the codebase",
+  "event_id": "01H_subagent_started",
+  "event_type": "subagent.started",
+  "metadata": {},
+  "parent_message_id": "m1",
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

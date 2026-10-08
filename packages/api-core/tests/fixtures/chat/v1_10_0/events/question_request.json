@@ -1,0 +1,40 @@
+{
+  "event_id": "01H_question_request",
+  "event_type": "question.request",
+  "kind": "question",
+  "metadata": {},
+  "plan_markdown": "",
+  "provider_metadata": {},
+  "questions": [
+    {
+      "custom": true,
+      "header": null,
+      "metadata": {},
+      "multiple": false,
+      "options": [
+        {
+          "description": null,
+          "label": "Red",
+          "metadata": {},
+          "provider_metadata": {},
+          "schema_version": "1.0.0"
+        },
+        {
+          "description": null,
+          "label": "Blue",
+          "metadata": {},
+          "provider_metadata": {},
+          "schema_version": "1.0.0"
+        }
+      ],
+      "provider_metadata": {},
+      "question": "Pick a color",
+      "schema_version": "1.0.0"
+    }
+  ],
+  "request_id": "qr1",
+  "schema_version": "1.2.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z",
+  "tool_call_id": null
+}

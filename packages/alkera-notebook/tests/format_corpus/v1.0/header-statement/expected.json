@@ -1,0 +1,52 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "00000000c5": {
+        "defs": [],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "",
+        "config": {},
+        "extra": {},
+        "id": "00000000c5",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": ""
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "# notes\nimport os\nos.environ.setdefault('X', '1')\n",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": [
+      [
+        "header_statement",
+        2
+      ],
+      [
+        "header_statement",
+        3
+      ]
+    ]
+  }
+}

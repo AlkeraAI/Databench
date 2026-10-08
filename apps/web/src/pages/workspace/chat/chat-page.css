@@ -1,0 +1,413 @@
+/* The browser's frame around the shared chat: a rail of chats on one side, the
+   chat's own files on the other, and a gutter between each pair. The chat
+   itself brings its own stylesheet; this file is portal chrome and spends the
+   portal's token layer (`--alk*`) so the rail reads as the same navigation as
+   the shell's own — which is the point, since the two sit side by side.
+
+   Not one length here is measured against the viewport. The page fills the
+   routed content box (`data-content-fill` takes that box's padding away) and
+   every box between it and the transcript may shrink, so dragging a gutter
+   moves a column's width and never pushes the composer off the bottom of the
+   screen — the nested-`100vh` blunder this page was rebuilt to avoid. */
+
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* The split view takes whatever the topbar row leaves, and may shrink: without
+   this the grid keeps its content's height and the page scrolls instead of the
+   transcript. */
+.chat-page > .alk-split {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.chat-page__rail {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--alkSpace5);
+}
+
+/* The chat's files, beside the conversation. A column that may shrink, so the
+   preview inside it is what scrolls. */
+.chat-page__workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--alkBorder);
+}
+
+/* Below the breakpoint there are no columns: one thing at a time, with the row
+   of keys that says which. */
+.chat-page--stacked > .chat-page__surface,
+.chat-page--stacked > .chat-page__workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-left: 0;
+}
+
+.chat-page__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace3) var(--alkSpace5);
+  border-bottom: 1px solid var(--alkBorder);
+}
+
+.chat-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* A chat row IS a nav item, so it wears the sidebar's: quiet by default, the
+   neutral lift on hover, the brand wash when it is the page you are on. */
+.chat-page__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace3);
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--alkSpace3);
+  border: 0;
+  border-radius: var(--alkRadiusMd);
+  background: none;
+  color: var(--alkSecondaryText);
+  font: inherit;
+  font-size: var(--alkTextMd);
+  font-weight: var(--alkWeightMedium);
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-page__row:not([aria-current="page"]):hover,
+.chat-page__row:not([aria-current="page"]):focus-visible {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+
+.chat-page__row[aria-current="page"] {
+  background: var(--alkBrandSubtle);
+  color: var(--alkBrandText);
+  font-weight: var(--alkWeightSemibold);
+}
+
+/* Hovering the open chat deepens its OWN wash — the neutral grey would erase
+   the "this is the one you are reading" cue. */
+.chat-page__row[aria-current="page"]:hover {
+  background: var(--alkSelectedHoverBg);
+}
+
+/* The name takes the row's whole content box, so the ellipsis lands at the
+   rectangle's true right edge and the native tip that spells the name out in
+   full is reachable from anywhere along the row, not only from the few
+   characters a short name happens to cover. */
+.chat-page__row-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The row, its refusal notice and the right-click that reaches its actions are
+   one thing. */
+.chat-page__row-wrap {
+  position: relative;
+}
+
+/* The name and the key to its actions share one line, and the key is laid OVER
+   the line's right end rather than beside it. In flow the key held its width
+   open even while invisible, so every rounded rectangle stopped a control's
+   width short of the rail's right edge while starting flush with its left.
+   That was the lopsided row this positioning removes. The refusal notice keeps
+   the line below.
+
+   `--chat-row-key` is the key's width said once: the button reads it, and so
+   does the room the row's contents make for it while it is up. */
+.chat-page__row-line {
+  --chat-row-key: 22px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* The key is quiet until the row is reached — under the pointer, holding focus,
+   or with its own menu open — so a rail at rest reads as a column of names
+   rather than a column of controls. Out of flow it takes no width from the
+   row, which is what lets the rectangle underneath rest with the same inset on
+   both sides. While it is down it also takes no clicks: an invisible button
+   over the row's right end would swallow the press that opens the chat. */
+.chat-page__row-menu {
+  position: absolute;
+  inset-inline-end: var(--alkSpace1);
+  inset-block: 0;
+  margin-block: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--chat-row-key);
+  height: var(--chat-row-key);
+  padding: 0;
+  border: 0;
+  border-radius: var(--alkRadiusSm);
+  background: none;
+  color: var(--alkSecondaryText);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-page__row-wrap:hover .chat-page__row-menu,
+.chat-page__row-wrap:focus-within .chat-page__row-menu,
+.chat-page__row-menu[data-open] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Only while the key is up does the row's content step aside for it, by
+   exactly the key's width and on the trailing side alone. The name's own left edge
+   never moves, so the row cannot slide out from under the pointer aiming at it;
+   what moves is where a long name breaks off and where the working light sits,
+   both of which would otherwise sit underneath the key. */
+.chat-page__row-wrap:hover .chat-page__row,
+.chat-page__row-wrap:focus-within .chat-page__row,
+.chat-page__row-line:has(.chat-page__row-menu[data-open]) .chat-page__row {
+  padding-inline-end: calc(var(--alkSpace3) + var(--chat-row-key));
+}
+
+.chat-page__row-menu:hover,
+.chat-page__row-menu:focus-visible,
+.chat-page__row-menu[data-open] {
+  background: var(--alkHoverBg);
+  color: var(--alkPrimaryText);
+}
+
+/* Renaming in place takes the row's whole width: the name being retyped is the
+   only thing on the line that matters. */
+.chat-page__row-edit {
+  display: flex;
+  width: 100%;
+  padding: var(--alkSpace1);
+}
+
+.chat-page__row-field {
+  width: 100%;
+  padding: var(--alkSpace2);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkCardBg);
+  color: var(--alkPrimaryText);
+  font: inherit;
+  font-size: var(--alkTextMd);
+}
+
+.chat-page__row-error {
+  display: block;
+  padding: 0 var(--alkSpace3) var(--alkSpace2);
+  color: var(--alkDangerText);
+  font-size: var(--alkTextXs);
+}
+
+.chat-page__empty {
+  padding: var(--alkSpace3);
+  font-size: var(--alkTextMd);
+  color: var(--alkTertiaryText);
+}
+
+.chat-page__surface {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--alkSpace7);
+}
+
+.chat-page__surface > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The banner is deliberately plain: it is read once, when something is wrong. */
+.chat-machine-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--alkSpace3) var(--alkSpace5);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkCardBg);
+  border: 1px solid var(--alkBorder);
+  color: var(--alkPrimaryText);
+}
+
+.chat-machine-banner[data-status="unreachable"],
+.chat-machine-banner[data-status="none"] {
+  background: var(--alkWarningSoft);
+  border-color: color-mix(in srgb, var(--alkWarning) 34%, var(--alkBorder));
+}
+
+.chat-machine-banner__body {
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+
+/* The way out of a state nobody in the org can clear. Sits on its own line,
+   below the reason, so it reads as the next step rather than as part of it. */
+.chat-machine-banner__action {
+  align-self: flex-start;
+  margin-top: var(--alkSpace2);
+  font-size: var(--alkTextSm);
+}
+
+/* Who has the chat open, at the top right. Sits under the chrome, on the same
+   side as the chrome's own action keys, so the faces read as part of that
+   cluster rather than as a second heading.
+
+   The padding is not decoration: without it the row sits ON the banner above
+   it — a face touching the machine banner's dashed edge. The gap is the same
+   step the rest of this chrome puts between sibling controls, and `align-items`
+   centres the 26px faces on the row rather than on their baseline. */
+.chat-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--alkSpace5);
+  padding-block: var(--alkSpace3);
+}
+
+/* The faces of everyone who has the chat open, the reader included. Each
+   overlaps the one before it, and the stack reads left to right, so you sit
+   first and the person who joined earliest next, the way a roster is read. */
+.chat-presence {
+  display: flex;
+  align-items: center;
+}
+
+.chat-presence__face + .chat-presence__face {
+  margin-left: -7px;
+}
+
+/* A face is the person's Avatar, painted in their own hue (the one their
+   caret wears in the composer); this sizes it for the stack. */
+.chat-presence__face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  overflow: hidden;
+  border: 2px solid var(--alkCardBg);
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  cursor: default;
+}
+
+/* A face takes focus so the keyboard reaches the name a pointer hovers for.
+   The focused face rises over the one overlapping it, or half its ring is lost. */
+.chat-presence__face:focus-visible {
+  position: relative;
+  z-index: 1;
+}
+
+/* One person per line in the tip behind the "+N". */
+.chat-presence__tip-line {
+  display: block;
+}
+
+.chat-presence__more {
+  background: var(--alkBrandSoft);
+  color: var(--alkPrimaryText);
+  text-transform: none;
+}
+
+/* Naming a result, and the chart it earned. The dialog's own chrome comes from
+   the Modal primitive; only the stacking of the fields is here. */
+.save-result {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.save-result__chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.save-result__axes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 10px;
+}
+
+/* The server's own words when it refused the spec. It reads as a refusal, not
+   as a crash: the dialog is still open and the name is still typed. */
+.save-result__error {
+  margin: 0;
+  color: var(--alkDangerText);
+  font-size: var(--alkTextSm);
+}
+
+/* A slept chat: a quiet line, never the alert plate. */
+.chat-machine-banner--quiet {
+  background: transparent;
+  border-style: dashed;
+  color: var(--alkSecondaryText);
+}
+
+.chat-machine-banner__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace2);
+}
+
+.chat-machine-banner[data-status="waiting_for_hardware"],
+.chat-machine-banner[data-status="credit_drain"],
+.chat-machine-banner[data-status="stopped_credits"],
+.chat-machine-banner[data-status="failed"] {
+  background: var(--alkWarningSoft);
+  border-color: color-mix(in srgb, var(--alkWarning) 34%, var(--alkBorder));
+}
+
+/* A chat with news for this reader: its name in the reader's full ink and
+   weight, and a brand dot before it. The server decides it; the row draws it. */
+.chat-page__row[data-unread]:not([aria-current="page"]) {
+  color: var(--alkPrimaryText);
+  font-weight: var(--alkWeightSemibold);
+}
+
+.chat-page__row-unread {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--alkBrand);
+}
+
+/* The agent is waiting on an answer this reader may give. Its own mark, in the
+   warning ink, so it reads apart from plain unread. */
+.chat-page__row-needs {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--alkWarningText);
+}

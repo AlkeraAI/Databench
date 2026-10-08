@@ -1,0 +1,25 @@
+/* MiniBars — a tiny bar series. Paint only; the series colour is the shared --alk-viz-color
+ * token (see ../viz.css), brand when unset. */
+.alk-bars {
+  /* Paint opacities as component-local vars: the resting track is a quiet wash under the value bars,
+     the no-data baseline a fainter muted mark, and the hovered bar lifts to full ink. */
+  --alk-bars-track-opacity: 0.24;
+  --alk-bars-empty-opacity: 0.45;
+  --alk-bars-active-brightness: 1.15;
+}
+.alk-bars__track {
+  fill: var(--alk-viz-color, var(--alkBrand));
+  opacity: var(--alk-bars-track-opacity);
+}
+.alk-bars__val {
+  fill: var(--alk-viz-color, var(--alkBrand));
+}
+/* Hover highlight — the bar the tooltip reads lifts to full ink from the resting series colour. */
+.alk-bars__val:where([data-state="active"]) {
+  filter: brightness(var(--alk-bars-active-brightness));
+}
+/* No-data treatment — a faint muted baseline so "nothing measured" reads as nothing, not a zero bar. */
+.alk-bars:where([data-state="empty"]) .alk-bars__track {
+  fill: var(--alkTertiaryText, currentColor);
+  opacity: var(--alk-bars-empty-opacity);
+}

@@ -1,0 +1,2182 @@
+{
+  "fixture_version": 2,
+  "unicode_version": "15.1.0",
+  "entries": [
+    {
+      "name_b64": "",
+      "refused": "empty"
+    },
+    {
+      "name_b64": "AA==",
+      "refused": "nul"
+    },
+    {
+      "name_b64": "YQBi",
+      "refused": "nul"
+    },
+    {
+      "name_b64": "AGFiYw==",
+      "refused": "nul"
+    },
+    {
+      "name_b64": "YWJjAA==",
+      "refused": "nul"
+    },
+    {
+      "name_b64": "Lw==",
+      "refused": "separator"
+    },
+    {
+      "name_b64": "YS9i",
+      "refused": "separator"
+    },
+    {
+      "name_b64": "L2FiYw==",
+      "refused": "separator"
+    },
+    {
+      "name_b64": "YWJjLw==",
+      "refused": "separator"
+    },
+    {
+      "name_b64": "Lg==",
+      "refused": "dot"
+    },
+    {
+      "name_b64": "Li4=",
+      "refused": "dot"
+    },
+    {
+      "name_b64": "Li4u",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "...",
+      "name_key": "..."
+    },
+    {
+      "name_b64": "LmhpZGRlbg==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": ".hidden",
+      "name_key": ".hidden"
+    },
+    {
+      "name_b64": "Li5oaWRkZW4=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "..hidden",
+      "name_key": "..hidden"
+    },
+    {
+      "name_b64": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==",
+      "refused": "too_long"
+    },
+    {
+      "name_b64": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh",
+      "refused": "too_long"
+    },
+    {
+      "name_b64": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+      "refused": "too_long"
+    },
+    {
+      "name_b64": "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////w==",
+      "refused": "too_long"
+    },
+    {
+      "name_b64": "YQ==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "a",
+      "name_key": "a"
+    },
+    {
+      "name_b64": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "name_b64": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "name_b64": "5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢",
+      "name_key": "漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢"
+    },
+    {
+      "name_b64": "5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryi5ryiYQ==",
+      "refused": "too_long"
+    },
+    {
+      "name_b64": "YXV4Lmg=",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "aux.h",
+      "name_key": "aux.h"
+    },
+    {
+      "name_b64": "Y29uLmM=",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "con.c",
+      "name_key": "con.c"
+    },
+    {
+      "name_b64": "TlVMLnR4dA==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "NUL.txt",
+      "name_key": "nul.txt"
+    },
+    {
+      "name_b64": "Q09Nwrk=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "COM¹",
+      "name_key": "com¹"
+    },
+    {
+      "name_b64": "Zm9vLg==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "foo.",
+      "name_key": "foo."
+    },
+    {
+      "name_b64": "Zm9vIA==",
+      "refused": "surrounding_space"
+    },
+    {
+      "name_b64": "IGZvbw==",
+      "refused": "surrounding_space"
+    },
+    {
+      "name_b64": "YTpi",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "a:b",
+      "name_key": "a:b"
+    },
+    {
+      "name_b64": "YVxi",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "a\\\\b",
+      "name_key": "a\\\\b"
+    },
+    {
+      "name_b64": "fjE=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "~1",
+      "name_key": "~1"
+    },
+    {
+      "name_b64": "YQFi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "cmXigK5zdW3DqQ==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "re\\u202esumé",
+      "name_key": "re\\u202esumé"
+    },
+    {
+      "name_b64": "bmFtZe+7vw==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "name\\ufeff",
+      "name_key": "name\\ufeff"
+    },
+    {
+      "name_b64": "dGFn86CAgQ==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "tag\\U000e0001",
+      "name_key": "tag\\u000e0001"
+    },
+    {
+      "name_b64": "Y2Fm6Q==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "caf\\xe9",
+      "name_key": "caf\\xe9"
+    },
+    {
+      "name_b64": "5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X5ryi5a2X",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字",
+      "name_key": "漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字漢字"
+    },
+    {
+      "name_b64": "wqBmb28=",
+      "refused": "surrounding_space"
+    },
+    {
+      "name_b64": "Zm9vwqA=",
+      "refused": "surrounding_space"
+    },
+    {
+      "name_b64": "44CAZm9v",
+      "refused": "surrounding_space"
+    },
+    {
+      "name_b64": "Zm9v4oCJ",
+      "refused": "surrounding_space"
+    },
+    {
+      "name_b64": "YcKgYg==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "a b",
+      "name_key": "a b"
+    },
+    {
+      "name_b64": "YeOAgGI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "a　b",
+      "name_key": "a　b"
+    },
+    {
+      "name_b64": "YTxi",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "a<b",
+      "name_key": "a<b"
+    },
+    {
+      "name_b64": "YT5i",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "a>b",
+      "name_key": "a>b"
+    },
+    {
+      "name_b64": "YSJi",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "a\"b",
+      "name_key": "a\"b"
+    },
+    {
+      "name_b64": "YXxi",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "a|b",
+      "name_key": "a|b"
+    },
+    {
+      "name_b64": "YT9i",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "a?b",
+      "name_key": "a?b"
+    },
+    {
+      "name_b64": "YSpi",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "a*b",
+      "name_key": "a*b"
+    },
+    {
+      "name_b64": "YWI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "ab",
+      "name_key": "ab"
+    },
+    {
+      "name_b64": "Q09O",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "CON",
+      "name_key": "con"
+    },
+    {
+      "name_b64": "Y29u",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "con",
+      "name_key": "con"
+    },
+    {
+      "name_b64": "Q09OLnR4dA==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "CON.txt",
+      "name_key": "con.txt"
+    },
+    {
+      "name_b64": "Q09OeA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "CONx",
+      "name_key": "conx"
+    },
+    {
+      "name_b64": "eENPTg==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "xCON",
+      "name_key": "xcon"
+    },
+    {
+      "name_b64": "UFJO",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "PRN",
+      "name_key": "prn"
+    },
+    {
+      "name_b64": "cHJu",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "prn",
+      "name_key": "prn"
+    },
+    {
+      "name_b64": "UFJOLnR4dA==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "PRN.txt",
+      "name_key": "prn.txt"
+    },
+    {
+      "name_b64": "UFJOeA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "PRNx",
+      "name_key": "prnx"
+    },
+    {
+      "name_b64": "eFBSTg==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "xPRN",
+      "name_key": "xprn"
+    },
+    {
+      "name_b64": "QVVY",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "AUX",
+      "name_key": "aux"
+    },
+    {
+      "name_b64": "YXV4",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "aux",
+      "name_key": "aux"
+    },
+    {
+      "name_b64": "QVVYLnR4dA==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "AUX.txt",
+      "name_key": "aux.txt"
+    },
+    {
+      "name_b64": "QVVYeA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "AUXx",
+      "name_key": "auxx"
+    },
+    {
+      "name_b64": "eEFVWA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "xAUX",
+      "name_key": "xaux"
+    },
+    {
+      "name_b64": "TlVM",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "NUL",
+      "name_key": "nul"
+    },
+    {
+      "name_b64": "bnVs",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "nul",
+      "name_key": "nul"
+    },
+    {
+      "name_b64": "TlVMeA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "NULx",
+      "name_key": "nulx"
+    },
+    {
+      "name_b64": "eE5VTA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "xNUL",
+      "name_key": "xnul"
+    },
+    {
+      "name_b64": "Q09NMQ==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "COM1",
+      "name_key": "com1"
+    },
+    {
+      "name_b64": "Y29tMQ==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "com1",
+      "name_key": "com1"
+    },
+    {
+      "name_b64": "Q09NMS50eHQ=",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "COM1.txt",
+      "name_key": "com1.txt"
+    },
+    {
+      "name_b64": "Q09NMXg=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "COM1x",
+      "name_key": "com1x"
+    },
+    {
+      "name_b64": "eENPTTE=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "xCOM1",
+      "name_key": "xcom1"
+    },
+    {
+      "name_b64": "Q09NOQ==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "COM9",
+      "name_key": "com9"
+    },
+    {
+      "name_b64": "Y29tOQ==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "com9",
+      "name_key": "com9"
+    },
+    {
+      "name_b64": "Q09NOS50eHQ=",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "COM9.txt",
+      "name_key": "com9.txt"
+    },
+    {
+      "name_b64": "Q09NOXg=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "COM9x",
+      "name_key": "com9x"
+    },
+    {
+      "name_b64": "eENPTTk=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "xCOM9",
+      "name_key": "xcom9"
+    },
+    {
+      "name_b64": "TFBUMQ==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "LPT1",
+      "name_key": "lpt1"
+    },
+    {
+      "name_b64": "bHB0MQ==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "lpt1",
+      "name_key": "lpt1"
+    },
+    {
+      "name_b64": "TFBUMS50eHQ=",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "LPT1.txt",
+      "name_key": "lpt1.txt"
+    },
+    {
+      "name_b64": "TFBUMXg=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "LPT1x",
+      "name_key": "lpt1x"
+    },
+    {
+      "name_b64": "eExQVDE=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "xLPT1",
+      "name_key": "xlpt1"
+    },
+    {
+      "name_b64": "TFBUOQ==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "LPT9",
+      "name_key": "lpt9"
+    },
+    {
+      "name_b64": "bHB0OQ==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "lpt9",
+      "name_key": "lpt9"
+    },
+    {
+      "name_b64": "TFBUOS50eHQ=",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "LPT9.txt",
+      "name_key": "lpt9.txt"
+    },
+    {
+      "name_b64": "TFBUOXg=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "LPT9x",
+      "name_key": "lpt9x"
+    },
+    {
+      "name_b64": "eExQVDk=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "xLPT9",
+      "name_key": "xlpt9"
+    },
+    {
+      "name_b64": "Q09NMA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "COM0",
+      "name_key": "com0"
+    },
+    {
+      "name_b64": "Q09NMTA=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "COM10",
+      "name_key": "com10"
+    },
+    {
+      "name_b64": "TFBUMA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "LPT0",
+      "name_key": "lpt0"
+    },
+    {
+      "name_b64": "TFBUMTA=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "LPT10",
+      "name_key": "lpt10"
+    },
+    {
+      "name_b64": "Q09NeA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "COMx",
+      "name_key": "comx"
+    },
+    {
+      "name_b64": "Q09OMQ==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "CON1",
+      "name_key": "con1"
+    },
+    {
+      "name_b64": "Zm9vLi4=",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "foo..",
+      "name_key": "foo.."
+    },
+    {
+      "name_b64": "Zm9vICA=",
+      "refused": "surrounding_space"
+    },
+    {
+      "name_b64": "ICBmb28=",
+      "refused": "surrounding_space"
+    },
+    {
+      "name_b64": "ZiBvbw==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "f oo",
+      "name_key": "f oo"
+    },
+    {
+      "name_b64": "Zi5vbw==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "f.oo",
+      "name_key": "f.oo"
+    },
+    {
+      "name_b64": "YeKAqmI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u202ab",
+      "name_key": "a\\u202ab"
+    },
+    {
+      "name_b64": "YeKAq2I=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u202bb",
+      "name_key": "a\\u202bb"
+    },
+    {
+      "name_b64": "YeKArGI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u202cb",
+      "name_key": "a\\u202cb"
+    },
+    {
+      "name_b64": "YeKArWI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u202db",
+      "name_key": "a\\u202db"
+    },
+    {
+      "name_b64": "YeKArmI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u202eb",
+      "name_key": "a\\u202eb"
+    },
+    {
+      "name_b64": "YeKBpmI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u2066b",
+      "name_key": "a\\u2066b"
+    },
+    {
+      "name_b64": "YeKBp2I=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u2067b",
+      "name_key": "a\\u2067b"
+    },
+    {
+      "name_b64": "YeKBqGI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u2068b",
+      "name_key": "a\\u2068b"
+    },
+    {
+      "name_b64": "YeKBqWI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u2069b",
+      "name_key": "a\\u2069b"
+    },
+    {
+      "name_b64": "YeKAi2I=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u200bb",
+      "name_key": "a\\u200bb"
+    },
+    {
+      "name_b64": "YeKAjGI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u200cb",
+      "name_key": "a\\u200cb"
+    },
+    {
+      "name_b64": "YeKAjWI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u200db",
+      "name_key": "a\\u200db"
+    },
+    {
+      "name_b64": "YeKAjmI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u200eb",
+      "name_key": "a\\u200eb"
+    },
+    {
+      "name_b64": "YeKAj2I=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u200fb",
+      "name_key": "a\\u200fb"
+    },
+    {
+      "name_b64": "YeKBoGI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\u2060b",
+      "name_key": "a\\u2060b"
+    },
+    {
+      "name_b64": "Ye+7v2I=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\ufeffb",
+      "name_key": "a\\ufeffb"
+    },
+    {
+      "name_b64": "YfOggIFi",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\U000e0001b",
+      "name_key": "a\\u000e0001b"
+    },
+    {
+      "name_b64": "YfOggKBi",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\U000e0020b",
+      "name_key": "a\\u000e0020b"
+    },
+    {
+      "name_b64": "YfOggb9i",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "a\\U000e007fb",
+      "name_key": "a\\u000e007fb"
+    },
+    {
+      "name_b64": "YQJi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQNi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQRi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQVi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQZi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQdi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQhi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQli",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQpi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQti",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQxi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQ1i",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQ5i",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YQ9i",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRBi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRFi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRJi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRNi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRRi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRVi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRZi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRdi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRhi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRli",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRpi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRti",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YRxi",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YR1i",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YR5i",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YR9i",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YX9i",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YcKAYg==",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YcKFYg==",
+      "refused": "control"
+    },
+    {
+      "name_b64": "YcKfYg==",
+      "refused": "control"
+    },
+    {
+      "name_b64": "/w==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "\\xff",
+      "name_key": "\\xff"
+    },
+    {
+      "name_b64": "/v8=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "\\xfe\\xff",
+      "name_key": "\\xfe\\xff"
+    },
+    {
+      "name_b64": "gA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "\\x80",
+      "name_key": "\\x80"
+    },
+    {
+      "name_b64": "ww==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "\\xc3",
+      "name_key": "\\xc3"
+    },
+    {
+      "name_b64": "wyg=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "\\xc3(",
+      "name_key": "\\xc3("
+    },
+    {
+      "name_b64": "4oI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "\\xe2\\x82",
+      "name_key": "\\xe2\\x82"
+    },
+    {
+      "name_b64": "7aCA",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "\\xed\\xa0\\x80",
+      "name_key": "\\xed\\xa0\\x80"
+    },
+    {
+      "name_b64": "9JCAgA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "\\xf4\\x90\\x80\\x80",
+      "name_key": "\\xf4\\x90\\x80\\x80"
+    },
+    {
+      "name_b64": "cHJl/2ZpeA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "pre\\xfffix",
+      "name_key": "pre\\xfffix"
+    },
+    {
+      "name_b64": "w6ljYWbp",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "écaf\\xe9",
+      "name_key": "écaf\\xe9"
+    },
+    {
+      "name_b64": "XA==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "\\\\",
+      "name_key": "\\\\"
+    },
+    {
+      "name_b64": "XFw=",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "\\\\\\\\",
+      "name_key": "\\\\\\\\"
+    },
+    {
+      "name_b64": "YVx4Yg==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "a\\\\xb",
+      "name_key": "a\\\\xb"
+    },
+    {
+      "name_b64": "XHg0MQ==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "\\\\x41",
+      "name_key": "\\\\x41"
+    },
+    {
+      "name_b64": "XHUyMDJl",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "\\\\u202e",
+      "name_key": "\\\\u202e"
+    },
+    {
+      "name_b64": "XFx4NDE=",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "\\\\\\\\x41",
+      "name_key": "\\\\\\\\x41"
+    },
+    {
+      "name_b64": "YmFja1xzbGFzaA==",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "back\\\\slash",
+      "name_key": "back\\\\slash"
+    },
+    {
+      "name_b64": "UkVBRE1F",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "README",
+      "name_key": "readme"
+    },
+    {
+      "name_b64": "cmVhZG1l",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "readme",
+      "name_key": "readme"
+    },
+    {
+      "name_b64": "UmVhZE1l",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "ReadMe",
+      "name_key": "readme"
+    },
+    {
+      "name_b64": "UkVBRE1FLm1k",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "README.md",
+      "name_key": "readme.md"
+    },
+    {
+      "name_b64": "cmVhZG1lLm1k",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "readme.md",
+      "name_key": "readme.md"
+    },
+    {
+      "name_b64": "Y2Fmw6k=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "café",
+      "name_key": "café"
+    },
+    {
+      "name_b64": "Y2FmZcyB",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "café",
+      "name_key": "café"
+    },
+    {
+      "name_b64": "Q0FGw4k=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "CAFÉ",
+      "name_key": "café"
+    },
+    {
+      "name_b64": "c3RyYcOfZQ==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "straße",
+      "name_key": "strasse"
+    },
+    {
+      "name_b64": "U1RSQVNTRQ==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "STRASSE",
+      "name_key": "strasse"
+    },
+    {
+      "name_b64": "c3RyYXNzZQ==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "strasse",
+      "name_key": "strasse"
+    },
+    {
+      "name_b64": "xLBzdGFuYnVs",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "İstanbul",
+      "name_key": "i̇stanbul"
+    },
+    {
+      "name_b64": "aXN0YW5idWw=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "istanbul",
+      "name_key": "istanbul"
+    },
+    {
+      "name_b64": "SXN0YW5idWw=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "Istanbul",
+      "name_key": "istanbul"
+    },
+    {
+      "name_b64": "xLFzdGFuYnVs",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "ıstanbul",
+      "name_key": "ıstanbul"
+    },
+    {
+      "name_b64": "z4POv8+C",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "σος",
+      "name_key": "σοσ"
+    },
+    {
+      "name_b64": "zqPOn86j",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "ΣΟΣ",
+      "name_key": "σοσ"
+    },
+    {
+      "name_b64": "77yh77yi",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "ＡＢ",
+      "name_key": "ａｂ"
+    },
+    {
+      "name_b64": "QUI=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "AB",
+      "name_key": "ab"
+    },
+    {
+      "name_b64": "cmVwb3J0LnBkZg==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "report.pdf",
+      "name_key": "report.pdf"
+    },
+    {
+      "name_b64": "cmVwb3J0ICgxKS5wZGY=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "report (1).pdf",
+      "name_key": "report (1).pdf"
+    },
+    {
+      "name_b64": "MjAyNi0wOS0wOCBub3Rlcy5tZA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "2026-09-08 notes.md",
+      "name_key": "2026-09-08 notes.md"
+    },
+    {
+      "name_b64": "LmdpdGlnbm9yZQ==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": ".gitignore",
+      "name_key": ".gitignore"
+    },
+    {
+      "name_b64": "LmdpdA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": ".git",
+      "name_key": ".git"
+    },
+    {
+      "name_b64": "YSBiIGMudHh0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "a b c.txt",
+      "name_key": "a b c.txt"
+    },
+    {
+      "name_b64": "LQ==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "-",
+      "name_key": "-"
+    },
+    {
+      "name_b64": "LS1mbGFn",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "--flag",
+      "name_key": "--flag"
+    },
+    {
+      "name_b64": "I2hhc2gj",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "#hash#",
+      "name_key": "#hash#"
+    },
+    {
+      "name_b64": "MTAwJQ==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "100%",
+      "name_key": "100%"
+    },
+    {
+      "name_b64": "8J+YgC5wbmc=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "😀.png",
+      "name_key": "😀.png"
+    },
+    {
+      "name_b64": "w6XDpMO2",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "åäö",
+      "name_key": "åäö"
+    },
+    {
+      "name_b64": "5L2g5aW9LnR4dA==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "你好.txt",
+      "name_key": "你好.txt"
+    },
+    {
+      "name_b64": "2YXYsdit2KjYpw==",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "مرحبا",
+      "name_key": "مرحبا"
+    },
+    {
+      "name_b64": "16nXnNeV150=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "שלום",
+      "name_key": "שלום"
+    },
+    {
+      "name_b64": "8J+Ps++4j+KAjfCfjIg=",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": true,
+      "display": "🏳️\\u200d🌈",
+      "name_key": "🏳️\\u200d🌈"
+    },
+    {
+      "name_b64": "biAuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n .dat",
+      "name_key": "n .dat"
+    },
+    {
+      "name_b64": "biEuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n!.dat",
+      "name_key": "n!.dat"
+    },
+    {
+      "name_b64": "biIuZGF0",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "n\".dat",
+      "name_key": "n\".dat"
+    },
+    {
+      "name_b64": "biMuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n#.dat",
+      "name_key": "n#.dat"
+    },
+    {
+      "name_b64": "biQuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n$.dat",
+      "name_key": "n$.dat"
+    },
+    {
+      "name_b64": "biUuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n%.dat",
+      "name_key": "n%.dat"
+    },
+    {
+      "name_b64": "biYuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n&.dat",
+      "name_key": "n&.dat"
+    },
+    {
+      "name_b64": "bicuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n'.dat",
+      "name_key": "n'.dat"
+    },
+    {
+      "name_b64": "biguZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n(.dat",
+      "name_key": "n(.dat"
+    },
+    {
+      "name_b64": "bikuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n).dat",
+      "name_key": "n).dat"
+    },
+    {
+      "name_b64": "biouZGF0",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "n*.dat",
+      "name_key": "n*.dat"
+    },
+    {
+      "name_b64": "bisuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n+.dat",
+      "name_key": "n+.dat"
+    },
+    {
+      "name_b64": "biwuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n,.dat",
+      "name_key": "n,.dat"
+    },
+    {
+      "name_b64": "bi0uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n-.dat",
+      "name_key": "n-.dat"
+    },
+    {
+      "name_b64": "bi4uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n..dat",
+      "name_key": "n..dat"
+    },
+    {
+      "name_b64": "bi8uZGF0",
+      "refused": "separator"
+    },
+    {
+      "name_b64": "bjAuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n0.dat",
+      "name_key": "n0.dat"
+    },
+    {
+      "name_b64": "bjEuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n1.dat",
+      "name_key": "n1.dat"
+    },
+    {
+      "name_b64": "bjIuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n2.dat",
+      "name_key": "n2.dat"
+    },
+    {
+      "name_b64": "bjMuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n3.dat",
+      "name_key": "n3.dat"
+    },
+    {
+      "name_b64": "bjQuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n4.dat",
+      "name_key": "n4.dat"
+    },
+    {
+      "name_b64": "bjUuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n5.dat",
+      "name_key": "n5.dat"
+    },
+    {
+      "name_b64": "bjYuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n6.dat",
+      "name_key": "n6.dat"
+    },
+    {
+      "name_b64": "bjcuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n7.dat",
+      "name_key": "n7.dat"
+    },
+    {
+      "name_b64": "bjguZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n8.dat",
+      "name_key": "n8.dat"
+    },
+    {
+      "name_b64": "bjkuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n9.dat",
+      "name_key": "n9.dat"
+    },
+    {
+      "name_b64": "bjouZGF0",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "n:.dat",
+      "name_key": "n:.dat"
+    },
+    {
+      "name_b64": "bjsuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n;.dat",
+      "name_key": "n;.dat"
+    },
+    {
+      "name_b64": "bjwuZGF0",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "n<.dat",
+      "name_key": "n<.dat"
+    },
+    {
+      "name_b64": "bj0uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n=.dat",
+      "name_key": "n=.dat"
+    },
+    {
+      "name_b64": "bj4uZGF0",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "n>.dat",
+      "name_key": "n>.dat"
+    },
+    {
+      "name_b64": "bj8uZGF0",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "n?.dat",
+      "name_key": "n?.dat"
+    },
+    {
+      "name_b64": "bkAuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n@.dat",
+      "name_key": "n@.dat"
+    },
+    {
+      "name_b64": "bkEuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nA.dat",
+      "name_key": "na.dat"
+    },
+    {
+      "name_b64": "bkIuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nB.dat",
+      "name_key": "nb.dat"
+    },
+    {
+      "name_b64": "bkMuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nC.dat",
+      "name_key": "nc.dat"
+    },
+    {
+      "name_b64": "bkQuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nD.dat",
+      "name_key": "nd.dat"
+    },
+    {
+      "name_b64": "bkUuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nE.dat",
+      "name_key": "ne.dat"
+    },
+    {
+      "name_b64": "bkYuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nF.dat",
+      "name_key": "nf.dat"
+    },
+    {
+      "name_b64": "bkcuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nG.dat",
+      "name_key": "ng.dat"
+    },
+    {
+      "name_b64": "bkguZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nH.dat",
+      "name_key": "nh.dat"
+    },
+    {
+      "name_b64": "bkkuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nI.dat",
+      "name_key": "ni.dat"
+    },
+    {
+      "name_b64": "bkouZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nJ.dat",
+      "name_key": "nj.dat"
+    },
+    {
+      "name_b64": "bksuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nK.dat",
+      "name_key": "nk.dat"
+    },
+    {
+      "name_b64": "bkwuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nL.dat",
+      "name_key": "nl.dat"
+    },
+    {
+      "name_b64": "bk0uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nM.dat",
+      "name_key": "nm.dat"
+    },
+    {
+      "name_b64": "bk4uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nN.dat",
+      "name_key": "nn.dat"
+    },
+    {
+      "name_b64": "bk8uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nO.dat",
+      "name_key": "no.dat"
+    },
+    {
+      "name_b64": "blAuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nP.dat",
+      "name_key": "np.dat"
+    },
+    {
+      "name_b64": "blEuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nQ.dat",
+      "name_key": "nq.dat"
+    },
+    {
+      "name_b64": "blIuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nR.dat",
+      "name_key": "nr.dat"
+    },
+    {
+      "name_b64": "blMuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nS.dat",
+      "name_key": "ns.dat"
+    },
+    {
+      "name_b64": "blQuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nT.dat",
+      "name_key": "nt.dat"
+    },
+    {
+      "name_b64": "blUuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nU.dat",
+      "name_key": "nu.dat"
+    },
+    {
+      "name_b64": "blYuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nV.dat",
+      "name_key": "nv.dat"
+    },
+    {
+      "name_b64": "blcuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nW.dat",
+      "name_key": "nw.dat"
+    },
+    {
+      "name_b64": "blguZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nX.dat",
+      "name_key": "nx.dat"
+    },
+    {
+      "name_b64": "blkuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nY.dat",
+      "name_key": "ny.dat"
+    },
+    {
+      "name_b64": "blouZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nZ.dat",
+      "name_key": "nz.dat"
+    },
+    {
+      "name_b64": "blsuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n[.dat",
+      "name_key": "n[.dat"
+    },
+    {
+      "name_b64": "blwuZGF0",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "n\\\\.dat",
+      "name_key": "n\\\\.dat"
+    },
+    {
+      "name_b64": "bl0uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n].dat",
+      "name_key": "n].dat"
+    },
+    {
+      "name_b64": "bl4uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n^.dat",
+      "name_key": "n^.dat"
+    },
+    {
+      "name_b64": "bl8uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n_.dat",
+      "name_key": "n_.dat"
+    },
+    {
+      "name_b64": "bmAuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n`.dat",
+      "name_key": "n`.dat"
+    },
+    {
+      "name_b64": "bmEuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "na.dat",
+      "name_key": "na.dat"
+    },
+    {
+      "name_b64": "bmIuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nb.dat",
+      "name_key": "nb.dat"
+    },
+    {
+      "name_b64": "bmMuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nc.dat",
+      "name_key": "nc.dat"
+    },
+    {
+      "name_b64": "bmQuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nd.dat",
+      "name_key": "nd.dat"
+    },
+    {
+      "name_b64": "bmUuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "ne.dat",
+      "name_key": "ne.dat"
+    },
+    {
+      "name_b64": "bmYuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nf.dat",
+      "name_key": "nf.dat"
+    },
+    {
+      "name_b64": "bmcuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "ng.dat",
+      "name_key": "ng.dat"
+    },
+    {
+      "name_b64": "bmguZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nh.dat",
+      "name_key": "nh.dat"
+    },
+    {
+      "name_b64": "bmkuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "ni.dat",
+      "name_key": "ni.dat"
+    },
+    {
+      "name_b64": "bmouZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nj.dat",
+      "name_key": "nj.dat"
+    },
+    {
+      "name_b64": "bmsuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nk.dat",
+      "name_key": "nk.dat"
+    },
+    {
+      "name_b64": "bmwuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nl.dat",
+      "name_key": "nl.dat"
+    },
+    {
+      "name_b64": "bm0uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nm.dat",
+      "name_key": "nm.dat"
+    },
+    {
+      "name_b64": "bm4uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nn.dat",
+      "name_key": "nn.dat"
+    },
+    {
+      "name_b64": "bm8uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "no.dat",
+      "name_key": "no.dat"
+    },
+    {
+      "name_b64": "bnAuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "np.dat",
+      "name_key": "np.dat"
+    },
+    {
+      "name_b64": "bnEuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nq.dat",
+      "name_key": "nq.dat"
+    },
+    {
+      "name_b64": "bnIuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nr.dat",
+      "name_key": "nr.dat"
+    },
+    {
+      "name_b64": "bnMuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "ns.dat",
+      "name_key": "ns.dat"
+    },
+    {
+      "name_b64": "bnQuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nt.dat",
+      "name_key": "nt.dat"
+    },
+    {
+      "name_b64": "bnUuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nu.dat",
+      "name_key": "nu.dat"
+    },
+    {
+      "name_b64": "bnYuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nv.dat",
+      "name_key": "nv.dat"
+    },
+    {
+      "name_b64": "bncuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nw.dat",
+      "name_key": "nw.dat"
+    },
+    {
+      "name_b64": "bnguZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nx.dat",
+      "name_key": "nx.dat"
+    },
+    {
+      "name_b64": "bnkuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "ny.dat",
+      "name_key": "ny.dat"
+    },
+    {
+      "name_b64": "bnouZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "nz.dat",
+      "name_key": "nz.dat"
+    },
+    {
+      "name_b64": "bnsuZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n{.dat",
+      "name_key": "n{.dat"
+    },
+    {
+      "name_b64": "bnwuZGF0",
+      "refused": null,
+      "windows_safe": false,
+      "display_warning": false,
+      "display": "n|.dat",
+      "name_key": "n|.dat"
+    },
+    {
+      "name_b64": "bn0uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n}.dat",
+      "name_key": "n}.dat"
+    },
+    {
+      "name_b64": "bn4uZGF0",
+      "refused": null,
+      "windows_safe": true,
+      "display_warning": false,
+      "display": "n~.dat",
+      "name_key": "n~.dat"
+    }
+  ]
+}

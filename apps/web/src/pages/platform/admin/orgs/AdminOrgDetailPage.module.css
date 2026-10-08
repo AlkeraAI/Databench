@@ -1,0 +1,30 @@
+/* Sign-in provider rows (org-detail settings tab) — the user-facing settings page's provider-row
+   design: a chipped brand mark, the label, and the allow/block Switch pushed to the right edge.
+   The rows themselves are Stack/Inline primitives in the TSX; only the chip frame lives here. */
+.providerLogo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkCardBg);
+  border: 1px solid var(--alkBorder);
+  color: var(--alkPrimaryText);
+}
+
+/* The section switch. Six labels do not fit a phone's width at a readable size, and the control's
+   own rule shrinks each one to an ellipsis ("Ove… Cre… Me…"). Here it keeps every label whole and
+   the strip scrolls sideways within the page instead; on a wide screen nothing changes. */
+.sections {
+  max-width: 100%;
+  overflow-x: auto;
+  /* Room above and below for the focus ring, which a scroll container would otherwise clip. */
+  padding-block: var(--alkSpace1);
+  margin-bottom: calc(var(--alkSpace7) - var(--alkSpace1));
+}
+.sections > :global(.alk-seg) {
+  width: max-content;
+  max-width: none;
+}

@@ -1,0 +1,137 @@
+@import "./tokens.css";
+
+/* The plan's state, then the plan. */
+
+:global(.chat-root) [data-tool="tasks"] .band {
+  display: block;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x);
+}
+
+:global(.chat-root) [data-tool="tasks"] .meter {
+  display: flex;
+  gap: var(--chat-sp-1);
+  height: 4px;
+}
+
+:global(.chat-root) [data-tool="tasks"] .meterSeg {
+  border-radius: 2px;
+  background: var(--chat-tool-wash-quiet);
+}
+
+:global(.chat-root) [data-tool="tasks"] .meterSeg[data-seg="completed"] {
+  background: var(--chat-tool-good);
+}
+
+:global(.chat-root) [data-tool="tasks"] .meterSeg[data-seg="in_progress"] {
+  background: var(--chat-tool-info);
+}
+
+:global(.chat-root) [data-tool="tasks"] .meterSeg[data-seg="cancelled"] {
+  background: var(--chat-tool-bad);
+}
+
+:global(.chat-root) [data-tool="tasks"] .roster {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:global(.chat-root) [data-tool="tasks"] .task {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x);
+  border-left: 2px solid transparent;
+}
+
+/* The work in flight is the one thing a reader scans this list for, so it is
+   the one row that carries a ground. A blocked row is ruled but not washed: it
+   is not where the work is, only where it stopped. */
+:global(.chat-root) [data-tool="tasks"] .task[data-status="in_progress"] {
+  border-left-color: var(--chat-tool-info);
+  background: var(--chat-tool-info-wash);
+}
+
+:global(.chat-root) [data-tool="tasks"] .task[data-blocked] {
+  border-left-color: var(--chat-tool-warn);
+}
+
+/* The chain rail joins a task to the predecessor directly above it, so the
+   plan's spine and its breaks are both visible. Mark to mark: the icon sits 2px
+   inside its 20px box and the rows sit 3px apart, so the segment runs from the
+   mark above to this one and touches neither. */
+:global(.chat-root) [data-tool="tasks"] .task[data-chained]::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--chat-tool-pad-x) + 8px);
+  top: -5px;
+  height: 10px;
+  border-left: 1px solid var(--chat-tool-rail);
+}
+
+:global(.chat-root) [data-tool="tasks"] .taskMark {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="tasks"] .task[data-status="completed"] .taskMark {
+  color: var(--chat-tool-good);
+}
+
+:global(.chat-root) [data-tool="tasks"] .task[data-status="in_progress"] .taskMark {
+  color: var(--chat-tool-info);
+}
+
+:global(.chat-root) [data-tool="tasks"] .task[data-status="cancelled"] .taskMark {
+  color: var(--chat-tool-bad);
+}
+
+:global(.chat-root) [data-tool="tasks"] .task[data-blocked] .taskMark {
+  color: var(--chat-tool-warn);
+}
+
+:global(.chat-root) [data-tool="tasks"] .taskBody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+:global(.chat-root) [data-tool="tasks"] .taskTitle {
+  min-width: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+}
+
+/* Open work reads at full ink beside done work: the item a reader scans for is
+   never the faintest line. The mark column and the meter carry doneness;
+   only a dropped task dims, struck. */
+:global(.chat-root) [data-tool="tasks"] .task[data-status="cancelled"] .taskTitle {
+  color: var(--chat-ink-3);
+  text-decoration: line-through;
+}
+
+:global(.chat-root) [data-tool="tasks"] .task[data-status="in_progress"] .taskTitle {
+  font-weight: var(--chat-w-medium);
+}
+
+:global(.chat-root) [data-tool="tasks"] .taskWait {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-sp-1);
+  margin: 1px 0 0;
+  overflow: hidden;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  white-space: nowrap;
+  color: var(--chat-tool-warn);
+}
+
+:global(.chat-root) [data-tool="tasks"] .taskWaittext {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

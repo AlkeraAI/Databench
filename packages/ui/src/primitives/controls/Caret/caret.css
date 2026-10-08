@@ -1,0 +1,14 @@
+.alk-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.alk-caret > svg {
+  transition: transform var(--alkDurationNormal) var(--alkEaseStandard);
+}
+
+.alk-caret[data-open="true"] > svg {
+  transform: rotate(90deg);
+}

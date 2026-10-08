@@ -1,0 +1,59 @@
+/* Base — the small cross-cutting primitives that don't belong to one component: the provider
+ * brand-mark box reset, the option-row mark, and the spinner. Everything else lives in its
+ * component's own stylesheet. Loaded via @alkera/ui/styles. */
+
+/* Provider brand marks (brand/ProviderLogo) — reset the inline-svg baseline gap and keep the mark
+   from stretching in a flex icon slot. The fill is the mark's own (Anthropic vermilion / OpenAI
+   currentColor), so this only governs box behaviour, never colour. */
+.alk-provider-mark {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+}
+
+/* Option-row mark — the glyph cell on Select options and Dropdown items: a fixed icon box where
+   the row's glyph sits muted and the check replaces it when the row is selected (`data-on`),
+   reading brand. One definition for both menus; each component keeps its own mark class for
+   contextual styling (danger / disabled rows, the history menu's first-line pin). */
+.alk-option-mark {
+  display: grid;
+  place-items: center;
+  width: var(--alkIconMd);
+  height: var(--alkIconMd);
+  flex: 0 0 auto;
+  color: var(--alkSecondaryText);
+}
+[data-on] > .alk-option-mark {
+  color: var(--alkBrand);
+}
+
+/* ── Spinner (icons.tsx) ────────────────────────────────────────────────── */
+.alk-spinner {
+  /* @keyframes alk-spin lives in theme/motion.css */
+  animation: alk-spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* A spinner needs motion to read as loading; slow it rather than freeze it. */
+  .alk-spinner {
+    animation-duration: 1.6s;
+  }
+}
+
+/* Thin-scrollbar utility for the scrolling wells inside cards and markdown (pre
+   plates, table wraps, tool-card bodies) — one owner, many consumers. */
+.alk-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--alkScrollbarThumb) transparent;
+}
+.alk-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.alk-scroll::-webkit-scrollbar-thumb {
+  background: var(--alkScrollbarThumb);
+  border-radius: var(--alkRadiusFull);
+}
+.alk-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}

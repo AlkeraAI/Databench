@@ -1,0 +1,22 @@
+schema_version: 2.0.0
+current: https://api.example.test|99999999-9999-4999-8999-999999999999|11111111-1111-4111-8111-111111111111
+profiles:
+- key: https://api.example.test|99999999-9999-4999-8999-999999999999|11111111-1111-4111-8111-111111111111
+  api_url: https://api.example.test
+  user_id: 99999999-9999-4999-8999-999999999999
+  email: a@x.com
+  org_team_id: 11111111-1111-4111-8111-111111111111
+  org_name: Acme
+  token: eyJhbGciOiJub25lIn0.eyJzdWIiOiAiOTk5OTk5OTktOTk5OS00OTk5LTg5OTktOTk5OTk5OTk5OTk5IiwgImVtYWlsIjogImFAeC5jb20iLCAiZXhwIjogNDEwMjQ0NDgwMCwgIm9yZ190ZWFtX2lkIjogIjExMTExMTExLTExMTEtNDExMS04MTExLTExMTExMTExMTExMSJ9.sig
+  expires_at: '2100-01-01T00:00:00Z'
+- key: https://api.example.test|99999999-9999-4999-8999-999999999999|22222222-2222-4222-8222-222222222222
+  api_url: https://api.example.test
+  user_id: 99999999-9999-4999-8999-999999999999
+  email: a@x.com
+  org_team_id: 22222222-2222-4222-8222-222222222222
+  org_name: Bravo
+  token: eyJhbGciOiJub25lIn0.eyJzdWIiOiAiOTk5OTk5OTktOTk5OS00OTk5LTg5OTktOTk5OTk5OTk5OTk5IiwgImVtYWlsIjogImFAeC5jb20iLCAiZXhwIjogNDEwMjQ0NDgwMCwgIm9yZ190ZWFtX2lkIjogIjIyMjIyMjIyLTIyMjItNDIyMi04MjIyLTIyMjIyMjIyMjIyMiJ9.sig
+  expires_at: '2100-01-01T00:00:00Z'
+api_url: https://api.example.test
+token: eyJhbGciOiJub25lIn0.eyJzdWIiOiAiOTk5OTk5OTktOTk5OS00OTk5LTg5OTktOTk5OTk5OTk5OTk5IiwgImVtYWlsIjogImFAeC5jb20iLCAiZXhwIjogNDEwMjQ0NDgwMCwgIm9yZ190ZWFtX2lkIjogIjExMTExMTExLTExMTEtNDExMS04MTExLTExMTExMTExMTExMSJ9.sig
+expires_at: '2100-01-01T00:00:00+00:00'

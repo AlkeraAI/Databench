@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0.0",
+  "api_url": "https://api.example",
+  "credential": "alk_machine_fixture-credential",
+  "provider_pod_id": "personal-0123456789abcdef0123456789abcdef",
+  "name": "my laptop",
+  "machine_id": "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b"
+}

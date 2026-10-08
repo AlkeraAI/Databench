@@ -1,0 +1,10 @@
+{
+  "$model": "alkera_core.schemas.files.pointer.PointerFile",
+  "app_url": "alkera://chats/1",
+  "kind": "chat",
+  "metadata": {},
+  "node_id": null,
+  "rendered_mime": "text/markdown",
+  "schema_version": "1.0.0",
+  "web_url": "https://app.example.test/chats/1"
+}

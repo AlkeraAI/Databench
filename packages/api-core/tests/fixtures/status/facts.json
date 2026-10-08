@@ -1,0 +1,2910 @@
+{
+  "chat": {
+    "asleep": {
+      "build": {
+        "state": "asleep"
+      },
+      "fact": {
+        "action": null,
+        "label": "Asleep",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "Asleep. A message wakes it.",
+        "since": null,
+        "state": "asleep",
+        "subject": "chat",
+        "tone": "muted"
+      }
+    },
+    "awake": {
+      "build": {
+        "state": "awake"
+      },
+      "fact": {
+        "action": null,
+        "label": "Awake",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "Ready for a message.",
+        "since": null,
+        "state": "awake",
+        "subject": "chat",
+        "tone": "success"
+      }
+    },
+    "draining": {
+      "build": {
+        "names": {
+          "machine": "lab-b"
+        },
+        "reason": "machine_draining",
+        "state": "awake"
+      },
+      "fact": {
+        "action": null,
+        "label": "Awake",
+        "reason_code": "machine_draining",
+        "recheck_at": null,
+        "sentence": "lab-b is being replaced. This chat continues on the next machine.",
+        "since": null,
+        "state": "awake",
+        "subject": "chat",
+        "tone": "success"
+      }
+    },
+    "new_chat": {
+      "build": {
+        "state": "starting"
+      },
+      "fact": {
+        "action": null,
+        "label": "Starting",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "Starting the chat.",
+        "since": null,
+        "state": "starting",
+        "subject": "chat",
+        "tone": "info"
+      }
+    },
+    "no_machine": {
+      "build": {
+        "reason": "no_machine",
+        "state": "unavailable"
+      },
+      "fact": {
+        "action": null,
+        "label": "Can't run",
+        "reason_code": "no_machine",
+        "recheck_at": null,
+        "sentence": "No machine can serve your organization right now.",
+        "since": null,
+        "state": "unavailable",
+        "subject": "chat",
+        "tone": "danger"
+      }
+    },
+    "queued": {
+      "build": {
+        "state": "queued"
+      },
+      "fact": {
+        "action": null,
+        "label": "Queued",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "Queued until a slot on its machine frees up.",
+        "since": null,
+        "state": "queued",
+        "subject": "chat",
+        "tone": "neutral"
+      }
+    },
+    "refused": {
+      "build": {
+        "reason": "refused",
+        "state": "unavailable"
+      },
+      "fact": {
+        "action": null,
+        "label": "Can't run",
+        "reason_code": "refused",
+        "recheck_at": null,
+        "sentence": "The machine serving it will pick it up again once it can.",
+        "since": null,
+        "state": "unavailable",
+        "subject": "chat",
+        "tone": "danger"
+      }
+    },
+    "refused_moving": {
+      "build": {
+        "reason": "refused_moving",
+        "state": "unavailable"
+      },
+      "fact": {
+        "action": null,
+        "label": "Can't run",
+        "reason_code": "refused_moving",
+        "recheck_at": null,
+        "sentence": "It is moving to another machine.",
+        "since": null,
+        "state": "unavailable",
+        "subject": "chat",
+        "tone": "danger"
+      }
+    },
+    "released": {
+      "build": {
+        "reason": "machine_released",
+        "state": "unavailable"
+      },
+      "fact": {
+        "action": null,
+        "label": "Can't run",
+        "reason_code": "machine_released",
+        "recheck_at": null,
+        "sentence": "The machine this chat ran on is no longer active. A new machine will be used.",
+        "since": null,
+        "state": "unavailable",
+        "subject": "chat",
+        "tone": "danger"
+      }
+    },
+    "restarting": {
+      "build": {
+        "names": {
+          "machine": "lab-b"
+        },
+        "reason": "machine_restarting",
+        "state": "awake"
+      },
+      "fact": {
+        "action": null,
+        "label": "Awake",
+        "reason_code": "machine_restarting",
+        "recheck_at": null,
+        "sentence": "lab-b is restarting and picks this chat up again when it is back.",
+        "since": null,
+        "state": "awake",
+        "subject": "chat",
+        "tone": "success"
+      }
+    },
+    "stalled_turn_not_started": {
+      "build": {
+        "names": {
+          "machine": "lab-b"
+        },
+        "reason": "turn_not_started",
+        "state": "stalled"
+      },
+      "fact": {
+        "action": null,
+        "label": "Stalled",
+        "reason_code": "turn_not_started",
+        "recheck_at": null,
+        "sentence": "lab-b has the message and hasn't started on it.",
+        "since": null,
+        "state": "stalled",
+        "subject": "chat",
+        "tone": "warning"
+      }
+    },
+    "stalled_turn_silent": {
+      "build": {
+        "reason": "turn_silent",
+        "state": "stalled"
+      },
+      "fact": {
+        "action": null,
+        "label": "Stalled",
+        "reason_code": "turn_silent",
+        "recheck_at": null,
+        "sentence": "The agent has stopped reporting progress.",
+        "since": null,
+        "state": "stalled",
+        "subject": "chat",
+        "tone": "warning"
+      }
+    },
+    "starting": {
+      "build": {
+        "names": {
+          "machine": "lab-b"
+        },
+        "reason": "machine_starting",
+        "state": "waking"
+      },
+      "fact": {
+        "action": null,
+        "label": "Starting",
+        "reason_code": "machine_starting",
+        "recheck_at": null,
+        "sentence": "lab-b is starting. Your message is sent as soon as it is ready.",
+        "since": null,
+        "state": "waking",
+        "subject": "chat",
+        "tone": "info"
+      }
+    },
+    "starting_unnamed": {
+      "build": {
+        "generic": [
+          "machine"
+        ],
+        "names": {
+          "machine": "the machine"
+        },
+        "reason": "machine_starting",
+        "state": "waking"
+      },
+      "fact": {
+        "action": null,
+        "label": "Starting",
+        "reason_code": "machine_starting",
+        "recheck_at": null,
+        "sentence": "The machine is starting. Your message is sent as soon as it is ready.",
+        "since": null,
+        "state": "waking",
+        "subject": "chat",
+        "tone": "info"
+      }
+    },
+    "stopped_credits": {
+      "build": {
+        "reason": "credits_exhausted",
+        "state": "stopped"
+      },
+      "fact": {
+        "action": null,
+        "label": "Stopped",
+        "reason_code": "credits_exhausted",
+        "recheck_at": null,
+        "sentence": "Stopped because the organization ran out of credit.",
+        "since": null,
+        "state": "stopped",
+        "subject": "chat",
+        "tone": "warning"
+      }
+    },
+    "unreachable": {
+      "build": {
+        "names": {
+          "machine": "lab-b"
+        },
+        "reason": "machine_unreachable",
+        "state": "unavailable"
+      },
+      "fact": {
+        "action": null,
+        "label": "Can't run",
+        "reason_code": "machine_unreachable",
+        "recheck_at": null,
+        "sentence": "lab-b isn't responding.",
+        "since": null,
+        "state": "unavailable",
+        "subject": "chat",
+        "tone": "danger"
+      }
+    },
+    "waiting": {
+      "build": {
+        "reason": "not_yet",
+        "state": "waiting"
+      },
+      "fact": {
+        "action": null,
+        "label": "Waiting",
+        "reason_code": "not_yet",
+        "recheck_at": null,
+        "sentence": "The chat continues as soon as the machine can run it.",
+        "since": null,
+        "state": "waiting",
+        "subject": "chat",
+        "tone": "info"
+      }
+    },
+    "waiting_files": {
+      "build": {
+        "reason": "files_unreachable",
+        "state": "waiting"
+      },
+      "fact": {
+        "action": null,
+        "label": "Waiting",
+        "reason_code": "files_unreachable",
+        "recheck_at": null,
+        "sentence": "The machine serving it can't reach the chat's files right now.",
+        "since": null,
+        "state": "waiting",
+        "subject": "chat",
+        "tone": "info"
+      }
+    },
+    "waiting_workspace_elsewhere": {
+      "build": {
+        "reason": "workspace_elsewhere",
+        "state": "waiting"
+      },
+      "fact": {
+        "action": null,
+        "label": "Waiting",
+        "reason_code": "workspace_elsewhere",
+        "recheck_at": null,
+        "sentence": "Its workspace is still open on another machine.",
+        "since": null,
+        "state": "waiting",
+        "subject": "chat",
+        "tone": "info"
+      }
+    },
+    "waking": {
+      "build": {
+        "state": "waking"
+      },
+      "fact": {
+        "action": null,
+        "label": "Waking",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "Waking the chat.",
+        "since": null,
+        "state": "waking",
+        "subject": "chat",
+        "tone": "info"
+      }
+    },
+    "working": {
+      "build": {
+        "state": "working"
+      },
+      "fact": {
+        "action": null,
+        "label": "Working",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "The agent is working.",
+        "since": null,
+        "state": "working",
+        "subject": "chat",
+        "tone": "info"
+      }
+    }
+  },
+  "files_live": {
+    "live": {
+      "build": {
+        "names": {
+          "machine": "box-1"
+        },
+        "state": "live"
+      },
+      "fact": {
+        "action": null,
+        "label": "Live",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "box-1 is writing these files as it works.",
+        "since": null,
+        "state": "live",
+        "subject": "files_live",
+        "tone": "success"
+      }
+    },
+    "live_landing": {
+      "build": {
+        "names": {
+          "machine": "box-1"
+        },
+        "reason": "landing",
+        "state": "live"
+      },
+      "fact": {
+        "action": null,
+        "label": "Live",
+        "reason_code": "landing",
+        "recheck_at": null,
+        "sentence": "box-1 is writing these files as it works. Some are still on their way to Files.",
+        "since": null,
+        "state": "live",
+        "subject": "files_live",
+        "tone": "success"
+      }
+    },
+    "paused_behind": {
+      "build": {
+        "names": {
+          "machine": "box-1"
+        },
+        "reason": "behind",
+        "state": "sync_paused"
+      },
+      "fact": {
+        "action": null,
+        "label": "Sync paused",
+        "reason_code": "behind",
+        "recheck_at": null,
+        "sentence": "box-1 is behind on syncing. These are the files it last saved.",
+        "since": null,
+        "state": "sync_paused",
+        "subject": "files_live",
+        "tone": "warning"
+      }
+    },
+    "paused_silent": {
+      "build": {
+        "names": {
+          "machine": "box-1"
+        },
+        "reason": "worker_silent",
+        "state": "sync_paused"
+      },
+      "fact": {
+        "action": null,
+        "label": "Sync paused",
+        "reason_code": "worker_silent",
+        "recheck_at": null,
+        "sentence": "box-1 has stopped syncing. These are the files it last saved.",
+        "since": null,
+        "state": "sync_paused",
+        "subject": "files_live",
+        "tone": "warning"
+      }
+    },
+    "paused_unreachable": {
+      "build": {
+        "names": {
+          "machine": "box-1"
+        },
+        "reason": "machine_unreachable",
+        "state": "sync_paused"
+      },
+      "fact": {
+        "action": null,
+        "label": "Sync paused",
+        "reason_code": "machine_unreachable",
+        "recheck_at": null,
+        "sentence": "box-1 isn't responding. These are the files it last saved.",
+        "since": null,
+        "state": "sync_paused",
+        "subject": "files_live",
+        "tone": "warning"
+      }
+    },
+    "saved_copy": {
+      "build": {
+        "names": {
+          "machine": "box-1"
+        },
+        "state": "saved_copy"
+      },
+      "fact": {
+        "action": null,
+        "label": "Saved copy",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "box-1 holds this folder and saves it from time to time. These are the files it last saved.",
+        "since": null,
+        "state": "saved_copy",
+        "subject": "files_live",
+        "tone": "neutral"
+      }
+    }
+  },
+  "fleet": {
+    "asleep|asleep|": {
+      "action": null,
+      "label": "Asleep",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is asleep with its disk kept.",
+      "since": null,
+      "state": "asleep",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "asleep|asleep|wake": {
+      "action": null,
+      "label": "Starting once stopped",
+      "reason_code": "after_stop",
+      "recheck_at": null,
+      "sentence": "box starts once its provider has stopped it.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "asleep|draining|": {
+      "action": null,
+      "label": "Asleep",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is asleep with its disk kept.",
+      "since": null,
+      "state": "asleep",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "asleep|draining|wake": {
+      "action": null,
+      "label": "Starting once stopped",
+      "reason_code": "after_stop",
+      "recheck_at": null,
+      "sentence": "box starts once its provider has stopped it.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "asleep|none|": {
+      "action": null,
+      "label": "Asleep",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is asleep with its disk kept.",
+      "since": null,
+      "state": "asleep",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "asleep|none|wake": {
+      "action": null,
+      "label": "Starting once stopped",
+      "reason_code": "after_stop",
+      "recheck_at": null,
+      "sentence": "box starts once its provider has stopped it.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "asleep|ready|": {
+      "action": null,
+      "label": "Asleep",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is asleep with its disk kept.",
+      "since": null,
+      "state": "asleep",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "asleep|ready|wake": {
+      "action": null,
+      "label": "Starting once stopped",
+      "reason_code": "after_stop",
+      "recheck_at": null,
+      "sentence": "box starts once its provider has stopped it.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "asleep|restarting|": {
+      "action": null,
+      "label": "Asleep",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is asleep with its disk kept.",
+      "since": null,
+      "state": "asleep",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "asleep|restarting|wake": {
+      "action": null,
+      "label": "Starting once stopped",
+      "reason_code": "after_stop",
+      "recheck_at": null,
+      "sentence": "box starts once its provider has stopped it.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "asleep|starting|": {
+      "action": null,
+      "label": "Asleep",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is asleep with its disk kept.",
+      "since": null,
+      "state": "asleep",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "asleep|starting|wake": {
+      "action": null,
+      "label": "Starting once stopped",
+      "reason_code": "after_stop",
+      "recheck_at": null,
+      "sentence": "box starts once its provider has stopped it.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "asleep|unreachable|": {
+      "action": null,
+      "label": "Asleep",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is asleep with its disk kept.",
+      "since": null,
+      "state": "asleep",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "asleep|unreachable|wake": {
+      "action": null,
+      "label": "Starting once stopped",
+      "reason_code": "after_stop",
+      "recheck_at": null,
+      "sentence": "box starts once its provider has stopped it.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|asleep|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|asleep|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|draining|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|draining|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|none|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|none|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|ready|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|ready|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|restarting|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|restarting|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|starting|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|starting|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|unreachable|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "bootstrapping|unreachable|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "draining|asleep|": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|asleep|wake": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|draining|": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|draining|wake": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|none|": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|none|wake": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|ready|": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|ready|wake": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|restarting|": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|restarting|wake": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|starting|": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|starting|wake": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|unreachable|": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "draining|unreachable|wake": {
+      "action": null,
+      "label": "Draining",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is draining.",
+      "since": null,
+      "state": "draining",
+      "subject": "fleet",
+      "tone": "warning"
+    },
+    "failed|asleep|": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|asleep|wake": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|draining|": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|draining|wake": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|none|": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|none|wake": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|ready|": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|ready|wake": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|restarting|": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|restarting|wake": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|starting|": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|starting|wake": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|unreachable|": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "failed|unreachable|wake": {
+      "action": null,
+      "label": "Failed",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box failed.",
+      "since": null,
+      "state": "failed",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|asleep|": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|asleep|wake": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|draining|": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|draining|wake": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|none|": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|none|wake": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|ready|": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|ready|wake": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|restarting|": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|restarting|wake": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|starting|": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|starting|wake": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|unreachable|": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "lost|unreachable|wake": {
+      "action": null,
+      "label": "Lost",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was lost by its provider.",
+      "since": null,
+      "state": "lost",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "pending|asleep|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|asleep|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|draining|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|draining|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|none|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|none|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|ready|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|ready|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|restarting|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|restarting|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|starting|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|starting|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|unreachable|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "pending|unreachable|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|asleep|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|asleep|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|draining|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|draining|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|none|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|none|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|ready|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|ready|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|restarting|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|restarting|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|starting|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|starting|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|unreachable|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "provisioning|unreachable|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "ready|asleep|": {
+      "action": null,
+      "label": "Ready",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is serving.",
+      "since": null,
+      "state": "ready",
+      "subject": "fleet",
+      "tone": "success"
+    },
+    "ready|asleep|wake": {
+      "action": null,
+      "label": "Ready",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is serving.",
+      "since": null,
+      "state": "ready",
+      "subject": "fleet",
+      "tone": "success"
+    },
+    "ready|draining|": {
+      "action": null,
+      "label": "Ready",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is serving.",
+      "since": null,
+      "state": "ready",
+      "subject": "fleet",
+      "tone": "success"
+    },
+    "ready|draining|wake": {
+      "action": null,
+      "label": "Ready",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is serving.",
+      "since": null,
+      "state": "ready",
+      "subject": "fleet",
+      "tone": "success"
+    },
+    "ready|none|": {
+      "action": null,
+      "label": "Ready",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is serving.",
+      "since": null,
+      "state": "ready",
+      "subject": "fleet",
+      "tone": "success"
+    },
+    "ready|none|wake": {
+      "action": null,
+      "label": "Ready",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is serving.",
+      "since": null,
+      "state": "ready",
+      "subject": "fleet",
+      "tone": "success"
+    },
+    "ready|ready|": {
+      "action": null,
+      "label": "Ready",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is serving.",
+      "since": null,
+      "state": "ready",
+      "subject": "fleet",
+      "tone": "success"
+    },
+    "ready|ready|wake": {
+      "action": null,
+      "label": "Ready",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is serving.",
+      "since": null,
+      "state": "ready",
+      "subject": "fleet",
+      "tone": "success"
+    },
+    "ready|restarting|": {
+      "action": null,
+      "label": "Ready",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is serving.",
+      "since": null,
+      "state": "ready",
+      "subject": "fleet",
+      "tone": "success"
+    },
+    "ready|restarting|wake": {
+      "action": null,
+      "label": "Ready",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is serving.",
+      "since": null,
+      "state": "ready",
+      "subject": "fleet",
+      "tone": "success"
+    },
+    "ready|starting|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "ready|starting|wake": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "fleet",
+      "tone": "neutral"
+    },
+    "ready|unreachable|": {
+      "action": null,
+      "label": "Not responding",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box isn't responding.",
+      "since": null,
+      "state": "unreachable",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "ready|unreachable|wake": {
+      "action": null,
+      "label": "Not responding",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box isn't responding.",
+      "since": null,
+      "state": "unreachable",
+      "subject": "fleet",
+      "tone": "danger"
+    },
+    "released|asleep|": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|asleep|wake": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|draining|": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|draining|wake": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|none|": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|none|wake": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|ready|": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|ready|wake": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|restarting|": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|restarting|wake": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|starting|": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|starting|wake": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|unreachable|": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "released|unreachable|wake": {
+      "action": null,
+      "label": "Released",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box was released.",
+      "since": null,
+      "state": "released",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|asleep|": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|asleep|wake": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|draining|": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|draining|wake": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|none|": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|none|wake": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|ready|": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|ready|wake": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|restarting|": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|restarting|wake": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|starting|": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|starting|wake": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|unreachable|": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "releasing|unreachable|wake": {
+      "action": null,
+      "label": "Releasing",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "box is being released.",
+      "since": null,
+      "state": "releasing",
+      "subject": "fleet",
+      "tone": "muted"
+    },
+    "revoked": {
+      "action": null,
+      "label": "Credential revoked",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "Its credential was revoked.",
+      "since": null,
+      "state": "revoked",
+      "subject": "fleet",
+      "tone": "muted"
+    }
+  },
+  "machine": {
+    "deleted|": {
+      "action": null,
+      "label": "Deleted",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b was deleted.",
+      "since": null,
+      "state": "deleted",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "deleted|cap": {
+      "action": null,
+      "label": "Deleted",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b was deleted.",
+      "since": null,
+      "state": "deleted",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "deleted|credits": {
+      "action": null,
+      "label": "Deleted",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b was deleted.",
+      "since": null,
+      "state": "deleted",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "deleted|free_expired": {
+      "action": null,
+      "label": "Deleted",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b was deleted.",
+      "since": null,
+      "state": "deleted",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "deleted|idle": {
+      "action": null,
+      "label": "Deleted",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b was deleted.",
+      "since": null,
+      "state": "deleted",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "deleted|provider": {
+      "action": null,
+      "label": "Deleted",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b was deleted.",
+      "since": null,
+      "state": "deleted",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "deleted|user": {
+      "action": null,
+      "label": "Deleted",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b was deleted.",
+      "since": null,
+      "state": "deleted",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "failed|": {
+      "action": null,
+      "label": "Couldn't start",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b couldn't start.",
+      "since": null,
+      "state": "failed",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "failed|cap": {
+      "action": null,
+      "label": "Couldn't start",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b couldn't start.",
+      "since": null,
+      "state": "failed",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "failed|credits": {
+      "action": null,
+      "label": "Couldn't start",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b couldn't start.",
+      "since": null,
+      "state": "failed",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "failed|free_expired": {
+      "action": null,
+      "label": "Couldn't start",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b couldn't start.",
+      "since": null,
+      "state": "failed",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "failed|idle": {
+      "action": null,
+      "label": "Couldn't start",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b couldn't start.",
+      "since": null,
+      "state": "failed",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "failed|provider": {
+      "action": null,
+      "label": "Couldn't start",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b couldn't start.",
+      "since": null,
+      "state": "failed",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "failed|user": {
+      "action": null,
+      "label": "Couldn't start",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b couldn't start.",
+      "since": null,
+      "state": "failed",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "running|": {
+      "action": null,
+      "label": "Running",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is running.",
+      "since": null,
+      "state": "running",
+      "subject": "machine",
+      "tone": "success"
+    },
+    "running|cap": {
+      "action": null,
+      "label": "Running",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is running.",
+      "since": null,
+      "state": "running",
+      "subject": "machine",
+      "tone": "success"
+    },
+    "running|credits": {
+      "action": null,
+      "label": "Running",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is running.",
+      "since": null,
+      "state": "running",
+      "subject": "machine",
+      "tone": "success"
+    },
+    "running|free_expired": {
+      "action": null,
+      "label": "Running",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is running.",
+      "since": null,
+      "state": "running",
+      "subject": "machine",
+      "tone": "success"
+    },
+    "running|idle": {
+      "action": null,
+      "label": "Running",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is running.",
+      "since": null,
+      "state": "running",
+      "subject": "machine",
+      "tone": "success"
+    },
+    "running|provider": {
+      "action": null,
+      "label": "Running",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is running.",
+      "since": null,
+      "state": "running",
+      "subject": "machine",
+      "tone": "success"
+    },
+    "running|user": {
+      "action": null,
+      "label": "Running",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is running.",
+      "since": null,
+      "state": "running",
+      "subject": "machine",
+      "tone": "success"
+    },
+    "shared|": {
+      "action": null,
+      "label": "Shared",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "Runs on lab-b.",
+      "since": null,
+      "state": "shared",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "shared|cap": {
+      "action": null,
+      "label": "Shared",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "Runs on lab-b.",
+      "since": null,
+      "state": "shared",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "shared|credits": {
+      "action": null,
+      "label": "Shared",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "Runs on lab-b.",
+      "since": null,
+      "state": "shared",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "shared|free_expired": {
+      "action": null,
+      "label": "Shared",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "Runs on lab-b.",
+      "since": null,
+      "state": "shared",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "shared|idle": {
+      "action": null,
+      "label": "Shared",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "Runs on lab-b.",
+      "since": null,
+      "state": "shared",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "shared|provider": {
+      "action": null,
+      "label": "Shared",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "Runs on lab-b.",
+      "since": null,
+      "state": "shared",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "shared|user": {
+      "action": null,
+      "label": "Shared",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "Runs on lab-b.",
+      "since": null,
+      "state": "shared",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "starting|": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "machine",
+      "tone": "info"
+    },
+    "starting|cap": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "machine",
+      "tone": "info"
+    },
+    "starting|credits": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "machine",
+      "tone": "info"
+    },
+    "starting|free_expired": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "machine",
+      "tone": "info"
+    },
+    "starting|idle": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "machine",
+      "tone": "info"
+    },
+    "starting|provider": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "machine",
+      "tone": "info"
+    },
+    "starting|user": {
+      "action": null,
+      "label": "Starting",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is starting.",
+      "since": null,
+      "state": "starting",
+      "subject": "machine",
+      "tone": "info"
+    },
+    "stopped|": {
+      "action": null,
+      "label": "Stopped",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is stopped. Sending a message starts it.",
+      "since": null,
+      "state": "stopped",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "stopped|cap": {
+      "action": null,
+      "label": "Stopped",
+      "reason_code": "cap",
+      "recheck_at": null,
+      "sentence": "lab-b is stopped. It reached its monthly cap.",
+      "since": null,
+      "state": "stopped",
+      "subject": "machine",
+      "tone": "warning"
+    },
+    "stopped|credits": {
+      "action": null,
+      "label": "Stopped",
+      "reason_code": "credits",
+      "recheck_at": null,
+      "sentence": "lab-b is stopped. It ran out of credits.",
+      "since": null,
+      "state": "stopped",
+      "subject": "machine",
+      "tone": "warning"
+    },
+    "stopped|free_expired": {
+      "action": null,
+      "label": "Stopped",
+      "reason_code": "free_expired",
+      "recheck_at": null,
+      "sentence": "lab-b is stopped. Its free period ended.",
+      "since": null,
+      "state": "stopped",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "stopped|idle": {
+      "action": null,
+      "label": "Stopped",
+      "reason_code": "idle",
+      "recheck_at": null,
+      "sentence": "lab-b stopped after sitting idle. A message starts it.",
+      "since": null,
+      "state": "stopped",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "stopped|provider": {
+      "action": null,
+      "label": "Stopped",
+      "reason_code": "provider",
+      "recheck_at": null,
+      "sentence": "lab-b was stopped by its provider. Sending a message starts it.",
+      "since": null,
+      "state": "stopped",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "stopped|user": {
+      "action": null,
+      "label": "Stopped",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is stopped. Sending a message starts it.",
+      "since": null,
+      "state": "stopped",
+      "subject": "machine",
+      "tone": "muted"
+    },
+    "stopping|": {
+      "action": null,
+      "label": "Stopping",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is stopping.",
+      "since": null,
+      "state": "stopping",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "stopping|cap": {
+      "action": null,
+      "label": "Stopping",
+      "reason_code": "cap",
+      "recheck_at": null,
+      "sentence": "lab-b reached its monthly cap and stops soon. Your files are saved.",
+      "since": null,
+      "state": "stopping",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "stopping|credits": {
+      "action": null,
+      "label": "Stopping",
+      "reason_code": "credits",
+      "recheck_at": null,
+      "sentence": "Credits ran out, so lab-b stops soon. Your files are saved.",
+      "since": null,
+      "state": "stopping",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "stopping|free_expired": {
+      "action": null,
+      "label": "Stopping",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is stopping.",
+      "since": null,
+      "state": "stopping",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "stopping|idle": {
+      "action": null,
+      "label": "Stopping",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is stopping.",
+      "since": null,
+      "state": "stopping",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "stopping|provider": {
+      "action": null,
+      "label": "Stopping",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is stopping.",
+      "since": null,
+      "state": "stopping",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "stopping|user": {
+      "action": null,
+      "label": "Stopping",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b is stopping.",
+      "since": null,
+      "state": "stopping",
+      "subject": "machine",
+      "tone": "neutral"
+    },
+    "unreachable|": {
+      "action": null,
+      "label": "Not responding",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b isn't responding.",
+      "since": null,
+      "state": "unreachable",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "unreachable|cap": {
+      "action": null,
+      "label": "Not responding",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b isn't responding.",
+      "since": null,
+      "state": "unreachable",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "unreachable|credits": {
+      "action": null,
+      "label": "Not responding",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b isn't responding.",
+      "since": null,
+      "state": "unreachable",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "unreachable|free_expired": {
+      "action": null,
+      "label": "Not responding",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b isn't responding.",
+      "since": null,
+      "state": "unreachable",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "unreachable|idle": {
+      "action": null,
+      "label": "Not responding",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b isn't responding.",
+      "since": null,
+      "state": "unreachable",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "unreachable|provider": {
+      "action": null,
+      "label": "Not responding",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b isn't responding.",
+      "since": null,
+      "state": "unreachable",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "unreachable|user": {
+      "action": null,
+      "label": "Not responding",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "lab-b isn't responding.",
+      "since": null,
+      "state": "unreachable",
+      "subject": "machine",
+      "tone": "danger"
+    },
+    "waiting_for_hardware|": {
+      "action": null,
+      "label": "Waiting for hardware",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "No hardware is free for lab-b right now. We keep trying.",
+      "since": null,
+      "state": "no_capacity",
+      "subject": "machine",
+      "tone": "warning"
+    },
+    "waiting_for_hardware|cap": {
+      "action": null,
+      "label": "Waiting for hardware",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "No hardware is free for lab-b right now. We keep trying.",
+      "since": null,
+      "state": "no_capacity",
+      "subject": "machine",
+      "tone": "warning"
+    },
+    "waiting_for_hardware|credits": {
+      "action": null,
+      "label": "Waiting for hardware",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "No hardware is free for lab-b right now. We keep trying.",
+      "since": null,
+      "state": "no_capacity",
+      "subject": "machine",
+      "tone": "warning"
+    },
+    "waiting_for_hardware|free_expired": {
+      "action": null,
+      "label": "Waiting for hardware",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "No hardware is free for lab-b right now. We keep trying.",
+      "since": null,
+      "state": "no_capacity",
+      "subject": "machine",
+      "tone": "warning"
+    },
+    "waiting_for_hardware|idle": {
+      "action": null,
+      "label": "Waiting for hardware",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "No hardware is free for lab-b right now. We keep trying.",
+      "since": null,
+      "state": "no_capacity",
+      "subject": "machine",
+      "tone": "warning"
+    },
+    "waiting_for_hardware|provider": {
+      "action": null,
+      "label": "Waiting for hardware",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "No hardware is free for lab-b right now. We keep trying.",
+      "since": null,
+      "state": "no_capacity",
+      "subject": "machine",
+      "tone": "warning"
+    },
+    "waiting_for_hardware|user": {
+      "action": null,
+      "label": "Waiting for hardware",
+      "reason_code": "",
+      "recheck_at": null,
+      "sentence": "No hardware is free for lab-b right now. We keep trying.",
+      "since": null,
+      "state": "no_capacity",
+      "subject": "machine",
+      "tone": "warning"
+    }
+  },
+  "workspace": {
+    "asleep": {
+      "build": {
+        "state": "asleep"
+      },
+      "fact": {
+        "action": null,
+        "label": "Asleep",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "Asleep. A message wakes it.",
+        "since": null,
+        "state": "asleep",
+        "subject": "workspace",
+        "tone": "muted"
+      }
+    },
+    "awake": {
+      "build": {
+        "names": {
+          "machine": "lab-b"
+        },
+        "state": "awake"
+      },
+      "fact": {
+        "action": null,
+        "label": "Awake",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "Awake on lab-b.",
+        "since": null,
+        "state": "awake",
+        "subject": "workspace",
+        "tone": "success"
+      }
+    },
+    "moving_saving": {
+      "build": {
+        "names": {
+          "target": "lab-a"
+        },
+        "reason": "saving_chats",
+        "state": "moving"
+      },
+      "fact": {
+        "action": null,
+        "label": "Moving",
+        "reason_code": "saving_chats",
+        "recheck_at": null,
+        "sentence": "Moving to lab-a. Its chats are being saved first.",
+        "since": null,
+        "state": "moving",
+        "subject": "workspace",
+        "tone": "info"
+      }
+    },
+    "moving_waking": {
+      "build": {
+        "names": {
+          "target": "lab-a"
+        },
+        "reason": "waking_on_target",
+        "state": "moving"
+      },
+      "fact": {
+        "action": null,
+        "label": "Moving",
+        "reason_code": "waking_on_target",
+        "recheck_at": null,
+        "sentence": "Moving to lab-a. The workspace is waking there.",
+        "since": null,
+        "state": "moving",
+        "subject": "workspace",
+        "tone": "info"
+      }
+    },
+    "stalled": {
+      "build": {
+        "reason": "turn_silent",
+        "state": "stalled"
+      },
+      "fact": {
+        "action": null,
+        "label": "Stalled",
+        "reason_code": "turn_silent",
+        "recheck_at": null,
+        "sentence": "An agent here has stopped reporting progress.",
+        "since": null,
+        "state": "stalled",
+        "subject": "workspace",
+        "tone": "warning"
+      }
+    },
+    "sync_paused": {
+      "build": {
+        "names": {
+          "machine": "lab-b"
+        },
+        "reason": "worker_silent",
+        "state": "sync_paused"
+      },
+      "fact": {
+        "action": null,
+        "label": "Sync paused",
+        "reason_code": "worker_silent",
+        "recheck_at": null,
+        "sentence": "lab-b has stopped syncing this workspace's files. The files here are the last copy it saved.",
+        "since": null,
+        "state": "sync_paused",
+        "subject": "workspace",
+        "tone": "warning"
+      }
+    },
+    "unreachable": {
+      "build": {
+        "names": {
+          "machine": "lab-b"
+        },
+        "reason": "machine_unreachable",
+        "state": "unavailable"
+      },
+      "fact": {
+        "action": null,
+        "label": "Can't run",
+        "reason_code": "machine_unreachable",
+        "recheck_at": null,
+        "sentence": "lab-b isn't responding.",
+        "since": null,
+        "state": "unavailable",
+        "subject": "workspace",
+        "tone": "danger"
+      }
+    },
+    "waking": {
+      "build": {
+        "state": "waking"
+      },
+      "fact": {
+        "action": null,
+        "label": "Waking",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "Waking the workspace.",
+        "since": null,
+        "state": "waking",
+        "subject": "workspace",
+        "tone": "info"
+      }
+    },
+    "working": {
+      "build": {
+        "state": "working"
+      },
+      "fact": {
+        "action": null,
+        "label": "Working",
+        "reason_code": "",
+        "recheck_at": null,
+        "sentence": "An agent is working in this workspace.",
+        "since": null,
+        "state": "working",
+        "subject": "workspace",
+        "tone": "info"
+      }
+    }
+  }
+}

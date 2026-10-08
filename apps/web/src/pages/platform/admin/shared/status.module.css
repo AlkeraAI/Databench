@@ -1,0 +1,10 @@
+/* The admin registry's status-Pill extensions: the assay-fail seal. */
+
+/* The signature mark — a registrar's rejection stamp. The danger Pill base carries the colour + the
+   barred-triangle glyph; this tightens it into a stamped reading and tilts it a hair like a struck
+   seal. Never rides hue alone (the icon + the word "Below cost" carry it). */
+.seal {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--alkWeightBold);
+}

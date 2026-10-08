@@ -1,0 +1,48 @@
+{
+  "messages": [
+    {
+      "event_id": "evt-1",
+      "kind": "prompt",
+      "payload": {
+        "alpha": 2,
+        "text": "résumé the quarter\nin two lines",
+        "zeta": 1
+      },
+      "role": "user",
+      "seq": 1
+    },
+    {
+      "event_id": "evt-2",
+      "kind": "message",
+      "payload": {
+        "text": "Done.",
+        "usage": {
+          "cost_usd": 0.125,
+          "tokens": 4096
+        }
+      },
+      "role": "assistant",
+      "seq": 2
+    },
+    {
+      "event_id": "evt-3",
+      "kind": "tool_result",
+      "payload": {
+        "error": null,
+        "rows": 12,
+        "tool": "sql"
+      },
+      "role": "tool",
+      "seq": 3
+    }
+  ],
+  "object": {
+    "id": "3f1c0a5e-0000-4000-8000-00000000c0a7",
+    "logical_id": "weekly-review",
+    "namespace": "workspace",
+    "title": "Weekly review",
+    "version": 4
+  },
+  "schema_version": "1.0.0",
+  "type": "chat"
+}

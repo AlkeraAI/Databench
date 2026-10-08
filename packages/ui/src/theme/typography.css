@@ -1,0 +1,195 @@
+/* Typography — the portal's standardized text roles. A surface marks the ROLE a piece of text plays
+ * (a heading, a row title, a caption, a measured reading) and inherits its family / size / weight /
+ * colour / tracking from here, instead of re-spelling them inline. Use as a plain class
+ * (`className="alk-h2"`) or compose into a CSS-module class (`composes: alk-strong from global`).
+ * Loaded by theme/styles.css. Grounded in the token ladder (tokens.css).
+ *
+ * TWO BODY REGISTERS. The global <body> reads at 16px (--alkTextLg) for prose surfaces (auth, empty
+ * states, marketing). A dense DATA surface — a dashboard, a ledger, an admin register — drops to 14px
+ * (--alkTextMd), the Stripe/Linear norm; it marks its root `data-measure-surface="product"` and the
+ * rule below sets 14px once, so a page never re-declares its own body size. On a dense surface rank is
+ * carried by WEIGHT + COLOUR + FAMILY, never by shrinking below the reading floor.
+ *
+ * BRAND VOICES (see .claude/rules/frontend/brand.md): serif (Newsreader) is interpretation — every
+ * heading. mono (IBM Plex) is measurement — every count, URN, price, timestamp. sans (Hanken) is the
+ * quiet product chrome — body, labels, captions. Small-caps is the scholar's section eyebrow. */
+
+/* Dense product surfaces read at 14px; prose surfaces keep the 16px body base. */
+[data-measure-surface="product"] {
+  font-size: var(--alkTextMd);
+}
+
+/* ── Headings — the serif "interpretation" voice, a real scale ABOVE body ──────────────────────── */
+.alk-h1 {
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alkText3xl);
+  font-weight: var(--alkWeightSemibold);
+  line-height: var(--alkLeadingDisplay);
+  letter-spacing: -0.01em;
+  color: var(--alkPrimaryText);
+}
+.alk-h2 {
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alkText2xl);
+  font-weight: var(--alkWeightSemibold);
+  line-height: var(--alkLeadingDisplay);
+  letter-spacing: -0.01em;
+  color: var(--alkPrimaryText);
+}
+.alk-h3 {
+  font-family: var(--alkFontDisplay);
+  font-size: var(--alkTextXl);
+  font-weight: var(--alkWeightSemibold);
+  line-height: var(--alkLeadingTight);
+  letter-spacing: -0.005em;
+  color: var(--alkPrimaryText);
+}
+
+/* ── Body — the reading register (16px). Dense surfaces inherit 14px from the root rule above. ──── */
+.alk-body {
+  font-size: var(--alkTextLg);
+  font-weight: var(--alkWeightRegular);
+  line-height: var(--alkLeadingNormal);
+  color: var(--alkPrimaryText);
+}
+
+/* ── Row emphasis — sans, primary ink. On a dense surface a row's title reads at BODY size, ranked
+      by weight (semibold = the strong line, medium = the quiet name) — not by growing past body. ── */
+.alk-strong {
+  font-weight: var(--alkWeightSemibold);
+  color: var(--alkPrimaryText);
+}
+.alk-name {
+  font-weight: var(--alkWeightMedium);
+  color: var(--alkPrimaryText);
+}
+
+/* ── Tone-only — secondary / tertiary INK at the surface's OWN size, the complement to alk-strong /
+      alk-name (which set weight + primary ink, no size). For a demoted reading that must stay at the
+      dense data-row size (a muted table sub-cell, a URN snippet, a quiet date) where alk-meta /
+      alk-caption would wrongly shrink it to 12px. Rank by colour, not by shrinking below the row. ── */
+.alk-muted {
+  color: var(--alkSecondaryText);
+}
+.alk-faint {
+  color: var(--alkTertiaryText);
+}
+
+/* ── Captions — the demoted reading under a title. Two steps: the common secondary voice, and the
+      quieter tertiary for a dense sub-line (an error under a type, a key in a definition table). ── */
+.alk-meta {
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+.alk-caption {
+  font-size: var(--alkTextSm);
+  color: var(--alkTertiaryText);
+}
+
+/* ── Status ink — a reading tinted by its outcome: a failure, a caution, a confirmed-good. Text
+      COLOUR only, at the surface's own size, so it rides inside a data row or a line of prose without
+      resizing it. Always paired with an icon / word at the call site — never colour alone (WCAG; the
+      boxed treatment is Callout / a status Pill). Supersedes every page-local `--alkDangerText` reske. */
+.alk-danger {
+  color: var(--alkDangerText);
+}
+.alk-warning {
+  color: var(--alkWarningText);
+}
+.alk-success {
+  color: var(--alkSuccessText);
+}
+
+/* ── The measured ladder — a data surface's four text rungs, each size LOCKED to its 4px-grid
+      line height (label 12/16, data 14/20, body 16/24, display 22/28) so a computed layout (a
+      ledger card whose row math is derived, not measured) can trust the line box as a constant.
+      Every rung sits >=2px from its neighbours, so nothing reads as size creep. Family, weight,
+      and ink stay with the call site — these carry only the rung. ──────────────────────────────── */
+.alk-t-label {
+  font-size: var(--alkTextSm);
+  line-height: 16px;
+}
+.alk-t-data {
+  font-size: var(--alkTextMd);
+  line-height: 20px;
+}
+.alk-t-body {
+  font-size: var(--alkTextLg);
+  line-height: 24px;
+}
+.alk-t-display {
+  font-size: 22px;
+  line-height: 28px;
+}
+
+/* ── Tracked caps — the frame's slot label: a grid's column head, a badge naming a state. Uppercase
+      at the label size with wide tracking, one step wider than the eyebrow (which heads a section);
+      weight and ink stay with the call site. ─────────────────────────────────────────────────────── */
+.alk-caps {
+  font-size: var(--alkTextSm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── Eyebrow — the scholar's small-caps section label over a rail, a column, a group. Carries its
+      weight / tracking / case; line-height 1 so it hugs the caps and centres next to a chip. ────── */
+.alk-eyebrow {
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--alkSecondaryText);
+}
+
+/* ── Measurement — the reading voice for a count / URN / price / id / timestamp: the UI face with
+      tabular figures (a column aligns) and the tight tracking that keeps a reading compact. The
+      element sets the size. It used to be the mono family, whose dotted zero read as a glitch at
+      stat size ("100%" on the usage cards); mono stays the voice of code, paths and payloads
+      (`.alk-code`). This supersedes the portal `.pt-num` concept token. ─────────────────────────── */
+.alk-num {
+  font-family: var(--alkFontUi);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+/* Tabular figures WITHOUT the mono family — a sans count that still aligns digit-for-digit. */
+.alk-tnum {
+  font-variant-numeric: tabular-nums;
+}
+/* A mono code / log / payload block — pre-formatted, wraps or scrolls, no tabular alignment. */
+.alk-code {
+  font-family: var(--alkFontMono);
+  line-height: var(--alkLeadingSnug);
+}
+
+/* ── Truncation — THE one overflow strategy every portal surface uses ──────────────────────────────
+ * Single-line ellipsis. A flex/grid child won't shrink below its content's intrinsic width unless it
+ * carries `min-width: 0`, so the ellipsis never engages and the text overruns its cell instead. The
+ * utility sets it itself, so `.alk-truncate` works inside a flex row or grid cell with NO extra rule
+ * at the call site — the container still needs a bounded width (a min/max, a `flex: 1`, a track).
+ * `overflow: clip`, NOT `hidden`: `hidden` makes the box a scroll container, so clicking/selecting the
+ * text (or focusing it) scrolls it a few px and the trailing ellipsis vanishes — a real bug users hit
+ * on any truncated label. `clip` clips identically but is NOT scrollable, so the ellipsis never moves. */
+.alk-truncate {
+  min-width: 0;
+  /* Cap at the container even where the parent doesn't stretch its children (a Stack column defaults
+     to flex-start): without this, a nowrap child sizes to max-content and blows past the column
+     instead of truncating — the overlap bug that bit three surfaces in one day. */
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+}
+
+/* Multi-line clamp — cut to N lines with a trailing ellipsis. Set the line budget inline via the
+ * `--alk-clamp` custom property (`style={{ "--alk-clamp": 3 }}`); defaults to 2. Same flex/grid
+ * self-sufficiency as the single-line utility. */
+.alk-clamp {
+  min-width: 0;
+  max-width: 100%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--alk-clamp, 2);
+  line-clamp: var(--alk-clamp, 2);
+  overflow: hidden;
+}

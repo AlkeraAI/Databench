@@ -1,0 +1,38 @@
+@import "./tokens.css";
+
+/* Where the reference landed, and at what commit. */
+
+/* Labels and values are two real columns, so a fact reads straight across. */
+:global(.chat-root) [data-tool="repo_clone"] .cloneFacts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+:global(.chat-root) [data-tool="repo_clone"] .cloneFactLabel {
+  padding: var(--chat-sp-1) var(--chat-sp-3) var(--chat-sp-1) var(--chat-tool-pad-x);
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="repo_clone"] .cloneFactValue {
+  min-width: 0;
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1) 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--chat-ink);
+}
+
+/* Whether the call went to the network is the fact this card exists to settle,
+   so a fetch carries ink and a cache hit stays quiet. */
+:global(.chat-root) [data-tool="repo_clone"] .cloneSource[data-status="cached"] {
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="repo_clone"] .cloneSource[data-status="cloned"],
+:global(.chat-root) [data-tool="repo_clone"] .cloneSource[data-status="refreshed"] {
+  color: var(--chat-tool-good);
+}

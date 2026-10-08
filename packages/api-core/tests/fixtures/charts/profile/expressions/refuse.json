@@ -1,0 +1,266 @@
+[
+  {
+    "expression": "datum.constructor",
+    "name": "constructor_member"
+  },
+  {
+    "expression": "datum.__proto__",
+    "name": "proto_member"
+  },
+  {
+    "expression": "datum['__proto__']",
+    "name": "proto_bracket"
+  },
+  {
+    "expression": "datum['\\x5f_proto__']",
+    "name": "proto_hex_escape"
+  },
+  {
+    "expression": "datum['\\u005f\\u005fproto\\u005f\\u005f']",
+    "name": "proto_unicode_escape"
+  },
+  {
+    "expression": "datum['\\u{5f}_proto__']",
+    "name": "proto_code_point_escape"
+  },
+  {
+    "expression": "indexof('prototype', datum.a)",
+    "name": "prototype_string"
+  },
+  {
+    "expression": "datum.a.constructor",
+    "name": "constructor_of_a_field"
+  },
+  {
+    "expression": "datum.a.constructor('return 1')()",
+    "name": "constructor_call"
+  },
+  {
+    "expression": "datum['con' + 'structor']",
+    "name": "concatenated_key"
+  },
+  {
+    "expression": "datum[datum.k]",
+    "name": "computed_datum_key"
+  },
+  {
+    "expression": "split(datum.a, ',')['length']",
+    "name": "string_key_on_a_value"
+  },
+  {
+    "expression": "split(datum.a, ',')[-1]",
+    "name": "negative_index"
+  },
+  {
+    "expression": "this",
+    "name": "this"
+  },
+  {
+    "expression": "this.x",
+    "name": "this_member"
+  },
+  {
+    "expression": "window.location",
+    "name": "window"
+  },
+  {
+    "expression": "width * 2",
+    "name": "signal"
+  },
+  {
+    "expression": "event.x",
+    "name": "event"
+  },
+  {
+    "expression": "item.datum",
+    "name": "item"
+  },
+  {
+    "expression": "isObject(datum)",
+    "name": "bare_datum"
+  },
+  {
+    "expression": "eval('1')",
+    "name": "eval"
+  },
+  {
+    "expression": "data('x')",
+    "name": "data_function"
+  },
+  {
+    "expression": "indata('t', 'a', 1)",
+    "name": "indata_function"
+  },
+  {
+    "expression": "scale('x', datum.a)",
+    "name": "scale_function"
+  },
+  {
+    "expression": "test(regexp('a+$'), datum.s)",
+    "name": "regexp_function"
+  },
+  {
+    "expression": "length(sequence(0, 1e9))",
+    "name": "sequence_function"
+  },
+  {
+    "expression": "merge(datum.a, datum.b)",
+    "name": "merge_function"
+  },
+  {
+    "expression": "warn('x')",
+    "name": "warn_function"
+  },
+  {
+    "expression": "{a: 1}",
+    "name": "object_literal"
+  },
+  {
+    "expression": "/a+/",
+    "name": "regex_literal"
+  },
+  {
+    "expression": "datum.a = 1",
+    "name": "assignment"
+  },
+  {
+    "expression": "datum.a += 1",
+    "name": "compound_assignment"
+  },
+  {
+    "expression": "datum.a++",
+    "name": "increment"
+  },
+  {
+    "expression": "--datum.a",
+    "name": "decrement"
+  },
+  {
+    "expression": "datum.f(1)",
+    "name": "member_call"
+  },
+  {
+    "expression": "now()()",
+    "name": "call_of_a_call"
+  },
+  {
+    "expression": "\\u0064atum.a",
+    "name": "escaped_identifier"
+  },
+  {
+    "expression": "d\u00e4tum.a",
+    "name": "non_ascii_identifier"
+  },
+  {
+    "expression": "`x`",
+    "name": "template_literal"
+  },
+  {
+    "expression": "017",
+    "name": "octal_number"
+  },
+  {
+    "expression": "'\\101'",
+    "name": "octal_escape"
+  },
+  {
+    "expression": "'a\\\nb'",
+    "name": "line_continuation"
+  },
+  {
+    "expression": "'abc",
+    "name": "unterminated_string"
+  },
+  {
+    "expression": "'a' in datum",
+    "name": "in_operator"
+  },
+  {
+    "expression": "datum.a instanceof Object",
+    "name": "instanceof_operator"
+  },
+  {
+    "expression": "typeof datum.a",
+    "name": "typeof_operator"
+  },
+  {
+    "expression": "new Date()",
+    "name": "new_operator"
+  },
+  {
+    "expression": "datum.a; datum.b",
+    "name": "statement_separator"
+  },
+  {
+    "expression": "(datum.a, datum.b)",
+    "name": "comma_operator"
+  },
+  {
+    "expression": "x => x",
+    "name": "arrow_function"
+  },
+  {
+    "expression": "datum?.a",
+    "name": "optional_chaining"
+  },
+  {
+    "expression": "datum.a ?? 1",
+    "name": "nullish_coalescing"
+  },
+  {
+    "expression": "datum.a ** 2",
+    "name": "exponent_operator"
+  },
+  {
+    "expression": "max(1, 2,)",
+    "name": "trailing_comma"
+  },
+  {
+    "expression": "",
+    "name": "empty"
+  },
+  {
+    "expression": "   ",
+    "name": "blank"
+  },
+  {
+    "expression": "datum.a + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1  ",
+    "name": "too_long"
+  },
+  {
+    "expression": "datum.s === '\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00a'",
+    "name": "too_long_in_utf16_units"
+  },
+  {
+    "expression": "datum.s === 'a\u2028b'",
+    "name": "raw_line_separator_in_a_string"
+  },
+  {
+    "expression": "((((((((((((((((((((((((((((((((datum.a))))))))))))))))))))))))))))))))",
+    "name": "too_deep"
+  },
+  {
+    "expression": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!datum.a",
+    "name": "too_deep_unary"
+  },
+  {
+    "expression": "if(datum.a, 1)",
+    "name": "if_with_two_arguments"
+  },
+  {
+    "expression": "pad(datum.a, 1000000)",
+    "name": "pad_to_a_huge_length"
+  },
+  {
+    "expression": "pad(datum.a, datum.n)",
+    "name": "pad_to_a_field_length"
+  },
+  {
+    "expression": "max(1, 1, 1, 1, 1, 1, 1, 1, 1)",
+    "name": "too_many_arguments"
+  },
+  {
+    "expression": "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]",
+    "name": "array_too_long"
+  }
+]

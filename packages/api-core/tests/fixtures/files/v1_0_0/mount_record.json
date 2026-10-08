@@ -1,0 +1,18 @@
+{
+  "$model": "alkera_cli.files.mount.MountRecord",
+  "acquired_at": "2026-01-01T12:00:00+00:00",
+  "drive_id": "1f8f6c2a-6f4a-4a1e-9a3a-9f0a1b2c3d4e",
+  "epoch": 3,
+  "expires_at": "2026-01-01T12:00:00+00:00",
+  "heartbeat_every": 15.0,
+  "instance_id": "0f2c6b1e4a7d4c1fa1b2c3d4e5f60718",
+  "local_root": "/Users/ana/work/proj",
+  "machine": "ana-macbook",
+  "metadata": {},
+  "node_id": "2a9b7d3b-7a5b-4b2f-8b4b-af1b2c3d4e5f",
+  "org_path": "Shared/proj",
+  "pid": 4242,
+  "purpose": "mount",
+  "schema_version": "1.0.0",
+  "sync_interval": 30.0
+}

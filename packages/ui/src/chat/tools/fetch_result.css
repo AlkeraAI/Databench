@@ -1,0 +1,12 @@
+@import "./tokens.css";
+
+/* A text blob keeps its own line breaks; only a long page scrolls. */
+.chat-root [data-tool="fetch_result"] .chat-fetch-text {
+  margin: 0;
+  padding: var(--chat-sp-2) var(--chat-tool-pad-x) var(--chat-sp-2);
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

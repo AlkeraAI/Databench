@@ -1,0 +1,75 @@
+@import "./tokens.css";
+
+/* The fallback ledger: an undesigned tool's JSON read as records. */
+
+:global(.chat-root) [data-tool="generic"] .json {
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+}
+
+/* Keys and values are two real columns, so one field can be read straight down
+   a record. */
+:global(.chat-root) [data-tool="generic"] :is(.json, .rec) {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-content: start;
+}
+
+:global(.chat-root) [data-tool="generic"] .block {
+  grid-column: 1 / -1;
+}
+
+:global(.chat-root) [data-tool="generic"] .key {
+  padding: var(--chat-sp-1) var(--chat-sp-3) var(--chat-sp-1) var(--chat-tool-pad-x);
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="generic"] .val {
+  min-width: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1) 0;
+  color: var(--chat-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+:global(.chat-root) [data-tool="generic"] .plain {
+  margin: 0;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Chroma is rationed to the values a reader scans for: a string is prose in
+   plain ink; a number and a flag are facts and carry their hue. */
+:global(.chat-root) [data-tool="generic"] .val[data-type="number"] {
+  color: var(--chat-sql-number);
+  font-variant-numeric: tabular-nums;
+}
+
+:global(.chat-root) [data-tool="generic"] .val[data-type="boolean"] {
+  color: var(--chat-sql-keyword);
+  font-weight: var(--chat-w-medium);
+}
+
+:global(.chat-root) [data-tool="generic"] .val[data-type="empty"] {
+  color: var(--chat-tool-ink-3);
+}
+
+/* One record per item, so a list of objects reads as a stack of records rather
+   than a run of repeating keys. */
+:global(.chat-root) [data-tool="generic"] .rec {
+  padding-left: var(--chat-sp-3);
+}
+
+:global(.chat-root) [data-tool="generic"] .rec + .rec {
+  margin-top: var(--chat-sp-1);
+  border-top: 1px solid var(--chat-hairline);
+  padding-top: var(--chat-sp-1);
+}
+
+:global(.chat-root) [data-tool="generic"] .recN {
+  grid-column: 1 / -1;
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x) var(--chat-sp-1);
+  color: var(--chat-tool-ink-3);
+  font-variant-numeric: tabular-nums;
+}

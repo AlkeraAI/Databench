@@ -1,0 +1,15 @@
+{
+  "agent": null,
+  "event_id": "01H_message_created",
+  "event_type": "message.created",
+  "message_id": "m1",
+  "metadata": {},
+  "mode": null,
+  "model": {},
+  "parent_message_id": null,
+  "provider_metadata": {},
+  "role": "user",
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

@@ -1,0 +1,59 @@
+{
+  "chart_spec": null,
+  "columns": [
+    {
+      "label": "",
+      "metadata": {},
+      "name": "day",
+      "schema_version": "1.0.0"
+    }
+  ],
+  "inline": null,
+  "metadata": {},
+  "payload": {
+    "media_type": "application/json",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "size": 2000000
+  },
+  "receipt": {
+    "connection_id": "8c4e3d6f-5031-4d5e-a08f-a4d6f2c3e444",
+    "connection_name": "Tideline Postgres",
+    "definitions_referenced": [
+      "daily_orders"
+    ],
+    "duration_ms": 412,
+    "engine": "postgres",
+    "executed_at": "2026-09-07T12:00:00+00:00",
+    "metadata": {},
+    "params": {
+      "customer": "acme"
+    },
+    "principal_chain": {
+      "acting": {
+        "id": "sess-01J7Q3M8",
+        "kind": "agent",
+        "label": "sess-01J7Q3M8"
+      },
+      "chain": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "user",
+          "label": "ops@example.com"
+        },
+        {
+          "id": "sess-01J7Q3M8",
+          "kind": "agent",
+          "label": "sess-01J7Q3M8"
+        }
+      ],
+      "schema_version": "1.0.0"
+    },
+    "role": "analytics_readonly",
+    "row_count": 3,
+    "schema_version": "1.0.0",
+    "sql": "SELECT day, orders FROM daily WHERE customer = %(customer)s"
+  },
+  "schema_version": "1.0.0",
+  "source_query_id": null,
+  "total_rows": 50000
+}

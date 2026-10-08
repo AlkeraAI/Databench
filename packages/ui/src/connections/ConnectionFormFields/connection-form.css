@@ -1,0 +1,95 @@
+/* The generic connection-form field stack — shared by the VS Code webview and
+   the browser portal. */
+
+/* The Dropdown trigger takes no disabled prop, so the field goes inert whole. */
+.alkconn-field--off {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* The form is a grid so its two tracks are structural. One column of fields that
+   every control fills to the same width, and — where the surface asks something
+   ABOUT each value as well as for it — a second track holding one control per
+   row under a header that sits on the track it names. Section rules and callouts
+   cross both. */
+.alkconn-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--alkSpace5);
+  column-gap: var(--alkSpace6);
+  align-items: start;
+}
+.alkconn-fields[data-columned] {
+  /* One small control wide: the smallest box that still clears the 24px pointer
+     target, with room for its focus ring. */
+  grid-template-columns: minmax(0, 1fr) var(--alkControlSm);
+}
+.alkconn-fields > * {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.alkconn-fields > .alkconn-cell {
+  grid-column: 1;
+}
+.alkconn-fields > .alkconn-acc {
+  grid-column: 2;
+}
+
+/* The accessory rides the INPUT, not the top of the row: clear the label line and
+   the gap under it, then centre in the control height that is left. */
+.alkconn-acc {
+  --alkconn-lead: calc(var(--alkTextSm) * var(--alkLeadingNormal) + var(--alkSpace2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: var(--alkconn-lead);
+  min-height: calc(var(--alkconn-lead) + var(--alkControlLg));
+}
+
+/* The column header row: the name at the end of the field column, the control that
+   answers for every row on the column itself. */
+.alkconn-colhead {
+  grid-column: 1;
+  justify-self: end;
+  align-self: center;
+  letter-spacing: 0.06em;
+}
+.alkconn-acc--head {
+  align-self: center;
+  padding-top: 0;
+  min-height: 0;
+}
+
+/* A labelled section rule between the required credentials and the optional session
+   defaults (and between named field groups) — a hairline with the label riding on it. */
+.alkconn-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  margin-top: var(--alkSpace2);
+}
+.alkconn-divider__label {
+  flex: 0 0 auto;
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightMedium);
+  line-height: 1;
+  color: var(--alkSecondaryText);
+}
+.alkconn-divider::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--alkDivider);
+}
+
+/* A certificate box. Masked until Show is pressed: the glyph substitution keeps the
+   line breaks visible as line breaks, so a pasted PEM still reads as a document. */
+.alkconn-pem {
+  font-family: var(--alkFontMono);
+  resize: vertical;
+  white-space: pre;
+}
+
+.alkconn-pem[data-masked] {
+  -webkit-text-security: disc;
+}

@@ -1,0 +1,652 @@
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+from inline_snapshot import snapshot
+
+from marimo._ast.parse import (
+    Parser,
+    _eval_kwargs,
+    fixed_dedent,
+    parse_notebook,
+)
+
+DIR_PATH = Path(__file__).parent
+
+
+def get_filepath(name: str) -> Path:
+    return DIR_PATH / f"codegen_data/{name}.py"
+
+
+# NB. Some barebones testing at the areas that seemed to be most sensitive.
+# Note that loader should cover these cases and more by proxy.
+class TestParser:
+    @staticmethod
+    def test_main() -> None:
+        notebook = parse_notebook(get_filepath("test_main").read_text())
+        # Should just work without any violations.
+        assert len(notebook.violations) == 0
+
+    @staticmethod
+    def test_parse_codes() -> None:
+        parser = Parser.from_file(get_filepath("test_generate_filecontents"))
+        body = parser.node_stack()
+        body_result = parser.parse_body(body)
+        assert body_result
+        cells = body_result.unwrap()
+        assert len(cells) == 5
+        assert [cell.name for cell in cells] == [
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+        ]
+
+    @staticmethod
+    def test_parse_setup_blank() -> None:
+        parser = Parser.from_file(get_filepath("test_get_setup_blank"))
+        body = parser.node_stack()
+        _ = parser.parse_header(body)
+        setup_result = parser.parse_setup(body)
+        assert setup_result, setup_result.violations
+        setup_cell = setup_result.unwrap()
+        assert setup_cell.name == "setup"
+        assert setup_cell.code == "# Only comments\n# and a pass"
+
+    @staticmethod
+    def test_parse_codes_toplevel() -> None:
+        notebook = parse_notebook(
+            get_filepath("test_generate_filecontents_toplevel").read_text()
+        )
+        assert notebook
+        assert notebook.header.value.startswith(
+            "# This comment should be preserved"
+        )
+        # Likely over extended scope in this case.
+        assert "import marimo" not in notebook.header.value
+
+        assert [cell.name for cell in notebook.cells] == [
+            "setup",
+            "_",
+            "addition",
+            "shadow_case",
+            "_",
+            "_",
+            "fun_that_uses_mo",
+            "fun_that_uses_another_but_out_of_order",
+            "fun_uses_file",
+            "fun_that_uses_another",
+            "cell_with_ref_and_def",
+            "_",
+            "ExampleClass",
+            "SubClass",
+        ]
+
+    @staticmethod
+    def test_parse_app_with_only_comments() -> None:
+        parser = Parser.from_file(get_filepath("test_app_with_only_comments"))
+        body = parser.node_stack()
+        header_result = parser.parse_header(body)
+        assert header_result
+
+        import_result = parser.parse_import(body)
+        assert not import_result
+
+    @staticmethod
+    def test_just_app() -> None:
+        notebook = parse_notebook(
+            get_filepath("test_get_app_kwargs").read_text()
+        )
+        # No generated with, or run guard
+        assert len(notebook.violations) == 2
+        assert "generated_with" in notebook.violations[0].description
+        assert "run guard" in notebook.violations[1].description
+
+    @staticmethod
+    def test_parse_messy_toplevel() -> None:
+        notebook = parse_notebook(
+            get_filepath("test_get_codes_messy_toplevel").read_text()
+        )
+        assert notebook
+        # unexpected statements and a missing run guard
+        # + bad decorator
+        assert len(notebook.violations) == 4
+        assert "generated" in notebook.violations[0].description
+        assert "statement" in notebook.violations[1].description
+        assert "run guard" in notebook.violations[-1].description
+
+    @staticmethod
+    def test_parse_syntax_errors() -> None:
+        notebook = parse_notebook(
+            get_filepath("test_syntax_errors").read_text()
+        )
+        assert notebook
+        # Valid currently
+        assert len(notebook.violations) == 0
+        assert [cell.name for cell in notebook.cells] == [
+            "global_error",
+            "return_error",
+        ]
+
+    @staticmethod
+    def test_parse_decorator_permutations() -> None:
+        notebook = parse_notebook(get_filepath("test_decorators").read_text())
+        assert notebook
+        # Valid currently
+        assert len(notebook.violations) == 4
+
+    @staticmethod
+    def test_eval_kwargs_with_list_constants() -> None:
+        """Test that _eval_kwargs correctly handles list constants in kwargs."""
+        # Test case: marimo.App(width="medium", auto_download=["html"])
+
+        # Create AST nodes for the keyword arguments
+        width_kw = ast.keyword(arg="width", value=ast.Constant(value="medium"))
+
+        auto_download_kw = ast.keyword(
+            arg="auto_download",
+            value=ast.List(elts=[ast.Constant(value="html")], ctx=ast.Load()),
+        )
+
+        keywords = [width_kw, auto_download_kw]
+
+        # Test the function
+        kwargs, violations = _eval_kwargs(keywords)
+
+        # Verify results
+        assert len(violations) == 0
+        assert kwargs["width"] == "medium"
+        assert kwargs["auto_download"] == ["html"]
+
+    @staticmethod
+    def test_eval_kwargs_with_invalid_list_elements() -> None:
+        """Test that _eval_kwargs handles invalid elements in list kwargs."""
+        # Create a list with both valid and invalid elements
+        invalid_name_node = ast.Name(id="invalid_var", ctx=ast.Load())
+        invalid_name_node.lineno = 1
+        invalid_name_node.col_offset = 0
+
+        invalid_list_kw = ast.keyword(
+            arg="test_arg",
+            value=ast.List(
+                elts=[
+                    ast.Constant(value="valid"),
+                    invalid_name_node,  # Invalid: not a constant
+                ],
+                ctx=ast.Load(),
+            ),
+        )
+
+        keywords = [invalid_list_kw]
+
+        # Test the function
+        kwargs, violations = _eval_kwargs(keywords)
+
+        # Should have one violation for the invalid element
+        assert len(violations) == 1
+        assert kwargs["test_arg"] == [
+            "valid"
+        ]  # Should still include valid elements
+
+    @staticmethod
+    def test_parse_non_marimo() -> None:
+        import pytest
+
+        from marimo._ast.parse import MarimoFileError
+
+        # Non-marimo files that have marimo imports but no App definition
+        # should raise MarimoFileError with the expected message
+        with pytest.raises(
+            MarimoFileError, match=r"`marimo\.App` definition expected\."
+        ):
+            parse_notebook(get_filepath("test_non_marimo").read_text())
+
+    @staticmethod
+    def test_function_decorator_call_preserves_other_decorators() -> None:
+        notebook = parse_notebook(
+            get_filepath("test_function_decorator_call").read_text()
+        )
+        assert notebook is not None
+        assert len(notebook.cells) == 2  # setup + my_function
+
+        function_cell = notebook.cells[1]
+        assert "@my_decorator" in function_cell.code, (
+            f"Expected @my_decorator in extracted code, but got: {function_cell.code!r}"
+        )
+
+    @staticmethod
+    def test_unparsable_cell_with_non_string_creates_violation() -> None:
+        """Test that unparsable cells with non-string args create violations."""
+        code = """
+import marimo
+__generated_with = "0.0.0"
+app = marimo.App()
+
+app._unparsable_cell(123, name="_")
+
+if __name__ == "__main__":
+    app.run()
+"""
+        notebook = parse_notebook(code)
+        assert notebook is not None
+        assert len(notebook.violations) == 1
+        assert "Expected string constant" in notebook.violations[0].description
+
+    @staticmethod
+    def test_unparsable_cell_with_unindent_mismatch() -> None:
+        """Unparsable cell content that fails to tokenize still parses."""
+        code = '''
+import marimo
+__generated_with = "0.0.0"
+app = marimo.App()
+
+app._unparsable_cell(
+    r"""
+    def apply_adjustments():
+        value = 1
+        return value
+
+     apply_adjustments():
+    """,
+    name="_"
+)
+
+if __name__ == "__main__":
+    app.run()
+'''
+        notebook = parse_notebook(code)
+        assert notebook is not None
+        assert len(notebook.cells) == 1
+        assert notebook.cells[0].code == (
+            "def apply_adjustments():\n    value = 1\n"
+            "    return value\n\n apply_adjustments():"
+        )
+
+
+class TestTrailingComments:
+    """Tests for trailing comment preservation in @app.function and @app.class_definition."""
+
+    @staticmethod
+    def test_function_with_trailing_comment() -> None:
+        """@app.function should preserve trailing comments at body indentation."""
+        code = """import marimo
+
+__generated_with = "0.0.0"
+app = marimo.App()
+
+
+@app.function
+def f():
+    # start
+    pass
+    # end
+
+
+if __name__ == "__main__":
+    app.run()
+"""
+        notebook = parse_notebook(code)
+        assert len(notebook.cells) == 1
+        assert "# end" in notebook.cells[0].code
+
+    @staticmethod
+    def test_function_with_trailing_comment_and_empty_line() -> None:
+        """@app.function should preserve trailing comments at body indentation."""
+        code = """import marimo
+
+__generated_with = "0.0.0"
+app = marimo.App()
+
+
+@app.function
+def f():
+    # start
+    pass
+
+    # end
+
+
+if __name__ == "__main__":
+    app.run()
+"""
+        notebook = parse_notebook(code)
+        assert len(notebook.cells) == 1
+        assert "# end" in notebook.cells[0].code
+
+    @staticmethod
+    def test_two_functions() -> None:
+        """@app.function should preserve trailing comments at body indentation."""
+        code = """import marimo
+
+__generated_with = "0.0.0"
+app = marimo.App()
+
+
+@app.function
+def f():
+    # start
+    pass
+
+    # end
+
+@app.function
+def g():
+    # start 1
+    pass
+    # end 1
+
+
+if __name__ == "__main__":
+    app.run()
+"""
+        notebook = parse_notebook(code)
+        assert len(notebook.cells) == 2
+        assert (
+            notebook.cells[0].code
+            == """def f():
+    # start
+    pass
+
+    # end"""
+        )
+
+        assert (
+            notebook.cells[1].code
+            == """def g():
+    # start 1
+    pass
+    # end 1"""
+        )
+
+    @staticmethod
+    def test_class_definition_with_trailing_comment() -> None:
+        """@app.class_definition should preserve trailing comments at body indentation."""
+        code = """import marimo
+
+__generated_with = "0.0.0"
+app = marimo.App()
+
+
+@app.class_definition
+class MyClass:
+    def method(self):
+        pass
+    # trailing class comment
+
+
+if __name__ == "__main__":
+    app.run()
+"""
+        notebook = parse_notebook(code)
+        assert len(notebook.cells) == 1
+        assert "# trailing class comment" in notebook.cells[0].code
+
+    @staticmethod
+    def test_function_with_multiple_trailing_comments() -> None:
+        """@app.function should preserve multiple trailing comments."""
+        code = """import marimo
+
+__generated_with = "0.0.0"
+app = marimo.App()
+
+
+@app.function
+def g():
+    x = 1
+    # comment 1
+    # comment 2
+
+
+if __name__ == "__main__":
+    app.run()
+"""
+        notebook = parse_notebook(code)
+        assert len(notebook.cells) == 1
+        assert "# comment 1" in notebook.cells[0].code
+        assert "# comment 2" in notebook.cells[0].code
+
+    @staticmethod
+    def test_function_without_trailing_comment() -> None:
+        """@app.function without trailing comments should work as before."""
+        code = """import marimo
+
+__generated_with = "0.0.0"
+app = marimo.App()
+
+
+@app.function
+def h():
+    return 42
+
+
+if __name__ == "__main__":
+    app.run()
+"""
+        notebook = parse_notebook(code)
+        assert len(notebook.cells) == 1
+        assert notebook.cells[0].code == "def h():\n    return 42"
+
+    @staticmethod
+    def test_function_with_tab_indentation() -> None:
+        """@app.function should preserve trailing comments with tab indentation."""
+        # Use explicit tab characters
+        code = 'import marimo\n\n__generated_with = "0.0.0"\napp = marimo.App()\n\n\n@app.function\ndef f():\n\tpass\n\t# trailing comment\n\n\nif __name__ == "__main__":\n\tapp.run()\n'
+        notebook = parse_notebook(code)
+        assert len(notebook.cells) == 1
+        assert "# trailing comment" in notebook.cells[0].code
+
+    @staticmethod
+    def test_setup_cell_with_trailing_comment() -> None:
+        """Setup cells should preserve trailing comments."""
+        code = """import marimo
+
+__generated_with = "0.0.0"
+app = marimo.App()
+
+with app.setup:
+    import os
+    # trailing setup comment
+
+@app.cell
+def _():
+    pass
+
+if __name__ == "__main__":
+    app.run()
+"""
+        notebook = parse_notebook(code)
+        assert len(notebook.cells) == 2
+        assert notebook.cells[0].name == "setup"
+        assert notebook.cells[0].code == "import os\n# trailing setup comment"
+
+    @staticmethod
+    def test_single_line_function_no_trailing_capture() -> None:
+        """Single-line functions should not capture content from next cell."""
+        code = """import marimo
+
+__generated_with = "0.0.0"
+app = marimo.App()
+
+
+@app.function
+def f(): pass
+
+
+@app.function
+def g():
+    return 42
+
+
+if __name__ == "__main__":
+    app.run()
+"""
+        notebook = parse_notebook(code)
+        assert len(notebook.cells) == 2
+        assert notebook.cells[0].code == "def f(): pass"
+        assert notebook.cells[1].code == "def g():\n    return 42"
+
+    @staticmethod
+    def test_single_line_class_no_trailing_capture() -> None:
+        """Single-line classes should not capture content from next cell."""
+        code = """import marimo
+
+__generated_with = "0.0.0"
+app = marimo.App()
+
+
+@app.class_definition
+class Foo: ...
+
+
+@app.cell
+def _():
+    x = 1
+
+
+if __name__ == "__main__":
+    app.run()
+"""
+        notebook = parse_notebook(code)
+        assert len(notebook.cells) == 2
+        assert notebook.cells[0].code == "class Foo: ..."
+        assert notebook.cells[1].code == "x = 1"
+
+
+def test_fixed_dedent() -> None:
+    # Basic dedent
+    assert fixed_dedent("    x = 1\n    y = 2") == snapshot("""\
+x = 1
+y = 2\
+""")
+
+    # No indentation
+    assert fixed_dedent("x = 1\ny = 2") == snapshot("""\
+x = 1
+y = 2\
+""")
+
+    # Mixed indentation levels
+    assert fixed_dedent("    def foo():\n        return 1") == snapshot("""\
+def foo():
+    return 1\
+""")
+
+    # Inconsistent indentation (main difference from textwrap.dedent)
+    assert fixed_dedent("    x = 1\ny = 2") == snapshot("""\
+x = 1
+y = 2\
+""")
+
+    # Empty string
+    assert fixed_dedent("") == snapshot("")
+
+    # Only whitespace
+    assert fixed_dedent("    ") == snapshot("")
+
+    # Blank lines in middle
+    assert fixed_dedent("    x = 1\n\n    y = 2") == snapshot("""\
+x = 1
+
+y = 2\
+""")
+
+    # Leading blank lines
+    assert fixed_dedent("\n\n    x = 1") == snapshot("""\
+
+
+x = 1\
+""")
+
+    # Trailing blank lines
+    assert fixed_dedent("    x = 1\n\n") == snapshot("x = 1\n")
+
+    # Tabs as indentation
+    assert fixed_dedent("\tx = 1\n\ty = 2") == snapshot("""\
+x = 1
+y = 2\
+""")
+
+    # Mixed tabs and spaces
+    assert fixed_dedent("\t    x = 1\n\t    y = 2") == snapshot("""\
+x = 1
+y = 2\
+""")
+
+    # Deeply nested code
+    assert fixed_dedent(
+        "        def foo():\n            if True:\n                return 1"
+    ) == snapshot("""\
+def foo():
+    if True:
+        return 1\
+""")
+
+    # Multiline string preserved
+    assert fixed_dedent('    x = """hello\n    world"""') == snapshot('''\
+x = """hello
+world"""\
+''')
+
+    # Code with comments
+    assert fixed_dedent("    # comment\n    x = 1") == snapshot("""\
+# comment
+x = 1\
+""")
+
+    # Comment line without expected indent
+    assert fixed_dedent(
+        "    x = 1\n# comment with no indent\n    y = 2"
+    ) == snapshot("""\
+x = 1
+# comment with no indent
+y = 2\
+""")
+
+    # Escaped characters preserved
+    assert fixed_dedent('    x = "hello\\nworld"') == snapshot(
+        'x = "hello\\nworld"'
+    )
+
+    # Unicode content
+    assert fixed_dedent('    x = "héllo wörld 🎉"') == snapshot(
+        'x = "héllo wörld 🎉"'
+    )
+
+    # Docstring style content
+    assert fixed_dedent(
+        '    """This is a docstring.\n\n    Args:\n        x: something\n    """'
+    ) == snapshot('''\
+"""This is a docstring.
+
+Args:
+    x: something
+"""\
+''')
+
+    # Single line with indentation
+    assert fixed_dedent("        single_line_code()") == snapshot(
+        "single_line_code()"
+    )
+
+    # Only blank lines
+    assert fixed_dedent("\n\n\n") == snapshot("\n\n\n")
+
+    # AI-generated code pattern with inconsistent indentation
+    assert fixed_dedent("    x = 1\n    if True:\nreturn x") == snapshot(
+        "x = 1\nif True:\nreturn x"
+    )
+
+    # Class definition
+    assert fixed_dedent(
+        "    class MyClass:\n        def method(self):\n            return 1"
+    ) == snapshot("""\
+class MyClass:
+    def method(self):
+        return 1\
+""")
+
+    # Two-space indentation
+    assert fixed_dedent("  x = 1\n  y = 2") == snapshot("x = 1\ny = 2")

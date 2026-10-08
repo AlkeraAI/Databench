@@ -1,0 +1,298 @@
+/* Code- and diff-preview geometry. Declared on the tool-card root so every row below reads one
+   ruler: a gutter that holds a four-digit line number, a marker column for the +/- glyph, and a
+   row floor that matches the scroller's line box so an empty diff line still has height. */
+[data-alkera-tool-cards] {
+  --alk-preview-gutter: calc(4ch + var(--alkSpace5));
+  --alk-preview-marker: calc(1ch + var(--alkSpace5));
+  --alk-preview-line-min-h: 1.5em;
+}
+
+[data-alkera-tool-cards] .alk-language-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--alkSecondaryText);
+  line-height: 1;
+}
+
+[data-alkera-tool-cards] .alk-diff-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace1);
+  color: var(--alkSecondaryText);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextMd);
+}
+
+[data-alkera-tool-cards] .alk-diff-count span:first-child {
+  color: var(--alkSuccess);
+}
+
+[data-alkera-tool-cards] .alk-diff-count span:last-child {
+  color: var(--alkDanger);
+}
+
+[data-alkera-tool-cards] .alk-resource-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+[data-alkera-tool-cards] .alk-resource-row {
+  min-width: 0;
+}
+
+[data-alkera-tool-cards] .alk-resource-row + .alk-resource-row {
+  border-top: 1px solid var(--alkDivider);
+}
+
+[data-alkera-tool-cards] .alk-resource-row__button {
+  border: 0;
+}
+
+[data-alkera-tool-cards] .alk-resource-preview,
+[data-alkera-tool-cards] .alk-code-preview {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkRaisedBg);
+}
+
+[data-alkera-tool-cards] .alk-resource-preview.is-bare,
+[data-alkera-tool-cards] .alk-code-preview.is-bare {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-alkera-tool-cards] .alk-code-preview__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  min-height: var(--alkControlSm);
+  padding: 0 var(--alkSpace3);
+  border-bottom: 1px solid var(--alkBorder);
+  background: var(--alkInsetBg);
+  color: var(--alkSecondaryText);
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextXs);
+}
+
+[data-alkera-tool-cards] .alk-code-preview__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-alkera-tool-cards] .alk-code-preview__language {
+  flex: 0 0 auto;
+  color: var(--alkTertiaryText);
+}
+
+[data-alkera-tool-cards] .alk-code-preview__scroller,
+[data-alkera-tool-cards] .alk-preview-table-wrap {
+  max-height: var(--alkPreviewMaxHeightMd);
+  overflow: auto;
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+  line-height: 1.5;
+}
+
+[data-alkera-tool-cards] .alk-code-preview.is-bare .alk-code-preview__scroller {
+  background: var(--alkRaisedBg);
+}
+
+[data-alkera-tool-cards] .alk-code-line,
+[data-alkera-tool-cards] .alk-diff-line {
+  display: grid;
+  min-width: max-content;
+  font-variant-ligatures: none;
+  tab-size: 2;
+}
+
+[data-alkera-tool-cards] .alk-code-line {
+  grid-template-columns: var(--alk-preview-gutter) minmax(0, 1fr);
+}
+
+[data-alkera-tool-cards] .alk-diff-line {
+  grid-template-columns: var(--alk-preview-marker) var(--alk-preview-gutter) minmax(0, 1fr);
+  min-height: var(--alk-preview-line-min-h);
+}
+
+[data-alkera-tool-cards] .alk-code-line__number,
+[data-alkera-tool-cards] .alk-diff-line__marker,
+[data-alkera-tool-cards] .alk-diff-line__number {
+  color: var(--alkTertiaryText);
+  user-select: none;
+  text-align: right;
+  padding: 0 var(--alkSpace2);
+  background: var(--alkInsetBg);
+  border-right: 1px solid var(--alkBorder);
+}
+
+[data-alkera-tool-cards] .alk-diff-line__marker {
+  color: var(--alkTertiaryText);
+  text-align: center;
+}
+
+[data-alkera-tool-cards] .alk-code-line code,
+[data-alkera-tool-cards] .alk-diff-line code {
+  padding: 0 var(--alkSpace3);
+  color: var(--alkPrimaryText);
+  white-space: pre;
+}
+
+[data-alkera-tool-cards] .alk-diff-line[data-line-kind="add"] {
+  background: var(--alkDiffAddBg);
+}
+
+[data-alkera-tool-cards] .alk-diff-line[data-line-kind="add"] .alk-diff-line__marker,
+[data-alkera-tool-cards] .alk-diff-line[data-line-kind="add"] .alk-diff-line__number {
+  color: var(--alkDiffAddFg);
+  background: var(--alkDiffAddGutterBg);
+}
+
+[data-alkera-tool-cards] .alk-diff-line[data-line-kind="remove"] {
+  background: var(--alkDiffRemoveBg);
+}
+
+[data-alkera-tool-cards] .alk-diff-line[data-line-kind="remove"] .alk-diff-line__marker,
+[data-alkera-tool-cards] .alk-diff-line[data-line-kind="remove"] .alk-diff-line__number {
+  color: var(--alkDiffRemoveFg);
+  background: var(--alkDiffRemoveGutterBg);
+}
+
+[data-alkera-tool-cards] .alk-diff-line[data-line-kind="hunk"] {
+  background: var(--alkDiffHunkBg);
+  color: var(--alkSecondaryText);
+}
+
+[data-alkera-tool-cards] .alk-diff-line[data-line-kind="hunk"] code {
+  color: var(--alkSecondaryText);
+}
+
+[data-alkera-tool-cards] .alk-diff-line[data-line-kind="hunk"] .alk-diff-line__marker,
+[data-alkera-tool-cards] .alk-diff-line[data-line-kind="hunk"] .alk-diff-line__number {
+  color: transparent;
+}
+
+/* Code preview lines are highlighted by the shared Prism engine, emitting the same alk-tok--* classes
+   as CodeBlock (styled globally in codeblock.css), so the preview reads in the one warm code palette. */
+
+[data-alkera-tool-cards] .alk-resource-preview__truncated {
+  padding: var(--alkSpace1) var(--alkSpace3);
+  border-top: 1px solid var(--alkBorder);
+  color: var(--alkTertiaryText);
+  font-size: var(--alkTextXs);
+}
+
+[data-alkera-tool-cards] .alk-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--alkFontMono);
+  font-size: var(--alkTextSm);
+}
+
+[data-alkera-tool-cards] .alk-preview-table th,
+[data-alkera-tool-cards] .alk-preview-table td {
+  padding: var(--alkSpace2) var(--alkSpace3);
+  border-bottom: 1px solid var(--alkDivider);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+[data-alkera-tool-cards] .alk-preview-table th {
+  position: sticky;
+  top: 0;
+  background: var(--alkInsetBg);
+  color: var(--alkSecondaryText);
+  font-family: var(--alkFontUi);
+  z-index: 1;
+}
+
+[data-alkera-tool-cards] .alk-preview-table__rownum {
+  width: var(--alkSpace2xl);
+  color: var(--alkTertiaryText);
+  text-align: right;
+}
+
+[data-alkera-tool-cards] .alk-ref-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--alkSpace2);
+  min-width: 0;
+}
+
+[data-alkera-tool-cards] .alk-ref-list.is-card {
+  padding: var(--alkSpace2) var(--alkSpace3);
+}
+
+[data-alkera-tool-cards] .alk-ref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace2);
+  max-width: 100%;
+  padding: var(--alkSpace1) var(--alkSpace3);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusFull);
+  background: var(--alkInsetBg);
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextSm);
+}
+
+[data-alkera-tool-cards] .alk-ref-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Structural rules are scope-free: PathDisplay is a primitive and renders outside the
+   tool-cards attribute too (turn-summary rows) — scoping these painted the invisible
+   copy-span as duplicate visible text there. */
+.alk-path-ellipsis {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+}
+
+.alk-path-ellipsis__copy {
+  position: absolute;
+  inset: 0;
+  color: transparent;
+  user-select: text;
+}
+
+.alk-path-ellipsis__start,
+.alk-path-ellipsis__end {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alk-path-ellipsis__start {
+  flex: 1 1 auto;
+}
+
+.alk-path-ellipsis__end {
+  flex: 0 1 auto;
+}
+
+[data-alkera-tool-cards] .alk-path-ellipsis--link {
+  color: var(--alkUrl);
+  cursor: pointer;
+}
+
+[data-alkera-tool-cards] .alk-menu-empty {
+  padding: var(--alkSpace3);
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}

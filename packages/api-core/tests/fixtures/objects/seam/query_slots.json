@@ -1,0 +1,240 @@
+{
+  "note": "One slot grammar, read by both sides. `recorded` is a saved Tinybird statement that uses the engine's own typed slots, so a query page that only knew `{name}` would read it as taking no parameters. `grammar` is the matrix both sides' slot readers are driven over, so neither can learn a spelling the other has not.",
+  "recorded": {
+    "engine": "tinybird",
+    "sql_template": "WITH daily AS (SELECT toDate(ordered_at) AS day, region, sum(amount) AS revenue FROM orders WHERE customer_id = {{String(customer_id)}} AND ordered_at >= {{Date(start_date)}} AND ordered_at <= {{Date(end_date)}} GROUP BY day, region) SELECT toStartOfWeek(day, 1) AS week_start, region, sum(revenue) AS revenue, count() AS active_days FROM daily GROUP BY week_start, region ORDER BY week_start, region",
+    "slots": [
+      {
+        "name": "customer_id",
+        "type": "string"
+      },
+      {
+        "name": "start_date",
+        "type": "date"
+      },
+      {
+        "name": "end_date",
+        "type": "date"
+      }
+    ],
+    "values": {
+      "customer_id": "Enterprise",
+      "start_date": "2026-08-01",
+      "end_date": "2026-09-06"
+    },
+    "changed": {
+      "customer_id": "Northwind"
+    }
+  },
+  "grammar": [
+    {
+      "id": "a-bare-slot",
+      "template": "select {customer}",
+      "slots": [
+        {
+          "name": "customer",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "a-date-range",
+      "template": "where d between {period.start} and {period.end}",
+      "slots": [
+        {
+          "name": "period",
+          "type": "daterange"
+        }
+      ]
+    },
+    {
+      "id": "a-range-part-outranks-a-bare-use",
+      "template": "select {p}, {p.start}",
+      "slots": [
+        {
+          "name": "p",
+          "type": "daterange"
+        }
+      ]
+    },
+    {
+      "id": "a-typed-string",
+      "template": "select {{String(customer)}}",
+      "slots": [
+        {
+          "name": "customer",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "a-typed-int32",
+      "template": "select {{Int32(n)}}",
+      "slots": [
+        {
+          "name": "n",
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "a-typed-int64",
+      "template": "select {{Int64(n)}}",
+      "slots": [
+        {
+          "name": "n",
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "a-typed-float64",
+      "template": "select {{Float64(x)}}",
+      "slots": [
+        {
+          "name": "x",
+          "type": "number"
+        }
+      ]
+    },
+    {
+      "id": "a-typed-date",
+      "template": "select {{Date(d)}}",
+      "slots": [
+        {
+          "name": "d",
+          "type": "date"
+        }
+      ]
+    },
+    {
+      "id": "a-typed-datetime",
+      "template": "select {{DateTime(t)}}",
+      "slots": [
+        {
+          "name": "t",
+          "type": "datetime"
+        }
+      ]
+    },
+    {
+      "id": "a-typed-boolean",
+      "template": "select {{Boolean(b)}}",
+      "slots": [
+        {
+          "name": "b",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "a-typed-slot-with-spaces",
+      "template": "select {{ String ( customer ) }}",
+      "slots": [
+        {
+          "name": "customer",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "both-spellings-side-by-side",
+      "template": "where a = {{String(a)}} and b = {b}",
+      "slots": [
+        {
+          "name": "a",
+          "type": "string"
+        },
+        {
+          "name": "b",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "a-typed-slot-used-twice-is-one-parameter",
+      "template": "where a = {{String(a)}} or b = {{String(a)}}",
+      "slots": [
+        {
+          "name": "a",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "the-first-spelling-names-the-type",
+      "template": "where a = {{Int64(a)}} and b = {a}",
+      "slots": [
+        {
+          "name": "a",
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "id": "a-mixed-case-name-is-a-slot",
+      "template": "select {Customer}",
+      "slots": [
+        {
+          "name": "Customer",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "not-a-slot-an-empty-brace-pair",
+      "template": "select '{{}}'::jsonb",
+      "slots": []
+    },
+    {
+      "id": "not-a-slot-a-directive-that-builds-sql",
+      "template": "select {{sql_and(a=Int64(x))}}",
+      "slots": []
+    },
+    {
+      "id": "not-a-slot-a-secret-read",
+      "template": "select {{tb_secret('x')}}",
+      "slots": []
+    },
+    {
+      "id": "not-a-slot-a-control-block",
+      "template": "select {% if x %}1{% end %}",
+      "slots": []
+    },
+    {
+      "id": "not-a-slot-an-unknown-type-function",
+      "template": "select {{Decimal(x)}}",
+      "slots": []
+    },
+    {
+      "id": "not-a-slot-a-clickhouse-placeholder",
+      "template": "select {x:String}",
+      "slots": []
+    },
+    {
+      "id": "not-a-slot-a-json-literal",
+      "template": "select '{\"k\": 1}'::json",
+      "slots": []
+    },
+    {
+      "id": "not-a-slot-a-spaced-name",
+      "template": "select '{ customer }'",
+      "slots": []
+    },
+    {
+      "id": "not-a-slot-a-numeric-name",
+      "template": "select '{1}'",
+      "slots": []
+    },
+    {
+      "id": "not-a-slot-an-unknown-suffix",
+      "template": "select '{customer.mid}'",
+      "slots": []
+    },
+    {
+      "id": "not-a-slot-a-bare-name-in-doubled-braces",
+      "template": "select {{customer}}",
+      "slots": []
+    }
+  ]
+}

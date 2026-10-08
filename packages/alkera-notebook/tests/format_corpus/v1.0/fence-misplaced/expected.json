@@ -1,0 +1,45 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "00000000b1": {
+        "defs": [
+          "x"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": []
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {},
+    "cells": [
+      {
+        "code": "x = 1",
+        "config": {},
+        "extra": {},
+        "id": "00000000b1",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "keyword",
+        "source": "x = 1"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.25.1",
+    "header_text": "\"\"\"Doc.\"\"\"\n# a comment\n",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "lazy"
+    },
+    "unknown_settings": "",
+    "violations": []
+  }
+}

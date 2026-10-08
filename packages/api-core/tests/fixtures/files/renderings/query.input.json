@@ -1,0 +1,20 @@
+{
+  "object": {
+    "id": "3f1c0a5e-0000-4000-8000-00000000d1e2",
+    "logical_id": "top-accounts",
+    "namespace": "workspace",
+    "title": "Top accounts",
+    "version": 2
+  },
+  "schema_version": "1.0.0",
+  "spec": {
+    "connection_id": "3f1c0a5e-0000-4000-8000-0000000000c1",
+    "parameters": {
+      "limit": 10,
+      "since": "2026-01-01"
+    },
+    "schema_version": "1.0.0",
+    "sql": "select account, revenue\nfrom accounts\norder by revenue desc"
+  },
+  "type": "query"
+}

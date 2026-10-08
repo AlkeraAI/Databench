@@ -1,0 +1,526 @@
+# Copyright 2026 Marimo. All rights reserved.
+"""Unit tests for the run_check CLI integration."""
+
+import asyncio
+from pathlib import Path
+
+from marimo._lint import FileStatus, Linter, run_check
+from marimo._lint.diagnostic import Diagnostic, Severity
+
+
+class TestRunCheck:
+    """Test the run_check function and CLI integration."""
+
+    def test_run_check_with_empty_files(self):
+        """Test run_check with file patterns that match no files."""
+        result = run_check(("nonexistent/**/*.py",))
+
+        assert isinstance(result, Linter)
+        assert len(result.files) == 0
+        assert result.errored is False
+
+    def test_run_check_with_unsupported_files(self, tmpdir):
+        """Test run_check skips unsupported file types."""
+        # Create a non-notebook file
+        txt_file = Path(tmpdir) / "test.txt"
+        txt_file.write_text("This is not a notebook")
+
+        result = run_check((str(txt_file),))
+
+        assert len(result.files) == 1
+        assert result.files[0].skipped is True
+        assert "not a notebook file" in result.files[0].message
+
+    def test_run_check_with_empty_py_file(self, tmpdir):
+        """Test run_check with an empty Python file."""
+        py_file = Path(tmpdir) / "empty.py"
+        py_file.write_text("")
+
+        result = run_check((str(py_file),))
+
+        assert len(result.files) == 1
+        assert result.files[0].skipped is True
+        assert "empty file" in result.files[0].message
+
+    def test_run_check_with_valid_notebook(self, tmpdir):
+        """Test run_check with a valid marimo notebook."""
+        notebook_file = Path(tmpdir) / "notebook.py"
+        notebook_content = """import marimo
+
+__generated_with = "0.15.0"
+app = marimo.App()
+
+@app.cell
+def __():
+    x = 1
+    return (x,)
+"""
+        notebook_file.write_text(notebook_content)
+
+        result = run_check((str(notebook_file),))
+
+        assert len(result.files) == 1
+        assert result.files[0].skipped is False
+        assert result.files[0].failed is False
+        assert isinstance(result.files[0].diagnostics, list)
+
+    def test_run_check_with_syntax_error(self, tmpdir):
+        """Test run_check with a file containing syntax errors.
+
+        A file with a syntax error but no cell boundaries is not recognisable
+        as a marimo notebook, so the linter skips it gracefully rather than
+        failing hard.  Notebooks that DO have cell boundaries are recovered via
+        the scanner fallback and reported as diagnostics instead.
+        """
+        bad_file = Path(tmpdir) / "bad.py"
+        bad_file.write_text(
+            "import marimo\napp = marimo.App(\ndef broken(:\n    pass"
+        )
+
+        result = run_check((str(bad_file),))
+
+        assert len(result.files) == 1
+        # File has no cell boundaries — treated as unrecognisable/empty
+        assert result.files[0].failed is False
+        assert result.files[0].skipped is True
+
+    def test_run_check_with_glob_patterns(self, tmpdir):
+        """Test run_check with glob patterns."""
+        # Create multiple files
+        py_file = Path(tmpdir) / "test.py"
+        py_file.write_text("# empty notebook")
+
+        md_file = Path(tmpdir) / "test.md"
+        md_file.write_text("# Empty markdown")
+
+        txt_file = Path(tmpdir) / "test.txt"
+        txt_file.write_text("ignored")
+
+        # Use glob pattern
+        pattern = str(Path(tmpdir) / "*")
+        result = run_check((pattern,))
+
+        # Should find py and md files, skip txt
+        assert len(result.files) == 3
+        py_result = next(f for f in result.files if f.file.endswith(".py"))
+        md_result = next(f for f in result.files if f.file.endswith(".md"))
+        txt_result = next(f for f in result.files if f.file.endswith(".txt"))
+
+        # files with simple comments are valid notebooks with errors.
+        assert not py_result.failed
+        # Plain markdown (no marimo cells/metadata) is skipped, not linted.
+        assert not md_result.failed
+        assert md_result.skipped is True
+        assert txt_result.skipped is True  # Not a notebook
+
+
+class TestMarkdownRecognition:
+    """Markdown is only linted when recognized as a marimo notebook."""
+
+    PLAIN_README = """# My Project
+
+A plain README with a fenced code sample:
+
+```python
+import foo
+foo.bar()
+```
+
+Nothing marimo about it.
+"""
+    MARIMO_MD = """# Title
+
+```python {.marimo}
+x = 1
+```
+"""
+    FRONTMATTER_ONLY = """---
+title: Title
+marimo-version: 0.1.0
+---
+
+# Just prose
+"""
+
+    def test_plain_markdown_is_skipped(self, tmpdir):
+        md_file = Path(tmpdir) / "README.md"
+        md_file.write_text(self.PLAIN_README)
+
+        result = run_check((str(md_file),))
+
+        assert len(result.files) == 1
+        assert result.files[0].skipped is True
+        assert result.errored is False
+        assert result.issues_count == 0
+
+    def test_plain_markdown_fix_is_noop(self, tmpdir):
+        """`--fix` must not rewrite a plain README (the reported regression)."""
+        md_file = Path(tmpdir) / "README.md"
+        md_file.write_text(self.PLAIN_README)
+
+        result = run_check((str(md_file),), fix=True)
+
+        assert result.files[0].skipped is True
+        assert result.fixed_count == 0
+        assert md_file.read_text() == self.PLAIN_README
+
+    def test_marimo_markdown_notebook_is_linted(self, tmpdir):
+        """A md notebook with a marimo fence is recognized and fixable."""
+        md_file = Path(tmpdir) / "notebook.md"
+        md_file.write_text(self.MARIMO_MD)
+
+        result = run_check((str(md_file),), fix=True)
+
+        assert result.files[0].skipped is False
+        # Frontmatter (title/marimo-version) is injected on fix.
+        assert "marimo-version:" in md_file.read_text()
+
+    def test_frontmatter_only_markdown_is_recognized(self, tmpdir):
+        """`marimo-version` frontmatter marks a notebook even with no fences."""
+        md_file = Path(tmpdir) / "notebook.md"
+        md_file.write_text(self.FRONTMATTER_ONLY)
+
+        result = run_check((str(md_file),))
+
+        assert result.files[0].skipped is False
+
+    def test_qmd_with_python_fence_is_linted(self, tmpdir):
+        qmd_file = Path(tmpdir) / "notebook.qmd"
+        qmd_file.write_text("# Title\n\n```{python}\nx = 1\n```\n")
+
+        result = run_check((str(qmd_file),))
+
+        assert result.files[0].skipped is False
+
+    def test_plain_qmd_is_skipped(self, tmpdir):
+        qmd_file = Path(tmpdir) / "doc.qmd"
+        qmd_file.write_text("---\ntitle: Doc\n---\n\n# Just prose\n")
+
+        result = run_check((str(qmd_file),))
+
+        assert result.files[0].skipped is True
+
+
+class TestFileStatus:
+    """Test the FileStatus class."""
+
+    def test_file_status_initialization(self):
+        """Test FileStatus initialization with defaults."""
+        status = FileStatus(file="test.py")
+
+        assert status.file == "test.py"
+        assert status.diagnostics == []
+        assert status.skipped is False
+        assert status.failed is False
+        assert status.message == ""
+        assert status.details == []
+
+    def test_file_status_with_diagnostics(self):
+        """Test FileStatus with diagnostics."""
+        diagnostic = Diagnostic(
+            code="MB001",
+            name="test-error",
+            message="Test error",
+            severity=Severity.BREAKING,
+            cell_id=None,
+            line=1,
+            column=1,
+            fixable=False,
+        )
+
+        status = FileStatus(file="test.py", diagnostics=[diagnostic])
+
+        assert len(status.diagnostics) == 1
+        assert status.diagnostics[0].code == "MB001"
+
+    async def test_file_status_fix_no_fixable_diagnostics(self, tmpdir):
+        """Test Linter.fix() with no fixable diagnostics."""
+        test_file = Path(tmpdir) / "test.py"
+        original_content = "# Original content"
+        test_file.write_text(original_content)
+
+        diagnostic = Diagnostic(
+            message="Test error",
+            cell_id=None,
+            line=1,
+            column=1,
+            code="MB001",
+            name="test-error",
+            severity=Severity.BREAKING,
+            fixable=False,  # Not fixable
+        )
+
+        # FileStatus needs notebook and contents for fix to work
+        status = FileStatus(
+            file=str(test_file),
+            diagnostics=[diagnostic],
+            notebook=None,  # No notebook means fix returns False
+            contents=original_content,
+        )
+
+        # Since no notebook, fix should return False (no changes)
+        linter = Linter()
+        result = await linter.fix(status)
+        assert result is False
+
+        # File should remain unchanged
+        assert test_file.read_text() == original_content
+
+    async def test_file_status_fix_with_fixable_diagnostics(self, tmpdir):
+        """Test Linter.fix() with fixable diagnostics (but no notebook)."""
+        test_file = Path(tmpdir) / "test.py"
+        original_content = "# Original content"
+        test_file.write_text(original_content)
+
+        diagnostic = Diagnostic(
+            message="Formatting error",
+            cell_id=None,
+            line=1,
+            column=1,
+            code="MF001",
+            name="formatting-error",
+            severity=Severity.FORMATTING,
+            fixable=True,  # Fixable
+        )
+
+        # FileStatus needs notebook and contents for fix to work
+        status = FileStatus(
+            file=str(test_file),
+            diagnostics=[diagnostic],
+            notebook=None,  # No notebook means fix returns False
+            contents=original_content,
+        )
+
+        # Since no notebook, fix should return False (no changes)
+        linter = Linter()
+        result = await linter.fix(status)
+        assert result is False
+
+        # File should remain unchanged
+        assert test_file.read_text() == original_content
+
+    async def test_file_status_fix_with_multiple_diagnostics(self, tmpdir):
+        """Test Linter.fix() with multiple diagnostics (but no notebook)."""
+        test_file = Path(tmpdir) / "test.py"
+        original_content = "# Original content"
+        test_file.write_text(original_content)
+
+        diagnostics = [
+            Diagnostic(
+                message="Formatting",
+                cell_id=None,
+                line=1,
+                column=1,
+                code="MF001",
+                name="formatting-error",
+                severity=Severity.FORMATTING,
+                fixable=True,
+            ),
+            Diagnostic(
+                message="Breaking",
+                cell_id=None,
+                line=2,
+                column=1,
+                code="MB001",
+                name="breaking-error",
+                severity=Severity.BREAKING,
+                fixable=True,
+            ),
+            Diagnostic(
+                message="Runtime",
+                cell_id=None,
+                line=3,
+                column=1,
+                code="MR001",
+                name="runtime-error",
+                severity=Severity.RUNTIME,
+                fixable=True,
+            ),
+        ]
+
+        # FileStatus needs notebook and contents for fix to work
+        status = FileStatus(
+            file=str(test_file),
+            diagnostics=diagnostics,
+            notebook=None,  # No notebook means fix returns False
+            contents=original_content,
+        )
+
+        # Since no notebook, fix should return False (no changes)
+        linter = Linter()
+        result = await linter.fix(status)
+        assert result is False
+
+        # File should remain unchanged
+        assert test_file.read_text() == original_content
+
+
+class TestLinter:
+    """Test the Linter class."""
+
+    def test_check_result_initialization(self):
+        """Test Linter initialization."""
+        result = Linter()
+
+        assert result.files == []
+        assert result.errored is False
+
+    def test_check_result_with_files(self):
+        """Test Linter with file status objects added to files list."""
+        file_status = FileStatus(file="test.py")
+        result = Linter()
+
+        # Manually add files and set errored (simulating after run)
+        result.files.append(file_status)
+        result.errored = True
+
+        assert len(result.files) == 1
+        assert result.files[0].file == "test.py"
+        assert result.errored is True
+
+
+class TestIntegration:
+    """Integration tests combining multiple components."""
+
+    def test_full_workflow_with_notebook_violations(self, tmpdir):
+        """Test the full workflow with a notebook that has violations."""
+        notebook_file = Path(tmpdir) / "bad_notebook.py"
+
+        # Create a notebook with violations (missing __generated_with)
+        notebook_content = """import marimo
+
+app = marimo.App()
+
+# This violates marimo structure - code outside cell
+x = 1
+
+@app.cell
+def __():
+    y = 2
+    return (y,)
+"""
+        notebook_file.write_text(notebook_content)
+
+        result = run_check((str(notebook_file),))
+
+        assert len(result.files) == 1
+        file_status = result.files[0]
+
+        assert not file_status.skipped
+        assert not file_status.failed
+        assert len(file_status.diagnostics) > 0
+
+        # Should have formatting violations
+        assert any(
+            d.severity == Severity.FORMATTING for d in file_status.diagnostics
+        )
+
+        # Test fixing (if notebook is available)
+        if file_status.notebook is not None:
+            # Use Linter.fix() method
+            linter = Linter()
+            result = asyncio.run(linter.fix(file_status))
+            assert isinstance(result, bool)
+
+    def test_error_handling_in_run_check(self, tmpdir):
+        """Test error handling in run_check.
+
+        A file with a syntax error but no @app.cell boundaries is not
+        recognisable as a marimo notebook.  The linter skips it gracefully;
+        notebooks with cell boundaries are recovered via the scanner fallback.
+        """
+        test_file = Path(tmpdir) / "test.py"
+        test_file.write_text(
+            "import marimo\napp = marimo.App()\ndef broken(:\n    pass"
+        )
+
+        result = run_check((str(test_file),))
+
+        assert len(result.files) == 1
+        # File has no cell boundaries — treated as empty/unrecognisable
+        assert result.files[0].failed is False
+        assert result.files[0].skipped is True
+
+    def test_run_check_with_nonexistent_file_pattern(self):
+        """Test run_check with a specific nonexistent file."""
+        result = run_check(("nonexistent_file.py",))
+
+        assert isinstance(result, Linter)
+        assert len(result.files) == 1  # Should create a failed file status
+        assert result.files[0].failed is True
+        assert "File not found" in result.files[0].message
+
+    def test_run_check_with_nonexistent_directory_pattern(self):
+        """Test run_check with nonexistent directory patterns."""
+        result = run_check(("nonexistent_dir/**/*.py",))
+
+        assert isinstance(result, Linter)
+        assert len(result.files) == 0
+        assert result.errored is False
+
+    def test_run_check_encoding_error(self, tmpdir):
+        """Test run_check with a file containing non-UTF-8 bytes.
+
+        Should not crash — the file should be processed gracefully.
+        """
+        bad_file = Path(tmpdir) / "encoding.py"
+        bad_file.write_bytes(
+            b"# -*- coding: ascii -*-\n"
+            b"import marimo\n"
+            b"\n"
+            b'__generated_with = "0.0.0"\n'
+            b"app = marimo.App()\n"
+            b"\n"
+            b"\n"
+            b"@app.cell\n"
+            b"def _():\n"
+            b'    x = "caf\xe9"\n'
+            b"    return\n"
+            b"\n"
+            b"\n"
+            b'if __name__ == "__main__":\n'
+            b"    app.run()\n"
+        )
+
+        result = run_check((str(bad_file),))
+
+        assert len(result.files) == 1
+        assert result.files[0].failed is False
+        assert result.files[0].skipped is False
+
+    def test_run_check_no_duplicate_unparsable_diagnostic(self, tmpdir):
+        """Test that unparsable cells produce only MB001, not a
+        duplicate from MF001 (general-formatting)."""
+        notebook_file = Path(tmpdir) / "broken.py"
+        notebook_file.write_text(
+            "import marimo\n"
+            "\n"
+            '__generated_with = "0.0.0"\n'
+            "app = marimo.App()\n"
+            "\n"
+            "\n"
+            "@app.cell\n"
+            "def _():\n"
+            "    x = 1 + \\\n"
+            "\n"
+            "\n"
+            'if __name__ == "__main__":\n'
+            "    app.run()\n"
+        )
+
+        result = run_check((str(notebook_file),))
+
+        assert len(result.files) == 1
+        file_status = result.files[0]
+        assert not file_status.failed
+
+        # Should have MB001 (unparsable) but NOT a duplicate MF001
+        # for "Cell contains a syntax error"
+        mb001 = [d for d in file_status.diagnostics if d.code == "MB001"]
+        mf001_syntax = [
+            d
+            for d in file_status.diagnostics
+            if d.code == "MF001" and "syntax error" in d.message.lower()
+        ]
+        assert len(mb001) == 1
+        assert len(mf001_syntax) == 0

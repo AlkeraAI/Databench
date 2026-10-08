@@ -1,0 +1,50 @@
+/* A text file edited live, in the file tab's body. */
+
+.alk-live-file {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* Carets and their names never paint outside the editor. */
+  contain: paint;
+}
+
+/* What the editor says about itself, in a row of its own above the text,
+   never over it. */
+.alk-live-file__status {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--alkSpace1) var(--alkSpace3);
+  border-bottom: 1px solid var(--alkDivider);
+}
+
+.alk-live-file__editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.alk-live-file__editor > .cm-editor {
+  height: 100%;
+}
+
+.alk-live-file__mode,
+.alk-live-file__saving {
+  padding: var(--alkSpace0) var(--alkSpace2);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkBadgeBg);
+  color: var(--alkBadgeText);
+  font-size: var(--alkTextXs);
+}
+
+.alk-live-file__saving {
+  background: var(--alkWarningSoft);
+  color: var(--alkWarningText);
+}
+
+/* Room for a four-digit line number from the start, so the gutter never
+   widens over the text when the file grows past nine lines. */
+.alk-live-file .cm-lineNumbers .cm-gutterElement {
+  min-width: 4ch;
+}

@@ -1,0 +1,6 @@
+/* CopyButton — the labelled copy action. The visible label holds and the leading icon flips to a
+   check on copy; a polite live region announces the confirmation so screen readers hear it though
+   the label never swaps. Relative so that region has a positioned ancestor (repo VH pattern). */
+.alk-copybtn {
+  position: relative;
+}

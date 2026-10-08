@@ -1,0 +1,49 @@
+@import "./tokens.css";
+
+/* The fetched page as a document. The prose model renders the blocks and keeps
+   the published ladder: a page is language, so it reads at Text inside a well
+   whose own chrome is Record. This sheet sets the ground and nothing else. */
+:global(.chat-root) [data-tool="webfetch"] .doc {
+  max-height: 320px;
+  overflow: auto;
+}
+
+/* The URL band as the door to the page itself. The button keeps the band's own
+   face; approach brightens the host the way the file bands underline their leaf. */
+:global(.chat-root) [data-tool="webfetch"] button.urlDoor {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--chat-tool-id-line);
+  font: inherit;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The whole URL is the door, so approach paints and underlines ALL of it. The
+   underline sits on the outer span and propagates through the host's own span,
+   so scheme, host, and path carry one unbroken line. */
+:global(.chat-root) [data-tool="webfetch"] button.urlDoor :global(.chat-tool-band__text) {
+  text-decoration: underline transparent;
+  text-underline-offset: 2px;
+}
+
+:global(.chat-root) [data-tool="webfetch"] button.urlDoor :global(.chat-tool-band__text),
+:global(.chat-root) [data-tool="webfetch"] button.urlDoor :global(.chat-tool-leaf) {
+  transition: color 140ms ease, text-decoration-color 140ms ease;
+}
+
+:global(.chat-root) [data-tool="webfetch"] button.urlDoor:hover :global(.chat-tool-band__text),
+:global(.chat-root) [data-tool="webfetch"] button.urlDoor:focus-visible :global(.chat-tool-band__text),
+:global(.chat-root) [data-tool="webfetch"] button.urlDoor:hover :global(.chat-tool-leaf),
+:global(.chat-root) [data-tool="webfetch"] button.urlDoor:focus-visible :global(.chat-tool-leaf) {
+  color: var(--chat-tool-id);
+  text-decoration-color: currentcolor;
+}
+
+:global(.chat-root) [data-tool="webfetch"] button.urlDoor:focus-visible {
+  outline: 1.5px solid var(--chat-focus);
+  outline-offset: -1.5px;
+}

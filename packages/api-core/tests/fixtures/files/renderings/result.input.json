@@ -1,0 +1,28 @@
+{
+  "columns": [
+    "account",
+    "revenue",
+    "active",
+    "note"
+  ],
+  "rows": [
+    [
+      "Acme, Inc.",
+      1200.5,
+      true,
+      "he said \"hi\""
+    ],
+    [
+      "Beta\nWorks",
+      0,
+      false,
+      null
+    ],
+    [
+      "Gamma\u0001Ltd",
+      -3,
+      null,
+      "plain"
+    ]
+  ]
+}

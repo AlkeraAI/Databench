@@ -1,0 +1,63 @@
+{
+  "comment": "What a tool's output unwraps to. Read by the TypeScript unwrap's test (packages/chat-model/src/toolResult.test.ts) and by the test of every server-side reader of a tool result, so a result is the same value to the web transcript and to the server. `unwrapped` absent means the output unwraps to nothing (bare tool text, or no output).",
+  "cases": [
+    {
+      "id": "an-object-is-itself",
+      "output": { "columns": ["a"], "row_count": 1 },
+      "unwrapped": { "columns": ["a"], "row_count": 1 }
+    },
+    {
+      "id": "a-json-string-is-parsed",
+      "output": "{\"columns\": [\"a\"], \"row_count\": 1}",
+      "unwrapped": { "columns": ["a"], "row_count": 1 }
+    },
+    {
+      "id": "a-lone-result-key-is-an-envelope",
+      "output": "{\"result\": {\"row_count\": 2}}",
+      "unwrapped": { "row_count": 2 }
+    },
+    {
+      "id": "a-result-key-beside-peers-is-the-tools-own-field",
+      "output": { "query_id": "q1", "result": "cancelled" },
+      "unwrapped": { "query_id": "q1", "result": "cancelled" }
+    },
+    {
+      "id": "structured-content-is-an-envelope",
+      "output": { "structuredContent": { "row_count": 3 }, "content": [] },
+      "unwrapped": { "row_count": 3 }
+    },
+    {
+      "id": "a-content-text-block-is-an-envelope",
+      "output": { "content": [{ "type": "text", "text": "{\"row_count\": 4}" }] },
+      "unwrapped": { "row_count": 4 }
+    },
+    {
+      "id": "the-first-content-block-that-parses-wins",
+      "output": {
+        "content": [
+          { "type": "image", "data": "aGk=" },
+          { "type": "text", "text": "not json" },
+          { "type": "text", "text": "{\"row_count\": 5}" }
+        ]
+      },
+      "unwrapped": { "row_count": 5 }
+    },
+    {
+      "id": "envelopes-nest",
+      "output": "{\"result\": \"{\\\"result\\\": {\\\"row_count\\\": 6}}\"}",
+      "unwrapped": { "row_count": 6 }
+    },
+    {
+      "id": "bare-tool-text-unwraps-to-nothing",
+      "output": "3 files changed"
+    },
+    {
+      "id": "no-output-unwraps-to-nothing",
+      "output": null
+    },
+    {
+      "id": "an-envelope-chain-past-the-depth-limit-unwraps-to-nothing",
+      "output": { "result": { "result": { "result": { "result": { "result": { "result": { "row_count": 7 } } } } } } }
+    }
+  ]
+}

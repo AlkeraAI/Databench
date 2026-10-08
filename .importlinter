@@ -1,0 +1,52 @@
+; Root import contracts, checked by `make lint-imports` (part of `make lint`).
+; Each app keeps its own contracts in apps/<app>/.importlinter.
+; An ignore_imports line is a violation that exists today. The list may only shrink.
+
+[importlinter]
+root_packages =
+    alkera_core
+    backend
+    worker
+    alkera_cli
+    model_gateway
+    alkera_notebook
+    alkera
+    _alkera_kernel
+    alkera_sdk
+    alkera_test_support
+
+[importlinter:contract:shared-packages-import-no-app]
+name = The shared packages never import an app
+type = forbidden
+source_modules =
+    alkera_core
+forbidden_modules =
+    backend
+    worker
+    alkera_cli
+
+[importlinter:contract:apps-are-independent]
+name = The apps never import each other
+type = independence
+modules =
+    backend
+    worker
+    alkera_cli
+    model_gateway
+
+
+[importlinter:contract:domain-imports-no-delivery-adapter]
+name = Domain modules never import a delivery adapter
+; A domain module that has to tell someone something hands the message to a
+; sender its caller supplies (alkera_core.compute.notices,
+; alkera_core.account.notices); the email stack, with its templates and SMTP
+; client, is the worker's to pass in. Indirect imports count.
+type = forbidden
+source_modules =
+    alkera_core.compute
+    alkera_core.account
+    alkera_core.files
+    alkera_core.objects
+    alkera_core.authz
+forbidden_modules =
+    alkera_core.email

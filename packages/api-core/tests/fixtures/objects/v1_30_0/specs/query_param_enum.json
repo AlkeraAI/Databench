@@ -1,0 +1,13 @@
+{
+  "enum_values": [
+    "emea",
+    "amer"
+  ],
+  "label": "Region",
+  "metadata": {},
+  "name": "region",
+  "prompt": "Which region should this cover?",
+  "required": true,
+  "schema_version": "1.3.0",
+  "type": "enum"
+}

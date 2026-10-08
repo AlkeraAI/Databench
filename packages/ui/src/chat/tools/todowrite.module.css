@@ -1,0 +1,91 @@
+@import "./tokens.css";
+
+/* The list as written: rank across the top, status down the side. */
+
+:global(.chat-root) [data-tool="todowrite"] .todoShare {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Rank is a ladder, so it reads as one: the top rank carries warn ink, the rest
+   step down the neutral ladder. */
+:global(.chat-root) [data-tool="todowrite"] .todoShare[data-rank="high"] {
+  color: var(--chat-tool-warn);
+  font-weight: var(--chat-w-medium);
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoShare[data-rank="medium"] {
+  color: var(--chat-ink-2);
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoShare[data-rank="low"] {
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoList {
+  margin: 0;
+  /* Symmetric: a row carries its own 3px seat, so the list closes with the same
+     4px it opens with. */
+  list-style: none;
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--chat-sp-2);
+  padding: var(--chat-sp-1) var(--chat-tool-pad-x);
+  border-left: 2px solid transparent;
+}
+
+/* The work in flight is what a reader scans this list for, so it is the one row
+   that carries a ground. */
+:global(.chat-root) [data-tool="todowrite"] .todoItem[data-status="in_progress"] {
+  background: var(--chat-tool-info-wash);
+}
+
+/* Only the top rank is marked in the roster; the band already reports the rest. */
+:global(.chat-root) [data-tool="todowrite"] .todoItem[data-rank="high"] {
+  border-left-color: var(--chat-tool-warn);
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoItemMark {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoItem[data-status="completed"] .todoItemMark {
+  color: var(--chat-tool-good);
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoItem[data-status="in_progress"] .todoItemMark {
+  color: var(--chat-tool-info);
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoItem[data-status="cancelled"] .todoItemMark {
+  color: var(--chat-tool-bad);
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoItemText {
+  min-width: 0;
+  font-size: var(--chat-fs-record);
+  line-height: var(--chat-lh-record);
+  color: var(--chat-ink);
+  overflow-wrap: anywhere;
+}
+
+/* Brightness says whether the work is real yet: done and doing at full ink,
+   not-started a tier down, dropped struck and dimmest. */
+:global(.chat-root) [data-tool="todowrite"] .todoItem[data-status="pending"] .todoItemText {
+  color: var(--chat-tool-ink-3);
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoItem[data-status="cancelled"] .todoItemText {
+  color: var(--chat-ink-4);
+  text-decoration: line-through;
+}
+
+:global(.chat-root) [data-tool="todowrite"] .todoItem[data-status="in_progress"] .todoItemText {
+  font-weight: var(--chat-w-medium);
+}

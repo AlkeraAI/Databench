@@ -1,0 +1,15 @@
+/* The parentage breadcrumb — the always-present position spine. The crumb links are the shared
+   alk-link button treatment; only the row layout + the separator glyph are page-local. */
+.crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--alkSpace0);
+  font-size: var(--alkTextMd);
+  min-width: 0;
+}
+.crumbsSep {
+  display: inline-flex;
+  color: var(--alkSecondaryText);
+  opacity: 0.6;
+}

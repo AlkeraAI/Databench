@@ -1,0 +1,10 @@
+{
+  "enum_values": [],
+  "label": "Threshold",
+  "metadata": {},
+  "name": "threshold",
+  "prompt": "",
+  "required": false,
+  "schema_version": "1.3.0",
+  "type": "number"
+}

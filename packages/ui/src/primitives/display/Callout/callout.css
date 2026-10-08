@@ -1,0 +1,92 @@
+/* ── Callout (alk-callout) ──────────────────────────────────────────────────
+ * A toned box that calls out one reading — from a calm inline graded plate to a titled status
+ * banner. One tone keys the background, border, AND text ink, so the leading
+ * mark, any inline label, and the note all inherit a single colour. The icon sits LEFT of the body,
+ * pinned to its first line; the body flows beside it (headline over text when titled). Every value
+ * is a role token. */
+
+.alk-callout {
+  display: flex;
+  /* Pin the icon to the FIRST line, not the block centre, so a wrapping note / a two-line body keeps
+     the glyph beside its opening line (see --alk-callout-line below). */
+  align-items: flex-start;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace4) var(--alkSpace5);
+  border: 1px solid transparent;
+  border-radius: var(--alkRadiusMd);
+  font-size: var(--alkTextMd);
+  line-height: var(--alkLeadingSnug);
+  /* One line box of the callout's own text — the icon is this tall and centres its glyph in it, so
+     the glyph is optically centred on the first line regardless of its own height (no margin nudge). */
+  --alk-callout-line: calc(var(--alkTextMd) * var(--alkLeadingSnug));
+}
+
+/* The leading mark inherits the box's tone ink (the whole point — never a grey glyph beside a toned
+   label), and is as tall as one text line so it optically centres on the first line. */
+.alk-callout__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  height: var(--alk-callout-line);
+}
+
+/* The body beside the mark: the note itself, or a semibold headline over the message text. */
+.alk-callout__body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.alk-callout__title {
+  margin: 0;
+  font-weight: var(--alkWeightSemibold);
+}
+.alk-callout__text,
+.alk-callout__text p {
+  margin: 0;
+}
+
+/* A link inside a toned box keeps the box's own ink -- a brand-green link on an amber warning wash
+   is a second hue inside one status reading. The underline alone carries the affordance. */
+.alk-callout a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.alk-callout:where([data-tone="brand"]) {
+  background: var(--alkBrandSubtle);
+  color: var(--alkBrandText);
+  border-color: color-mix(in srgb, var(--alkBrand) 30%, transparent);
+}
+/* The quiet un-toned inset: primary ink on the neutral soft ground (a sub-plate, not a status), with
+   any leading mark demoted to secondary ink so it annotates rather than announces. */
+.alk-callout:where([data-tone="neutral"]) {
+  background: var(--alkCatNeutralSoft);
+  color: var(--alkPrimaryText);
+  border-color: var(--alkBorder);
+}
+.alk-callout:where([data-tone="neutral"]) .alk-callout__icon {
+  color: var(--alkSecondaryText);
+}
+.alk-callout:where([data-tone="info"]) {
+  background: var(--alkInfoSoft);
+  color: var(--alkInfoText);
+  border-color: color-mix(in srgb, var(--alkInfo) 30%, transparent);
+}
+.alk-callout:where([data-tone="success"]) {
+  background: var(--alkSuccessSoft);
+  color: var(--alkSuccessText);
+  border-color: color-mix(in srgb, var(--alkSuccess) 30%, transparent);
+}
+.alk-callout:where([data-tone="warning"]) {
+  background: var(--alkWarningSoft);
+  color: var(--alkWarningText);
+  border-color: color-mix(in srgb, var(--alkWarning) 30%, transparent);
+}
+.alk-callout:where([data-tone="danger"]) {
+  background: var(--alkDangerSoft);
+  color: var(--alkDangerText);
+  border-color: color-mix(in srgb, var(--alkDanger) 30%, transparent);
+}

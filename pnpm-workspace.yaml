@@ -1,0 +1,26 @@
+# Only these packages may run install lifecycle scripts. pnpm otherwise executes
+# every transitive dependency's postinstall, which is arbitrary code from the
+# dependency tree at install time — including in the release workflows that hold
+# the marketplace and Sentry tokens. This list is the set that genuinely needs to
+# build (native addons, platform binaries, signing helpers); anything else is
+# blocked and pnpm reports it as ignored rather than failing the install.
+#
+# It lives HERE and not under a `pnpm` key in package.json: current pnpm no longer
+# reads that field and warns that it is ignored, so the same list in package.json
+# would look like a control while enforcing nothing.
+onlyBuiltDependencies:
+  - "@sentry/cli"
+  - "@vscode/vsce-sign"
+  - "esbuild"
+  - "fsevents"
+  - "keytar"
+
+packages:
+  - "apps/web"
+  - "packages/chart-guard"
+  - "packages/chat-model"
+  - "packages/eslint-config"
+  - "packages/ts-sdk"
+  - "packages/ui"
+  - "packages/notebook-ui"
+  - "packages/widgets"

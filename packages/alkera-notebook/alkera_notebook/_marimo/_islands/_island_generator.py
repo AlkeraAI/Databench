@@ -1,0 +1,798 @@
+# Copyright 2026 Marimo. All rights reserved.
+# Modified by Alkera: import paths rewritten; see vendor/marimo/README.alkera.md
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import sys
+from textwrap import dedent
+from typing import TYPE_CHECKING, cast
+
+from alkera_notebook._marimo import _loggers
+from alkera_notebook._marimo._ast.app import App, InternalApp
+from alkera_notebook._marimo._ast.app_config import _AppConfig
+from alkera_notebook._marimo._ast.cell import Cell, CellConfig
+from alkera_notebook._marimo._ast.compiler import compile_cell
+from alkera_notebook._marimo._ast.load import load_notebook_ir
+from alkera_notebook._marimo._convert.script import _header_for_script
+from alkera_notebook._marimo._messaging.cell_output import CellOutput
+from alkera_notebook._marimo._output.utils import uri_encode_component
+from alkera_notebook._marimo._schemas.islands import (
+    ISLANDS_JSON_SCHEMA_VERSION,
+    ISLANDS_JSON_SCRIPT_TYPE,
+    MarimoIslandCellPayload,
+    MarimoIslandPayload,
+)
+from alkera_notebook._marimo._schemas.serialization import NotebookSerialization
+from alkera_notebook._marimo._session.notebook import AppFileManager, load_notebook
+from alkera_notebook._marimo._templates import json_script
+from alkera_notebook._marimo._types.ids import CellId_t
+from alkera_notebook._marimo._utils.inline_script_metadata import PyProjectReader
+from alkera_notebook._marimo._utils.marimo_path import MarimoPath
+from alkera_notebook._marimo._version import __version__
+
+if sys.platform == "win32":  # handling for windows
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+if TYPE_CHECKING:
+    from alkera_notebook._marimo._ast.models import CellData
+    from alkera_notebook._marimo._session.state.session_view import SessionView
+
+LOGGER = _loggers.marimo_logger()
+IN_MEMORY_FILENAME = "<marimo>.py"
+
+
+class MarimoIslandStub:
+    """
+    Args:
+        display_code: Whether to display code.
+        display_output: Whether to display output.
+        is_reactive: Whether it is reactive.
+        cell_id: Cell identifier.
+        app_id: App identifier.
+        code: Code.
+    """
+
+    def __init__(
+        self,
+        display_code: bool = False,
+        display_output: bool = True,
+        is_reactive: bool = True,
+        *,
+        cell_id: str,
+        app_id: str,
+        code: str,
+    ):
+        self._cell_id = CellId_t(cell_id)
+        self._app_id = app_id
+        self._code = code
+        self._display_code = display_code
+        self._display_output = display_output
+        self._is_reactive = is_reactive
+
+        self._internal_app: InternalApp | None = None
+        self._session_view: SessionView | None = None
+        self._output: CellOutput | None = None
+
+    @property
+    def output(self) -> CellOutput | None:
+        # Leave output accessible for direct use for non-interactive cases e.g.
+        # pdf.
+        if self._output is None and self._session_view is not None:
+            outputs = self._session_view.get_cell_outputs([self._cell_id])
+            self._output = outputs.get(self._cell_id, None)
+        return self._output
+
+    @property
+    def code(self) -> str:
+        return self._code
+
+    def render(
+        self,
+        display_code: bool | None = None,
+        display_output: bool | None = None,
+        is_reactive: bool | None = None,
+        as_raw: bool = False,
+    ) -> str:
+        """
+        Render the HTML island code for the cell.
+        Note: This will override construction defaults.
+
+        *Args:*
+
+        - display_code (bool): Whether to display the code in HTML.
+        - display_output (bool): Whether to include the output in the HTML.
+        - is_reactive (bool): Whether this code block will run with pyodide.
+        - as_raw (bool): Removes some of the HTML to directly include the data.
+
+        *Returns:*
+
+        - str: The HTML code.
+        """
+        from alkera_notebook._marimo._output.formatting import as_html
+        from alkera_notebook._marimo._plugins.ui import code_editor
+
+        (
+            resolved_display_code,
+            resolved_display_output,
+            resolved_is_reactive,
+        ) = self._resolve_render_options(
+            display_code=display_code,
+            display_output=display_output,
+            is_reactive=is_reactive,
+        )
+
+        if not (
+            resolved_display_code
+            or resolved_display_output
+            or resolved_is_reactive
+        ):
+            raise ValueError("You must include either code or output")
+
+        output_html = self._output_html()
+
+        # Specifying display_code=False will hide the code block, but still
+        # make it present for reactivity, unless reactivity is disabled.
+        if resolved_display_code:
+            # TODO: Allow for non-disabled code editors.
+            code_block = as_html(
+                code_editor(self.code.strip(), disabled=False)
+            ).text
+        else:
+            encoded_code = (
+                uri_encode_component(self.code) if resolved_is_reactive else ""
+            )
+            code_block = (
+                f"<marimo-cell-code hidden>{encoded_code}</marimo-cell-code>"
+            )
+
+        if as_raw:
+            # If as_raw is True, output as raw values as possible.
+            # Used primarily for cases with no js (like pdfs)
+            released = (
+                output_html.encode().decode("unicode_escape")
+                if output_html and resolved_display_output
+                else ""
+            )
+            return dedent(
+                f"""
+                    {released}
+                    {code_block}
+                    """
+            ).strip()
+
+        # Cell may not have output
+        # (e.g. imports, but still needs to be included)
+        return remove_empty_lines(
+            dedent(
+                f"""
+        <marimo-island
+            data-app-id="{self._app_id}"
+            data-cell-id="{self._cell_id}"
+            data-reactive="{json.dumps(resolved_is_reactive)}"
+        >
+            <marimo-cell-output>
+            {output_html if output_html and resolved_display_output else ""}
+            </marimo-cell-output>
+            {code_block}
+        </marimo-island>
+        """
+            )
+        ).strip()
+
+    def to_payload(
+        self,
+        display_code: bool | None = None,
+        display_output: bool | None = None,
+        is_reactive: bool | None = None,
+    ) -> MarimoIslandCellPayload:
+        """Return this cell's JSON payload for the islands runtime.
+
+        Uses the configured render defaults unless options are provided.
+        """
+        (
+            display_code,
+            display_output,
+            is_reactive,
+        ) = self._resolve_render_options(
+            display_code=display_code,
+            display_output=display_output,
+            is_reactive=is_reactive,
+        )
+        output = self.output
+        output_html = self._output_html()
+        return {
+            "cellId": str(self._cell_id),
+            "code": self.code if is_reactive or display_code else "",
+            "outputHtml": output_html if display_output else "",
+            "outputMimetype": (
+                output.mimetype if output is not None else "text/plain"
+            ),
+            "reactive": is_reactive,
+            "displayCode": display_code,
+            "displayOutput": display_output,
+        }
+
+    def _resolve_render_options(
+        self,
+        *,
+        display_code: bool | None = None,
+        display_output: bool | None = None,
+        is_reactive: bool | None = None,
+    ) -> tuple[bool, bool, bool]:
+        return (
+            display_code if display_code is not None else self._display_code,
+            display_output
+            if display_output is not None
+            else self._display_output,
+            is_reactive if is_reactive is not None else self._is_reactive,
+        )
+
+    def _output_html(self) -> str:
+        from alkera_notebook._marimo._output.formatting import mime_to_html
+
+        if self.output is None:
+            return ""
+        return mime_to_html(self.output.mimetype, self.output.data).text
+
+
+class MarimoIslandGenerator:
+    """
+    Generates Marimo islands for embedding in other pages.
+
+    This is a great way to use another SSG framework that converts
+    Python code to HTML using marimo-islands.
+
+    Generally you will want to:
+
+    1. Find all the code snippets and add them to the generator.
+    2. Build the app.
+    3. Replace all code snippets with the rendered HTML.
+    4. Include the header in the <head> tag.
+
+    Examples:
+    Using the MarimoIslandGenerator class:
+    ```python
+    import asyncio
+    import sys
+    from marimo import MarimoIslandGenerator
+
+    async def main():
+        generator = MarimoIslandGenerator()
+        block1 = generator.add_code("import marimo as mo")
+        block2 = generator.add_code("mo.md('Hello, islands!')")
+
+        # Build the app
+        app = await generator.build()
+
+        # Render the app
+        output = f\"\"\"
+        <html>
+            <head>
+                {generator.render_head()}
+            </head>
+            <body>
+                {block1.render(display_output=False)}
+                {block2.render()}
+            </body>
+        </html>
+        \"\"\"
+        print(output)
+        # Save the HTML to a file
+        output_file = "output.html"
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(output)
+
+    if __name__ == '__main__':
+        asyncio.run(main())
+    ```
+
+    You can also create the generator from a file:
+
+    ```python
+    from marimo import MarimoIslandGenerator
+
+    # Create the generator from file
+    generator = MarimoIslandGenerator.from_file(
+        "./<notebook-name>.py", display_code=False
+    )
+
+    # Generate and print the HTML without building
+    # This will still work for basic rendering, though without running the cells
+    html = generator.render_html(include_init_island=False)
+    print(html)
+    # Save the HTML to a file
+    output_file = "output.html"
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(html)
+    ```
+
+    Args:
+        app_id: The optional identifier of the app, defaults to `main`.
+    """
+
+    def __init__(self, app_id: str = "main"):
+        self.has_run = False
+        self._app_id = app_id
+        self._app = InternalApp(App())
+        self._stubs: list[MarimoIslandStub] = []
+        self._config = _AppConfig()
+        self._dependencies: list[str] = []
+        # When constructed via ``from_file``, this records the notebook
+        # source path so cells see ``__file__`` / ``mo.notebook_dir()``
+        # resolve to the notebook rather than to the host process.
+        self._source_filename: str | None = None
+
+    @property
+    def stubs(self) -> tuple[MarimoIslandStub, ...]:
+        """Return a snapshot of the generated per-cell island renderers."""
+        return tuple(self._stubs)
+
+    @staticmethod
+    def from_file(
+        filename: str,
+        display_code: bool = False,
+    ) -> MarimoIslandGenerator:
+        """
+        Create a MarimoIslandGenerator and populate MarimoIslandStubs
+        using code cells from a marimo *.py file.
+
+        *Args:*
+
+        - filename (str): Marimo .py filename to convert to reactive HTML.
+        - display_code (bool): Whether to display the code in HTML snippets.
+        """
+        file_manager = load_notebook(filename)
+
+        generator = MarimoIslandGenerator()
+        # Resolve at capture time so a chdir between ``from_file`` and
+        # ``build`` doesn't change which absolute path cells see for
+        # ``__file__`` / ``mo.notebook_dir()``.
+        generator._source_filename = os.path.abspath(filename)
+        stubs = []
+        for cell_data in file_manager.app.cell_manager.cell_data():
+            stubs.append(
+                generator.add_code(
+                    cell_data.code,
+                    display_code=display_code,
+                )
+            )
+
+        generator._stubs = stubs
+        generator._config = file_manager.app.config
+        generator._dependencies = _notebook_dependencies(
+            file_manager.app.to_ir()
+        )
+
+        return generator
+
+    @staticmethod
+    def _from_ir(
+        notebook: NotebookSerialization,
+        *,
+        app_id: str = "main",
+        filepath: str | None = None,
+        display_code: bool = False,
+    ) -> MarimoIslandGenerator:
+        """Create a generator from serialized marimo notebook data.
+
+        Args:
+            notebook: Serialized notebook IR.
+            app_id: App identifier written to rendered island DOM.
+            filepath: Source path used for `__file__` and `mo.notebook_dir()`.
+            display_code: Whether generated stubs render code by default.
+        """
+        ir_filepath = filepath if filepath is not None else notebook.filename
+        source_filename = _source_filename(ir_filepath)
+        app = load_notebook_ir(
+            notebook,
+            filepath=_load_filepath(source_filename or ir_filepath),
+        )
+
+        generator = MarimoIslandGenerator(app_id=app_id)
+        generator._dependencies = _notebook_dependencies(notebook)
+        generator._source_filename = source_filename
+        internal_app = InternalApp(app)
+        generator._app = internal_app
+        generator._config = internal_app.config
+        cells = list(generator._app.cell_manager.cell_data())
+        disabled_cell_ids = _disabled_cell_ids(cells)
+        generator._stubs = [
+            MarimoIslandStub(
+                cell_id=data.cell_id,
+                app_id=generator._app_id,
+                code=data.code,
+                display_code=display_code,
+                is_reactive=data.cell_id not in disabled_cell_ids,
+            )
+            for data in cells
+        ]
+
+        return generator
+
+    def add_code(
+        self,
+        code: str,
+        display_code: bool = False,
+        display_output: bool = True,
+        is_reactive: bool = True,
+        is_raw: bool = False,
+    ) -> MarimoIslandStub:
+        """Add a code cell to the app.
+
+        *Args:*
+
+        - code (str): The code to add to the app.
+        - display_code (bool): Whether to display the code in the HTML.
+        - display_output (bool): Whether to display the output in the HTML.
+        - is_raw (bool): Whether to handled the code without formatting.
+        - is_reactive (bool): Whether this code block will run with pyodide.
+        """
+        if not is_raw:
+            code = dedent(code)
+
+        cell_id = self._app.cell_manager.create_cell_id()
+        cell_impl = compile_cell(code, cell_id)
+        cell_impl.configure(CellConfig(hide_code=False))
+        cell = Cell(_name="__", _cell=cell_impl)
+
+        self._app.cell_manager._register_cell(
+            cell,
+            app=self._app,
+        )
+
+        stub = MarimoIslandStub(
+            cell_id=cell_id,
+            app_id=self._app_id,
+            code=code,
+            display_code=display_code,
+            display_output=display_output,
+            is_reactive=is_reactive,
+        )
+        self._stubs.append(stub)
+
+        return stub
+
+    async def build(self) -> App:
+        """
+        Build the app. This should be called after adding all the code cells.
+
+        *Returns:*
+
+        - App: The built app.
+        """
+        from alkera_notebook._marimo._export.file import run_notebook
+        from alkera_notebook._marimo._export.requests import (
+            NotebookExecutionOptions,
+            RunNotebookRequest,
+        )
+
+        if self.has_run:
+            raise ValueError("You can only call build() once")
+
+        session, did_error = await run_notebook(
+            RunNotebookRequest(
+                file_manager=AppFileManager.from_app(
+                    self._app,
+                    filename=self._source_filename,
+                ),
+                options=NotebookExecutionOptions(
+                    cli_args={},
+                    argv=None,
+                ),
+            )
+        )
+        del did_error
+        self.has_run = True
+
+        for stub in self._stubs:
+            stub._internal_app = self._app
+            stub._session_view = session
+
+        return cast(App, self._app)
+
+    def render_head(
+        self,
+        *,
+        version_override: str = __version__,
+        _development_url: str | bool = False,
+    ) -> str:
+        """
+        Render the header for the app.
+        This should be included in the <head> tag of the page.
+
+        *Args:*
+
+        - version_override (str): Marimo version to use for loaded js/css.
+        - _development_url (str): If True, uses local marimo islands js.
+        """
+
+        # This loads:
+        # - The marimo islands js
+        # - The marimo islands css
+        # - Preconnects to Google Fonts (https://stackoverflow.com/questions/73838138)
+        # - Fonts from Google Fonts
+        #   (otherwise they would get bundled in the css)
+        # - Fonts from KaTeX
+        #   (otherwise they would get bundled in the css)
+
+        base_url = f"https://cdn.jsdelivr.net/npm/@marimo-team/islands@{version_override}"
+        # This should be kept in sync fonts.css in the frontend
+        # Since this is embedded on other pages, we want display=swap
+        # for the most compatible font loading
+        font_url = "https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500;700&amp;family=Lora&amp;family=PT+Sans:wght@400;700&amp;display=swap"
+
+        fonts = f"""
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
+            <link
+                rel="preconnect"
+                href="https://fonts.gstatic.com"
+                crossorigin
+            />
+            <link href="{font_url}" rel="stylesheet" />
+            <link
+                rel="stylesheet"
+                href="https://cdn.jsdelivr.net/npm/katex@0.18.5/dist/katex.min.css"
+                integrity="sha384-2dNi/m6JtSiviznrOIZ5fTiZ5As0In2QwkuXSgoqcQtCNplvJAbt+jveeN+8en73"
+                crossorigin="anonymous"
+            />
+        """.strip()
+
+        if _development_url:
+            base_url = "http://localhost:5174"
+            if isinstance(_development_url, str):
+                base_url = _development_url
+            return dedent(
+                f"""
+                <script type="module" src="{base_url}/dist/main.js"></script>
+                <link
+                    href="{base_url}/dist/style.css"
+                    rel="stylesheet"
+                    title="marimo-islands"
+                    crossorigin="anonymous"
+                />
+                {fonts}
+                """
+            ).strip()
+
+        marimo_tags = """
+        <marimo-filename hidden></marimo-filename>
+        """.strip()
+
+        return dedent(
+            f"""
+            <script type="module" src="{base_url}/dist/main.js"></script>
+            <link
+                href="{base_url}/dist/style.css"
+                rel="stylesheet"
+                title="marimo-islands"
+                crossorigin="anonymous"
+            />
+            {fonts}
+            {marimo_tags}
+            """
+        ).strip()
+
+    def render_init_island(self) -> str:
+        """
+        Renders a static html MarimoIsland str which displays a spinning
+        initialization loader while Pyodide loads and disappears once
+        the kernel is ready to use.
+        """
+
+        init_cell_id = self._app.cell_manager.create_cell_id()
+        init_output = """
+        <div class="marimo">
+          <div class="flex flex-col flex-1 items-center justify-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="size-20 animate-spin text-primary"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+            </svg>
+            <div>Initializing...</div>
+          </div>
+        </div>
+        """
+        init_island = dedent(
+            f"""
+            <marimo-island
+                data-app-id="{self._app_id}"
+                data-cell-id="{init_cell_id}"
+                data-reactive="{json.dumps(False)}"
+            >
+                <marimo-cell-output>
+                {init_output}
+                </marimo-cell-output>
+                <marimo-cell-code hidden></marimo-cell-code>
+            </marimo-island>
+            """
+        ).strip()
+
+        return init_island
+
+    def render_body(
+        self,
+        *,
+        include_init_island: bool = True,
+        include_payload: bool = False,
+        max_width: str | None = None,
+        margin: str | None = None,
+        style: str | None = None,
+    ) -> str:
+        """
+        Render the body for the app.
+        This should be included in the <body> tag of the page.
+
+        *Args:*
+        - include_init_island (bool): If True, adds initialization loader.
+        - include_payload (bool): If True, adds a JSON payload for hydration.
+        - max_width (str): CSS style max_width property.
+        - margin (str): CSS style margin property.
+        - style (str): CSS style. Overrides max_width and margin.
+        """
+
+        rendered_stubs = []
+        for stub in self._stubs:
+            rendered_stubs.append(stub.render())
+
+        if include_init_island:
+            init_island = self.render_init_island()
+            rendered_stubs = [init_island] + rendered_stubs
+        if include_payload:
+            rendered_stubs.append(self.render_payload_script())
+
+        body = "\n".join(rendered_stubs)
+
+        if margin is None:
+            margin = "auto"
+        if max_width is None:
+            width = self._config.width
+            if width == "compact" or width == "normal":
+                max_width = "740px"
+            elif width == "medium":
+                max_width = "1110px"
+            else:
+                max_width = "none"
+
+        if style is None:
+            style = f"margin: {margin}; max-width: {max_width};"
+
+        return dedent(
+            f"""
+                <div style="{style}">
+                  {body}
+                </div>
+                """
+        ).strip()
+
+    def render_html(
+        self,
+        *,
+        version_override: str = __version__,
+        _development_url: str | bool = False,
+        include_init_island: bool = True,
+        include_payload: bool = False,
+        max_width: str | None = None,
+        margin: str | None = None,
+        style: str | None = None,
+    ) -> str:
+        """
+        Render reactive html for the app.
+
+        *Args:*
+
+        - version_override (str): Marimo version to use for loaded js/css.
+        - _development_url (str): If True, uses local marimo islands js.
+        - include_init_island (bool): If True, adds initialization loader.
+        - include_payload (bool): If True, adds a JSON payload for hydration.
+        - max_width (str): CSS style max_width property.
+        - margin (str): CSS style margin property.
+        - style (str): CSS style. Overrides max_width and margin.
+        """
+        head = self.render_head(
+            version_override=version_override,
+            _development_url=_development_url,
+        )
+        body = self.render_body(
+            include_init_island=include_init_island,
+            include_payload=include_payload,
+            max_width=max_width,
+            margin=margin,
+            style=style,
+        )
+        title = (
+            self._app_id
+            if self._config.app_title is None
+            else self._config.app_title
+        )
+
+        return dedent(
+            f"""<!doctype html>
+                <html lang="en">
+                    <head>
+                      <meta charset="UTF-8" />
+                      <title> {title} </title>
+                        {head}
+                    </head>
+                    <body>
+                      {body}
+                    </body>
+                </html>
+                """
+        ).strip()
+
+    def render_payload(self) -> MarimoIslandPayload:
+        """Return the JSON payload consumed by the islands runtime."""
+        payload: MarimoIslandPayload = {
+            "schemaVersion": ISLANDS_JSON_SCHEMA_VERSION,
+            "appId": self._app_id,
+            "cells": [stub.to_payload() for stub in self._stubs],
+        }
+        if self._dependencies:
+            payload["dependencies"] = self._dependencies.copy()
+        return payload
+
+    def render_payload_script(self) -> str:
+        """Render the island app payload in a JSON script tag."""
+        payload = json_script(self.render_payload())
+        return f'<script type="{ISLANDS_JSON_SCRIPT_TYPE}">{payload}</script>'
+
+
+def _notebook_dependencies(notebook: NotebookSerialization) -> list[str]:
+    if notebook.header is None:
+        return []
+    try:
+        reader = PyProjectReader.from_script(_header_for_script(notebook))
+        # Evaluate markers in Pyodide, whose Python version may differ
+        # from the exporter's.
+        return reader.dependencies
+    except Exception as e:
+        LOGGER.warning("Error parsing script metadata: %s", e)
+        return []
+
+
+def remove_empty_lines(text: str) -> str:
+    return "\n".join([line for line in text.split("\n") if line.strip() != ""])
+
+
+def _source_filename(filename: str | None) -> str | None:
+    if filename is None or filename == IN_MEMORY_FILENAME:
+        return None
+    return os.path.abspath(filename)
+
+
+def _load_filepath(filename: str | None) -> str:
+    if filename and MarimoPath.is_valid_path(filename):
+        return filename
+    return IN_MEMORY_FILENAME
+
+
+def _disabled_cell_ids(cell_data: list[CellData]) -> set[CellId_t]:
+    from alkera_notebook._marimo._runtime.dataflow.graph import DirectedGraph
+
+    disabled_cell_ids = {
+        data.cell_id for data in cell_data if data.cell is None
+    }
+    graph = DirectedGraph()
+
+    for data in cell_data:
+        cell = data.cell
+        if cell is not None:
+            graph.register_cell(data.cell_id, cell._cell)
+
+    for data in cell_data:
+        cell = data.cell
+        if cell is not None and graph.is_disabled(data.cell_id):
+            disabled_cell_ids.add(data.cell_id)
+
+    return disabled_cell_ids

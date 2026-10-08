@@ -1,0 +1,14 @@
+{
+  "agent": "explorer",
+  "command": null,
+  "description": null,
+  "message_id": "m1",
+  "metadata": {},
+  "model": null,
+  "part_id": "p1",
+  "prompt": "do the thing",
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "time": "2026-05-26T00:00:00Z",
+  "type": "subtask"
+}

@@ -1,0 +1,53 @@
+/* Toolbar — the control row above a data surface (see Toolbar.tsx). One flex row: the start cluster
+   leads, the end cluster (search / actions) rides the right edge. When the row can't hold both, the
+   end cluster wraps to its own full line and keeps its content right-aligned — so a narrow container
+   reflows without a page-local breakpoint. Both clusters shrink (min-width: 0) so a search field can
+   compress instead of overflowing. */
+.alk-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--alkSpace5);
+}
+.alk-toolbar__start {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--alkSpace3);
+  min-width: 0;
+}
+.alk-toolbar__end {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  margin-left: auto;
+  min-width: 0;
+  /* Wrapped onto its own line, grow to the full row and keep content on the right edge. */
+  flex: 1 0 auto;
+  justify-content: flex-end;
+}
+
+/* Wrapped — the ResizeObserver in Toolbar.tsx sees the end cluster land below the start cluster and
+   sets data-wrapped on the root. Each cluster then takes its own full row and its controls stretch
+   to fill it: a scope switch spans row one edge-to-edge, the search spans row two. The end cluster
+   sets --alk-search-w to 100% so a fixed-width toolbar search (see inputs.css) reads full width.
+   Un-wrapped rows are untouched — the attribute is absent on a single-row toolbar. */
+.alk-toolbar:where([data-wrapped]) > .alk-toolbar__start,
+.alk-toolbar:where([data-wrapped]) > .alk-toolbar__end {
+  flex-basis: 100%;
+}
+.alk-toolbar:where([data-wrapped]) > .alk-toolbar__start > *,
+.alk-toolbar:where([data-wrapped]) > .alk-toolbar__end > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* A button never stretches: a filled action spanning the full row reads as a banner and
+   steals the view's focal point. It keeps its intrinsic width on the right edge; only
+   stretch-appropriate controls (search, scope switch) span the wrapped row. */
+.alk-toolbar:where([data-wrapped]) > .alk-toolbar__start > .alk-btn,
+.alk-toolbar:where([data-wrapped]) > .alk-toolbar__end > .alk-btn {
+  flex: 0 0 auto;
+}
+.alk-toolbar:where([data-wrapped]) > .alk-toolbar__end {
+  --alk-search-w: 100%;
+}

@@ -1,0 +1,129 @@
+name: Sync LLM models
+
+on:
+  # Weekly, Mondays at 08:30 UTC.
+  schedule:
+    - cron: "30 8 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  sync-models:
+    name: Sync models.dev catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BRANCH_NAME: automation/sync-llm-info-models
+      PR_TITLE: Update LLM model catalog
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: 🔐 Fetch Doppler secrets
+        uses: dopplerhq/secrets-fetch-action@451892f16195f9ac360e1a5bcbf0b5fd0e957534 # v2.0.0
+        id: secrets
+        with:
+          auth-method: oidc
+          doppler-identity-id: ${{ vars.DOPPLER_IDENTITY_ID }}
+          doppler-project: marimo-oss
+          doppler-config: ci_deploy
+
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ steps.secrets.outputs.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: 📥 Install repo
+        uses: ./.github/actions/install
+
+      - name: 🛠️ Generate llm-info data
+        run: pnpm --dir packages/llm-info codegen
+
+      - name: 🧪 Test llm-info
+        run: pnpm --dir packages/llm-info test
+
+      - name: 🔄 Sync models (5 newest per provider)
+        run: pnpm --dir packages/llm-info sync-models -n 5
+
+      - name: 🔎 Check for model catalog changes
+        id: changes
+        run: |
+          if git diff --quiet -- packages/llm-info/data/models.yml; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No model catalog changes."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            git --no-pager diff --stat -- packages/llm-info/data/models.yml
+          fi
+
+      - name: 🔎 Check for existing update PR
+        id: existing_pr
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          number="$(gh pr list --state open --head "$BRANCH_NAME" --json number --jq '.[0].number // ""')"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          if [[ -n "$number" ]]; then
+            echo "An update PR already exists: #$number"
+          fi
+
+      - name: ⬆️ Push update branch
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          git fetch origin "$BRANCH_NAME":"refs/remotes/origin/$BRANCH_NAME" || true
+          git switch -c "$BRANCH_NAME"
+          git add packages/llm-info/data/models.yml
+          git commit -m "Update LLM model catalog"
+          git push --force-with-lease origin "$BRANCH_NAME"
+
+      - name: 📝 Create update PR
+        if: steps.changes.outputs.has_changes == 'true' && steps.existing_pr.outputs.number == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --draft \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --label enhancement \
+            --title "$PR_TITLE" \
+            --body "$(cat <<'EOF'
+          This pull request was generated automatically by the weekly llm-info sync workflow.
+
+          ## Summary
+          - Syncs `packages/llm-info/data/models.yml` from `models.dev`.
+          - Runs llm-info code generation and tests.
+
+          ## Human review required
+          - Replace every empty model description with clear, user-facing prose.
+          - Review related models for descriptions that became outdated after this sync.
+          - Prefer concrete capabilities and intended uses.
+          - Remove redundant aliases and models that do not belong in marimo's catalog.
+
+          ## Test plan
+          - `pnpm --dir packages/llm-info test`
+          EOF
+          )"

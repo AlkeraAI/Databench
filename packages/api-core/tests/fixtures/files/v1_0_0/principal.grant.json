@@ -1,0 +1,20 @@
+{
+  "$model": "alkera_core.schemas.files.principal.Grant",
+  "conditions": null,
+  "expires_at": null,
+  "metadata": {},
+  "origin": {
+    "ancestor_node_id": "1a2b3c4d-5e6f-4071-8293-a4b5c6d7e8f9",
+    "kind": "inherited",
+    "metadata": {},
+    "schema_version": "1.0.0"
+  },
+  "principal": {
+    "id": "e7c0f4a4-1f8e-4a6e-9b06-1f3d1e1a0001",
+    "kind": "user",
+    "metadata": {},
+    "schema_version": "1.0.0"
+  },
+  "role": "writer",
+  "schema_version": "1.0.0"
+}

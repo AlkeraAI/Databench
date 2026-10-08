@@ -1,0 +1,12 @@
+{
+  "event_id": "01H_rate_limited",
+  "event_type": "rate_limited",
+  "message": "rate limit exceeded",
+  "metadata": {},
+  "provider": "anthropic",
+  "provider_metadata": {},
+  "retry_in_ms": 30000,
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z"
+}

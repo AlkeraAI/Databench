@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.1.0",
+  "code": "credit.cycle_exhausted",
+  "message": "Your cycle allowance is used up. This request is estimated at 2,084 credits and 5 are left.",
+  "team_id": null,
+  "team_name": null,
+  "resets_at": "2026-10-01T12:00:00+00:00",
+  "manage_url": null,
+  "estimated_cost_nanos": 2084000000,
+  "available_nanos": 5000000
+}

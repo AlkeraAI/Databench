@@ -1,0 +1,74 @@
+[
+  {
+    "event_id": "note-4b21bcd2d9a13778-created",
+    "kind": "message.created",
+    "metadata": {},
+    "payload": {
+      "agent": null,
+      "event_id": "note-4b21bcd2d9a13778-created",
+      "event_type": "message.created",
+      "message_id": "note-4b21bcd2d9a13778",
+      "metadata": {},
+      "mode": null,
+      "model": {},
+      "parent_message_id": null,
+      "provider_metadata": {},
+      "role": "system",
+      "schema_version": "1.0.0",
+      "session_id": "32855981-af84-48d2-b1a8-6a972d15065e",
+      "time": "2026-09-07T10:39:25.444979Z"
+    },
+    "role": "system",
+    "schema_version": "1.0.0"
+  },
+  {
+    "event_id": "note-4b21bcd2d9a13778-text",
+    "kind": "part.created",
+    "metadata": {},
+    "payload": {
+      "event_id": "note-4b21bcd2d9a13778-text",
+      "event_type": "part.created",
+      "metadata": {},
+      "part": {
+        "ignored": false,
+        "message_id": "note-4b21bcd2d9a13778",
+        "metadata": {},
+        "part_id": "note-4b21bcd2d9a13778-part",
+        "provider_metadata": {},
+        "redacted": false,
+        "schema_version": "1.0.0",
+        "synthetic": true,
+        "text": "This connection is read-only, so statements that modify data are refused.\n\"delete from prompts where customer = 'acme'\"",
+        "time": null,
+        "type": "text"
+      },
+      "provider_metadata": {},
+      "schema_version": "1.0.0",
+      "session_id": "32855981-af84-48d2-b1a8-6a972d15065e",
+      "time": "2026-09-07T10:39:25.444979Z"
+    },
+    "role": "system",
+    "schema_version": "1.0.0"
+  },
+  {
+    "event_id": "note-4b21bcd2d9a13778-done",
+    "kind": "message.completed",
+    "metadata": {},
+    "payload": {
+      "cost": null,
+      "error": null,
+      "event_id": "note-4b21bcd2d9a13778-done",
+      "event_type": "message.completed",
+      "finish_reason": "stop",
+      "message_id": "note-4b21bcd2d9a13778",
+      "metadata": {},
+      "provider_metadata": {},
+      "schema_version": "1.0.0",
+      "session_id": "32855981-af84-48d2-b1a8-6a972d15065e",
+      "time": "2026-09-07T10:39:25.444979Z",
+      "tokens": {}
+    },
+    "role": "system",
+    "schema_version": "1.0.0"
+  }
+]

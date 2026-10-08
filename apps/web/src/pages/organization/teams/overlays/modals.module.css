@@ -1,0 +1,110 @@
+/* Modal support (form field / role pick / destination pick lists). */
+
+/* KEEP: groups a label + control with inter-field spacing inside a <form> (where the Modal body's own
+   gap doesn't reach). */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace2);
+  margin-bottom: var(--alkSpace7);
+}
+.field:last-child {
+  margin-bottom: 0;
+}
+
+/* KEEP: the role radio-card — a two-line option (icon + label + descriptive blurb) with a selected
+   brand wash. No single-line Pill / listbox primitive carries the described-option shape. */
+.rolepickOpt {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  padding: var(--alkSpace5);
+  appearance: none;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkCardBg);
+  color: var(--alkPrimaryText);
+  cursor: pointer;
+  text-align: left;
+  transition: var(--alk-control-transition);
+}
+.rolepickOpt:not([data-on]):hover {
+  background: var(--alkHoverBg);
+}
+.rolepickOpt[data-on] {
+  border-color: var(--alkBrand);
+  background: var(--alkBrandSubtle);
+  color: var(--alkBrandText);
+}
+/* The chosen option deepens its own brand wash on hover — never the neutral grey. */
+.rolepickOpt[data-on]:hover {
+  background: var(--alkSelectedHoverBg);
+}
+.rolepickOpt:focus-visible {
+  outline-offset: 1px;
+}
+.rolepickOpt :global(.alk-ic) {
+  flex: 0 0 auto;
+}
+.rolepickTxt {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.rolepickTxt small {
+  font-size: var(--alkTextXs);
+  color: var(--alkSecondaryText);
+  font-weight: var(--alkWeightMedium);
+}
+.rolepickOpt[data-on] .rolepickTxt small {
+  color: var(--alkBrandText);
+}
+
+/* KEEP: the bounded-height, filterable people/destination listbox (a scroll container with its own
+   option rows) — no dropdown/select primitive covers an in-modal filterable picker. */
+.picklist {
+  max-height: 264px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--alkSpace0);
+  padding: var(--alkSpace1);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkControlBg);
+}
+.pickrow {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace5);
+  width: 100%;
+  appearance: none;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: var(--alkSpace3);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: var(--alk-control-transition);
+}
+.pickrow:not([data-on]):hover {
+  background: var(--alkHoverBg);
+}
+.pickrow:focus-visible {
+  outline-offset: -2px;
+}
+.pickrow[data-on] {
+  background: var(--alkBrandSubtle);
+}
+/* The chosen row deepens its own brand wash on hover — never the neutral grey. */
+.pickrow[data-on]:hover {
+  background: var(--alkSelectedHoverBg);
+}
+.pickrowCheck {
+  flex: 0 0 auto;
+  width: 18px;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--alkBrand);
+}

@@ -1,0 +1,24 @@
+{
+  "path": "encoding.color.condition.param",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "encoding": {
+      "color": {
+        "condition": {
+          "param": "nope",
+          "value": "red"
+        },
+        "value": "blue"
+      }
+    },
+    "mark": "point"
+  },
+  "unsafe": false
+}

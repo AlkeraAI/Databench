@@ -1,0 +1,11 @@
+/* The settings document column — one compact column of record plates (the column glue is the Stack
+   at the call site; this owns the readable cap + page padding). */
+.doc {
+  max-width: 640px;
+  padding: 12px 16px 96px;
+}
+@media (max-width: 560px) {
+  .doc {
+    padding: 8px 0 96px;
+  }
+}

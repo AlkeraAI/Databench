@@ -1,0 +1,597 @@
+{
+  "description": "The SQL and Markdown cell templates: what each (kind, source, meta) renders as, and what each cell code reads back as. Owner: alkera_notebook.format.templates; the browser's port runs the same file.",
+  "render": [
+    {
+      "name": "sql_plain",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {},
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": null,
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_lines_and_blank",
+      "kind": "sql",
+      "source": "SELECT a,\n\n  b\nFROM t",
+      "meta": {
+        "output_var": "rows"
+      },
+      "code": "rows = alkera.sql(\n    rf\"\"\"\n    SELECT a,\n\n      b\n    FROM t\n    \"\"\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT a,\n\n  b\nFROM t",
+        {
+          "output_var": "rows",
+          "connection": null,
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_connection",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {
+        "connection": "pg"
+      },
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection=\"pg\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "pg",
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_connection_quotes",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {
+        "connection": "it's"
+      },
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection=\"it's\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "it's",
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_connection_both_quotes",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {
+        "connection": "a'b\"c"
+      },
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection='a\\'b\"c',\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "a'b\"c",
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_connection_backslash_tab",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {
+        "connection": "a\\b\tc"
+      },
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection=\"a\\\\b\\tc\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "a\\b\tc",
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_connection_unicode",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {
+        "connection": "café"
+      },
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection=\"café\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "café",
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_hidden_output",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {
+        "show_output": false,
+        "connection": "pg"
+      },
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection=\"pg\",\n    output=False,\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "pg",
+          "engine": null,
+          "show_output": false
+        }
+      ]
+    },
+    {
+      "name": "sql_unicode_var",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {
+        "output_var": "données"
+      },
+      "code": "données = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "données",
+          "connection": null,
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_keyword_var",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {
+        "output_var": "class"
+      },
+      "code": "SELECT 1",
+      "reads_as": [
+        "python",
+        "SELECT 1",
+        {}
+      ]
+    },
+    {
+      "name": "sql_bad_var",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {
+        "output_var": "1x"
+      },
+      "code": "SELECT 1",
+      "reads_as": [
+        "python",
+        "SELECT 1",
+        {}
+      ]
+    },
+    {
+      "name": "sql_engine",
+      "kind": "sql",
+      "source": "SELECT 1",
+      "meta": {
+        "engine": "duck"
+      },
+      "code": "SELECT 1",
+      "reads_as": [
+        "python",
+        "SELECT 1",
+        {}
+      ]
+    },
+    {
+      "name": "sql_triple_quote",
+      "kind": "sql",
+      "source": "SELECT '\"\"\"'",
+      "meta": {},
+      "code": "SELECT '\"\"\"'",
+      "reads_as": [
+        "python",
+        "SELECT '\"\"\"'",
+        {}
+      ]
+    },
+    {
+      "name": "sql_braces",
+      "kind": "sql",
+      "source": "SELECT '{x}' AS {{y}}",
+      "meta": {},
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT '{x}' AS {{y}}\n    \"\"\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT '{x}' AS {{y}}",
+        {
+          "output_var": "_df",
+          "connection": null,
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "md_plain",
+      "kind": "markdown",
+      "source": "# Title\n\nText",
+      "meta": {},
+      "code": "alkera.md(\n    r\"\"\"\n    # Title\n\n    Text\n    \"\"\"\n)",
+      "reads_as": [
+        "markdown",
+        "# Title\n\nText",
+        {
+          "quote": "r"
+        }
+      ]
+    },
+    {
+      "name": "md_rf",
+      "kind": "markdown",
+      "source": "Value {x}",
+      "meta": {
+        "quote": "rf"
+      },
+      "code": "alkera.md(\n    rf\"\"\"\n    Value {x}\n    \"\"\"\n)",
+      "reads_as": [
+        "markdown",
+        "Value {x}",
+        {
+          "quote": "rf"
+        }
+      ]
+    },
+    {
+      "name": "md_bad_quote",
+      "kind": "markdown",
+      "source": "x",
+      "meta": {
+        "quote": "b"
+      },
+      "code": "x",
+      "reads_as": [
+        "python",
+        "x",
+        {}
+      ]
+    },
+    {
+      "name": "md_triple_quote",
+      "kind": "markdown",
+      "source": "a \"\"\" b",
+      "meta": {},
+      "code": "a \"\"\" b",
+      "reads_as": [
+        "python",
+        "a \"\"\" b",
+        {}
+      ]
+    },
+    {
+      "name": "python",
+      "kind": "python",
+      "source": "x = 1",
+      "meta": {},
+      "code": "x = 1",
+      "reads_as": [
+        "python",
+        "x = 1",
+        {}
+      ]
+    }
+  ],
+  "classify": [
+    {
+      "name": "python_code",
+      "code": "x = 1",
+      "reads_as": [
+        "python",
+        "x = 1",
+        {}
+      ]
+    },
+    {
+      "name": "sql_template_extra_space",
+      "code": "_df  = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n)",
+      "reads_as": [
+        "python",
+        "_df  = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n)",
+        {}
+      ]
+    },
+    {
+      "name": "sql_unknown_option",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    engine=\"x\",\n)",
+      "reads_as": [
+        "python",
+        "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    engine=\"x\",\n)",
+        {}
+      ]
+    },
+    {
+      "name": "sql_single_quoted_connection",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection='pg',\n)",
+      "reads_as": [
+        "python",
+        "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection='pg',\n)",
+        {}
+      ]
+    },
+    {
+      "name": "sql_bad_indent",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n  SELECT 1\n    \"\"\",\n)",
+      "reads_as": [
+        "python",
+        "_df = alkera.sql(\n    rf\"\"\"\n  SELECT 1\n    \"\"\",\n)",
+        {}
+      ]
+    },
+    {
+      "name": "md_r_quote",
+      "code": "alkera.md(\n    r\"\"\"\n    # Hi\n    \"\"\"\n)",
+      "reads_as": [
+        "markdown",
+        "# Hi",
+        {
+          "quote": "r"
+        }
+      ]
+    },
+    {
+      "name": "sql_plain_code",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": null,
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_lines_and_blank_code",
+      "code": "rows = alkera.sql(\n    rf\"\"\"\n    SELECT a,\n\n      b\n    FROM t\n    \"\"\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT a,\n\n  b\nFROM t",
+        {
+          "output_var": "rows",
+          "connection": null,
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_connection_code",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection=\"pg\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "pg",
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_connection_quotes_code",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection=\"it's\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "it's",
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_connection_both_quotes_code",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection='a\\'b\"c',\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "a'b\"c",
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_connection_backslash_tab_code",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection=\"a\\\\b\\tc\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "a\\b\tc",
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_connection_unicode_code",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection=\"café\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "café",
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_hidden_output_code",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n    connection=\"pg\",\n    output=False,\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "_df",
+          "connection": "pg",
+          "engine": null,
+          "show_output": false
+        }
+      ]
+    },
+    {
+      "name": "sql_unicode_var_code",
+      "code": "données = alkera.sql(\n    rf\"\"\"\n    SELECT 1\n    \"\"\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT 1",
+        {
+          "output_var": "données",
+          "connection": null,
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "sql_keyword_var_code",
+      "code": "SELECT 1",
+      "reads_as": [
+        "python",
+        "SELECT 1",
+        {}
+      ]
+    },
+    {
+      "name": "sql_bad_var_code",
+      "code": "SELECT 1",
+      "reads_as": [
+        "python",
+        "SELECT 1",
+        {}
+      ]
+    },
+    {
+      "name": "sql_engine_code",
+      "code": "SELECT 1",
+      "reads_as": [
+        "python",
+        "SELECT 1",
+        {}
+      ]
+    },
+    {
+      "name": "sql_triple_quote_code",
+      "code": "SELECT '\"\"\"'",
+      "reads_as": [
+        "python",
+        "SELECT '\"\"\"'",
+        {}
+      ]
+    },
+    {
+      "name": "sql_braces_code",
+      "code": "_df = alkera.sql(\n    rf\"\"\"\n    SELECT '{x}' AS {{y}}\n    \"\"\",\n)",
+      "reads_as": [
+        "sql",
+        "SELECT '{x}' AS {{y}}",
+        {
+          "output_var": "_df",
+          "connection": null,
+          "engine": null,
+          "show_output": true
+        }
+      ]
+    },
+    {
+      "name": "md_plain_code",
+      "code": "alkera.md(\n    r\"\"\"\n    # Title\n\n    Text\n    \"\"\"\n)",
+      "reads_as": [
+        "markdown",
+        "# Title\n\nText",
+        {
+          "quote": "r"
+        }
+      ]
+    },
+    {
+      "name": "md_rf_code",
+      "code": "alkera.md(\n    rf\"\"\"\n    Value {x}\n    \"\"\"\n)",
+      "reads_as": [
+        "markdown",
+        "Value {x}",
+        {
+          "quote": "rf"
+        }
+      ]
+    },
+    {
+      "name": "md_bad_quote_code",
+      "code": "x",
+      "reads_as": [
+        "python",
+        "x",
+        {}
+      ]
+    },
+    {
+      "name": "md_triple_quote_code",
+      "code": "a \"\"\" b",
+      "reads_as": [
+        "python",
+        "a \"\"\" b",
+        {}
+      ]
+    },
+    {
+      "name": "python_code",
+      "code": "x = 1",
+      "reads_as": [
+        "python",
+        "x = 1",
+        {}
+      ]
+    }
+  ]
+}

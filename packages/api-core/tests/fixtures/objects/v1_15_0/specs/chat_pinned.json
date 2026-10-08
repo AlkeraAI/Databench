@@ -1,0 +1,31 @@
+{
+  "attachments": [],
+  "last_seq": 4,
+  "machine_id": "6a2c1b4d-3e1f-4b3c-8e6d-82b4d0a1c222",
+  "machine_status": "ready",
+  "metadata": {},
+  "mirror_state": null,
+  "model": {
+    "context_window": 200000,
+    "display_name": "Claude Opus 4.5",
+    "effort": "high",
+    "efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "id": "claude-opus-4.5",
+    "max_output_tokens": 64000,
+    "metadata": {},
+    "schema_version": "1.0.0",
+    "wire": "anthropic"
+  },
+  "permission_mode": "default",
+  "publisher_refusal": null,
+  "schema_version": "1.7.0",
+  "source_node_id": null,
+  "source_object_id": null,
+  "spare": false,
+  "spare_active_at": null,
+  "wake_requested_at": null
+}

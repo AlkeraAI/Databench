@@ -1,0 +1,66 @@
+/* The org chooser: one row per org, the name over the person's role (or "Single sign-on"). */
+.pa-choose {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pa-choose__org {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkCardBg);
+  color: var(--alkPrimaryText);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pa-choose__org:hover:not(:disabled),
+.pa-choose__org:focus-visible {
+  border-color: var(--alkBrand);
+}
+
+.pa-choose__org:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.pa-choose__org[aria-current] {
+  border-color: var(--alkBrand);
+}
+
+.pa-choose__name {
+  font-weight: var(--alkWeightMedium);
+}
+
+/* An org waiting for the person to join it: its name, "Pending", and Join. Never a button
+   itself, because it cannot be entered yet. */
+.pa-choose__pending {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 2px;
+  padding: 10px 14px;
+  border: 1px dashed var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+}
+
+.pa-choose__pending > button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.pa-choose__meta {
+  color: var(--alkSecondaryText);
+  font-size: var(--alkTextSm);
+}

@@ -1,0 +1,11 @@
+{
+  "event_id": "01H_revert_applied",
+  "event_type": "revert.applied",
+  "metadata": {},
+  "provider_metadata": {},
+  "schema_version": "1.0.0",
+  "session_id": "s1",
+  "time": "2026-05-26T00:00:00Z",
+  "to_message_id": "m1",
+  "to_part_id": null
+}

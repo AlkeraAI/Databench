@@ -1,0 +1,136 @@
+{
+  "canonical": false,
+  "graph": {
+    "cells": {
+      "2r6nkv7h04": {
+        "defs": [
+          "asyncio"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "8mwtfwemdg": {
+        "defs": [],
+        "errors": [],
+        "refs": [
+          "asyncio"
+        ],
+        "sql_tables": []
+      },
+      "ajhprh440t": {
+        "defs": [
+          "data"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      },
+      "c28scjbwbt": {
+        "defs": [
+          "helper"
+        ],
+        "errors": [],
+        "refs": [],
+        "sql_tables": []
+      }
+    },
+    "edges": [
+      [
+        "2r6nkv7h04",
+        "8mwtfwemdg"
+      ]
+    ]
+  },
+  "max_python": null,
+  "notebook": {
+    "app_config": {
+      "width": "medium"
+    },
+    "cells": [
+      {
+        "code": "import asyncio",
+        "config": {
+          "hide_code": true
+        },
+        "extra": {},
+        "id": "2r6nkv7h04",
+        "kind": "setup",
+        "meta": {},
+        "name": "setup",
+        "resolution": "minted",
+        "source": "import asyncio"
+      },
+      {
+        "code": "await asyncio.sleep(0)",
+        "config": {},
+        "extra": {},
+        "id": "8mwtfwemdg",
+        "kind": "python",
+        "meta": {},
+        "name": "_",
+        "resolution": "minted",
+        "source": "await asyncio.sleep(0)"
+      },
+      {
+        "code": "data = [1, 2, 3]",
+        "config": {},
+        "extra": {},
+        "id": "ajhprh440t",
+        "kind": "python",
+        "meta": {},
+        "name": "load_data",
+        "resolution": "minted",
+        "source": "data = [1, 2, 3]"
+      },
+      {
+        "code": "def helper():\n    return 1",
+        "config": {},
+        "extra": {},
+        "id": "c28scjbwbt",
+        "kind": "function",
+        "meta": {},
+        "name": "helper",
+        "resolution": "minted",
+        "source": "def helper():\n    return 1"
+      }
+    ],
+    "format": "1.0",
+    "generated_with": "0.20.0",
+    "header_text": "",
+    "read_only_reason": null,
+    "settings": {
+      "autoreload": "off",
+      "dataframe": "auto",
+      "outputs_in_git": false,
+      "reactivity": "autorun"
+    },
+    "unknown_settings": "",
+    "violations": [
+      [
+        "settings_missing",
+        0
+      ],
+      [
+        "marimo_import_alias",
+        1
+      ],
+      [
+        "id_missing",
+        6
+      ],
+      [
+        "id_missing",
+        10
+      ],
+      [
+        "id_missing",
+        16
+      ],
+      [
+        "id_missing",
+        22
+      ]
+    ]
+  }
+}

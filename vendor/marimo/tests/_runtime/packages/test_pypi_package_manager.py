@@ -1,0 +1,1320 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import subprocess
+import sys
+import threading
+from functools import partial
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from marimo._ast import compiler
+from marimo._runtime.packages.package_manager import PackageDescription
+from marimo._runtime.packages.pypi_package_manager import (
+    PipPackageManager,
+    PoetryPackageManager,
+    UvPackageManager,
+    VersionMap,
+)
+
+parse_cell = partial(compiler.compile_cell, cell_id="0")
+
+PY_EXE = sys.executable
+
+
+def _normalize_cmd(cmd: list[Any]) -> list[Any]:
+    """Normalize path-like args (containing / or \\) to their stem."""
+    return [
+        Path(arg).stem
+        if isinstance(arg, str) and ("/" in arg or "\\" in arg)
+        else arg
+        for arg in cmd
+    ]
+
+
+def _assert_cmd_called_once_with(
+    mock: MagicMock, expected_cmd: list[Any], **expected_kwargs: Any
+) -> None:
+    """Assert mock was called once, normalizing path args for cross-platform comparison."""
+    mock.assert_called_once()
+    call_args, call_kwargs = mock.call_args
+    assert _normalize_cmd(call_args[0]) == _normalize_cmd(expected_cmd)
+    # Package-manager commands always run in their own session so that
+    # cell interrupts don't abort them
+    assert call_kwargs.pop("start_new_session", None) is True
+    assert call_kwargs == expected_kwargs
+
+
+def test_module_to_package() -> None:
+    mgr = PipPackageManager()
+    assert mgr.module_to_package("marimo") == "marimo"
+    assert mgr.module_to_package("123_456_789") == "123-456-789"
+    assert mgr.module_to_package("sklearn") == "scikit-learn"
+
+
+def test_package_to_module() -> None:
+    mgr = PipPackageManager()
+    assert mgr.package_to_module("marimo") == "marimo"
+    assert mgr.package_to_module("123-456-789") == "123_456_789"
+    assert mgr.package_to_module("scikit-learn") == "sklearn"
+
+
+def test_package_to_module_is_normalized() -> None:
+    # PyPI package names are case-insensitive and treat runs of `-`, `_`, `.`
+    # as equivalent (PEP 503). uv normalizes names when it writes them into a
+    # notebook's script metadata (e.g. `Pillow` -> `pillow`), so the reverse
+    # mapping must still resolve them back to the correct module.
+    # Regression test for https://github.com/marimo-team/marimo/issues/9801
+    mgr = PipPackageManager()
+    assert mgr.package_to_module("Pillow") == "PIL"
+    assert mgr.package_to_module("pillow") == "PIL"
+    assert mgr.package_to_module("scikit-learn") == "sklearn"
+    assert mgr.package_to_module("Scikit-Learn") == "sklearn"
+    assert mgr.package_to_module("scikit_learn") == "sklearn"
+
+
+async def test_failed_install_returns_false() -> None:
+    mgr = PipPackageManager()
+    # almost surely does not exist
+    assert not await mgr.install("asdfasdfasdfasdfqwerty", version=None)
+
+
+@patch("subprocess.run")
+def test_pip_is_manager_installed_primary_check_success(mock_run: MagicMock):
+    """Primary python -m pip check succeeds → returns True."""
+    mock_run.return_value = MagicMock(returncode=0)
+    mgr = PipPackageManager()
+    assert mgr.is_manager_installed() is True
+    mock_run.assert_called_once()
+    call_args = mock_run.call_args[0][0]
+    assert call_args == [PY_EXE, "-m", "pip", "--version"]
+
+
+@patch("subprocess.run")
+@patch("marimo._dependencies.dependencies.DependencyManager.which")
+def test_pip_is_manager_installed_fallback_check(
+    mock_which: MagicMock, mock_run: MagicMock
+):
+    """Primary python -m pip fails but pip is on PATH → returns True (fallback)."""
+    mock_run.return_value = MagicMock(returncode=1)
+    mock_which.return_value = True
+    mgr = PipPackageManager()
+    assert mgr.is_manager_installed() is True
+    # Primary check was called and failed
+    mock_run.assert_called_once()
+    # Fallback which() was also called
+    mock_which.assert_called_once_with("pip")
+
+
+@patch("subprocess.run")
+@patch("marimo._dependencies.dependencies.DependencyManager.which")
+def test_pip_is_manager_installed_permission_error(
+    mock_which: MagicMock, mock_run: MagicMock
+):
+    """python -m pip raises OSError (e.g. PermissionError) → returns False."""
+    mock_run.side_effect = PermissionError("python not executable")
+    mock_which.return_value = False
+    mgr = PipPackageManager()
+    assert mgr.is_manager_installed() is False
+
+
+@patch("subprocess.run")
+@patch("marimo._dependencies.dependencies.DependencyManager.which")
+def test_pip_is_manager_installed_both_fail(
+    mock_which: MagicMock, mock_run: MagicMock
+):
+    """Both python -m pip and which("pip") fail → returns False."""
+    mock_run.return_value = MagicMock(returncode=1)
+    mock_which.return_value = False
+    mgr = PipPackageManager()
+    assert mgr.is_manager_installed() is False
+
+
+manager = PipPackageManager()
+
+
+@patch("subprocess.run")
+async def test_install(mock_run: MagicMock):
+    mock_run.return_value = MagicMock(returncode=0)
+
+    with patch.object(manager, "is_manager_installed", return_value=True):
+        result = await manager._install(
+            "package1 package2", upgrade=False, group=None
+        )
+
+    mock_run.assert_called_once_with(
+        [PY_EXE, "-m", "pip", "install", "package1", "package2"],
+        start_new_session=True,
+    )
+    assert result is True
+
+
+@patch("subprocess.run")
+async def test_install_failure(mock_run: MagicMock):
+    mock_run.return_value = MagicMock(returncode=1)
+
+    result = await manager._install(
+        "nonexistent-package", upgrade=False, group=None
+    )
+
+    assert result is False
+
+
+@patch("subprocess.run")
+async def test_uninstall(mock_run: MagicMock):
+    mock_run.return_value = MagicMock(returncode=0)
+
+    with patch.object(manager, "is_manager_installed", return_value=True):
+        result = await manager.uninstall("package1 package2", group=None)
+
+    mock_run.assert_called_once_with(
+        [
+            PY_EXE,
+            "-m",
+            "pip",
+            "uninstall",
+            "-y",
+            "package1",
+            "package2",
+        ],
+        start_new_session=True,
+    )
+    assert result is True
+
+
+@patch("subprocess.run")
+def test_list_packages(mock_run: MagicMock):
+    mock_output = json.dumps(
+        [
+            {"name": "package1", "version": "1.0.0"},
+            {"name": "package2", "version": "2.1.0"},
+        ]
+    )
+    mock_run.return_value = MagicMock(returncode=0, stdout=mock_output)
+
+    with patch.object(manager, "is_manager_installed", return_value=True):
+        packages = manager.list_packages()
+
+    mock_run.assert_called_once_with(
+        [PY_EXE, "-m", "pip", "list", "--format=json"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        start_new_session=True,
+    )
+    assert len(packages) == 2
+    assert packages[0] == PackageDescription(name="package1", version="1.0.0")
+    assert packages[1] == PackageDescription(name="package2", version="2.1.0")
+
+
+@patch("subprocess.run")
+def test_list_packages_failure(mock_run: MagicMock):
+    mock_run.return_value = MagicMock(returncode=1)
+
+    packages = manager.list_packages()
+
+    assert len(packages) == 0
+
+
+# Poetry Package Manager Tests
+
+
+def test_poetry_generate_cmd_version_one():
+    mgr = PoetryPackageManager()
+    assert mgr._generate_list_packages_cmd(1) == [
+        "poetry",
+        "show",
+        "--no-dev",
+    ]
+
+
+@patch("subprocess.run")
+def test_poetry_generate_cmd_version_two_prefers_without_dev(
+    mock_run: MagicMock,
+):
+    mock_run.return_value = MagicMock(returncode=0, stderr="")
+    mgr = PoetryPackageManager()
+
+    cmd = mgr._generate_list_packages_cmd(2)
+
+    assert cmd == ["poetry", "show", "--without", "dev"]
+    mock_run.assert_called_once_with(
+        ["poetry", "show", "--without", "dev"],
+        capture_output=True,
+        text=True,
+        start_new_session=True,
+    )
+
+
+@patch("subprocess.run")
+def test_poetry_generate_cmd_version_two_falls_back_when_missing_group(
+    mock_run: MagicMock,
+):
+    mock_run.return_value = MagicMock(
+        returncode=1, stderr="Group(s) not found"
+    )
+    mgr = PoetryPackageManager()
+
+    cmd = mgr._generate_list_packages_cmd(2)
+
+    assert cmd == ["poetry", "show"]
+
+
+@patch("subprocess.run")
+def test_poetry_generate_cmd_default_for_other_versions(
+    mock_run: MagicMock,
+):
+    mock_run.return_value = MagicMock(returncode=1, stderr="")
+    mgr = PoetryPackageManager()
+
+    cmd = mgr._generate_list_packages_cmd(3)
+
+    assert cmd == ["poetry", "show"]
+
+
+@patch("subprocess.run")
+def test_poetry_list_packages_parses_output(mock_run: MagicMock):
+    mock_run.side_effect = [
+        MagicMock(returncode=0, stdout="Poetry (1.8.2)"),
+        MagicMock(
+            returncode=0,
+            stdout="package-1    1.0.0\npackage-two    2.0.0\n",
+        ),
+    ]
+    mgr = PoetryPackageManager()
+
+    with patch.object(
+        PoetryPackageManager, "is_manager_installed", return_value=True
+    ):
+        packages = mgr.list_packages()
+
+    assert packages == [
+        PackageDescription(name="package-1", version="1.0.0"),
+        PackageDescription(name="package-two", version="2.0.0"),
+    ]
+
+    # Last subprocess call should be the list invocation with UTF-8 encoding
+    cmd_args, cmd_kwargs = mock_run.call_args_list[-1]
+    assert cmd_args[0] == ["poetry", "show", "--no-dev"]
+    assert cmd_kwargs.get("encoding") == "utf-8"
+    assert cmd_kwargs.get("text") is True
+
+
+# UV Package Manager Tests
+
+
+@patch.dict("os.environ", {}, clear=True)
+def test_uv_is_in_uv_project_no_venv():
+    """Test is_in_uv_project returns False when no VIRTUAL_ENV is set"""
+    mgr = UvPackageManager()
+    assert mgr.is_in_uv_project is False
+
+
+@patch.dict("os.environ", {"VIRTUAL_ENV": "/path/to/venv"}, clear=True)
+def test_uv_is_in_uv_project_no_uv_env():
+    """Test is_in_uv_project returns False when UV env var is not set"""
+    mgr = UvPackageManager()
+    assert mgr.is_in_uv_project is False
+
+
+@patch.dict(
+    "os.environ",
+    {"VIRTUAL_ENV": "/path/to/venv", "UV": "/other/path"},
+    clear=True,
+)
+def test_uv_is_in_uv_project_uv_env_mismatch():
+    """Test is_in_uv_project returns False when UV env var doesn't match VIRTUAL_ENV"""
+    mgr = UvPackageManager()
+    assert mgr.is_in_uv_project is False
+
+
+@patch.dict(
+    "os.environ",
+    {"VIRTUAL_ENV": "/path/to/venv", "UV": "/path/to/venv"},
+    clear=True,
+)
+@patch("pathlib.Path.exists")
+def test_uv_is_in_uv_project_missing_files(mock_exists: MagicMock):
+    """Test is_in_uv_project returns False when uv.lock or pyproject.toml don't exist"""
+    mock_exists.return_value = False
+    mgr = UvPackageManager()
+    assert mgr.is_in_uv_project is False
+
+
+@patch.dict(
+    "os.environ",
+    {"VIRTUAL_ENV": "/path/to/venv", "UV": "/path/to/venv"},
+    clear=True,
+)
+@patch("pathlib.Path.exists")
+def test_uv_is_in_uv_project_true(mock_exists: MagicMock):
+    """Test is_in_uv_project returns True when all conditions are met"""
+    mock_exists.return_value = True
+    mgr = UvPackageManager()
+    assert mgr.is_in_uv_project is True
+
+
+@patch.object(UvPackageManager, "_uv_bin", "uv")
+def test_uv_can_target_python_without_mutating_project() -> None:
+    mgr = UvPackageManager.for_pip_install("/server/python")
+
+    assert mgr.install_command("nbformat", upgrade=False) == [
+        "uv",
+        "pip",
+        "install",
+        "nbformat",
+        "-p",
+        "/server/python",
+    ]
+
+
+@patch.object(UvPackageManager, "_uv_bin", "uv")
+def test_uv_install_command_preserves_spaced_extras() -> None:
+    mgr = UvPackageManager.for_pip_install("/server/python")
+
+    assert mgr.install_command(
+        "matplotlib pydantic-ai[duckduckgo, web-fetch]", upgrade=True
+    ) == [
+        "uv",
+        "pip",
+        "install",
+        "--upgrade",
+        "matplotlib",
+        "pydantic-ai[duckduckgo, web-fetch]",
+        "-p",
+        "/server/python",
+    ]
+
+
+@patch.dict(
+    "os.environ",
+    {"VIRTUAL_ENV": "/path/to/venv", "UV": "/path/to/venv"},
+    clear=True,
+)
+@patch("pathlib.Path.exists")
+def test_uv_is_in_uv_project_cached(mock_exists: MagicMock):
+    """Test is_in_uv_project is cached and only evaluates once"""
+    mock_exists.return_value = True
+    mgr = UvPackageManager()
+
+    # Access the property multiple times
+    result1 = mgr.is_in_uv_project
+    result2 = mgr.is_in_uv_project
+    result3 = mgr.is_in_uv_project
+
+    # Should all return the same value
+    assert result1 is True
+    assert result2 is True
+    assert result3 is True
+
+    # Path.exists should only be called twice (once for uv.lock, once for pyproject.toml)
+    # since the property is cached after the first access
+    assert mock_exists.call_count == 2
+
+
+@patch("marimo._utils.subprocess.subprocess.Popen")
+@patch.object(UvPackageManager, "is_in_uv_project", False)
+async def test_uv_install_not_in_project(mock_popen: MagicMock):
+    """Test UV install uses pip subcommand when not in UV project"""
+    mock_process = MagicMock()
+    mock_process.wait.return_value = 0
+    mock_process.stdout.readline.return_value = b""
+    mock_popen.return_value = mock_process
+    mgr = UvPackageManager()
+
+    result = await mgr._install("package1 package2", upgrade=False, group=None)
+
+    mock_popen.assert_called_once()
+    call_kwargs = mock_popen.call_args[1]
+    assert call_kwargs["stdout"] == subprocess.PIPE
+    assert call_kwargs["stderr"] == subprocess.STDOUT
+    assert call_kwargs["universal_newlines"] is False
+    assert call_kwargs["bufsize"] == 0
+    assert result is True
+
+
+@patch.object(UvPackageManager, "is_in_uv_project", False)
+async def test_uv_install_does_not_block_event_loop() -> None:
+    process_started = asyncio.Event()
+    release_process = threading.Event()
+    loop = asyncio.get_running_loop()
+
+    def install(*args: Any, **kwargs: Any) -> bool:
+        del args, kwargs
+        loop.call_soon_threadsafe(process_started.set)
+        release_process.wait(timeout=1)
+        return True
+
+    mgr = UvPackageManager()
+    with patch.object(
+        mgr, "_install_with_cache_fallback", side_effect=install
+    ):
+        task = asyncio.create_task(
+            mgr._install("package1", upgrade=False, group=None)
+        )
+        await process_started.wait()
+        assert not task.done()
+
+        release_process.set()
+        assert await task is True
+
+
+@patch("marimo._utils.subprocess.subprocess.Popen")
+@patch.object(UvPackageManager, "is_in_uv_project", False)
+async def test_uv_install_not_in_project_with_target(mock_popen: MagicMock):
+    """Test UV install uses pip with target"""
+    mock_process = MagicMock()
+    mock_process.wait.return_value = 0
+    mock_process.stdout.readline.return_value = b""
+    mock_popen.return_value = mock_process
+    mgr = UvPackageManager()
+
+    # Explicitly set environ, since patch doesn't work in an asynchronous
+    # context.
+
+    os.environ["MARIMO_UV_TARGET"] = "target_path"
+    result = await mgr._install("package1 package2", upgrade=False, group=None)
+    del os.environ["MARIMO_UV_TARGET"]
+
+    mock_popen.assert_called_once()
+    call_kwargs = mock_popen.call_args[1]
+    assert call_kwargs["stdout"] == subprocess.PIPE
+    assert call_kwargs["stderr"] == subprocess.STDOUT
+    assert call_kwargs["universal_newlines"] is False
+    assert call_kwargs["bufsize"] == 0
+    assert result is True
+
+
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "is_in_uv_project", True)
+async def test_uv_install_in_project(mock_run: MagicMock):
+    """Test UV install uses add subcommand when in UV project"""
+    mock_run.return_value = MagicMock(returncode=0)
+    mgr = UvPackageManager()
+
+    result = await mgr._install("package1 package2", upgrade=False, group=None)
+
+    _assert_cmd_called_once_with(
+        mock_run,
+        ["uv", "add", "package1", "package2", "-p", PY_EXE],
+    )
+    assert result is True
+
+
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "is_in_uv_project", True)
+async def test_uv_install_dev_dependency_in_project(mock_run: MagicMock):
+    """Test UV install uses add subcommand when in UV project"""
+    mock_run.return_value = MagicMock(returncode=0)
+    mgr = UvPackageManager()
+
+    result = await mgr._install(
+        "package1 package2", upgrade=False, group="dev"
+    )
+
+    _assert_cmd_called_once_with(
+        mock_run,
+        [
+            "uv",
+            "add",
+            "--group",
+            "dev",
+            "package1",
+            "package2",
+            "-p",
+            PY_EXE,
+        ],
+    )
+    assert result is True
+
+
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "is_in_uv_project", True)
+async def test_uv_install_custom_group_in_project(mock_run: MagicMock):
+    """Test UV install uses --group flag with custom dependency group"""
+    mock_run.return_value = MagicMock(returncode=0)
+    mgr = UvPackageManager()
+
+    result = await mgr._install("sphinx", upgrade=False, group="docs")
+
+    _assert_cmd_called_once_with(
+        mock_run,
+        [
+            "uv",
+            "add",
+            "--group",
+            "docs",
+            "sphinx",
+            "-p",
+            PY_EXE,
+        ],
+    )
+    assert result is True
+
+
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "is_in_uv_project", True)
+async def test_uv_install_no_group_in_project(mock_run: MagicMock):
+    """Test UV install without group doesn't pass --group flag"""
+    mock_run.return_value = MagicMock(returncode=0)
+    mgr = UvPackageManager()
+
+    result = await mgr._install("requests", upgrade=False, group=None)
+
+    _assert_cmd_called_once_with(
+        mock_run,
+        [
+            "uv",
+            "add",
+            "requests",
+            "-p",
+            PY_EXE,
+        ],
+    )
+    assert result is True
+
+
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "is_in_uv_project", True)
+async def test_uv_uninstall_with_group_in_project(mock_run: MagicMock):
+    """Test UV uninstall uses --group flag with dependency group"""
+    mock_run.return_value = MagicMock(returncode=0)
+    mgr = UvPackageManager()
+
+    result = await mgr.uninstall("sphinx", group="docs")
+
+    _assert_cmd_called_once_with(
+        mock_run,
+        ["uv", "remove", "--group", "docs", "sphinx", "-p", PY_EXE],
+    )
+    assert result is True
+
+
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "is_in_uv_project", False)
+async def test_uv_uninstall_not_in_project(mock_run: MagicMock):
+    """Test UV uninstall uses pip subcommand when not in UV project"""
+    mock_run.return_value = MagicMock(returncode=0)
+    mgr = UvPackageManager()
+
+    result = await mgr.uninstall("package1 package2")
+
+    _assert_cmd_called_once_with(
+        mock_run,
+        ["uv", "pip", "uninstall", "package1", "package2", "-p", PY_EXE],
+    )
+    assert result is True
+
+
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "is_in_uv_project", True)
+async def test_uv_uninstall_in_project(mock_run: MagicMock):
+    """Test UV uninstall uses remove subcommand when in UV project"""
+    mock_run.return_value = MagicMock(returncode=0)
+    mgr = UvPackageManager()
+
+    result = await mgr.uninstall("package1 package2")
+
+    _assert_cmd_called_once_with(
+        mock_run,
+        ["uv", "remove", "package1", "package2", "-p", PY_EXE],
+    )
+    assert result is True
+
+
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "dependency_tree")
+def test_uv_list_packages(
+    mock_dependency_tree: MagicMock, mock_run: MagicMock
+):
+    """Test UV list packages uses pip list subcommand"""
+    mock_output = json.dumps(
+        [
+            {"name": "package1", "version": "1.0.0"},
+            {"name": "package2", "version": "2.1.0"},
+        ]
+    )
+    mock_run.return_value = MagicMock(returncode=0, stdout=mock_output)
+    mock_dependency_tree.return_value = None
+    mgr = UvPackageManager()
+
+    packages = mgr.list_packages()
+
+    _assert_cmd_called_once_with(
+        mock_run,
+        ["uv", "pip", "list", "--format=json", "-p", PY_EXE],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert len(packages) == 2
+    assert packages[0] == PackageDescription(name="package1", version="1.0.0")
+    assert packages[1] == PackageDescription(name="package2", version="2.1.0")
+
+
+@patch.object(UvPackageManager, "dependency_tree")
+def test_uv_list_packages_with_tree_success(mock_dependency_tree: MagicMock):
+    """Test UV list packages uses uv tree when available"""
+    from marimo._server.models.packages import DependencyTreeNode
+
+    # Mock dependency_tree to return a valid tree
+    mock_tree = DependencyTreeNode(
+        name="root",
+        version="1.0.0",
+        tags=[],
+        dependencies=[
+            DependencyTreeNode(
+                name="z-package1",
+                version="1.0.0",
+                tags=[],
+                dependencies=[
+                    DependencyTreeNode(
+                        name="package3",
+                        version="3.0.0",
+                        tags=[],
+                        dependencies=[],
+                    )
+                ],
+            ),
+            DependencyTreeNode(
+                name="package2",
+                version=None,  # Test None version handling
+                tags=[],
+                dependencies=[
+                    # Duplicate package
+                    DependencyTreeNode(
+                        name="package3",
+                        version="3.0.0",
+                        tags=[],
+                        dependencies=[],
+                    )
+                ],
+            ),
+        ],
+    )
+    mock_dependency_tree.return_value = mock_tree
+
+    mgr = UvPackageManager()
+    packages = mgr.list_packages()
+
+    # Should call dependency_tree first
+    mock_dependency_tree.assert_called_once()
+
+    # Should return packages from tree
+    assert len(packages) == 3
+    assert packages[0] == PackageDescription(name="package2", version="")
+    assert packages[1] == PackageDescription(name="package3", version="3.0.0")
+    assert packages[2] == PackageDescription(
+        name="z-package1", version="1.0.0"
+    )
+
+
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "dependency_tree")
+def test_uv_list_packages_tree_fallback_to_pip_list(
+    mock_dependency_tree: MagicMock, mock_run: MagicMock
+):
+    """Test UV list packages falls back to pip list when tree is None"""
+    # Mock dependency_tree to return None (fallback case)
+    mock_dependency_tree.return_value = None
+
+    # Mock subprocess for pip list
+    mock_output = json.dumps(
+        [
+            {"name": "fallback1", "version": "1.5.0"},
+            {"name": "fallback2", "version": "2.3.0"},
+        ]
+    )
+    mock_run.return_value = MagicMock(returncode=0, stdout=mock_output)
+
+    mgr = UvPackageManager()
+    packages = mgr.list_packages()
+
+    # Should try dependency_tree first
+    mock_dependency_tree.assert_called_once()
+
+    # Should fall back to subprocess call
+    _assert_cmd_called_once_with(
+        mock_run,
+        ["uv", "pip", "list", "--format=json", "-p", PY_EXE],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    # Should return packages from fallback method
+    assert len(packages) == 2
+    assert packages[0] == PackageDescription(name="fallback1", version="1.5.0")
+    assert packages[1] == PackageDescription(name="fallback2", version="2.3.0")
+
+
+@patch.object(UvPackageManager, "dependency_tree")
+def test_uv_list_packages_with_empty_tree(mock_dependency_tree: MagicMock):
+    """Test UV list packages handles empty dependency tree"""
+    from marimo._server.models.packages import DependencyTreeNode
+
+    # Mock dependency_tree to return tree with no dependencies
+    mock_tree = DependencyTreeNode(
+        name="root", version="1.0.0", tags=[], dependencies=[]
+    )
+    mock_dependency_tree.return_value = mock_tree
+
+    mgr = UvPackageManager()
+    packages = mgr.list_packages()
+
+    # Should call dependency_tree
+    mock_dependency_tree.assert_called_once()
+
+    # Should return empty list
+    assert len(packages) == 0
+    assert packages == []
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "VIRTUAL_ENV": "/path/to/venv",
+        "UV_PROJECT_ENVIRONMENT": "/path/to/venv",
+    },
+    clear=True,
+)
+def test_uv_is_in_uv_project_uv_project_environment_match():
+    """Test is_in_uv_project returns True when UV_PROJECT_ENVIRONMENT equals VIRTUAL_ENV"""
+    mgr = UvPackageManager()
+    assert mgr.is_in_uv_project is True
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "VIRTUAL_ENV": "/path/to/venv",
+        "UV_PROJECT_ENVIRONMENT": "/different/path",
+    },
+    clear=True,
+)
+def test_uv_is_in_uv_project_uv_project_environment_mismatch():
+    """Test is_in_uv_project returns False when UV_PROJECT_ENVIRONMENT doesn't match VIRTUAL_ENV"""
+    mgr = UvPackageManager()
+    assert mgr.is_in_uv_project is False
+
+
+# Encoding tests for Windows compatibility
+
+
+@patch("subprocess.run")
+def test_pip_list_packages_uses_utf8_encoding(mock_run: MagicMock):
+    """Test that pip list uses UTF-8 encoding to handle non-ASCII characters"""
+    mock_output = json.dumps(
+        [
+            {"name": "package-中文", "version": "1.0.0"},
+            {"name": "пакет", "version": "2.0.0"},
+        ]
+    )
+    mock_run.return_value = MagicMock(returncode=0, stdout=mock_output)
+    mgr = PipPackageManager()
+
+    with patch.object(mgr, "is_manager_installed", return_value=True):
+        packages = mgr.list_packages()
+
+    # Verify encoding='utf-8' is passed
+    mock_run.assert_called_once()
+    call_kwargs = mock_run.call_args[1]
+    assert call_kwargs.get("encoding") == "utf-8"
+    assert call_kwargs.get("text") is True
+
+
+@patch("subprocess.run")
+def test_uv_dependency_tree_uses_utf8_encoding(mock_run: MagicMock):
+    """Test that uv tree uses UTF-8 encoding"""
+    mock_output = "test-package v1.0.0\n"
+    mock_run.return_value = MagicMock(
+        returncode=0, stdout=mock_output, stderr=""
+    )
+    mgr = UvPackageManager()
+
+    mgr.dependency_tree(filename="test.py")
+
+    # Verify encoding='utf-8' is passed
+    mock_run.assert_called_once()
+    call_kwargs = mock_run.call_args[1]
+    assert call_kwargs.get("encoding") == "utf-8"
+    assert call_kwargs.get("text") is True
+
+
+@patch("subprocess.run")
+def test_uv_dependency_tree_materializes_markdown(
+    mock_run: MagicMock, tmp_path: Path
+) -> None:
+    notebook = tmp_path / "notebook.md"
+    notebook.write_text(
+        "---\n"
+        "pyproject: |\n"
+        '  dependencies = ["test-package"]\n'
+        "---\n\n"
+        "# Notebook\n",
+        encoding="utf-8",
+    )
+
+    def run(command: list[str], **kwargs: Any) -> MagicMock:
+        carrier = Path(command[-1])
+        assert carrier.name == ".marimo-v1-notebook.md.py"
+        assert 'dependencies = ["test-package"]' in carrier.read_text()
+        assert kwargs["cwd"] == str(tmp_path)
+        return MagicMock(
+            args=command,
+            returncode=0,
+            stdout="test-package v1.0.0\n",
+            stderr="",
+        )
+
+    mock_run.side_effect = run
+
+    tree = UvPackageManager().dependency_tree(filename=str(notebook))
+
+    assert tree is not None
+    assert not (tmp_path / ".marimo-v1-notebook.md.py").exists()
+
+
+@patch("subprocess.run")
+def test_uv_pip_list_uses_utf8_encoding(mock_run: MagicMock):
+    """Test that uv pip list uses UTF-8 encoding"""
+    mock_output = json.dumps([{"name": "test-pkg", "version": "1.0.0"}])
+    mock_run.return_value = MagicMock(returncode=0, stdout=mock_output)
+    mgr = UvPackageManager()
+
+    # Mock dependency_tree to return None so it falls back to pip list
+    with patch.object(mgr, "dependency_tree", return_value=None):
+        mgr.list_packages()
+
+    # Verify encoding='utf-8' is passed
+    mock_run.assert_called_once()
+    call_kwargs = mock_run.call_args[1]
+    assert call_kwargs.get("encoding") == "utf-8"
+    assert call_kwargs.get("text") is True
+
+
+def test_has_script_metadata_with_metadata(tmp_path: Path):
+    """Test that _has_script_metadata returns True when script has metadata"""
+    script_file = tmp_path / "script_with_metadata.py"
+    script_file.write_text(
+        """# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "requests",
+#   "pandas",
+# ]
+# ///
+
+import marimo as mo
+"""
+    )
+
+    mgr = UvPackageManager()
+    assert mgr._has_script_metadata(str(script_file)) is True
+
+
+def test_has_script_metadata_without_metadata(tmp_path: Path):
+    """Test that _has_script_metadata returns False when script has no metadata"""
+    script_file = tmp_path / "script_without_metadata.py"
+    script_file.write_text(
+        """import marimo as mo
+import pandas as pd
+
+# This is a regular comment
+# Not a script metadata block
+"""
+    )
+
+    mgr = UvPackageManager()
+    assert mgr._has_script_metadata(str(script_file)) is False
+
+
+def test_has_script_metadata_nonexistent_file():
+    """Test that _has_script_metadata returns False for nonexistent files"""
+    mgr = UvPackageManager()
+    assert mgr._has_script_metadata("/nonexistent/path/to/file.py") is False
+
+
+def test_has_script_metadata_binary_file(tmp_path: Path):
+    """Test that _has_script_metadata returns False for binary files"""
+    binary_file = tmp_path / "binary.bin"
+    binary_file.write_bytes(b"\x00\x01\x02\x03\xff\xfe\xfd")
+
+    mgr = UvPackageManager()
+    assert mgr._has_script_metadata(str(binary_file)) is False
+
+
+@patch("marimo._utils.subprocess.subprocess.Popen")
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "is_in_uv_project", False)
+async def test_uv_install_cache_error_fallback(
+    mock_run: MagicMock, mock_popen: MagicMock
+):
+    """Test UV install retries with --no-cache on cache write errors"""
+    # Mock the first install attempt (via Popen) to fail with cache error
+    mock_process = MagicMock()
+    mock_process.wait.return_value = 1  # Failure
+    mock_process.stdout.readline.side_effect = [
+        b"  \xc3\x97 Failed to download and build `pyqtree==1.0.0`\n",
+        b"  \xe2\x94\x9c\xe2\x94\x80\xe2\x96\xb6 Failed to write to the distribution cache\n",
+        b"  \xe2\x95\xb0\xe2\x94\x80\xe2\x96\xb6 Operation not permitted (os error 1)\n",
+        b"",  # End of output
+    ]
+    mock_popen.return_value = mock_process
+
+    # Mock the retry (via run) to succeed
+    mock_run.return_value = MagicMock(returncode=0)
+
+    mgr = UvPackageManager()
+    with patch.object(mgr, "is_manager_installed", return_value=True):
+        result = await mgr._install("datamapplot", upgrade=False, group=None)
+
+    # First attempt should use Popen (via safe_popen)
+    mock_popen.assert_called_once()
+    call_kwargs = mock_popen.call_args
+    assert call_kwargs[1]["stdout"] == subprocess.PIPE
+    assert call_kwargs[1]["stderr"] == subprocess.STDOUT
+    assert call_kwargs[1]["universal_newlines"] is False
+    assert call_kwargs[1]["bufsize"] == 0
+
+    # Retry should add --no-cache flag
+    _assert_cmd_called_once_with(
+        mock_run,
+        [
+            "uv",
+            "pip",
+            "install",
+            "datamapplot",
+            "-p",
+            PY_EXE,
+            "--no-cache",
+        ],
+    )
+
+    # Should ultimately succeed
+    assert result is True
+
+
+@patch("marimo._utils.subprocess.subprocess.Popen")
+@patch.object(UvPackageManager, "is_in_uv_project", False)
+async def test_uv_install_no_fallback_on_different_error(
+    mock_popen: MagicMock,
+):
+    """Test UV install does not retry when error is not cache-related"""
+    # Mock the install attempt to fail with a different error
+    mock_process = MagicMock()
+    mock_process.wait.return_value = 1  # Failure
+    mock_process.stdout.readline.side_effect = [
+        b"  \xc3\x97 Failed to download package\n",
+        b"  \xe2\x94\x9c\xe2\x94\x80\xe2\x96\xb6 Network error\n",
+        b"",  # End of output
+    ]
+    mock_popen.return_value = mock_process
+
+    mgr = UvPackageManager()
+    with patch.object(mgr, "is_manager_installed", return_value=True):
+        result = await mgr._install(
+            "nonexistent-package", upgrade=False, group=None
+        )
+
+    # Should only call Popen once (no retry)
+    mock_popen.assert_called_once()
+
+    # Should fail
+    assert result is False
+
+
+@patch("subprocess.run")
+@patch.object(UvPackageManager, "is_in_uv_project", True)
+async def test_uv_install_in_project_no_fallback(mock_run: MagicMock):
+    """Test UV install in a project does not use fallback mechanism"""
+    mock_run.return_value = MagicMock(returncode=1)  # Failure
+    mgr = UvPackageManager()
+
+    result = await mgr._install("package1", upgrade=False, group=None)
+
+    # Should only call run once (no fallback for project mode)
+    _assert_cmd_called_once_with(
+        mock_run,
+        ["uv", "add", "package1", "-p", PY_EXE],
+    )
+
+    # Should fail without retry
+    assert result is False
+
+
+# VersionMap Tests
+
+
+class TestVersionMap:
+    def test_get_version_exact_match(self) -> None:
+        """Test getting version with exact package name match"""
+
+        version_map = VersionMap({"numpy": "1.24.0", "pandas": "2.0.0"})
+        assert version_map.get_version("numpy") == "1.24.0"
+        assert version_map.get_version("pandas") == "2.0.0"
+
+    def test_get_version_with_underscore_to_dash(self) -> None:
+        """Test getting version when package name uses underscore but map has dash"""
+
+        version_map = VersionMap({"some-package": "1.0.0"})
+        assert version_map.get_version("some_package") == "1.0.0"
+
+    def test_get_version_with_dash_to_underscore(self) -> None:
+        """Test getting version when package name uses dash but map has underscore"""
+
+        version_map = VersionMap({"some_package": "1.0.0"})
+        assert version_map.get_version("some-package") == "1.0.0"
+
+    def test_get_version_case_insensitive(self) -> None:
+        """Test getting version is case insensitive"""
+
+        version_map = VersionMap({"numpy": "1.24.0"})
+        assert version_map.get_version("NumPy") == "1.24.0"
+        assert version_map.get_version("NUMPY") == "1.24.0"
+
+    def test_get_version_with_extras(self) -> None:
+        """Test getting version removes extras from package name"""
+
+        version_map = VersionMap({"requests": "2.28.0"})
+        assert version_map.get_version("requests[security]") == "2.28.0"
+        assert version_map.get_version("requests[security,socks]") == "2.28.0"
+
+    def test_get_version_with_version_specifier(self) -> None:
+        """Test getting version removes version specifier from package name"""
+
+        version_map = VersionMap({"numpy": "1.24.0"})
+        assert version_map.get_version("numpy>=1.20.0") == "1.24.0"
+        assert version_map.get_version("numpy==1.24.0") == "1.24.0"
+        assert version_map.get_version("numpy<2.0.0") == "1.24.0"
+
+    def test_get_version_with_extras_and_version(self) -> None:
+        """Test getting version with both extras and version specifier"""
+
+        version_map = VersionMap({"requests": "2.28.0"})
+        assert version_map.get_version("requests[security]>=2.0.0") == "2.28.0"
+
+    def test_get_version_not_found(self) -> None:
+        """Test getting version for non-existent package returns None"""
+
+        version_map = VersionMap({"numpy": "1.24.0"})
+        assert version_map.get_version("pandas") is None
+        assert version_map.get_version("nonexistent") is None
+
+    def test_has_package_exists(self) -> None:
+        """Test has() returns True for existing packages"""
+
+        version_map = VersionMap({"numpy": "1.24.0", "pandas": "2.0.0"})
+        assert version_map.has("numpy") is True
+        assert version_map.has("pandas") is True
+
+    def test_has_package_not_exists(self) -> None:
+        """Test has() returns False for non-existent packages"""
+
+        version_map = VersionMap({"numpy": "1.24.0"})
+        assert version_map.has("pandas") is False
+        assert version_map.has("nonexistent") is False
+
+    def test_has_with_underscore_dash_normalization(self) -> None:
+        """Test has() works with underscore/dash normalization"""
+
+        version_map = VersionMap({"some-package": "1.0.0"})
+        assert version_map.has("some_package") is True
+        assert version_map.has("some-package") is True
+
+    def test_has_with_extras(self) -> None:
+        """Test has() works with extras"""
+
+        version_map = VersionMap({"requests": "2.28.0"})
+        assert version_map.has("requests[security]") is True
+
+    def test_has_with_version_specifier(self) -> None:
+        """Test has() works with version specifiers"""
+
+        version_map = VersionMap({"numpy": "1.24.0"})
+        assert version_map.has("numpy>=1.20.0") is True
+
+    def test_resolve_with_version_exact_match(self) -> None:
+        """Test resolve_with_version with exact match"""
+
+        version_map = VersionMap({"numpy": "1.24.0"})
+        assert version_map.resolve_with_version("numpy") == "numpy==1.24.0"
+
+    def test_resolve_with_version_with_underscore_to_dash(self) -> None:
+        """Test resolve_with_version handles underscore to dash conversion"""
+
+        version_map = VersionMap({"some-package": "1.0.0"})
+        assert (
+            version_map.resolve_with_version("some_package")
+            == "some-package==1.0.0"
+        )
+
+    def test_resolve_with_version_with_dash_to_underscore(self) -> None:
+        """Test resolve_with_version handles dash to underscore conversion"""
+
+        version_map = VersionMap({"some_package": "1.0.0"})
+        assert (
+            version_map.resolve_with_version("some-package")
+            == "some_package==1.0.0"
+        )
+
+    def test_resolve_with_version_not_found(self) -> None:
+        """Test resolve_with_version returns None for non-existent package"""
+
+        version_map = VersionMap({"numpy": "1.24.0"})
+        assert version_map.resolve_with_version("pandas") is None
+
+    def test_resolve_with_version_case_insensitive(self) -> None:
+        """Test resolve_with_version is case insensitive"""
+
+        version_map = VersionMap({"numpy": "1.24.0"})
+        assert version_map.resolve_with_version("NumPy") == "numpy==1.24.0"
+
+    def test_resolve_with_version_with_extras(self) -> None:
+        """Test resolve_with_version preserves extras"""
+
+        version_map = VersionMap({"requests": "2.28.0"})
+        assert (
+            version_map.resolve_with_version("requests[security]")
+            == "requests[security]==2.28.0"
+        )
+
+    def test_resolve_with_version_with_multiple_extras(self) -> None:
+        """Test resolve_with_version preserves multiple extras"""
+
+        version_map = VersionMap({"requests": "2.28.0"})
+        assert (
+            version_map.resolve_with_version("requests[security,socks]")
+            == "requests[security,socks]==2.28.0"
+        )
+
+    def test_resolve_with_version_with_extras_and_version(self) -> None:
+        """Test resolve_with_version preserves extras when version is stripped"""
+
+        version_map = VersionMap({"requests": "2.28.0"})
+        assert (
+            version_map.resolve_with_version("requests[security]>=2.0.0")
+            == "requests[security]==2.28.0"
+        )
+
+    def test_resolve_with_version_with_extras_underscore_dash(self) -> None:
+        """Test resolve_with_version preserves extras with underscore/dash normalization"""
+
+        version_map = VersionMap({"some-package": "1.0.0"})
+        assert (
+            version_map.resolve_with_version("some_package[extra]")
+            == "some-package[extra]==1.0.0"
+        )
+
+        version_map = VersionMap({"some_package": "2.0.0"})
+        assert (
+            version_map.resolve_with_version("some-package[extra]")
+            == "some_package[extra]==2.0.0"
+        )
+
+    def test_resolve_with_version_with_complex_extras(self) -> None:
+        """Test resolve_with_version handles complex extras correctly"""
+
+        version_map = VersionMap({"apache-airflow": "2.7.0"})
+        assert (
+            version_map.resolve_with_version(
+                "apache-airflow[postgres,redis]>=2.0"
+            )
+            == "apache-airflow[postgres,redis]==2.7.0"
+        )
+
+    def test_resolve_with_version_with_version_specifier(self) -> None:
+        """Test resolve_with_version removes existing version specifier"""
+
+        version_map = VersionMap({"numpy": "1.24.0"})
+        assert (
+            version_map.resolve_with_version("numpy>=1.20.0")
+            == "numpy==1.24.0"
+        )
+
+    def test_version_map_empty(self) -> None:
+        """Test VersionMap with empty dict"""
+
+        version_map = VersionMap({})
+        assert version_map.get_version("numpy") is None
+        assert version_map.has("numpy") is False
+        assert version_map.resolve_with_version("numpy") is None
+
+    def test_version_map_real_world_packages(self) -> None:
+        """Test VersionMap with real-world package names"""
+
+        version_map = VersionMap(
+            {
+                "scikit-learn": "1.3.0",
+                "typing_extensions": "4.8.0",
+                "pillow": "10.0.0",
+                "beautifulsoup4": "4.12.0",
+            }
+        )
+
+        # Test scikit-learn
+        assert version_map.get_version("scikit_learn") == "1.3.0"
+        assert version_map.has("scikit-learn") is True
+        assert (
+            version_map.resolve_with_version("scikit_learn")
+            == "scikit-learn==1.3.0"
+        )
+
+        # Test typing_extensions
+        assert version_map.get_version("typing-extensions") == "4.8.0"
+        assert version_map.has("typing_extensions") is True
+
+        # Test pillow (no dash/underscore conversion)
+        assert version_map.get_version("pillow") == "10.0.0"
+        assert version_map.has("Pillow") is True
+
+        # Test beautifulsoup4 (number in name)
+        assert version_map.get_version("beautifulsoup4") == "4.12.0"
+        assert version_map.has("beautifulsoup4") is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "requirement",
+    ["my_pkg[extra]", "my-pkg>=1", "my-pkg @ https://example.org/pkg.whl"],
+)
+async def test_script_uninstall_matches_distribution_name(
+    tmp_path: Path, requirement: str
+) -> None:
+    notebook = tmp_path / "notebook.py"
+    notebook.write_text(
+        '# /// script\n# dependencies = ["my-pkg[extra]>=1"]\n# ///\n'
+    )
+    from marimo._environments.sandbox import NotebookSandbox
+    from marimo._runtime.packages.sandbox_package_manager import (
+        SandboxPackageManager,
+    )
+
+    sandbox = NotebookSandbox(str(notebook), "uv")
+    manager = SandboxPackageManager(sandbox)
+    with patch.object(sandbox, "_sync"):
+        assert await manager.uninstall(requirement)
+    assert "my-pkg" not in notebook.read_text()
+
+
+@pytest.mark.asyncio
+async def test_script_uninstall_preserves_transitive_dependency(
+    tmp_path: Path,
+) -> None:
+    notebook = tmp_path / "notebook.py"
+    notebook.write_text('# /// script\n# dependencies = ["parent"]\n# ///\n')
+    from marimo._environments.sandbox import NotebookSandbox
+    from marimo._runtime.packages.sandbox_package_manager import (
+        SandboxPackageManager,
+    )
+
+    sandbox = NotebookSandbox(str(notebook), "uv")
+    manager = SandboxPackageManager(sandbox)
+    with patch.object(sandbox, "_sync") as change:
+        assert not await manager.uninstall("transitive")
+    change.assert_not_called()

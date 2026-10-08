@@ -1,0 +1,84 @@
+{
+ "chat": {
+  "id": "c1d571f0-5ee6-4a08-bb3a-529302609945",
+  "title": "[scrubbed 19]",
+  "owner_user_id": "cba5d3cd-b795-5d0e-85c7-8493220fda21",
+  "machine_id": "38991a9e-bff2-5aed-84ab-b0f57656fd9f",
+  "machine_status": "ready",
+  "machine_refusal_reason": null,
+  "wake_requested_at": null,
+  "created_at": "2026-09-21T11:06:17.259403Z",
+  "updated_at": "2026-09-21T12:15:05.761747Z",
+  "last_seq": 602,
+  "model": {
+   "schema_version": "1.0.0",
+   "metadata": {},
+   "id": "claude-opus-5",
+   "display_name": "[scrubbed 13]",
+   "wire": "anthropic",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "effort": "medium",
+   "context_window": 1000000,
+   "max_output_tokens": 64000
+  },
+  "permission_mode": "bypass",
+  "can_send": true,
+  "files_node_id": "9043df6f-29d7-5c55-af90-c50d25e6d08d",
+  "attachments": [],
+  "attachment_count": 0,
+  "source_node_id": null,
+  "source_object_id": null,
+  "files_node_trashed": false
+ },
+ "tail": {
+  "count": 213,
+  "first_seq": 390,
+  "last_seq": 602,
+  "next_after_seq": 602,
+  "prev_before": 390,
+  "has_older": true,
+  "item_keys": [
+   "chat_id",
+   "created_at",
+   "event_id",
+   "id",
+   "kind",
+   "payload",
+   "role",
+   "seq"
+  ]
+ },
+ "forward": [
+  {
+   "count": 200,
+   "next_after_seq": 200,
+   "resync_from": null
+  },
+  {
+   "count": 200,
+   "next_after_seq": 400,
+   "resync_from": null
+  },
+  {
+   "count": 200,
+   "next_after_seq": 600,
+   "resync_from": null
+  },
+  {
+   "count": 5,
+   "next_after_seq": 605,
+   "resync_from": null
+  },
+  {
+   "count": 0,
+   "next_after_seq": 605,
+   "resync_from": null
+  }
+ ]
+}

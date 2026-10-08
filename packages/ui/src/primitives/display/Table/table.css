@@ -1,0 +1,337 @@
+/* Table — header + scrollable body + optional pager. The horizontal scroll shows an inset edge
+ * shadow ONLY on a side that has more to scroll (driven by data-overflow from the useScrollShadow
+ * hook), so the cue can't paint when the content already fits. */
+.alk-table-block {
+  display: flex;
+  flex-direction: column;
+  /* Allow the block to shrink below its content in a flex/grid parent (e.g. a 1fr grid track), so the
+     scroll container's clientWidth reads the REAL available width — without this the block keeps its
+     content width and the overflow seam measures a stale, too-wide value and never stacks (columns
+     clip off the edge instead). */
+  min-width: 0;
+  /* Containing block for the stacked-mode visually-hidden <thead> (position:absolute, below). Without
+     it that 1px node resolves its static position against the initial containing block, landing far
+     down the document and inflating the page's scrollHeight — a phantom second scrollbar that scrolls a
+     blank wall over the content. Relative with no offsets is a visual no-op and makes no stacking context. */
+  position: relative;
+  /* Fill a flex-column card body so the footer pins to the card's bottom when the card is taller than
+     the table (a stretched equal-height row). A no-op at content height, and ignored in a non-flex
+     parent — so a plain table never changes. */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.alk-table-scroll {
+  overflow-x: auto;
+  /* Grow inside the block so the footer (a sibling below) is pushed to the block's bottom edge. */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* Inset shadows ride the scroll container's edges (painted on the border box, so they stay put as
+   the content scrolls under them). */
+.alk-table-scroll[data-overflow="start"],
+.alk-table-scroll[data-overflow="both"] {
+  box-shadow: inset 14px 0 12px -12px var(--alkScrim);
+}
+.alk-table-scroll[data-overflow="end"] {
+  box-shadow: inset -14px 0 12px -12px var(--alkScrim);
+}
+.alk-table-scroll[data-overflow="both"] {
+  box-shadow:
+    inset 14px 0 12px -12px var(--alkScrim),
+    inset -14px 0 12px -12px var(--alkScrim);
+}
+
+.alk-table {
+  width: 100%;
+  border-collapse: collapse;
+  /* Fixed layout: column widths are set by the table, not by cell content — so a column never jumps
+     width when its data changes (a longer id, a toggled pill). The per-column floor comes from the
+     inline min-width in Table.tsx. */
+  table-layout: fixed;
+}
+/* Fixed layout can't size a column to its content, so a too-long reading would spill into its
+   neighbour — clip + ellipsize the overflow instead (the full value stays available via title/hover
+   and the stacked card at narrow widths). */
+.alk-table td {
+  /* clip (not hidden): a hidden cell is a scroll container, so clicking a row scrolls a truncated cell
+     and its ellipsis vanishes; clip clips identically without scrolling. */
+  overflow: clip;
+  text-overflow: ellipsis;
+  /* One line per reading: a long value (an email, an action code) truncates instead of wrapping the
+     row taller. A multi-ELEMENT cell (a title over a sub-line via alk-stack) still renders each
+     element on its own line — nowrap stops text wrapping WITHIN a line, not the block stacking.
+     Stacked-card mode restores wrapping below (a card shows the full value). */
+  white-space: nowrap;
+}
+.alk-table th {
+  text-align: left;
+  font-size: var(--alkTextSm);
+  font-weight: var(--alkWeightSemibold);
+  color: var(--alkSecondaryText);
+  /* Symmetric vertical padding (not top:0) so the header self-pads: a table sitting flush in a card
+     (bodyPadding="none") keeps its labels off the card's top edge without the card adding padding. */
+  padding: var(--alkSpace5) var(--alkSpace7);
+  border-bottom: 1px solid var(--alkBorder);
+  white-space: nowrap;
+  /* Clip a header the same way a cell clips (above) — a header longer than its (flexible) column
+     ellipsizes inside its own box instead of spilling VISIBLY over the next header. Combined with the
+     fold point (which reserves a per-column minimum), this makes column overlap impossible at any
+     width: content never escapes its column; the table stacks or scrolls before it would need to. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alk-table td {
+  padding: var(--alkSpace5) var(--alkSpace7);
+  border-bottom: 1px solid var(--alkDivider);
+  vertical-align: middle;
+}
+/* verticalAlign="top" (Table prop): rows with multi-line cells align every cell to the first line
+   instead of floating short cells mid-row. */
+.alk-table-block[data-valign="top"] .alk-table td {
+  vertical-align: top;
+}
+/* Drop the last row's bottom border when the table has no footer -- otherwise that trailing divider
+   sits at the container's edge: a stray line poking out of a flush card's rounded corner, or a phantom
+   bottom padding. A footered table keeps it, so the rule still parts the last row from the footer. */
+.alk-table-block:not(:has(.alk-table__foot)) .alk-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.alk-table tbody tr {
+  /* The shared hover/state cross-fade — see theme/motion.css. */
+  transition: var(--alk-control-transition);
+}
+/* The hover background is an affordance: it says "this row opens something". Only a clickable row
+   (Table onRowClick) or a selected row gets it, so a plain data table never reads as clickable. */
+.alk-table tbody tr[data-rowclick]:hover,
+.alk-table tbody tr[data-on] {
+  background: var(--alkHoverBg);
+}
+/* A clickable row (Table onRowClick) — the whole row opens its detail. Pointer + a keyboard focus ring
+   inset so it hugs the row; the hover background comes from the row-hover rule above. */
+.alk-table tbody tr[data-rowclick] {
+  cursor: pointer;
+}
+.alk-table tbody tr[data-rowclick]:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ── Footer (selection slot + pager) ───────────────────────────────────────── */
+/* Self-pads on every side (matching the cells' horizontal padding), so the row count + pager line up
+   under the columns and never sit flush against a card edge when the table is placed flush. */
+.alk-table__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--alkSpace5);
+  padding: var(--alkSpace7);
+}
+.alk-table__footstart {
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+.alk-table__pager {
+  display: flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  /* Stay right-aligned even when there's no footerStart on the left. */
+  margin-left: auto;
+}
+.alk-table__pagelabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--alkSpace3);
+  font-size: var(--alkTextSm);
+  color: var(--alkSecondaryText);
+}
+.alk-table__pageinput {
+  width: 44px;
+  height: var(--alkControlSm);
+  padding: 0 var(--alkSpace2);
+  text-align: center;
+  font: inherit;
+  font-size: var(--alkTextSm);
+  color: var(--alkPrimaryText);
+  background: var(--alkCardBg);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+}
+.alk-table__pageinput:focus-visible {
+  outline: 2px solid var(--alkFocusRing);
+  outline-offset: 1px;
+  border-color: var(--alkFocusRing);
+}
+.alk-table__pagebtn {
+  appearance: none;
+  width: var(--alkControlSm);
+  height: var(--alkControlSm);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusSm);
+  background: var(--alkCardBg);
+  color: var(--alkPrimaryText);
+  font-size: var(--alkTextLg);
+  line-height: 1;
+  cursor: pointer;
+  /* The shared hover/state cross-fade — see theme/motion.css. */
+  transition: var(--alk-control-transition);
+}
+.alk-table__pagebtn:hover:not(:disabled) {
+  background: var(--alkHoverBg);
+}
+.alk-table__pagebtn:disabled {
+  color: var(--alkBorder);
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alk-table tbody tr,
+  .alk-table__pagebtn {
+    transition: none;
+  }
+}
+
+/* ── Responsive reflow — record cards ──────────────────────────────────────────
+ * `responsive` measures the table against its container (see useStackThreshold in Table.tsx) and sets
+ * `data-stacked` on the block the instant the table would otherwise scroll — so a horizontal
+ * scrollbar never appears at any column count. Stacked, each row becomes a compact record card: its
+ * top line is a header — the identity (the `primary` cell) titles the card and the row's actions (the
+ * `actions` cell) sit right on that same line, so a label-less actions cluster is never dumped onto a
+ * lone full-width bottom row. The remaining `field` cells read beneath it as an aligned "Label value"
+ * block. Roles come from Table.tsx as `data-cell` (a field carries none).
+ *
+ * The card is a 3-column grid — [label] [value] [actions]. The label column is `fit-content(cap)`, so
+ * it hugs the widest label (not a fixed wide track) yet never exceeds the cap; every field's label
+ * shares that one track via `subgrid`, so labels align on one axis and values on the next with only a
+ * small gap between. `min-width: 0` on the value/actions columns (and on every field child) keeps the
+ * whole chain shrinkable, so a long value wraps or truncates INSIDE the card instead of pushing past
+ * its edge at any width. */
+.alk-table-block[data-stacked] .alk-table-scroll {
+  overflow-x: visible;
+}
+/* Visually hide the header row — each field carries its own label instead. */
+.alk-table-block[data-stacked] .alk-table thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.alk-table-block[data-stacked] .alk-table {
+  display: block;
+}
+.alk-table-block[data-stacked] .alk-table tbody {
+  display: flex;
+  flex-direction: column;
+  /* Between-card gap is larger than the within-card row-gap below, so a card reads as one group. */
+  gap: var(--alkSpace7);
+}
+/* A stacked card shows the full value -- undo the un-stacked one-line-per-reading nowrap. The
+   emergency `break-word` folds an unbreakable token (a long email, id, URN) inside the card instead
+   of letting it force a horizontal scroll; a reading with real joints (spaces, soft hyphens) still
+   breaks at those first. */
+.alk-table-block[data-stacked] .alk-table td {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+/* A reading truncated in the un-stacked columns (alk-truncate) also shows its full value in a card:
+   un-truncate and wrap (the emergency fold comes from the cell's break-word above). */
+.alk-table-block[data-stacked] .alk-table .alk-truncate {
+  white-space: normal;
+}
+.alk-table-block[data-stacked] .alk-table tr {
+  display: grid;
+  /* LABEL | VALUE | ACTIONS. The label column hugs its content (the widest field label) but is capped,
+     so it's compact yet shared: every field's label sits on this one track via `subgrid` below. Value
+     takes the rest; actions is `auto` (0 when a table has no actions — no reserved gutter). The tiny
+     column-gap is the label→value gap. */
+  grid-template-columns: fit-content(9rem) minmax(0, 1fr) auto;
+  column-gap: var(--alkSpace5);
+  row-gap: var(--alkSpace3);
+  /* Rows center within their line — so the header's actions cluster centres against the title (even a
+     two-line title), not top-aligned. Per-field label/value baseline-align is set on the field cell. */
+  align-items: center;
+  padding: var(--alkSpace6);
+  border: 1px solid var(--alkBorder);
+  border-radius: var(--alkRadiusMd);
+  background: var(--alkPageBg);
+  /* A card, not a hover row — drop the row cross-fade so it doesn't shift on hover. */
+  transition: none;
+}
+.alk-table-block[data-stacked] .alk-table tbody tr:hover,
+.alk-table-block[data-stacked] .alk-table tbody tr[data-on] {
+  background: var(--alkPageBg);
+}
+
+/* Header line — the identity titles the card (spanning the label+value columns) and the actions sit
+   right on the same row; the row's `align-items: center` centres them against each other, so a
+   two-line title stays balanced with the buttons. */
+.alk-table-block[data-stacked] .alk-table td[data-cell="primary"] {
+  grid-column: 1 / 3;
+  grid-row: 1;
+  font-size: var(--alkTextMd);
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.alk-table-block[data-stacked] .alk-table td[data-cell="actions"] {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+/* A label-less decorative marker (an unread dot in its own column) — the card conveys that state on
+   its own edge (see the consumer's stacked rules), so drop the cell. */
+.alk-table-block[data-stacked] .alk-table td[data-cell="marker"] {
+  display: none;
+}
+/* A colSpan payload (an expanded detail row) runs the full card width. */
+.alk-table-block[data-stacked] .alk-table td[data-cell="wide"] {
+  grid-column: 1 / -1;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+/* Field — an aligned "Label value" row spanning the full card width. It inherits the card's label +
+   value tracks via `subgrid`, so every field's label lands on the one shared (content-sized, capped)
+   label axis and every value on the next — a compact pair, not a fixed wide track. The label column
+   sits INSIDE this subgrid span (columns 1–2 of 3), so the actions column stays free for the header. */
+.alk-table-block[data-stacked] .alk-table td:not([data-cell]) {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  column-gap: var(--alkSpace5);
+  align-items: baseline;
+  /* Hug content at the column start so a pill / button / status chip in the value column doesn't
+     stretch to fill the track (only text should run the column's width). */
+  justify-items: start;
+  padding: 0;
+  border: 0;
+  text-align: left;
+  /* A stacked card shows the full value (it can wrap); undo the fixed-layout clip/ellipsis. */
+  overflow: visible;
+  text-overflow: clip;
+  min-width: 0;
+}
+.alk-table-block[data-stacked] .alk-table td:not([data-cell])::before {
+  content: attr(data-label);
+  grid-column: 1;
+  color: var(--alkSecondaryText);
+  font-weight: var(--alkWeightMedium);
+  font-size: var(--alkTextSm);
+  min-width: 0;
+}
+/* Force every real (element) child into the value column, so a cell with >1 child keeps one shared
+   value axis instead of auto-flowing the second child back under the label. The value spans from the
+   value column to the card's right edge (`2 / -1`) — the actions column is a header-row gutter only,
+   so a field value reads across the full remaining width instead of stopping short of it. A bare
+   text-node value (no element) auto-places into column 2 after the ::before label. `min-width: 0` lets
+   a long value wrap/truncate inside the card rather than overflow it. */
+.alk-table-block[data-stacked] .alk-table td:not([data-cell]) > * {
+  grid-column: 2 / -1;
+  min-width: 0;
+  max-width: 100%;
+}

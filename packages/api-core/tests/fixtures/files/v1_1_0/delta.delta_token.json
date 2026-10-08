@@ -1,0 +1,10 @@
+{
+  "$model": "alkera_core.files.delta_token.DeltaToken",
+  "cursor_xid": 4294967000,
+  "drive_id": null,
+  "generation": 3,
+  "issued_at": "2026-01-01T12:00:00Z",
+  "metadata": {},
+  "outbox_id": 4294967296,
+  "schema_version": "1.1.0"
+}

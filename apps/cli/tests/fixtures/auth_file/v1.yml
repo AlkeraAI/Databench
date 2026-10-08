@@ -1,0 +1,3 @@
+api_url: https://api.example.test
+token: eyJhbGciOiJub25lIn0.eyJzdWIiOiAiOTk5OTk5OTktOTk5OS00OTk5LTg5OTktOTk5OTk5OTk5OTk5IiwgImVtYWlsIjogImFAeC5jb20iLCAiZXhwIjogNDEwMjQ0NDgwMCwgIm9yZ190ZWFtX2lkIjogIjExMTExMTExLTExMTEtNDExMS04MTExLTExMTExMTExMTExMSJ9.sig
+expires_at: '2100-01-01T00:00:00Z'

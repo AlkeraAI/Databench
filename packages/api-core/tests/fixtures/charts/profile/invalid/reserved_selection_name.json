@@ -1,0 +1,21 @@
+{
+  "path": "params[0].name",
+  "policy": "inline",
+  "spec": {
+    "data": {
+      "values": [
+        {
+          "a": 1
+        }
+      ]
+    },
+    "mark": "point",
+    "params": [
+      {
+        "name": "width",
+        "select": "point"
+      }
+    ]
+  },
+  "unsafe": false
+}
